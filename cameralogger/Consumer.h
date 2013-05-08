@@ -24,6 +24,7 @@ class Consumer
                 error = _aviRecorder.AVIAppend((T*)obj);
                 if (error != PGRERROR_OK) 
                     PrintError(error);
+                delete obj;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -49,7 +50,6 @@ class Consumer
                 float frameRate, int imWidth, int imHeight)
             : _buf (buf), _aviFileName(aviFileName), _io_mutex(io_mutex),  _frameRate(frameRate)
         {
-            _thread.reset (new boost::thread (boost::bind (&Consumer::receiveAndProcess, this)));
 
             Error error;
             _is_done = false; 
@@ -73,6 +73,8 @@ class Consumer
             if (error != PGRERROR_OK) { 
                 PrintError(error);
             }
+
+            _thread.reset (new boost::thread (boost::bind (&Consumer::receiveAndProcess, this)));
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////

@@ -1,16 +1,10 @@
 #include "SaveImageToAviEx.h"
 
-int numImages = 180;
-vector<Image> buffer(numImages);
-int imageCount = 0;
 boost::mutex io_mutex; 
 SynchronizedBuffer<Image> _buffer(&io_mutex);
 bool is_done_working = false; 
 
-
-
 void ImageCallback(Image* pImage, const void* pCallbackData) {
-    //cout << "Image Callback" << imageCount << endl;
     if (!is_done_working) {
         Image* im = new Image();
         im->DeepCopy(pImage);
@@ -23,22 +17,25 @@ void ImageCallback(Image* pImage, const void* pCallbackData) {
     }
 }
 
-int RunCamera( PGRGuid guid )
-{
-    Error error;
-    Camera cam;
-
-    // Connect to a camera
-    error = cam.Connect(&guid);
+Camera* CreateCamera( PGRGuid* guid ) {
+    Error error;  
+    Camera *cam = new Camera();
+    
+    error = cam->Connect(guid);
     if (error != PGRERROR_OK)
     {
         PrintError(error);
-        return -1;
+        return NULL;
     }
+    return cam; 
+}
+
+int RunCamera( Camera* cam) { 
+    Error error;
 
     // Get the camera information
     CameraInfo camInfo;
-    error = cam.GetCameraInfo(&camInfo);
+    error = cam->GetCameraInfo(&camInfo);
     if (error != PGRERROR_OK)
     {
         PrintError(error);
@@ -47,33 +44,55 @@ int RunCamera( PGRGuid guid )
 
     PrintCameraInfo(&camInfo);
     
-    int imageWidth = 1280;
-    int imageHeight = 960;
-
-    error = cam.SetVideoModeAndFrameRate(VIDEOMODE_1280x960YUV422,
+    error = cam->SetVideoModeAndFrameRate(VIDEOMODE_1280x960YUV422,
             FRAMERATE_30); 
     if (error != PGRERROR_OK) {
         PrintError(error);
         return -1;
     }
 
-    _buffer.setCapacity(numImages+20);
-
     // Start capturing images
     printf( "Starting capture... \n" );
-    error = cam.StartCapture(ImageCallback);
+    error = cam->StartCapture(ImageCallback);
     if (error != PGRERROR_OK)
     {
         PrintError(error);
         return -1;
     }
 
+    return 0;
+}
+
+int CloseCamera( Camera* cam) {
+    Error error; 
+
+    printf( "Stopping capture... \n" );
+    error = cam->StopCapture();
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return -1;
+    }
+    
+    error = cam->Disconnect();
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return -1;
+    }
+
+    return 0;
+}
+
+float getFrameRate(Camera* cam) { 
+
+    Error error;
 
     // Check if the camera supports the FRAME_RATE property
     printf( "Detecting frame rate from camera... \n" );
     PropertyInfo propInfo;
     propInfo.type = FRAME_RATE;
-    error = cam.GetPropertyInfo( &propInfo );
+    error = cam->GetPropertyInfo( &propInfo );
     if (error != PGRERROR_OK)
     {
         PrintError(error);
@@ -87,7 +106,7 @@ int RunCamera( PGRGuid guid )
         // Get the frame rate
         Property prop;
         prop.type = FRAME_RATE;
-        error = cam.GetProperty( &prop );
+        error = cam->GetProperty( &prop );
         if (error != PGRERROR_OK)
         {
             PrintError(error);
@@ -96,55 +115,12 @@ int RunCamera( PGRGuid guid )
         frameRateToUse = prop.absValue;
     }
 
-    usleep(2000);
+    return frameRateToUse; 
 
-    Consumer<Image> consumer(_buffer, "uncompressed", &io_mutex, frameRateToUse, imageWidth, imageHeight ); 
-
-    while (!is_done_working) { 
-        usleep(100); 
-    }
-
-    // Stop capturing images
-    printf( "Stopping capture... \n" );
-    error = cam.StopCapture();
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-
-
-
-    /*
-    printf("Using frame rate of %3.1f\n", frameRateToUse);
-
-    char aviFileName[512] = {0};
-
-    sprintf(aviFileName, "Uncompressed");
-    SaveAviHelper(UNCOMPRESSED, buffer, aviFileName, frameRateToUse);
-    */
-    /*
-    sprintf(aviFileName, "SaveImageToAviEx-Mjpg-%u", camInfo.serialNumber);
-    SaveAviHelper(MJPG, buffer, aviFileName, frameRateToUse);
-
-    sprintf(aviFileName, "SaveImageToAviEx-h264-%u", camInfo.serialNumber);
-    SaveAviHelper(H264, buffer, aviFileName, frameRateToUse);
-    */
-
-    consumer.stop();
-    // Disconnect the camera
-    error = cam.Disconnect();
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-
-    return 0;
 }
 
-void 
-ctrlC (int)
+
+void ctrlC (int)
 {
   boost::mutex::scoped_lock io_lock (io_mutex);
   printf("\nCtrl-C detected, exit condition set to true.\n");
@@ -156,6 +132,10 @@ int main(int /*argc*/, char** /*argv*/)
 
     signal (SIGINT, ctrlC);
     PrintBuildInfo();
+
+    _buffer.setCapacity(1000);
+    int imageWidth = 1280;
+    int imageHeight = 960;
 
     Error error;
 
@@ -185,14 +165,28 @@ int main(int /*argc*/, char** /*argv*/)
        PrintError(error);
        return -1;
     }
+    Camera* cam1 = CreateCamera(&guid); 
+    
+    error = busMgr.GetCameraFromIndex(1, &guid);
+    if (error != PGRERROR_OK)
+    {
+       PrintError(error);
+       return -1;
+    }
+    Camera* cam2 = CreateCamera(&guid); 
 
-    printf( "Running the first camera.\n" );
-    RunCamera( guid );
+    RunCamera( cam1 );
+    RunCamera( cam2 ); 
 
-    /*
-    printf( "Done! Press Enter to exit...\n" );
-    getchar();
-    */
+    Consumer<Image> consumer(_buffer, "uncompressed", &io_mutex, getFrameRate(cam1), imageWidth, imageHeight ); 
 
+    while (!is_done_working)
+        usleep(1000);
+
+    consumer.stop();
+    CloseCamera(cam1);
+    CloseCamera(cam2);
+    delete cam1; 
+    delete cam2; 
     return 0;
 }

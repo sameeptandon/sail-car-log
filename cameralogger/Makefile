@@ -4,8 +4,8 @@ CC = g++
 OUTPUTNAME = saveimg
 INCLUDE = -I/usr/include/flycapture
 LIBS = -L/usr/lib/ -lflycapture -lboost_thread 
-CFLAGS = -g 
-#CFLAGS = -O3 -Wno-unused-variable 
+#CFLAGS = -g 
+CFLAGS = -O3 -Wno-unused-variable 
 OBJS = SaveImageToAviEx.o
 
 ${OUTPUTNAME}: ${OBJS}
