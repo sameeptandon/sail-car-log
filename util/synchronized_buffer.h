@@ -98,7 +98,7 @@ SynchronizedBuffer<T>::getFront ()
         break;
       {
         boost::mutex::scoped_lock io_lock (*io_mutex);
-        //cerr << "No data in buffer_ yet or buffer is empty." << endl;
+        cerr << "No data in buffer_ yet or buffer is empty." << endl;
       }
       buff_empty_.wait (buff_lock);
     }

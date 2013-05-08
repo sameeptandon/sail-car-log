@@ -21,8 +21,10 @@
 #include "stdafx.h"
 
 #include "FlyCapture2.h"
+#include <iostream>
 
 using namespace FlyCapture2;
+using namespace std; 
 
 void PrintBuildInfo()
 {
