@@ -31,22 +31,22 @@ class Consumer
         // Consumer thread function
         void receiveAndProcess () {
                 while (!_is_done) {
-                    if (_buf.isEmpty()) {
+                    if (_buf->isEmpty()) {
                         usleep(1000 / 120); // poll at max of 120hz
                     } else { 
-                        writeToDisk (_buf.getFront ());
+                        writeToDisk (_buf->getFront ());
                     }
                 }
 
                 boost::mutex::scoped_lock io_lock (*_io_mutex);
-                printf("Writing remaning %d images in the buffer to disk...\n", _buf.getSize ());
-                while (!_buf.isEmpty ()) { 
-                    writeToDisk (_buf.getFront ());
+                printf("Writing remaning %d images in the buffer to disk...\n", _buf->getSize ());
+                while (!_buf->isEmpty ()) { 
+                    writeToDisk (_buf->getFront ());
                 }
         }
 
     public:
-        Consumer (SynchronizedBuffer<T> &buf, std::string aviFileName, boost::mutex* io_mutex,
+        Consumer (SynchronizedBuffer<T> *buf, std::string aviFileName, boost::mutex* io_mutex,
                 float frameRate, int imWidth, int imHeight)
             : _buf (buf), _aviFileName(aviFileName), _io_mutex(io_mutex),  _frameRate(frameRate)
         {
@@ -88,7 +88,7 @@ class Consumer
         }
 
     private:
-        SynchronizedBuffer<T> &_buf;
+        SynchronizedBuffer<T>* _buf;
         boost::shared_ptr<boost::thread> _thread;
         string _aviFileName; 
         boost::mutex* _io_mutex; 
