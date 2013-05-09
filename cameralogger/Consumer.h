@@ -19,7 +19,7 @@ class Consumer
     private:
         ///////////////////////////////////////////////////////////////////////////////////////
         void writeToDisk (const T* obj) {
-                FPS_CALC ("write", _buf);
+                FPS_CALC (_aviFileName, _buf);
                 Error error;
                 error = _aviRecorder.AVIAppend((T*)obj);
                 if (error != PGRERROR_OK) 

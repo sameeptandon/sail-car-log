@@ -209,7 +209,7 @@ int main(int /*argc*/, char** /*argv*/)
     Consumer<Image> consumer_1(buff_1.getBuffer(), "uncompressed1", buff_1.getMutex(),
             getFrameRate(cam1), imageWidth, imageHeight ); 
     Consumer<Image> consumer_2(buff_2.getBuffer(), "uncompressed2", buff_2.getMutex(),
-            getFrameRate(cam1), imageWidth, imageHeight );
+            getFrameRate(cam2), imageWidth, imageHeight );
 
     while (!is_done_working)
         usleep(1000);
