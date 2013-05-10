@@ -120,8 +120,8 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
     setProperty(cam, SHUTTER, 3.0f);
     setProperty(cam, GAIN, 2.25f);
     */
-    setProperty(cam, BRIGHTNESS, 128.0f);
-    setProperty(cam, AUTO_EXPOSURE, 1.322f);
+    setProperty(cam, BRIGHTNESS, 1.953f);
+    setProperty(cam, AUTO_EXPOSURE, 0.5f);
     setProperty(cam, SHARPNESS, 1024);
     setProperty(cam, SATURATION, 100.0f);
     setProperty(cam, GAMMA, 1.0f);
