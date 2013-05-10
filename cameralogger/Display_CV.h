@@ -16,44 +16,41 @@ using namespace FlyCapture2;
 using namespace std;
 using namespace cv;
 
-// Consumer thread class
+
+// Display thread class
 template <typename T>
-class Consumer
+class Display 
 {
     private:
         ///////////////////////////////////////////////////////////////////////////////////////
-        void writeToDisk (const T* obj) {
-            FPS_CALC (_aviFileName, _buf);
+        void show (const T* obj) {
+            FPS_CALC (_name, _buf);
             _img = cvCreateImage(cvSize(obj->GetCols(), obj->GetRows()), IPL_DEPTH_8U, 3);
             _img->height = obj->GetRows();
             _img->width = obj->GetCols();
             _img->widthStep = obj->GetStride();
             _img->nChannels = 3;
             _img->imageData = (char*)obj->GetData();
-            Mat imgMat(_img);
-            _writer << imgMat;
+            imshow(_name.c_str(), Mat(_img));
+
+            //cvShowImage(_name.c_str(), _img);
+            cvWaitKey(10);
+            cvReleaseImage(&_img);
             delete obj;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
-        // Consumer thread function
+        // Display thread function
         void receiveAndProcess () {
                 while (!_is_done) {
                     if (_buf->isEmpty()) {
                         //usleep(1000 / 120); // poll at max of 120hz
                     } else { 
                         while (!_buf->isEmpty ()) 
-                            writeToDisk (_buf->getFront ());
+                            show(_buf->getFront ());
                     }
                 }
-
-                boost::mutex::scoped_lock io_lock (*_io_mutex);
-                printf("Writing remaning %d images in the buffer to disk...\n", _buf->getSize ());
-                while (!_buf->isEmpty ()) { 
-                    writeToDisk (_buf->getFront ());
-                }
         }
-
 
         void toOpenCv(Image* fly_img, IplImage* cv_img) {
             Image _tmp; 
@@ -67,44 +64,30 @@ class Consumer
         }
 
     public:
-        Consumer (SynchronizedBuffer<T> *buf, std::string aviFileName, boost::mutex* io_mutex,
-                float frameRate, int imWidth, int imHeight)
-            : _buf (buf), _aviFileName(aviFileName), _io_mutex(io_mutex),  _frameRate(frameRate)
+        Display(SynchronizedBuffer<T> *buf, std::string name, boost::mutex* io_mutex)
+            : _buf (buf), _name(name), _io_mutex(io_mutex) 
         {
 
-            Error error;
             _is_done = false; 
 
-            cout << "frameRate = " << _frameRate << endl;
+            cvNamedWindow(_name.c_str(), CV_WINDOW_AUTOSIZE);
 
-
-            _writer = VideoWriter(_aviFileName.c_str(),
-                    CV_FOURCC('X','V','I','D'),
-                    //CV_FOURCC('U','2','6','3'),
-                    //CV_FOURCC('M','P','E','G'),
-                    _frameRate,
-                    cvSize(imWidth, imHeight));
-
-            if (!_writer.isOpened()) {
-                cerr << "File not opened!" << endl; 
-            }
-
-            _thread.reset (new boost::thread (boost::bind (&Consumer::receiveAndProcess, this)));
+            _thread.reset (new boost::thread (boost::bind (&Display::receiveAndProcess, this)));
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
         void stop ()  {
             printf("stop called\n");
             _is_done = true; 
-            _thread->join ();
+            //_thread->join ();
             boost::mutex::scoped_lock io_lock (*_io_mutex);
-            printf("Consumer done.\n");
+            printf("Display done.\n");
         }
 
     private:
         SynchronizedBuffer<T>* _buf;
         boost::shared_ptr<boost::thread> _thread;
-        string _aviFileName; 
+        string _name; 
         boost::mutex* _io_mutex; 
         float _frameRate;
         VideoWriter _writer;

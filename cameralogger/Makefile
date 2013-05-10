@@ -3,7 +3,7 @@
 CC = g++
 OUTPUTNAME = saveimg
 INCLUDE = -I/usr/include/flycapture
-LIBS = -L/usr/lib/ -lflycapture -lboost_thread  -lopencv_highgui -lopencv_gpu -lopencv_core
+LIBS = -L/usr/lib/ -lflycapture -lboost_thread -lboost_program_options  -lopencv_highgui -lopencv_gpu -lopencv_core
 #CFLAGS = -g 
 CFLAGS = -O3 -Wno-unused-variable 
 OBJS = SaveImageToAviEx.o

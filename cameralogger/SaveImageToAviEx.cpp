@@ -1,9 +1,6 @@
 #define TWO_CAM
 
 #include "SaveImageToAviEx.h"
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-
 typedef void(*ImageEventCallback) ( class Image* pImage, const void* pCallbackData);
 
 class SyncBuffer {
@@ -20,29 +17,38 @@ class SyncBuffer {
 
 
 SyncBuffer buff_1; 
-SyncBuffer buff_2; 
-//boost::mutex io_mutex; 
-//SynchronizedBuffer<Image> _buffer(&io_mutex);
+SyncBuffer buff_2;
+SyncBuffer d_buff_1;
+SyncBuffer d_buff_2;
+
 bool is_done_working = false; 
 
-void ImageCallback(Image* pImage, const void* pCallbackData, SyncBuffer* buff) { 
+void ImageCallback(Image* pImage, const void* pCallbackData, 
+        SyncBuffer* w_buff, SyncBuffer* d_buff) { 
     if (!is_done_working) {
         Image* im = new Image();
         pImage->Convert(PIXEL_FORMAT_BGR, im);
-        if (!buff->getBuffer()->pushBack(im)) {
-            boost::mutex::scoped_lock io_lock ( *(buff->getMutex()) );
+        if (!w_buff->getBuffer()->pushBack(im)) {
+            boost::mutex::scoped_lock io_lock ( *(w_buff->getMutex()) );
+            cerr << "Warning! Buffer full, overwriting data!" << endl; 
+        }
+
+        im = new Image();
+        pImage->Convert(PIXEL_FORMAT_BGR, im);
+        if (!d_buff->getBuffer()->pushBack(im)) {
+            boost::mutex::scoped_lock io_lock ( *(d_buff->getMutex()) );
             cerr << "Warning! Buffer full, overwriting data!" << endl; 
         }
     }
 }
 
 void ImageCallback_1(Image* pImage, const void* pCallbackData) {
-    ImageCallback(pImage, pCallbackData, &buff_1); 
+    ImageCallback(pImage, pCallbackData, &buff_1, &d_buff_1); 
     FPS_CALC("image_callback_1", buff_1.getBuffer());
 }
 
 void ImageCallback_2(Image* pImage, const void* pCallbackData) {
-    ImageCallback(pImage, pCallbackData, &buff_2); 
+    ImageCallback(pImage, pCallbackData, &buff_2, &d_buff_2); 
     FPS_CALC("image_callback_2", buff_2.getBuffer());
 }
 
@@ -173,14 +179,42 @@ void ctrlC (int)
   is_done_working = true;
 }
 
-int main(int /*argc*/, char** /*argv*/)
+int main(int argc, char** argv)
 {
+    using namespace boost::program_options;
+    options_description desc("Allowed options");
+    desc.add_options()
+        ("help", "produce help message")
+        ("output,o", value<string>(), "the filename for data logging");
+
+    variables_map vm;
+    store(parse_command_line(argc, argv, desc), vm);
+    notify(vm);
+    if (vm.count("help")) { 
+        cout << desc << endl;
+        return 1;
+    }
+    string fname1 = "";
+    string fname2 = "";
+    if (vm.count("output")) { 
+        fname1 = vm["output"].as<string>() + "1.avi";
+        fname2 = vm["output"].as<string>() + "2.avi";
+    }
+    else {
+        fname1 = "data1.avi";
+        fname2 = "data2.avi";
+    }
+
+    cout  << "Filenames: " << fname1 << " " << fname2 << endl; 
 
     signal (SIGINT, ctrlC);
-    PrintBuildInfo();
+    //PrintBuildInfo();
 
     buff_1.getBuffer()->setCapacity(1000);
     buff_2.getBuffer()->setCapacity(1000);
+    d_buff_1.getBuffer()->setCapacity(1000);
+    d_buff_2.getBuffer()->setCapacity(1000);
+
     int imageWidth = 1280;
     int imageHeight = 960;
 
@@ -215,8 +249,10 @@ int main(int /*argc*/, char** /*argv*/)
     Camera* cam1 = CreateCamera(&guid); 
     ImageEventCallback c1 = &ImageCallback_1;
     RunCamera( cam1, c1);
-    Consumer<Image> consumer_1(buff_1.getBuffer(), "uncompressed1.avi",
+    Consumer<Image> consumer_1(buff_1.getBuffer(), fname1,
             buff_1.getMutex(), 50.0f, imageWidth, imageHeight ); 
+    Display<Image> display_1(d_buff_1.getBuffer(), "cam1", 
+            d_buff_1.getMutex()); 
 #ifdef TWO_CAM
     error = busMgr.GetCameraFromIndex(1, &guid);
     if (error != PGRERROR_OK)
@@ -227,26 +263,30 @@ int main(int /*argc*/, char** /*argv*/)
     Camera* cam2 = CreateCamera(&guid); 
     ImageEventCallback c2 = &ImageCallback_2;
     RunCamera( cam2, c2); 
-    Consumer<Image> consumer_2(buff_2.getBuffer(), "uncompressed2.avi",
+    Consumer<Image> consumer_2(buff_2.getBuffer(), fname2,
             buff_2.getMutex(), getFrameRate(cam2), imageWidth, imageHeight );
+    Display<Image> display_2(d_buff_2.getBuffer(), "cam2", 
+            d_buff_2.getMutex()); 
 #endif
 
     while (!is_done_working) {
         //usleep(1000);
         Image image; 
         cam1->RetrieveBuffer(&image);
-        ImageCallback(&image, NULL, &buff_1);
+        ImageCallback(&image, NULL, &buff_1, &d_buff_1);
 #ifdef TWO_CAM
         cam2->RetrieveBuffer(&image);
-        ImageCallback(&image, NULL, &buff_2);
+        ImageCallback(&image, NULL, &buff_2, &d_buff_2);
 #endif
     }   
 
     consumer_1.stop();
+    display_1.stop();
     CloseCamera(cam1);
     delete cam1; 
 #ifdef TWO_CAM
     consumer_2.stop();
+    display_2.stop();
     CloseCamera(cam2);
     delete cam2;
 #endif
