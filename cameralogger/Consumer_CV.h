@@ -9,9 +9,25 @@
 #include <string>
 #include <stdio.h>
 #include <iostream>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 using namespace FlyCapture2; 
-using namespace std; 
+using namespace std;
+using namespace cv;
+
+void toOpenCv(Image* fly_img, IplImage* cv_img) {
+    Image _tmp; 
+    fly_img->Convert(PIXEL_FORMAT_BGR, &_tmp);
+
+    cv_img->height = _tmp.GetRows();
+    cv_img->width = _tmp.GetCols();
+    cv_img->widthStep = _tmp.GetStride();
+    cv_img->nChannels = 3;
+    cv_img->imageData = (char*)_tmp.GetData();
+}
+
+
 // Consumer thread class
 template <typename T>
 class Consumer
@@ -19,12 +35,17 @@ class Consumer
     private:
         ///////////////////////////////////////////////////////////////////////////////////////
         void writeToDisk (const T* obj) {
-                FPS_CALC (_aviFileName, _buf);
-                Error error;
-                error = _aviRecorder.AVIAppend((T*)obj);
-                if (error != PGRERROR_OK) 
-                    PrintError(error);
-                delete obj;
+            FPS_CALC (_aviFileName, _buf);
+            _img = cvCreateImage(cvSize(obj->GetCols(), obj->GetRows()), IPL_DEPTH_8U, 3);
+
+            _img->height = obj->GetRows();
+            _img->width = obj->GetCols();
+            _img->widthStep = obj->GetStride();
+            _img->nChannels = 3;
+            _img->imageData = (char*)obj->GetData();
+            Mat imgMat(_img);
+            _writer << imgMat;
+            delete obj;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -32,9 +53,10 @@ class Consumer
         void receiveAndProcess () {
                 while (!_is_done) {
                     if (_buf->isEmpty()) {
-                        usleep(1000 / 120); // poll at max of 120hz
+                        //usleep(1000 / 120); // poll at max of 120hz
                     } else { 
-                        writeToDisk (_buf->getFront ());
+                        while (!_buf->isEmpty ()) 
+                            writeToDisk (_buf->getFront ());
                     }
                 }
 
@@ -54,24 +76,18 @@ class Consumer
             Error error;
             _is_done = false; 
 
-            // Uncompressed Options
-            AVIOption option;
+            cout << "frameRate = " << _frameRate << endl;
 
-            //MJPG Compressed Options
-            //MJPGOption option;
-            //option.quality = 75;
 
-            //H264 Compressed Options
-            //H264Option option;
-            //option.bitrate = 1000000;
-            //option.height = imHeight;
-            //option.width = imWidth;
+            _writer = VideoWriter(_aviFileName.c_str(),
+                    CV_FOURCC('X','V','I','D'),
+                    //CV_FOURCC('U','2','6','3'),
+                    //CV_FOURCC('M','P','E','G'),
+                    _frameRate,
+                    cvSize(imWidth, imHeight));
 
-            cout << "frameRate = " << _frameRate << endl; 
-            option.frameRate = _frameRate;
-            error = _aviRecorder.AVIOpen(_aviFileName.c_str(), &option); 
-            if (error != PGRERROR_OK) { 
-                PrintError(error);
+            if (!_writer.isOpened()) {
+                cerr << "File not opened!" << endl; 
             }
 
             _thread.reset (new boost::thread (boost::bind (&Consumer::receiveAndProcess, this)));
@@ -83,7 +99,6 @@ class Consumer
             _is_done = true; 
             _thread->join ();
             boost::mutex::scoped_lock io_lock (*_io_mutex);
-            _aviRecorder.AVIClose();
             printf("Consumer done.\n");
         }
 
@@ -93,7 +108,9 @@ class Consumer
         string _aviFileName; 
         boost::mutex* _io_mutex; 
         float _frameRate;
-        AVIRecorder _aviRecorder;
-        bool _is_done; 
+        VideoWriter _writer;
+        bool _is_done;
+        IplImage* _img;
+        Image* _tmp; 
 };
 

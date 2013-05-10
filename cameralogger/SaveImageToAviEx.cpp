@@ -24,12 +24,12 @@ bool is_done_working = false;
 void ImageCallback(Image* pImage, const void* pCallbackData, SyncBuffer* buff) { 
     if (!is_done_working) {
         Image* im = new Image();
-        im->DeepCopy(pImage);
+        //im->DeepCopy(pImage);
+        pImage->Convert(PIXEL_FORMAT_BGR, im);
         if (!buff->getBuffer()->pushBack(im)) {
             boost::mutex::scoped_lock io_lock ( *(buff->getMutex()) );
             cerr << "Warning! Buffer full, overwriting data!" << endl; 
         }
-
     }
 }
 
@@ -69,22 +69,51 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
     }
 
     PrintCameraInfo(&camInfo);
-    
+  
     error = cam->SetVideoModeAndFrameRate(VIDEOMODE_1280x960YUV422,
-            FRAMERATE_30); 
+            FRAMERATE_60); 
     if (error != PGRERROR_OK) {
         PrintError(error);
         return -1;
     }
 
+    /*
+    TriggerMode mTrigger;
+    mTrigger.mode = 0; 
+    mTrigger.source = 0; 
+    mTrigger.parameter = 0; 
+    mTrigger.onOff = true; 
+    mTrigger.polarity = 1; 
+    error = cam->SetTriggerMode(&mTrigger); 
+    if (error != PGRERROR_OK) {
+        PrintError(error);
+        return -1;
+    }
+    */
+
+    float p = getProperty(cam, SHUTTER);
+    cout << " shutter = "  << p << endl; 
     // Start capturing images
     printf( "Starting capture... \n" );
     error = cam->StartCapture(callback);
+   
+    /*
+    error = cam->StartCapture();
     if (error != PGRERROR_OK)
     {
         PrintError(error);
         return -1;
     }
+    for (int i = 0; i < 10; i++) { 
+        Image image; 
+        cam->RetrieveBuffer(&image); 
+        Image* im = new Image();
+        im->DeepCopy(&image);
+        buff_1.getBuffer()->pushBack(im);
+        cout << " go yo frame " << endl; 
+    }
+    */
+
 
     return 0;
 }
@@ -108,41 +137,6 @@ int CloseCamera( Camera* cam) {
     }
 
     return 0;
-}
-
-float getFrameRate(Camera* cam) { 
-
-    Error error;
-
-    // Check if the camera supports the FRAME_RATE property
-    printf( "Detecting frame rate from camera... \n" );
-    PropertyInfo propInfo;
-    propInfo.type = FRAME_RATE;
-    error = cam->GetPropertyInfo( &propInfo );
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    } 
-
-
-    float frameRateToUse = 15.0f;
-    if ( propInfo.present == true )
-    {
-        // Get the frame rate
-        Property prop;
-        prop.type = FRAME_RATE;
-        error = cam->GetProperty( &prop );
-        if (error != PGRERROR_OK)
-        {
-            PrintError(error);
-            return -1;
-        }
-        frameRateToUse = prop.absValue;
-    }
-
-    return frameRateToUse; 
-
 }
 
 
@@ -206,9 +200,9 @@ int main(int /*argc*/, char** /*argv*/)
     RunCamera( cam1, c1);
     RunCamera( cam2, c2); 
 
-    Consumer<Image> consumer_1(buff_1.getBuffer(), "uncompressed1", buff_1.getMutex(),
+    Consumer<Image> consumer_1(buff_1.getBuffer(), "uncompressed1.avi", buff_1.getMutex(),
             getFrameRate(cam1), imageWidth, imageHeight ); 
-    Consumer<Image> consumer_2(buff_2.getBuffer(), "uncompressed2", buff_2.getMutex(),
+    Consumer<Image> consumer_2(buff_2.getBuffer(), "uncompressed2.avi", buff_2.getMutex(),
             getFrameRate(cam2), imageWidth, imageHeight );
 
     while (!is_done_working)
