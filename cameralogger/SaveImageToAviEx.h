@@ -42,6 +42,21 @@ float getProperty(Camera* cam, PropertyType p) {
 
 }
 
+void setProperty(Camera* cam, PropertyType p, float val) {
+    Error error;
+    Property prop;
+    prop.type = p;
+    prop.absControl = true;
+    prop.present = true; 
+    prop.onOff = false;
+    prop.autoManualMode = false; 
+    prop.absValue = val;
+    error = cam->SetProperty( &prop );
+    if ( error != PGRERROR_OK ) {
+        PrintError(error);
+    }
+}
+
 float getFrameRate(Camera *cam) {
     return getProperty(cam, FRAME_RATE);
 }

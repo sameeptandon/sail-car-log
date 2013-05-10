@@ -1,4 +1,8 @@
+#define TWO_CAM
+
 #include "SaveImageToAviEx.h"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 typedef void(*ImageEventCallback) ( class Image* pImage, const void* pCallbackData);
 
@@ -24,7 +28,6 @@ bool is_done_working = false;
 void ImageCallback(Image* pImage, const void* pCallbackData, SyncBuffer* buff) { 
     if (!is_done_working) {
         Image* im = new Image();
-        //im->DeepCopy(pImage);
         pImage->Convert(PIXEL_FORMAT_BGR, im);
         if (!buff->getBuffer()->pushBack(im)) {
             boost::mutex::scoped_lock io_lock ( *(buff->getMutex()) );
@@ -77,7 +80,16 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
         return -1;
     }
 
-    /*
+    setProperty(cam, BRIGHTNESS, 0.0f);
+    setProperty(cam, AUTO_EXPOSURE, 0.565f);
+    setProperty(cam, SHARPNESS, 1024);
+    setProperty(cam, SATURATION, 100.0f);
+    setProperty(cam, GAMMA, 1.0f);
+    //setProperty(cam, SHUTTER, 7.0f);
+    setProperty(cam, SHUTTER, 3.0f);
+    setProperty(cam, GAIN, 2.25f);
+
+    
     TriggerMode mTrigger;
     mTrigger.mode = 0; 
     mTrigger.source = 0; 
@@ -89,16 +101,30 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
         PrintError(error);
         return -1;
     }
+    
+    /* 
+    TriggerMode mTrigger;
+    mTrigger.mode = 15; 
+    mTrigger.source = 0; 
+    mTrigger.parameter = 60; 
+    mTrigger.onOff = true; 
+    mTrigger.polarity = 0; 
+    error = cam->SetTriggerMode(&mTrigger); 
+    if (error != PGRERROR_OK) {
+        PrintError(error);
+        return -1;
+    }
     */
+    
 
     float p = getProperty(cam, SHUTTER);
     cout << " shutter = "  << p << endl; 
     // Start capturing images
     printf( "Starting capture... \n" );
-    error = cam->StartCapture(callback);
+    //error = cam->StartCapture(callback);
    
-    /*
     error = cam->StartCapture();
+    /*
     if (error != PGRERROR_OK)
     {
         PrintError(error);
@@ -187,7 +213,11 @@ int main(int /*argc*/, char** /*argv*/)
        return -1;
     }
     Camera* cam1 = CreateCamera(&guid); 
-    
+    ImageEventCallback c1 = &ImageCallback_1;
+    RunCamera( cam1, c1);
+    Consumer<Image> consumer_1(buff_1.getBuffer(), "uncompressed1.avi",
+            buff_1.getMutex(), 50.0f, imageWidth, imageHeight ); 
+#ifdef TWO_CAM
     error = busMgr.GetCameraFromIndex(1, &guid);
     if (error != PGRERROR_OK)
     {
@@ -195,24 +225,30 @@ int main(int /*argc*/, char** /*argv*/)
        return -1;
     }
     Camera* cam2 = CreateCamera(&guid); 
-    ImageEventCallback c1 = &ImageCallback_1;
     ImageEventCallback c2 = &ImageCallback_2;
-    RunCamera( cam1, c1);
     RunCamera( cam2, c2); 
+    Consumer<Image> consumer_2(buff_2.getBuffer(), "uncompressed2.avi",
+            buff_2.getMutex(), getFrameRate(cam2), imageWidth, imageHeight );
+#endif
 
-    Consumer<Image> consumer_1(buff_1.getBuffer(), "uncompressed1.avi", buff_1.getMutex(),
-            getFrameRate(cam1), imageWidth, imageHeight ); 
-    Consumer<Image> consumer_2(buff_2.getBuffer(), "uncompressed2.avi", buff_2.getMutex(),
-            getFrameRate(cam2), imageWidth, imageHeight );
-
-    while (!is_done_working)
-        usleep(1000);
+    while (!is_done_working) {
+        //usleep(1000);
+        Image image; 
+        cam1->RetrieveBuffer(&image);
+        ImageCallback(&image, NULL, &buff_1);
+#ifdef TWO_CAM
+        cam2->RetrieveBuffer(&image);
+        ImageCallback(&image, NULL, &buff_2);
+#endif
+    }   
 
     consumer_1.stop();
-    consumer_2.stop();
     CloseCamera(cam1);
-    CloseCamera(cam2);
     delete cam1; 
-    delete cam2; 
+#ifdef TWO_CAM
+    consumer_2.stop();
+    CloseCamera(cam2);
+    delete cam2;
+#endif
     return 0;
 }

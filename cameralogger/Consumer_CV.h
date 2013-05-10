@@ -37,7 +37,6 @@ class Consumer
         void writeToDisk (const T* obj) {
             FPS_CALC (_aviFileName, _buf);
             _img = cvCreateImage(cvSize(obj->GetCols(), obj->GetRows()), IPL_DEPTH_8U, 3);
-
             _img->height = obj->GetRows();
             _img->width = obj->GetCols();
             _img->widthStep = obj->GetStride();
