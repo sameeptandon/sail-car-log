@@ -22,7 +22,11 @@ template <typename T>
 class Display 
 {
     private:
-        ///////////////////////////////////////////////////////////////////////////////////////
+
+	void resetWindow() { 
+	    cvDestroyWindow(_name.c_str());
+	    cvNamedWindow(_name.c_str(), CV_WINDOW_AUTOSIZE);
+	}
         void show (const T* obj) {
             FPS_CALC (_name, _buf);
             _img = cvCreateImage(cvSize(obj->GetCols(), obj->GetRows()), IPL_DEPTH_8U, 3);
@@ -34,7 +38,11 @@ class Display
             imshow(_name.c_str(), Mat(_img));
 
             //cvShowImage(_name.c_str(), _img);
-            cvWaitKey(10);
+            cvWaitKey(15);
+            //if (k == 'r')
+            //    imshow(_name.c_str(), Mat(_img));
+            //	k = cvWaitKey(15);
+	    //sleep(0.001);
             cvReleaseImage(&_img);
             delete obj;
         }
@@ -50,6 +58,8 @@ class Display
                             show(_buf->getFront ());
                     }
                 }
+                while (!_buf->isEmpty())
+                    show(_buf->getFront());
         }
 
         void toOpenCv(Image* fly_img, IplImage* cv_img) {
@@ -79,7 +89,8 @@ class Display
         void stop ()  {
             printf("stop called\n");
             _is_done = true; 
-            //_thread->join ();
+            _thread->join ();
+            cvDestroyWindow(_name.c_str());
             boost::mutex::scoped_lock io_lock (*_io_mutex);
             printf("Display done.\n");
         }

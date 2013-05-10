@@ -1,4 +1,6 @@
 #define TWO_CAM
+//#define DISPLAY
+
 
 #include "SaveImageToAviEx.h"
 typedef void(*ImageEventCallback) ( class Image* pImage, const void* pCallbackData);
@@ -32,13 +34,14 @@ void ImageCallback(Image* pImage, const void* pCallbackData,
             boost::mutex::scoped_lock io_lock ( *(w_buff->getMutex()) );
             cerr << "Warning! Buffer full, overwriting data!" << endl; 
         }
-
+#ifdef DISPLAY
         im = new Image();
         pImage->Convert(PIXEL_FORMAT_BGR, im);
         if (!d_buff->getBuffer()->pushBack(im)) {
             boost::mutex::scoped_lock io_lock ( *(d_buff->getMutex()) );
             cerr << "Warning! Buffer full, overwriting data!" << endl; 
         }
+#endif
     }
 }
 
@@ -251,8 +254,10 @@ int main(int argc, char** argv)
     RunCamera( cam1, c1);
     Consumer<Image> consumer_1(buff_1.getBuffer(), fname1,
             buff_1.getMutex(), 50.0f, imageWidth, imageHeight ); 
+#ifdef DISPLAY
     Display<Image> display_1(d_buff_1.getBuffer(), "cam1", 
-            d_buff_1.getMutex()); 
+            d_buff_1.getMutex());
+#endif 
 #ifdef TWO_CAM
     error = busMgr.GetCameraFromIndex(1, &guid);
     if (error != PGRERROR_OK)
@@ -264,9 +269,11 @@ int main(int argc, char** argv)
     ImageEventCallback c2 = &ImageCallback_2;
     RunCamera( cam2, c2); 
     Consumer<Image> consumer_2(buff_2.getBuffer(), fname2,
-            buff_2.getMutex(), getFrameRate(cam2), imageWidth, imageHeight );
+            buff_2.getMutex(), 50.0f, imageWidth, imageHeight );
+#ifdef DISPLAY
     Display<Image> display_2(d_buff_2.getBuffer(), "cam2", 
-            d_buff_2.getMutex()); 
+            d_buff_2.getMutex());
+#endif // DISPLAY 
 #endif
 
     while (!is_done_working) {
@@ -281,12 +288,16 @@ int main(int argc, char** argv)
     }   
 
     consumer_1.stop();
+#ifdef DISPLAY
     display_1.stop();
+#endif
     CloseCamera(cam1);
     delete cam1; 
 #ifdef TWO_CAM
     consumer_2.stop();
+#ifdef DISPLAY
     display_2.stop();
+#endif
     CloseCamera(cam2);
     delete cam2;
 #endif
