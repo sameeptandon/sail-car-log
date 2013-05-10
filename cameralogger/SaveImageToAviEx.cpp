@@ -1,6 +1,6 @@
 #define TWO_CAM
 //#define DISPLAY
-#define DEVDISPLAY
+//#define DEVDISPLAY
 
 #include "SaveImageToAviEx.h"
 
@@ -110,15 +110,23 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
         PrintError(error);
         return -1;
     }
-
+    
+    /*
     setProperty(cam, BRIGHTNESS, 0.0f);
     setProperty(cam, AUTO_EXPOSURE, 0.565f);
     setProperty(cam, SHARPNESS, 1024);
     setProperty(cam, SATURATION, 100.0f);
     setProperty(cam, GAMMA, 1.0f);
-    //setProperty(cam, SHUTTER, 7.0f);
     setProperty(cam, SHUTTER, 3.0f);
     setProperty(cam, GAIN, 2.25f);
+    */
+    setProperty(cam, BRIGHTNESS, 128.0f);
+    setProperty(cam, AUTO_EXPOSURE, 1.322f);
+    setProperty(cam, SHARPNESS, 1024);
+    setProperty(cam, SATURATION, 100.0f);
+    setProperty(cam, GAMMA, 1.0f);
+    setProperty(cam, SHUTTER, 0.6f);
+    setProperty(cam, GAIN, 0.0f);
 
     
     TriggerMode mTrigger;
