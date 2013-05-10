@@ -1,8 +1,30 @@
 #define TWO_CAM
 //#define DISPLAY
-
+#define DEVDISPLAY
 
 #include "SaveImageToAviEx.h"
+
+#ifdef DEVDISPLAY
+void show (const Image* obj, IplImage* img, string name) {
+    IplImage* _img = img;
+    //_img = cvCreateImage(cvSize(obj->GetCols(), obj->GetRows()), IPL_DEPTH_8U, 3);
+    _img->height = obj->GetRows();
+    _img->width = obj->GetCols();
+    _img->widthStep = obj->GetStride();
+    _img->nChannels = 3;
+    _img->imageData = (char*)obj->GetData();
+    imshow(name.c_str(), Mat(_img));
+
+    //cvShowImage(_name.c_str(), _img);
+    cvWaitKey(1);
+    //if (k == 'r')
+    //    imshow(_name.c_str(), Mat(_img));
+    //	k = cvWaitKey(15);
+    //sleep(0.001);
+    //cvReleaseImage(&_img);
+}
+#endif
+
 typedef void(*ImageEventCallback) ( class Image* pImage, const void* pCallbackData);
 
 class SyncBuffer {
@@ -257,7 +279,11 @@ int main(int argc, char** argv)
 #ifdef DISPLAY
     Display<Image> display_1(d_buff_1.getBuffer(), "cam1", 
             d_buff_1.getMutex());
-#endif 
+#endif
+#ifdef DEVDISPLAY
+    cvNamedWindow("cam1", CV_WINDOW_AUTOSIZE);
+#endif
+
 #ifdef TWO_CAM
     error = busMgr.GetCameraFromIndex(1, &guid);
     if (error != PGRERROR_OK)
@@ -270,20 +296,36 @@ int main(int argc, char** argv)
     RunCamera( cam2, c2); 
     Consumer<Image> consumer_2(buff_2.getBuffer(), fname2,
             buff_2.getMutex(), 50.0f, imageWidth, imageHeight );
+
+#ifdef DEVDISPLAY
+    cvNamedWindow("cam2", CV_WINDOW_AUTOSIZE);
+#endif
 #ifdef DISPLAY
     Display<Image> display_2(d_buff_2.getBuffer(), "cam2", 
             d_buff_2.getMutex());
 #endif // DISPLAY 
 #endif
 
+#ifdef DEVDISPLAY
+    IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
+#endif
     while (!is_done_working) {
         //usleep(1000);
         Image image; 
         cam1->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &buff_1, &d_buff_1);
+#ifdef DEVDISPLAY
+        Image cimage; 
+        image.Convert(PIXEL_FORMAT_BGR, &cimage);
+        show(&cimage, img, "cam1");
+#endif
 #ifdef TWO_CAM
         cam2->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &buff_2, &d_buff_2);
+#ifdef DEVDISPLAY
+        image.Convert(PIXEL_FORMAT_BGR, &cimage);
+        show(&cimage, img, "cam2");
+#endif
 #endif
     }   
 
