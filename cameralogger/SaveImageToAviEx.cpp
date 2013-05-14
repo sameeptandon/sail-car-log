@@ -4,6 +4,8 @@
 
 #include "SaveImageToAviEx.h"
 
+#define SHUTTER_PARAM (190)
+
 #ifdef DEVDISPLAY
 void show (const Image* obj, IplImage* img, string name) {
     IplImage* _img = img;
@@ -16,7 +18,7 @@ void show (const Image* obj, IplImage* img, string name) {
     imshow(name.c_str(), Mat(_img));
 
     //cvShowImage(_name.c_str(), _img);
-    cvWaitKey(1);
+    //cvWaitKey(1);
     //if (k == 'r')
     //    imshow(_name.c_str(), Mat(_img));
     //	k = cvWaitKey(15);
@@ -113,32 +115,20 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
 
     unsigned int bytes = readRegister(cam, 0x1098);
     bytes = bytes & (-1 << 12);
-    bytes = bytes | (190);
+    bytes = bytes | (SHUTTER_PARAM);
     writeRegister(cam, 0x1098, bytes);
 
     setWhiteBalance(cam, 511, 815);
 
-    //setProperty(cam, SHUTTER, 3.0f);
-    /*
-    setProperty(cam, BRIGHTNESS, 0.0f);
-    setProperty(cam, AUTO_EXPOSURE, 0.565f);
-    setProperty(cam, SHARPNESS, 1024);
-    setProperty(cam, SATURATION, 100.0f);
-    setProperty(cam, GAMMA, 1.0f);
-    //setProperty(cam, SHUTTER, 3.0f);
-    setProperty(cam, SHUTTER, 10.0f);
-    setProperty(cam, GAIN, 2.25f);
-    */
-    /*
-    setProperty(cam, BRIGHTNESS, 1.953f);
-    setProperty(cam, AUTO_EXPOSURE, 0.5f);
-    setProperty(cam, SHARPNESS, 1024);
-    setProperty(cam, SATURATION, 100.0f);
-    setProperty(cam, GAMMA, 1.0f);
-    setProperty(cam, SHUTTER, 0.6f);
-    setProperty(cam, GAIN, 0.0f);
-    */
-    
+    FC2Config pConfig;
+    cam->GetConfiguration(&pConfig);
+    pConfig.grabMode = BUFFER_FRAMES;
+    pConfig.numBuffers = 10;
+    pConfig.isochBusSpeed = BUSSPEED_S5000;
+    pConfig.asyncBusSpeed = BUSSPEED_S5000;
+    pConfig.highPerformanceRetrieveBuffer = true;
+    cam->SetConfiguration(&pConfig);
+
     TriggerMode mTrigger;
     mTrigger.mode = 0; 
     mTrigger.source = 0; 
@@ -218,8 +208,13 @@ int CloseCamera( Camera* cam) {
 void ctrlC (int)
 {
   boost::mutex::scoped_lock io_lock (*buff_1.getMutex());
+#ifndef DEVDISPLAY
   printf("\nCtrl-C detected, exit condition set to true.\n");
   is_done_working = true;
+#endif
+#ifdef DEVDISPLAY
+  printf("\nCtrl-C Disabled! Use 'q' to quit instead\n");
+#endif
 }
 
 int main(int argc, char** argv)
@@ -293,6 +288,9 @@ int main(int argc, char** argv)
     ImageEventCallback c1 = &ImageCallback_1;
     RunCamera( cam1, c1);
 
+    //printf("%x, %x\n", readRegister(cam1, 0x830), readRegister(cam1, 0x834));
+    //return 0;
+
     Consumer<Image> consumer_1(buff_1.getBuffer(), fname1,
             buff_1.getMutex(), 50.0f, imageWidth, imageHeight ); 
 #ifdef DISPLAY
@@ -327,6 +325,7 @@ int main(int argc, char** argv)
 
 #ifdef DEVDISPLAY
     IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
+    int counter = 0;
 #endif
     while (!is_done_working) {
         //usleep(1000);
@@ -334,20 +333,30 @@ int main(int argc, char** argv)
         cam1->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &buff_1, &d_buff_1);
 #ifdef DEVDISPLAY
+        counter = (counter + 1) % 2;
         Image cimage; 
-        image.Convert(PIXEL_FORMAT_BGR, &cimage);
-        show(&cimage, img, "cam1");
+        if (counter == 0) {
+            image.Convert(PIXEL_FORMAT_BGR, &cimage);
+            show(&cimage, img, "cam1");
+        }
 #endif
 #ifdef TWO_CAM
         cam2->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &buff_2, &d_buff_2);
 #ifdef DEVDISPLAY
-        image.Convert(PIXEL_FORMAT_BGR, &cimage);
-        show(&cimage, img, "cam2");
+        if (counter == 0) {
+            image.Convert(PIXEL_FORMAT_BGR, &cimage);
+            show(&cimage, img, "cam2");
+	}
+	char r = cvWaitKey(1);
+	if (r == 'q') is_done_working = true;
 #endif
 #endif
     }   
-
+#ifdef DEV_DISPLAY
+    cvDestroyWindow("cam1");
+    cvDestroyWindow("cam2");
+#endif
     consumer_1.stop();
 #ifdef DISPLAY
     display_1.stop();
