@@ -59,6 +59,32 @@ void setProperty(Camera* cam, PropertyType p, float val) {
     }
 }
 
+void setWhiteBalance(Camera* cam, int red, int blue) {
+    Error error;
+    Property prop;
+    prop.type = WHITE_BALANCE;
+    prop.absControl = true;
+    prop.present = true; 
+    prop.onOff = false;
+    prop.autoManualMode = false; 
+    prop.valueA = red;
+    prop.valueB = blue;
+    error = cam->SetProperty( &prop );
+    if ( error != PGRERROR_OK ) {
+        PrintError(error);
+    }
+}
+
+unsigned int readRegister(Camera* cam, unsigned int address) {
+    unsigned int pValue;
+    cam->ReadRegister(address, &pValue);
+    return pValue;
+}
+
+void writeRegister(Camera* cam, unsigned int address, unsigned int value) {
+    cam->WriteRegister(address, value);
+}
+
 float getFrameRate(Camera *cam) {
     return getProperty(cam, FRAME_RATE);
 }

@@ -1,6 +1,6 @@
 #define TWO_CAM
 //#define DISPLAY
-//#define DEVDISPLAY
+#define DEVDISPLAY
 
 #include "SaveImageToAviEx.h"
 
@@ -110,16 +110,26 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
         PrintError(error);
         return -1;
     }
-    
+
+    unsigned int bytes = readRegister(cam, 0x1098);
+    bytes = bytes & (-1 << 12);
+    bytes = bytes | (190);
+    writeRegister(cam, 0x1098, bytes);
+
+    setWhiteBalance(cam, 511, 815);
+
+    //setProperty(cam, SHUTTER, 3.0f);
     /*
     setProperty(cam, BRIGHTNESS, 0.0f);
     setProperty(cam, AUTO_EXPOSURE, 0.565f);
     setProperty(cam, SHARPNESS, 1024);
     setProperty(cam, SATURATION, 100.0f);
     setProperty(cam, GAMMA, 1.0f);
-    setProperty(cam, SHUTTER, 3.0f);
+    //setProperty(cam, SHUTTER, 3.0f);
+    setProperty(cam, SHUTTER, 10.0f);
     setProperty(cam, GAIN, 2.25f);
     */
+    /*
     setProperty(cam, BRIGHTNESS, 1.953f);
     setProperty(cam, AUTO_EXPOSURE, 0.5f);
     setProperty(cam, SHARPNESS, 1024);
@@ -127,7 +137,7 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
     setProperty(cam, GAMMA, 1.0f);
     setProperty(cam, SHUTTER, 0.6f);
     setProperty(cam, GAIN, 0.0f);
-
+    */
     
     TriggerMode mTrigger;
     mTrigger.mode = 0; 
@@ -282,6 +292,7 @@ int main(int argc, char** argv)
     Camera* cam1 = CreateCamera(&guid); 
     ImageEventCallback c1 = &ImageCallback_1;
     RunCamera( cam1, c1);
+
     Consumer<Image> consumer_1(buff_1.getBuffer(), fname1,
             buff_1.getMutex(), 50.0f, imageWidth, imageHeight ); 
 #ifdef DISPLAY
