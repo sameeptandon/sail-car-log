@@ -1,29 +1,20 @@
 #define TWO_CAM
-//#define DISPLAY
-#define DEVDISPLAY
+#define DISPLAY
 
 #include "CameraLogger.h"
 
 #define SHUTTER_PARAM (190)
+#define CAMERA_DISPLAY_SKIP 10
 
-#ifdef DEVDISPLAY
+#ifdef DISPLAY
 void show (const Image* obj, IplImage* img, string name) {
     IplImage* _img = img;
-    //_img = cvCreateImage(cvSize(obj->GetCols(), obj->GetRows()), IPL_DEPTH_8U, 3);
     _img->height = obj->GetRows();
     _img->width = obj->GetCols();
     _img->widthStep = obj->GetStride();
     _img->nChannels = 3;
     _img->imageData = (char*)obj->GetData();
     imshow(name.c_str(), Mat(_img));
-
-    //cvShowImage(_name.c_str(), _img);
-    //cvWaitKey(1);
-    //if (k == 'r')
-    //    imshow(_name.c_str(), Mat(_img));
-    //	k = cvWaitKey(15);
-    //sleep(0.001);
-    //cvReleaseImage(&_img);
 }
 #endif
 
@@ -58,14 +49,6 @@ void ImageCallback(Image* pImage, const void* pCallbackData,
             boost::mutex::scoped_lock io_lock ( *(w_buff->getMutex()) );
             cerr << "Warning! Buffer full, overwriting data!" << endl; 
         }
-#ifdef DISPLAY
-        im = new Image();
-        pImage->Convert(PIXEL_FORMAT_BGR, im);
-        if (!d_buff->getBuffer()->pushBack(im)) {
-            boost::mutex::scoped_lock io_lock ( *(d_buff->getMutex()) );
-            cerr << "Warning! Buffer full, overwriting data!" << endl; 
-        }
-#endif
     }
 }
 
@@ -123,7 +106,7 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
     FC2Config pConfig;
     cam->GetConfiguration(&pConfig);
     pConfig.grabMode = BUFFER_FRAMES;
-    pConfig.numBuffers = 10;
+    pConfig.numBuffers = 100;
     pConfig.isochBusSpeed = BUSSPEED_S5000;
     pConfig.asyncBusSpeed = BUSSPEED_S5000;
     pConfig.highPerformanceRetrieveBuffer = true;
@@ -141,44 +124,10 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
         return -1;
     }
     
-    /* 
-    TriggerMode mTrigger;
-    mTrigger.mode = 15; 
-    mTrigger.source = 0; 
-    mTrigger.parameter = 60; 
-    mTrigger.onOff = true; 
-    mTrigger.polarity = 0; 
-    error = cam->SetTriggerMode(&mTrigger); 
-    if (error != PGRERROR_OK) {
-        PrintError(error);
-        return -1;
-    }
-    */
-    
-
-    float p = getProperty(cam, SHUTTER);
-    cout << " shutter = "  << p << endl; 
     // Start capturing images
     printf( "Starting capture... \n" );
     //error = cam->StartCapture(callback);
-   
     error = cam->StartCapture();
-    /*
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-    for (int i = 0; i < 10; i++) { 
-        Image image; 
-        cam->RetrieveBuffer(&image); 
-        Image* im = new Image();
-        im->DeepCopy(&image);
-        buff_1.getBuffer()->pushBack(im);
-        cout << " go yo frame " << endl; 
-    }
-    */
-
 
     return 0;
 }
@@ -208,11 +157,11 @@ int CloseCamera( Camera* cam) {
 void ctrlC (int)
 {
   boost::mutex::scoped_lock io_lock (*buff_1.getMutex());
-#ifndef DEVDISPLAY
+#ifndef DISPLAY
   printf("\nCtrl-C detected, exit condition set to true.\n");
   is_done_working = true;
 #endif
-#ifdef DEVDISPLAY
+#ifdef DISPLAY
   printf("\nCtrl-C Disabled! Use 'q' to quit instead\n");
 #endif
 }
@@ -294,10 +243,6 @@ int main(int argc, char** argv)
     Consumer<Image> consumer_1(buff_1.getBuffer(), fname1,
             buff_1.getMutex(), 50.0f, imageWidth, imageHeight ); 
 #ifdef DISPLAY
-    Display<Image> display_1(d_buff_1.getBuffer(), "cam1", 
-            d_buff_1.getMutex());
-#endif
-#ifdef DEVDISPLAY
     cvNamedWindow("cam1", CV_WINDOW_AUTOSIZE);
 #endif
 
@@ -314,16 +259,12 @@ int main(int argc, char** argv)
     Consumer<Image> consumer_2(buff_2.getBuffer(), fname2,
             buff_2.getMutex(), 50.0f, imageWidth, imageHeight );
 
-#ifdef DEVDISPLAY
+#ifdef DISPLAY
     cvNamedWindow("cam2", CV_WINDOW_AUTOSIZE);
 #endif
-#ifdef DISPLAY
-    Display<Image> display_2(d_buff_2.getBuffer(), "cam2", 
-            d_buff_2.getMutex());
-#endif // DISPLAY 
 #endif
 
-#ifdef DEVDISPLAY
+#ifdef DISPLAY
     IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
     int counter = 0;
 #endif
@@ -332,8 +273,8 @@ int main(int argc, char** argv)
         Image image; 
         cam1->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &buff_1, &d_buff_1);
-#ifdef DEVDISPLAY
-        counter = (counter + 1) % 2;
+#ifdef DISPLAY
+        counter = (counter + 1) % CAMERA_DISPLAY_SKIP;
         Image cimage; 
         if (counter == 0) {
             image.Convert(PIXEL_FORMAT_BGR, &cimage);
@@ -343,7 +284,7 @@ int main(int argc, char** argv)
 #ifdef TWO_CAM
         cam2->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &buff_2, &d_buff_2);
-#ifdef DEVDISPLAY
+#ifdef DISPLAY
         if (counter == 0) {
             image.Convert(PIXEL_FORMAT_BGR, &cimage);
             show(&cimage, img, "cam2");
@@ -353,21 +294,15 @@ int main(int argc, char** argv)
 #endif
 #endif
     }   
-#ifdef DEV_DISPLAY
+#ifdef DISPLAY
     cvDestroyWindow("cam1");
     cvDestroyWindow("cam2");
 #endif
     consumer_1.stop();
-#ifdef DISPLAY
-    display_1.stop();
-#endif
     CloseCamera(cam1);
     delete cam1; 
 #ifdef TWO_CAM
     consumer_2.stop();
-#ifdef DISPLAY
-    display_2.stop();
-#endif
     CloseCamera(cam2);
     delete cam2;
 #endif

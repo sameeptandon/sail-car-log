@@ -179,7 +179,7 @@ void setWhiteBalance(Camera* cam, int red, int blue) {
     Error error;
     Property prop;
     prop.type = WHITE_BALANCE;
-    prop.absControl = true;
+    prop.absControl = false;
     prop.present = true; 
     prop.onOff = false;
     prop.autoManualMode = false; 
