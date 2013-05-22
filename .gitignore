@@ -2,5 +2,5 @@
 *.avi
 *.mp4
 *.swp
-CameraLogger
+cameralogger/build
 gps_test/build/
