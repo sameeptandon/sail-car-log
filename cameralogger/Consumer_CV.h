@@ -11,6 +11,7 @@
 #include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 using namespace FlyCapture2; 
 using namespace std;
@@ -39,12 +40,16 @@ class Consumer
         // Consumer thread function
         void receiveAndProcess () {
                 while (!_is_done) {
-                    if (_buf->isEmpty()) {
-                        //usleep(1000 / 120); // poll at max of 120hz
-                    } else { 
-                        while (!_buf->isEmpty ()) 
-                            writeToDisk (_buf->getFront ());
-                    }
+                    //if (_buf->isEmpty()) {
+                        //usleep(1000 / 200); // poll at max of 120hz
+                    //} else { 
+                        while (!_buf->isEmpty ())  {
+                            int buf_size = _buf->getSize();
+                            for (int j = 0; j < buf_size; j++)
+                                writeToDisk (_buf->getFront ());
+                        }
+
+                   // }
                 }
 
                 boost::mutex::scoped_lock io_lock (*_io_mutex);
@@ -79,7 +84,8 @@ class Consumer
 
 
             _writer = VideoWriter(_aviFileName.c_str(),
-                    CV_FOURCC('X','V','I','D'),
+                    //CV_FOURCC('X','V','I','D'),
+                    CV_FOURCC('F','M','P','4'),
                     //CV_FOURCC('U','2','6','3'),
                     //CV_FOURCC('M','P','E','G'),
                     _frameRate,

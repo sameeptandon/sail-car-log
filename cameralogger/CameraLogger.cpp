@@ -1,10 +1,13 @@
 #define TWO_CAM
 #define DISPLAY
+#define NOSYNC
 
+#include <fstream>
 #include "CameraLogger.h"
+#include "GPSLogger.h"
 
 #define SHUTTER_PARAM (190)
-#define CAMERA_DISPLAY_SKIP 10
+#define CAMERA_DISPLAY_SKIP 100
 
 #ifdef DISPLAY
 void show (const Image* obj, IplImage* img, string name) {
@@ -14,6 +17,8 @@ void show (const Image* obj, IplImage* img, string name) {
     _img->widthStep = obj->GetStride();
     _img->nChannels = 3;
     _img->imageData = (char*)obj->GetData();
+    //Mat im_out;
+    //resize(Mat(_img), im_out, Size(640,480));
     imshow(name.c_str(), Mat(_img));
 }
 #endif
@@ -112,6 +117,7 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
     pConfig.highPerformanceRetrieveBuffer = true;
     cam->SetConfiguration(&pConfig);
 
+#ifndef NOSYNC
     TriggerMode mTrigger;
     mTrigger.mode = 0; 
     mTrigger.source = 0; 
@@ -123,6 +129,7 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
         PrintError(error);
         return -1;
     }
+#endif
     
     // Start capturing images
     printf( "Starting capture... \n" );
@@ -172,6 +179,7 @@ int main(int argc, char** argv)
     options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
+        ("serial", "the serial location for the gps unit")
         ("output,o", value<string>(), "the filename for data logging");
 
     variables_map vm;
@@ -183,13 +191,26 @@ int main(int argc, char** argv)
     }
     string fname1 = "";
     string fname2 = "";
+    string fnamegps = "";
     if (vm.count("output")) { 
         fname1 = vm["output"].as<string>() + "1.avi";
         fname2 = vm["output"].as<string>() + "2.avi";
+        fnamegps = vm["output"].as<string>() + "_gps.out";
     }
     else {
         fname1 = "data1.avi";
         fname2 = "data2.avi";
+        fnamegps = "data_gps.out";
+    };
+
+    bool useGPS = vm.count("serial");
+    GPSLogger gpsLogger;
+    ofstream gps_output;
+    Serial *port = NULL;
+    if (useGPS) {
+        gps_output.open(fnamegps.c_str());
+
+        port = gpsLogger.Connect(vm["serial"].as<string>());
     }
 
     cout  << "Filenames: " << fname1 << " " << fname2 << endl; 
@@ -233,6 +254,11 @@ int main(int argc, char** argv)
        PrintError(error);
        return -1;
     }
+#ifdef NOSYNC
+    for (int i =0 ; i  < 100; i ++) 
+        cout << "WARNING: SYNC IS DISABLED" << endl;
+#endif
+    
     Camera* cam1 = CreateCamera(&guid); 
     ImageEventCallback c1 = &ImageCallback_1;
     RunCamera( cam1, c1);
@@ -273,6 +299,10 @@ int main(int argc, char** argv)
         Image image; 
         cam1->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &buff_1, &d_buff_1);
+
+        if (useGPS) {
+            gps_output << gpsLogger.safeRead(port) << endl;
+        }
 #ifdef DISPLAY
         counter = (counter + 1) % CAMERA_DISPLAY_SKIP;
         Image cimage; 
