@@ -31,14 +31,14 @@ Serial* Connect(string port) {
     safeWrite(serial_port, "unlogall usb1\r\n");
     safeRead(serial_port);
     serial_port->flush();
-    //safeWrite(serial_port, "fix none\r\n");
-    safeWrite(serial_port, "fix position 37.123 -123.32 20.20\r\n");
+    safeWrite(serial_port, "fix none\r\n");
+    //safeWrite(serial_port, "fix position 37.123 -123.32 20.20\r\n");
     //safeWrite(serial_port, "fix velocity 37.123 -123.32 20.20\r\n");
     //safeWrite(serial_port, "fix altitude 20.20\r\n");
     //safeWrite(serial_port, "saveconfig\r\n");
     safeRead(serial_port);
-    //safeWrite(serial_port, "eventoutcontrol mark1 enable positive 10000000 10000000\r\n");
-    //safeWrite(serial_port, "eventoutcontrol mark1 enable positive 250000000 250000000\r\n");
+    //safeWrite(serial_port, "eventoutcontrol mark2 enable positive 10000000 10000000\r\n");
+    safeWrite(serial_port, "eventoutcontrol mark2 enable positive 250000000 250000000\r\n");
     safeWrite(serial_port, "eventincontrol mark1 event\r\n");
     //safeWrite(serial_port, "alignmentmode unaided_static\r\n");
     //safeWrite(serial_port, "setupsensor sensor1 mark1 positive 100 mark1 event positive 0 10\r\n"); 
@@ -51,7 +51,7 @@ Serial* Connect(string port) {
 void Run(Serial* port) {
     //safeWrite(port, "setmark1offset 0 0 0 0 0 0\r\n");
     //safeWrite(port, "log mark1time onnew\r\n");
-    safeWrite(port, "log mark1pvaa onnew\r\n");
+    safeWrite(port, "log usb1 mark1pvaa onnew\r\n");
     //safeWrite(port, "log taggedmark1pva onnew\r\n");
     //safeWrite(port, "log usb1 bestposa ontime 0.5 0 nohold\r\n");
     while(1) {

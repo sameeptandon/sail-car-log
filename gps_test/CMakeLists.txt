@@ -15,6 +15,6 @@ link_directories(${serial_LIBRARIES})
 link_directories(${OpenCV_LIBRARIES})
 
 
-add_executable(gps_test gps_test.cpp GPSLogger.cpp)
+add_executable(gps_test gps_test.cpp )
 target_link_libraries(gps_test ${serial_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 

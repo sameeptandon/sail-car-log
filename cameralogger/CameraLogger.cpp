@@ -1,5 +1,5 @@
 #define TWO_CAM
-#define DISPLAY
+//#define DISPLAY
 //#define NOSYNC
 
 #include <fstream>
@@ -8,6 +8,7 @@
 
 #define SHUTTER_PARAM (190)
 #define CAMERA_DISPLAY_SKIP 2
+#define NUMTHREAD_PER_BUFFER 1
 
 #ifdef DISPLAY
 void show (const Image* obj, IplImage* img, string name) {
@@ -37,16 +38,13 @@ class SyncBuffer {
         SynchronizedBuffer<Image>* getBuffer() { return _buffer; } 
 };
 
-
-SyncBuffer buff_1; 
-SyncBuffer buff_2;
-SyncBuffer d_buff_1;
-SyncBuffer d_buff_2;
+SyncBuffer cam1_buff[NUMTHREAD_PER_BUFFER];
+SyncBuffer cam2_buff[NUMTHREAD_PER_BUFFER];
 
 bool is_done_working = false; 
 
 void ImageCallback(Image* pImage, const void* pCallbackData, 
-        SyncBuffer* w_buff, SyncBuffer* d_buff) { 
+        SyncBuffer* w_buff) { 
     if (!is_done_working) {
         Image* im = new Image();
         pImage->Convert(PIXEL_FORMAT_BGR, im);
@@ -58,13 +56,11 @@ void ImageCallback(Image* pImage, const void* pCallbackData,
 }
 
 void ImageCallback_1(Image* pImage, const void* pCallbackData) {
-    ImageCallback(pImage, pCallbackData, &buff_1, &d_buff_1); 
-    FPS_CALC("image_callback_1", buff_1.getBuffer());
+    assert(false);
 }
 
 void ImageCallback_2(Image* pImage, const void* pCallbackData) {
-    ImageCallback(pImage, pCallbackData, &buff_2, &d_buff_2); 
-    FPS_CALC("image_callback_2", buff_2.getBuffer());
+    assert(false);
 }
 
 Camera* ConnectCamera( int index ) {
@@ -190,7 +186,6 @@ int CloseCamera( Camera* cam) {
 
 void ctrlC (int)
 {
-  boost::mutex::scoped_lock io_lock (*buff_1.getMutex());
 #ifndef DISPLAY
   printf("\nCtrl-C detected, exit condition set to true.\n");
   is_done_working = true;
@@ -242,24 +237,38 @@ int main(int argc, char** argv)
 
     signal (SIGINT, ctrlC);
 
-    buff_1.getBuffer()->setCapacity(1000);
-    buff_2.getBuffer()->setCapacity(1000);
-    d_buff_1.getBuffer()->setCapacity(1000);
-    d_buff_2.getBuffer()->setCapacity(1000);
+    for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++)
+    {
+        cam1_buff[thread_num].getBuffer()->setCapacity(1000);
+        cam2_buff[thread_num].getBuffer()->setCapacity(1000);
+    }
+
+    //buff_1.getBuffer()->setCapacity(1000);
+    //buff_2.getBuffer()->setCapacity(1000);
 
     int imageWidth = 1280;
     int imageHeight = 960;
 
 #ifdef NOSYNC
-    for (int i =0 ; i  < 100; i ++) 
-        cout << "WARNING: SYNC IS DISABLED" << endl;
+    cerr << "WARNING: SYNC IS DISABLED" << endl;
 #endif
+
     Camera* cam1 = ConnectCamera(0); // 0 indexing
     assert(cam1 != NULL);
     ImageEventCallback c1 = &ImageCallback_1;
     RunCamera( cam1, c1);
-    Consumer<Image> consumer_1(buff_1.getBuffer(), fname1,
-            buff_1.getMutex(), 50.0f, imageWidth, imageHeight );
+
+    Consumer<Image>* cam1_consumer[NUMTHREAD_PER_BUFFER];
+    for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
+        stringstream sstm;
+        sstm << "split_" << thread_num << "_" << fname1; 
+        string thread_fname = sstm.str();
+        cam1_consumer[thread_num] = new Consumer<Image>(
+                cam1_buff[thread_num].getBuffer(),
+                thread_fname, cam1_buff[thread_num].getMutex(), 50.0f,
+                imageWidth, imageHeight);
+    }
+
 #ifdef DISPLAY
     cvNamedWindow("cam1", CV_WINDOW_AUTOSIZE);
 #endif
@@ -269,8 +278,16 @@ int main(int argc, char** argv)
     assert(cam2 != NULL);
     ImageEventCallback c2 = &ImageCallback_2;
     RunCamera( cam2, c2); 
-    Consumer<Image> consumer_2(buff_2.getBuffer(), fname2,
-            buff_2.getMutex(), 50.0f, imageWidth, imageHeight );
+    Consumer<Image>* cam2_consumer[NUMTHREAD_PER_BUFFER];
+    for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
+        stringstream sstm;
+        sstm << "split_" << thread_num << "_" << fname2; 
+        string thread_fname = sstm.str();
+        cam2_consumer[thread_num] = new Consumer<Image>(
+                cam2_buff[thread_num].getBuffer(),
+                thread_fname, cam2_buff[thread_num].getMutex(), 50.0f,
+                imageWidth, imageHeight);
+    }
 #ifdef DISPLAY
     cvNamedWindow("cam2", CV_WINDOW_AUTOSIZE);
 #endif
@@ -287,13 +304,12 @@ int main(int argc, char** argv)
 #ifndef NOSYNC
     if (useGPS) gpsLogger.Run();
 #endif
-    int numframes = 0; 
+    uint64_t numframes = 0; 
     while (!is_done_working) {
         numframes++; 
-        //usleep(1000);
         Image image; 
         cam1->RetrieveBuffer(&image);
-        ImageCallback(&image, NULL, &buff_1, &d_buff_1);
+        ImageCallback(&image, NULL, &cam1_buff[numframes % NUMTHREAD_PER_BUFFER]);
 
         if (useGPS) {
             gps_output << gpsLogger.getPacket() << endl;
@@ -308,7 +324,7 @@ int main(int argc, char** argv)
 #endif
 #ifdef TWO_CAM
         cam2->RetrieveBuffer(&image);
-        ImageCallback(&image, NULL, &buff_2, &d_buff_2);
+        ImageCallback(&image, NULL, &cam2_buff[numframes % NUMTHREAD_PER_BUFFER]);
 #ifdef DISPLAY
         if (counter == 0) {
             image.Convert(PIXEL_FORMAT_BGR, &cimage);
@@ -326,11 +342,17 @@ int main(int argc, char** argv)
     cvDestroyWindow("cam1");
     cvDestroyWindow("cam2");
 #endif
-    consumer_1.stop();
+    for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
+        cam1_consumer[thread_num]->stop();
+        delete cam1_consumer[thread_num];
+    }
     CloseCamera(cam1);
     delete cam1; 
 #ifdef TWO_CAM
-    consumer_2.stop();
+    for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
+        cam2_consumer[thread_num]->stop();
+        delete cam2_consumer[thread_num];
+    }
     CloseCamera(cam2);
     delete cam2;
 #endif

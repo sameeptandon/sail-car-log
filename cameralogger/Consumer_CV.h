@@ -72,9 +72,11 @@ class Consumer
         }
 
     public:
-        Consumer (SynchronizedBuffer<T> *buf, std::string aviFileName, boost::mutex* io_mutex,
-                float frameRate, int imWidth, int imHeight)
-            : _buf (buf), _aviFileName(aviFileName), _io_mutex(io_mutex),  _frameRate(frameRate)
+        Consumer (SynchronizedBuffer<T> *buf, std::string aviFileName,
+                boost::mutex* io_mutex, float frameRate, int imWidth, int
+                imHeight)
+            : _buf (buf), _aviFileName(aviFileName), _io_mutex(io_mutex),
+            _frameRate(frameRate)
         {
 
             Error error;
