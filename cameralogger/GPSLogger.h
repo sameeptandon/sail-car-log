@@ -11,6 +11,7 @@ class GPSLogger {
     public:
         void safeWrite(string cmd);
         string safeRead();
+        string getPacket();
 
         void Connect(string port);
         void Run();

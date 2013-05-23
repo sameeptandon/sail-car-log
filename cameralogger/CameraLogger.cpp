@@ -296,7 +296,7 @@ int main(int argc, char** argv)
         ImageCallback(&image, NULL, &buff_1, &d_buff_1);
 
         if (useGPS) {
-            gps_output << gpsLogger.safeRead() << endl;
+            gps_output << gpsLogger.getPacket() << endl;
         }
 #ifdef DISPLAY
         counter = (counter + 1) % CAMERA_DISPLAY_SKIP;

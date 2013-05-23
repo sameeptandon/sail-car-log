@@ -1,7 +1,10 @@
+#include <boost/algorithm/string/predicate.hpp>
 #include "GPSLogger.h"
 
 using namespace std;
 using namespace serial;
+
+#define PACKET_HEADER "[USB1]<MARK1PVAA"
 
 void GPSLogger::safeWrite(string cmd) {
     cout << "Command: " << cmd << endl; 
@@ -10,6 +13,15 @@ void GPSLogger::safeWrite(string cmd) {
     sleep(1);
     cout << safeRead() << endl; 
     cout << safeRead() << endl; // show acknowledgement 
+}
+
+string GPSLogger::getPacket() {
+    string candidatePacket = safeRead();
+    if (!boost::starts_with(candidatePacket, PACKET_HEADER)) {
+        return "INVALID PACKET";
+    }
+
+    return candidatePacket;
 }
 
 string GPSLogger::safeRead() {
@@ -36,8 +48,8 @@ void GPSLogger::Connect(string port) {
     //safeWrite(_port, "eventoutcontrol mark1 enable positive 250000000 250000000\r\n");
     safeWrite("eventincontrol mark1 event\r\n");
     //safeWrite(_port, "setupsensor sensor1 mark1 positive 100 mark1 event positive 0 10\r\n"); 
-    safeWrite("log mark1time onnew\r\n");
-    //safeWrite("log mark1pvaa onnew\r\n");
+    //safeWrite("log mark1time onnew\r\n");
+    safeWrite("log mark1pvaa onnew\r\n");
     //safeWrite(port, "log usb1 bestposa ontime 0.5 0 nohold\r\n");
 }
 
