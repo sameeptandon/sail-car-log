@@ -9,9 +9,13 @@ using namespace serial;
 
 class GPSLogger {
     public:
-        void safeWrite(Serial *port, string cmd);
-        string safeRead(Serial *port);
+        void safeWrite(string cmd);
+        string safeRead();
 
-        Serial *Connect(string port);
-        void Run(Serial *port);
+        void Connect(string port);
+        void Run();
+        void Close();
+
+    private:
+        Serial* _port; 
 };

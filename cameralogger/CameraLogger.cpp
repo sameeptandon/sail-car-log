@@ -1,13 +1,13 @@
 #define TWO_CAM
 #define DISPLAY
-#define NOSYNC
+//#define NOSYNC
 
 #include <fstream>
 #include "CameraLogger.h"
 #include "GPSLogger.h"
 
 #define SHUTTER_PARAM (190)
-#define CAMERA_DISPLAY_SKIP 100
+#define CAMERA_DISPLAY_SKIP 2
 
 #ifdef DISPLAY
 void show (const Image* obj, IplImage* img, string name) {
@@ -67,11 +67,37 @@ void ImageCallback_2(Image* pImage, const void* pCallbackData) {
     FPS_CALC("image_callback_2", buff_2.getBuffer());
 }
 
-Camera* CreateCamera( PGRGuid* guid ) {
-    Error error;  
+Camera* ConnectCamera( int index ) {
+    Error error;
+    BusManager busMgr;
+    unsigned int numCameras;
+    error = busMgr.GetNumOfCameras(&numCameras);
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return NULL;
+    }
+
+    if ( numCameras < 1 )
+    {
+       printf( "No camera detected.\n" );
+       return NULL;
+    }
+    else
+    {
+       printf( "Number of cameras detected: %u\n", numCameras );
+    }
+
+    PGRGuid guid;
+    error = busMgr.GetCameraFromIndex(index, &guid);
+    if (error != PGRERROR_OK)
+    {
+       PrintError(error);
+       return NULL;
+    }
+
     Camera *cam = new Camera();
-    
-    error = cam->Connect(guid);
+    error = cam->Connect(&guid);
     if (error != PGRERROR_OK)
     {
         PrintError(error);
@@ -118,6 +144,7 @@ int RunCamera( Camera* cam, ImageEventCallback callback) {
     cam->SetConfiguration(&pConfig);
 
 #ifndef NOSYNC
+    //enable triggering mode
     TriggerMode mTrigger;
     mTrigger.mode = 0; 
     mTrigger.source = 0; 
@@ -179,7 +206,7 @@ int main(int argc, char** argv)
     options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
-        ("serial", "the serial location for the gps unit")
+        ("serial,s", value<string>(), "the serial location for the gps unit")
         ("output,o", value<string>(), "the filename for data logging");
 
     variables_map vm;
@@ -206,17 +233,14 @@ int main(int argc, char** argv)
     bool useGPS = vm.count("serial");
     GPSLogger gpsLogger;
     ofstream gps_output;
-    Serial *port = NULL;
     if (useGPS) {
         gps_output.open(fnamegps.c_str());
-
-        port = gpsLogger.Connect(vm["serial"].as<string>());
+        gpsLogger.Connect(vm["serial"].as<string>());
     }
 
     cout  << "Filenames: " << fname1 << " " << fname2 << endl; 
 
     signal (SIGINT, ctrlC);
-    //PrintBuildInfo();
 
     buff_1.getBuffer()->setCapacity(1000);
     buff_2.getBuffer()->setCapacity(1000);
@@ -226,65 +250,27 @@ int main(int argc, char** argv)
     int imageWidth = 1280;
     int imageHeight = 960;
 
-    Error error;
-
-    BusManager busMgr;
-    unsigned int numCameras;
-    error = busMgr.GetNumOfCameras(&numCameras);
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-
-    if ( numCameras < 1 )
-    {
-       printf( "No camera detected.\n" );
-       return -1;
-    }
-    else
-    {
-       printf( "Number of cameras detected: %u\n", numCameras );
-    }
-
-    PGRGuid guid;
-    error = busMgr.GetCameraFromIndex(0, &guid);
-    if (error != PGRERROR_OK)
-    {
-       PrintError(error);
-       return -1;
-    }
 #ifdef NOSYNC
     for (int i =0 ; i  < 100; i ++) 
         cout << "WARNING: SYNC IS DISABLED" << endl;
 #endif
-    
-    Camera* cam1 = CreateCamera(&guid); 
+    Camera* cam1 = ConnectCamera(0); // 0 indexing
+    assert(cam1 != NULL);
     ImageEventCallback c1 = &ImageCallback_1;
     RunCamera( cam1, c1);
-
-    //printf("%x, %x\n", readRegister(cam1, 0x830), readRegister(cam1, 0x834));
-    //return 0;
-
     Consumer<Image> consumer_1(buff_1.getBuffer(), fname1,
-            buff_1.getMutex(), 50.0f, imageWidth, imageHeight ); 
+            buff_1.getMutex(), 50.0f, imageWidth, imageHeight );
 #ifdef DISPLAY
     cvNamedWindow("cam1", CV_WINDOW_AUTOSIZE);
 #endif
 
 #ifdef TWO_CAM
-    error = busMgr.GetCameraFromIndex(1, &guid);
-    if (error != PGRERROR_OK)
-    {
-       PrintError(error);
-       return -1;
-    }
-    Camera* cam2 = CreateCamera(&guid); 
+    Camera* cam2 = ConnectCamera(1); // 0 indexing 
+    assert(cam2 != NULL);
     ImageEventCallback c2 = &ImageCallback_2;
     RunCamera( cam2, c2); 
     Consumer<Image> consumer_2(buff_2.getBuffer(), fname2,
             buff_2.getMutex(), 50.0f, imageWidth, imageHeight );
-
 #ifdef DISPLAY
     cvNamedWindow("cam2", CV_WINDOW_AUTOSIZE);
 #endif
@@ -294,14 +280,23 @@ int main(int argc, char** argv)
     IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
     int counter = 0;
 #endif
+
+///////// main loop
+
+    // start GPS Trigger
+#ifndef NOSYNC
+    if (useGPS) gpsLogger.Run();
+#endif
+    int numframes = 0; 
     while (!is_done_working) {
+        numframes++; 
         //usleep(1000);
         Image image; 
         cam1->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &buff_1, &d_buff_1);
 
         if (useGPS) {
-            gps_output << gpsLogger.safeRead(port) << endl;
+            gps_output << gpsLogger.safeRead() << endl;
         }
 #ifdef DISPLAY
         counter = (counter + 1) % CAMERA_DISPLAY_SKIP;
@@ -318,12 +313,15 @@ int main(int argc, char** argv)
         if (counter == 0) {
             image.Convert(PIXEL_FORMAT_BGR, &cimage);
             show(&cimage, img, "cam2");
-	}
-	char r = cvWaitKey(1);
-	if (r == 'q') is_done_working = true;
-#endif
-#endif
-    }   
+        }
+        char r = cvWaitKey(1);
+        if (r == 'q') is_done_working = true;
+#endif // DISPLAY
+#endif // TWO_CAM
+    }  
+    cout << "numframes = " << numframes << endl; 
+/////// cleanup
+    if (useGPS) gpsLogger.Close();
 #ifdef DISPLAY
     cvDestroyWindow("cam1");
     cvDestroyWindow("cam2");
