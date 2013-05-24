@@ -40,16 +40,16 @@ class Consumer
         // Consumer thread function
         void receiveAndProcess () {
                 while (!_is_done) {
-                    //if (_buf->isEmpty()) {
-                        //usleep(1000 / 200); // poll at max of 120hz
-                    //} else { 
+                    if (_buf->isEmpty()) {
+                        usleep(1000 / 200); // poll at max of 120hz
+                    } else { 
                         while (!_buf->isEmpty ())  {
                             int buf_size = _buf->getSize();
                             for (int j = 0; j < buf_size; j++)
                                 writeToDisk (_buf->getFront ());
                         }
 
-                   // }
+                    }
                 }
 
                 boost::mutex::scoped_lock io_lock (*_io_mutex);

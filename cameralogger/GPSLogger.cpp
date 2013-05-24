@@ -4,7 +4,8 @@
 using namespace std;
 using namespace serial;
 
-#define PACKET_HEADER "[USB1]<MARK1PVAA"
+#define PACKET_HEADER "#MARK1PVAA"
+#define RETRY_ATTEMPTS 2
 
 void GPSLogger::safeWrite(string cmd) {
     cout << "Command: " << cmd << endl; 
@@ -16,12 +17,14 @@ void GPSLogger::safeWrite(string cmd) {
 }
 
 string GPSLogger::getPacket() {
-    string candidatePacket = safeRead();
-    if (!boost::starts_with(candidatePacket, PACKET_HEADER)) {
-        return "INVALID PACKET";
+    for (int i = 0; i < RETRY_ATTEMPTS; i++) {
+        string candidatePacket = safeRead();
+        if (boost::contains(candidatePacket, PACKET_HEADER)) {
+            return candidatePacket;
+        }
     }
 
-    return candidatePacket;
+    return "INVALID PACKET";
 }
 
 string GPSLogger::safeRead() {
