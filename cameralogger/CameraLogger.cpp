@@ -7,7 +7,7 @@
 #include "GPSLogger.h"
 
 #define SHUTTER_PARAM (190)
-#define CAMERA_DISPLAY_SKIP 20
+#define CAMERA_DISPLAY_SKIP 2
 #define NUMTHREAD_PER_BUFFER 10
 
 #ifdef DISPLAY
@@ -18,9 +18,10 @@ void show (const Image* obj, IplImage* img, string name) {
     _img->widthStep = obj->GetStride();
     _img->nChannels = 3;
     _img->imageData = (char*)obj->GetData();
-    //Mat im_out;
-    //resize(Mat(_img), im_out, Size(640,480));
-    imshow(name.c_str(), Mat(_img));
+    Mat im_out;
+    resize(Mat(_img), im_out, Size(320,240));
+    imshow(name.c_str(), im_out);
+    //imshow(name.c_str(), Mat(_img));
 }
 #endif
 
@@ -311,9 +312,6 @@ int main(int argc, char** argv)
         cam1->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &cam1_buff[numframes % NUMTHREAD_PER_BUFFER]);
 
-        if (useGPS) {
-            gps_output << gpsLogger.getPacket() << endl;
-        }
 #ifdef DISPLAY
         counter = (counter + 1) % CAMERA_DISPLAY_SKIP;
         Image cimage; 
@@ -334,8 +332,14 @@ int main(int argc, char** argv)
         if (r == 'q') is_done_working = true;
 #endif // DISPLAY
 #endif // TWO_CAM
+
+        if (useGPS) {
+            gps_output << gpsLogger.getPacket() << endl;
+        }
     }  
-    cout << "numframes = " << numframes << endl; 
+    cout << "numframes = " << numframes << endl;
+
+
 /////// cleanup
     if (useGPS) gpsLogger.Close();
 #ifdef DISPLAY

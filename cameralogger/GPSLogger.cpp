@@ -8,12 +8,12 @@ using namespace serial;
 #define RETRY_ATTEMPTS 2
 
 void GPSLogger::safeWrite(string cmd) {
-    cout << "Command: " << cmd << endl; 
+    cout << "Command: " << cmd; 
     _port->write(cmd);
     _port->flushOutput();
     sleep(1);
-    cout << safeRead() << endl; 
-    cout << safeRead() << endl; // show acknowledgement 
+    cout << safeRead(); 
+    cout << safeRead(); // show acknowledgement 
 }
 
 string GPSLogger::getPacket() {
@@ -34,23 +34,25 @@ string GPSLogger::safeRead() {
 
 void GPSLogger::Connect(string port) {
     int baudrate = 115200;
-    Timeout my_timeout(10,10,0,10,0); // 1 second read and write timeout
+    Timeout my_timeout(3,3,0,3,0); // 3 millisecond read and write timeout
     cout << "port = " << port << endl; 
     _port = new Serial(port, baudrate, my_timeout);
 
-    // flush stuff from previous runs
-    _port->flushInput();
-    _port->flushOutput();
-    _port->readlines();
-
+    
+    // reset stuff
     safeWrite("unlogall\r\n");
     safeWrite("fix none\r\n");
     //safeWrite(_port, "fix position 37.123 -123.32 20.20\r\n");
     //safeWrite(_port, "saveconfig\r\n");
-    //safeWrite(_port, "eventoutcontrol mark1 enable positive 10000000 10000000\r\n");
-    //safeWrite(_port, "eventoutcontrol mark1 enable positive 250000000 250000000\r\n");
     safeWrite("eventincontrol mark1 event\r\n");
-    //safeWrite(_port, "setupsensor sensor1 mark1 positive 100 mark1 event positive 0 10\r\n"); 
+    
+    // flush stuff from previous runs
+    _port->flushInput();
+    _port->flushOutput();
+    _port->readlines();
+    
+    ///////// logging /////////////////
+
     //safeWrite("log mark1time onnew\r\n");
     safeWrite("log mark1pvaa onnew\r\n");
     //safeWrite(port, "log usb1 bestposa ontime 0.5 0 nohold\r\n");
