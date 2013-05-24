@@ -1,5 +1,5 @@
 #define TWO_CAM
-//#define DISPLAY
+#define DISPLAY
 //#define NOSYNC
 
 #include <fstream>
@@ -7,8 +7,8 @@
 #include "GPSLogger.h"
 
 #define SHUTTER_PARAM (190)
-#define CAMERA_DISPLAY_SKIP 2
-#define NUMTHREAD_PER_BUFFER 1
+#define CAMERA_DISPLAY_SKIP 20
+#define NUMTHREAD_PER_BUFFER 10
 
 #ifdef DISPLAY
 void show (const Image* obj, IplImage* img, string name) {
