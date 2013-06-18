@@ -1,8 +1,8 @@
 import cv2, cv
 import os
 
-filename = "build/test1.avi"
-num_splits = 2
+filename = "build/collection2.avi"
+num_splits = 10
 framenum = 0
 
 path, basename = os.path.split(filename)
@@ -13,13 +13,17 @@ for j in range(num_splits):
 
 captures = [ ]
 for j in range(num_splits):
-    captures.append(cv2.VideoCapture(names[j]))
+    captures.append(cv.CaptureFromFile(names[j]))
+    print cv.GetCaptureProperty(captures[j], cv.CV_CAP_PROP_FRAME_COUNT)
 
-recorder = cv2.VideoWriter("asdf.avi", cv.FOURCC('F','M','P','4'), 50.0, (1280, 960));
+recorder = cv.CreateVideoWriter("asdf.avi", cv.FOURCC('F','M','P','4'), 50.0, (1280, 960));
 while True:
     framenum = framenum + 1
-    ret, img = captures[framenum % num_splits].read()
-    if ret == False:
+    img = cv.QueryFrame(captures[framenum % num_splits])
+    if img is None:
         break
-    recorder.write(img)
+    print img
+    cv.WriteFrame(recorder, img)
+    print framenum
 
+print framenum

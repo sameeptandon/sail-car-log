@@ -7,7 +7,7 @@
 #include "GPSLogger.h"
 
 #define SHUTTER_PARAM (190)
-#define CAMERA_DISPLAY_SKIP 2
+#define CAMERA_DISPLAY_SKIP 3
 #define NUMTHREAD_PER_BUFFER 10
 
 #ifdef DISPLAY
