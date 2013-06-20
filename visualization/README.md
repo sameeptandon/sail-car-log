@@ -3,7 +3,7 @@ Visualization Tools
 
 To install openscenegraph, do: 
 
-    $ sudo apt-get install openscenegraph 
+    $ sudo apt-get install openscenegraph libopenscenegraph-dev 
 
 
 
