@@ -1,10 +1,10 @@
 Visualization Tools
 ====================
 
-To install Python OpenGL Bindings, do: 
+To install openscenegraph, do: 
 
     $ sudo apt-get install openscenegraph 
-    $ pip install pyopengl pyopengl_Accelerate
+
 
 
 
