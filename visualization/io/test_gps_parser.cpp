@@ -4,23 +4,9 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include "Parser.h"
 
 using namespace std; 
-
-vector<GPSRecord> readLog(string logfilename) {
-  ifstream file (logfilename.c_str());
-  string line;
-  vector<GPSRecord> records;
-  while (file.good()) { 
-    getline(file, line);
-    GPSRecord g(line);
-    if (g.isValid()) { 
-      records.push_back(g);
-    }
-  }
-  return records; 
-}
-
 
 int main(int argc, char** argv) {
 
@@ -46,7 +32,7 @@ int main(int argc, char** argv) {
     return 1; 
   }
 
-  vector<GPSRecord> records = readLog(input_name);
+  vector<GPSRecord> records = getAllGPSRecords(input_name);
   
   cout << setprecision(15); 
   for (int i = 0; i < records.size(); i++) {
