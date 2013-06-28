@@ -9,9 +9,9 @@ data=csvread('280S_a_gps.out.csv');
 % imprefix = 'HW1S_b1_';
 % data=csvread('HW1S_b_gps.out.csv');
 
-start_img = 18000; % 18000 flat 
-num_images_fwd = 300; 
-num_vid_frames = 500; 
+start_img = 100; % 18000 flat 
+num_images_fwd = 600; 
+num_vid_frames = 5000; 
 % helpers
 time_idx = 1;
 pos_idx = 2:4;
@@ -23,7 +23,7 @@ figure;
 
 all_frames = cell(num_vid_frames,1);
 
-for start_frame = start_img:start_img + num_vid_frames
+for start_frame = start_img:15:start_img + 30*num_vid_frames
 
     % get orientation of camera in world coordinate frame
     yaw_start = deg2rad(data(start_frame,10));
@@ -31,14 +31,17 @@ for start_frame = start_img:start_img + num_vid_frames
     roll_start = deg2rad(data(start_frame,8));
     height_start = data(start_frame,4);
 
+    disp_start = dllh2denu(data(start_frame,pos_idx), data(start_frame+1,pos_idx));
+    vel_start = data(start_frame,vel_idx);
     %pitch_start = asin(data(start_img,7)/norm(data(start_img,vel_idx)));
-
-    R_to_i_from_w = angle2dcm(yaw_start,pitch_start,roll_start,'ZXY')'; 
+    pitch_start = asin(disp_start(3) / norm(disp_start));
+    
+    R_to_i_from_w = angle2dcm(pitch_start,roll_start,yaw_start,'XYZ')'; 
     R_to_c_from_i = ...
              [-1 0 0;
               0 0 -1;
               0 -1 0]; 
-    R_to_c_from_i = angle2dcm(deg2rad(1.0),0,0,'XYZ') * R_to_c_from_i;
+    R_to_c_from_i = angle2dcm(deg2rad(0.0),0,0,'XYZ') * R_to_c_from_i;
     %pitch_start = 0;
     %roll_start 
 
@@ -80,7 +83,6 @@ for start_frame = start_img:start_img + num_vid_frames
        pts(t+1,:) = dllh2denu(data(start_frame,pos_idx), data(start_frame+t,pos_idx)); 
     end
     pts(:,3) = pts(:,3)-1.1; 
-
 
 %     size(pts)
 %     %vis_pts = (angle2dcm(pi/2,0,0,'XYZ')*pts')';
