@@ -6,5 +6,6 @@ from VideoReader import VideoReader
 
 if __name__ == '__main__':
   reader = VideoReader(sys.argv[1])
+  reader.playVideo()
 
 

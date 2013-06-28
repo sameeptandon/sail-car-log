@@ -30,4 +30,8 @@ def WGS84toENU(llh0, llh):
   denu = array([de, dn, du]);
   return denu;
   
+def deg2rad(angleInDeg):
+  return (pi / 180) * angleInDeg;
 
+def rad2deg(angleInRad):
+  return (180 / pi) * angleInRad; 

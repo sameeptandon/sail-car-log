@@ -8,7 +8,6 @@ class VideoReader():
     self.num_splits = num_splits;
     self.filename = filename;
     self.initReader();
-    self.playVideo()
 
   def initReader(self): 
     path, basename = os.path.split(self.filename)
