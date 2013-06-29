@@ -19,7 +19,7 @@ if __name__ == '__main__':
   R_to_c_from_i = array([[-1, 0, 0], \
                          [0, 0, -1], \
                          [0, -1, 0]]);
-  R_camera_pitch = euler_matrix(-deg2rad(0.0), 0.0, 0.0, 'sxyz')[0:3,0:3]
+  R_camera_pitch = euler_matrix(-deg2rad(1.0), 0.0, 0.0, 'sxyz')[0:3,0:3]
   R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i) 
 
   cam = { } 
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     (success, I) = video_reader.getNextFrame()
     if success == False:
       break
-    if framenum % 5 != 0:
+    if framenum % 10 != 0:
       continue
 
     roll_start = deg2rad(gps_dat[framenum,7]);
@@ -46,16 +46,10 @@ if __name__ == '__main__':
     R_to_i_from_w = \
     euler_matrix(pitch_start,roll_start,yaw_start,'rxyz')[0:3,0:3]
 
-    print roll_start
-    print pitch_start
-    print yaw_start
-    print R_to_c_from_i
-    print R_to_i_from_w
-
     pts = zeros([num_imgs_fwd, 3])
     for t in range(num_imgs_fwd):
       pts[t,:] = WGS84toENU(gps_dat[framenum, 1:4], gps_dat[framenum+t, 1:4])
-      pts[t,2] = pts[t,2] - 2.1
+      pts[t,2] = pts[t,2] - 1.5
 
     for idx in range(1,pts.shape[0]):
       world_coordinates = pts[idx,:]
@@ -69,7 +63,8 @@ if __name__ == '__main__':
         I[pix[1]-3:pix[1]+3, pix[0]-3:pix[0]+3, 2] = 0;
 
     imshow('video', I)
-    waitKey(5)
-    
+    key = waitKey(5)
+    if key == 'q':
+      break;
 
 
