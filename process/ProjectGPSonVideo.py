@@ -19,7 +19,7 @@ if __name__ == '__main__':
   R_to_c_from_i = array([[-1, 0, 0], \
                          [0, 0, -1], \
                          [0, -1, 0]]);
-  R_camera_pitch = euler_matrix(-deg2rad(0.0), deg2rad(0), deg2rad(0.0), 'sxyz')[0:3,0:3]
+  R_camera_pitch = euler_matrix(deg2rad(-1.0), deg2rad(0.0), deg2rad(0.0), 'sxyz')[0:3,0:3]
   R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i) 
 
   cam = { }
@@ -50,16 +50,33 @@ if __name__ == '__main__':
     #pitch_start = -deg2rad(gps_dat[framenum,8]);
     #yaw_start = deg2rad(gps_dat[framenum,9]);
 
-    pitch_start = deg2rad(gps_dat[framenum,7]);
-    roll_start = -deg2rad(gps_dat[framenum,8]);
-    yaw_start = deg2rad(gps_dat[framenum,9] + 90);
+    pitch_start = deg2rad(gps_dat[framenum,8]);
+    roll_start = -deg2rad(gps_dat[framenum,7]);
+    yaw_start = -deg2rad(gps_dat[framenum,9] + 90);
 
+    psi = pitch_start; 
+    cp = cos(psi);
+    sp = sin(psi);
+    theta = roll_start;
+    ct = cos(theta);
+    st = sin(theta);
+    gamma = yaw_start;
+    cg = cos(gamma);
+    sg = sin(gamma);
+
+    #R_to_i_from_w = \
+    #euler_matrix(pitch_start,roll_start,yaw_start,'rxyz')[0:3,0:3]
+
+    #print euler_matrix(pitch_start,roll_start,yaw_start,'sxyz')[0:3,0:3]
     R_to_i_from_w = \
-    euler_matrix(pitch_start,roll_start,yaw_start,'rxyz')[0:3,0:3]
+            array([[cg*cp-sg*st*sp, -sg*ct, cg*sp+sg*st*cp],
+                  [sg*cp+cg*st*sp, cg*ct, sg*sp-cg*st*cp],
+                  [-ct*sp, st, ct*cp]]).transpose()
+    
 
     # pts = zeros([num_imgs_fwd, 3])
     # for t in range(num_imgs_fwd):
-    pts = zeros([min(gps_dat.shape[0]-framenum,1000),3])
+    pts = zeros([min(gps_dat.shape[0]-framenum,5000),3])
     for t in range(pts.shape[0]):
       pts[t,:] = WGS84toENU(gps_dat[framenum, 1:4], gps_dat[framenum+t, 1:4])
       pts[t,2] = pts[t,2] 
@@ -67,8 +84,9 @@ if __name__ == '__main__':
     for idx in range(1,pts.shape[0]):
       world_coordinates = pts[idx,:]
       pos_wrt_imu = dot(R_to_i_from_w, world_coordinates)
-      pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([0.25, -1.1,
-        -0.2])))
+      #pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu - array([-0.25, -1.0,
+      # 0.6])))
+      pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([0, 0.5, -1.0])))
       #pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([-0.25, -2.13,
       #  0])))
       # quick hack added by Tao
