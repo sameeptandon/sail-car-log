@@ -33,8 +33,8 @@ if __name__ == '__main__':
   #cam['f'] = 2250.0;
   #cam['cu'] = 640.0;
   #cam['cv'] = 480.0;
-  cam['KK'] = array([[cam['f'], 0.0, cam['cu']], \
-                     [0.0, cam['f'], cam['cv']], \
+  cam['KK'] = array([[cam['fx'], 0.0, cam['cu']], \
+                     [0.0, cam['fy'], cam['cv']], \
                      [0.0, 0.0, 1.0]]);
 
   framenum = 0;
