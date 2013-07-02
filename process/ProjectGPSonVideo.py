@@ -19,13 +19,16 @@ if __name__ == '__main__':
   R_to_c_from_i = array([[-1, 0, 0], \
                          [0, 0, -1], \
                          [0, -1, 0]]);
-  R_camera_pitch = euler_matrix(-deg2rad(1.0), 0.0, 0.0, 'sxyz')[0:3,0:3]
+  R_camera_pitch = euler_matrix(-deg2rad(2.0), deg2rad(5.0), deg2rad(0.0), 'sxyz')[0:3,0:3]
   R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i) 
 
   cam = { } 
   cam['f'] = 2271.3;
   cam['cu'] = 622.0338;
   cam['cv'] = 419.4885;
+  #cam['f'] = 2250.0;
+  #cam['cu'] = 640.0;
+  #cam['cv'] = 480.0;
   cam['KK'] = array([[cam['f'], 0.0, cam['cu']], \
                      [0.0, cam['f'], cam['cv']], \
                      [0.0, 0.0, 1.0]]);
@@ -49,12 +52,12 @@ if __name__ == '__main__':
     pts = zeros([num_imgs_fwd, 3])
     for t in range(num_imgs_fwd):
       pts[t,:] = WGS84toENU(gps_dat[framenum, 1:4], gps_dat[framenum+t, 1:4])
-      pts[t,2] = pts[t,2] - 1.5
+      pts[t,2] = pts[t,2] - 1.1 
 
     for idx in range(1,pts.shape[0]):
       world_coordinates = pts[idx,:]
       pos_wrt_imu = dot(R_to_i_from_w, world_coordinates)
-      pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([0.25, -2.13,
+      pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([-0.25, -2.13,
         0])))
       pix = around(dot(cam['KK'], divide(pos_wrt_camera, pos_wrt_camera[2])))
       if (pix[0] > 0 and pix[0] < 1280 and pix[1] > 0 and pix[1] < 960):
