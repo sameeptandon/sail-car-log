@@ -19,7 +19,7 @@ if __name__ == '__main__':
   R_to_c_from_i = array([[-1, 0, 0], \
                          [0, 0, -1], \
                          [0, -1, 0]]);
-  R_camera_pitch = euler_matrix(deg2rad(-1.0), deg2rad(0.0), deg2rad(0.0), 'sxyz')[0:3,0:3]
+  R_camera_pitch = euler_matrix(deg2rad(-0.7), deg2rad(0.3), deg2rad(0.0), 'sxyz')[0:3,0:3]
   R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i) 
 
   cam = { }
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     (success, I) = video_reader.getNextFrame()
     if success == False:
       break
-    if framenum % 5 != 0:
+    if framenum % 50 != 0:
       continue
 
     #roll_start = deg2rad(gps_dat[framenum,7]);
@@ -86,16 +86,18 @@ if __name__ == '__main__':
       pos_wrt_imu = dot(R_to_i_from_w, world_coordinates)
       #pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu - array([-0.25, -1.0,
       # 0.6])))
-      pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([0, 0.5, -1.0])))
+      #pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([0, 0.5, -0.57])))
+      pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([0, 0.0, -0])))
       #pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([-0.25, -2.13,
       #  0])))
+      pos_wrt_camera[1] = pos_wrt_camera[1] + 1.1;
       # quick hack added by Tao
       #pos_wrt_camera[2] = pos_wrt_camera[2]*1.4
       pix = around(dot(cam['KK'], divide(pos_wrt_camera, pos_wrt_camera[2])))
       if (pix[0] > 0 and pix[0] < 1280 and pix[1] > 0 and pix[1] < 960):
-        I[pix[1]-3:pix[1]+3, pix[0]-3:pix[0]+3, 0] = 255;
-        I[pix[1]-3:pix[1]+3, pix[0]-3:pix[0]+3, 1] = 0;
-        I[pix[1]-3:pix[1]+3, pix[0]-3:pix[0]+3, 2] = 0;
+        I[pix[1]-0:pix[1]+1, pix[0]-0:pix[0]+1, 0] = 255;
+        I[pix[1]-0:pix[1]+1, pix[0]-0:pix[0]+1, 1] = 0;
+        I[pix[1]-0:pix[1]+1, pix[0]-0:pix[0]+1, 2] = 0;
 
     imshow('video', I)
     key = waitKey(5)
