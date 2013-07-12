@@ -22,7 +22,7 @@ def main(rootdir):
         seconds = numseconds(f)
         total += seconds
         path, name = os.path.split(f)
-        print name, seconds / 60, 'minutes'
+        print path, name, seconds / 60, 'minutes'
 
     print 'total =', total/60, 'minutes'
 
