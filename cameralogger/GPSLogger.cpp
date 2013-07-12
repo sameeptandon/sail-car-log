@@ -17,14 +17,16 @@ void GPSLogger::safeWrite(string cmd) {
 }
 
 string GPSLogger::getPacket() {
+    string candidatePacket; 
     for (int i = 0; i < RETRY_ATTEMPTS; i++) {
-        string candidatePacket = safeRead();
+        candidatePacket = safeRead();
+        //cout << candidatePacket << endl; 
         if (boost::contains(candidatePacket, PACKET_HEADER)) {
             return candidatePacket;
         }
     }
 
-    return "INVALID PACKET";
+    return "INVALID PACKET: " + candidatePacket;
 }
 
 string GPSLogger::safeRead() {
