@@ -24,7 +24,5 @@ if __name__ == '__main__':
       lastTime = currentTime
       frames = 0
 
-  writer.close()
-
 
 
