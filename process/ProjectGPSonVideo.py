@@ -6,11 +6,12 @@ from GPSReprojection import *
 from transformations import euler_matrix
 from numpy import array, dot, zeros, around, divide
 from cv2 import imshow, waitKey, resize
+import time
 
 if __name__ == '__main__':
   video_filename = sys.argv[1]
   gps_filename = sys.argv[2]
-  num_imgs_fwd = 125; 
+  num_imgs_fwd = 525; 
   video_reader = VideoReader(video_filename)
   gps_reader = GPSReader(gps_filename)
   gps_dat = gps_reader.getNumericData()
@@ -32,19 +33,24 @@ if __name__ == '__main__':
                      [0.0, 0.0, 1.0]]);
 
   framenum = 0;
+  lastTime = time.time()
   while True:
     framenum = framenum + 1;
-    #(success, I) = video_reader.getNextFrame()
-    #if success == False:
-    #  break
-    #if framenum % 50 != 0:
-    #  continue
+    (success, I) = video_reader.getNextFrame()
+    if success == False:
+      break
+    if framenum % 50 != 0:
+      continue
     
     M = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam); 
-    #I = np.minimum(M,I)
-    #imshow('video', I)
-    #key = waitKey(5)
-    #if key == 'q':
-    #  break;
+    I = np.minimum(M,I)
+    imshow('video', I)
+    key = waitKey(5)
+    if key == 'q':
+      break;
+    currentTime = time.time();
+    if (currentTime - lastTime > 1):
+        print framenum
+        lastTime = currentTime
 
 

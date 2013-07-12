@@ -24,9 +24,8 @@ def GPSMask(GPSData, Camera):
                   [sg*cp+cg*st*sp, cg*ct, sg*sp-cg*st*cp],
                   [-ct*sp, st, ct*cp]]).transpose()
 
-    pts = zeros([GPSData.shape[0],3])
-    for t in range(pts.shape[0]):
-      pts[t,:] = WGS84toENU(GPSData[0, 1:4], GPSData[t, 1:4])
+
+    pts = WGS84toENU(GPSData[0,1:4], GPSData[:,1:4])
 
     R_to_c_from_i = Camera['R_to_c_from_i']
     R_camera_pitch = euler_matrix(Camera['rot_x'], Camera['rot_y'],\
@@ -36,12 +35,14 @@ def GPSMask(GPSData, Camera):
     #I = zeros((960,1280,3), np.uint8)
     I = 255*ones((960,1280,3), np.uint8)
 
-    for idx in range(1,pts.shape[0]):
-      world_coordinates = pts[idx,:]
-      pos_wrt_imu = dot(R_to_i_from_w, world_coordinates)
-      pos_wrt_camera = dot(R_to_c_from_i, (pos_wrt_imu + array([0, 0.0, -0])))
-      pos_wrt_camera[1] = pos_wrt_camera[1] + 1.1; # move to ground
-      pix = around(dot(Camera['KK'], divide(pos_wrt_camera, pos_wrt_camera[2])))
+    world_coordinates = pts;
+    pos_wrt_imu = dot(R_to_i_from_w, world_coordinates);
+    pos_wrt_camera = dot(R_to_c_from_i, pos_wrt_imu);
+    pos_wrt_camera[1,:] += 1.1 #move to ground
+    vpix = around(dot(Camera['KK'], divide(pos_wrt_camera, pos_wrt_camera[2,:])))
+
+    for idx in range(1,pts.shape[1]):
+      pix = vpix[:,idx]
       if (pix[0] > 0 and pix[0] < 1280 and pix[1] > 0 and pix[1] < 960):
         I[pix[1]-2:pix[1]+2, pix[0]-2:pix[0]+2, 0] = 0;
         I[pix[1]-2:pix[1]+2, pix[0]-2:pix[0]+2, 1] = 0;
