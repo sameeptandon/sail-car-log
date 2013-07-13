@@ -44,9 +44,9 @@ def GPSMask(GPSData, Camera):
     for idx in range(1,pts.shape[1]):
       pix = vpix[:,idx]
       if (pix[0] > 0 and pix[0] < 1280 and pix[1] > 0 and pix[1] < 960):
-        I[pix[1]-2:pix[1]+2, pix[0]-2:pix[0]+2, 0] = 0;
-        I[pix[1]-2:pix[1]+2, pix[0]-2:pix[0]+2, 1] = 0;
-        I[pix[1]-2:pix[1]+2, pix[0]-2:pix[0]+2, 2] = 0;
+        I[pix[1]-0:pix[1]+1, pix[0]-0:pix[0]+1, 0] = 0;
+        I[pix[1]-0:pix[1]+1, pix[0]-0:pix[0]+1, 1] = 0;
+        I[pix[1]-0:pix[1]+1, pix[0]-0:pix[0]+1, 2] = 0;
     
     return I
 
