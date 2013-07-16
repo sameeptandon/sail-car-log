@@ -1,5 +1,5 @@
 import preprocess as pp
-import preprocess_raw as raw
+import preprocess_many_labels as pml
 import glob
 import numpy as np
 import os
@@ -16,28 +16,37 @@ import pdb
 
 
 def formatLabel(orig_label):
-    orig_label = imresize(orig_label, (240, 320));
-    orig_label = (np.sum(orig_label, axis=2) < 382).astype(float)
+    orig_label = (np.sum(orig_label, axis=2) < 765).astype(float) # < 765ish
 
-    output_label = np.zeros((240, 320))
+    output_label = []
 
-    start_index = np.argmax(np.max(orig_label, axis=1))
-    start_column = np.argmax(orig_label[start_index])
-    while start_index < 239 and np.max(orig_label[start_index+1:240]) == 1:
-        #print "%d %d" % (start_index, start_column)
-        output_label[start_index, start_column] = 1
+    for i in xrange(60):
+        positions = []
+        for j in xrange(16):
+            positions = np.append(positions, np.where(orig_label[16*i + j] == 1))
+            
 
-        end_index = start_index + 1 + np.argmax(np.max(orig_label[start_index+1:240], axis=1))
-        end_column = np.argmax(orig_label[end_index])
-        for i in range(start_index+1, end_index):
-            column = start_column + (i - start_index) * (end_column - start_column) / (end_index - start_index)
-            output_label[i, np.round(column)] = 1
+        if len(positions) == 0:
+            output_label.append(0)
+        else:
+            x_pos = int(np.mean(positions) / 16) + 1
+            output_label.append(x_pos)
 
-        start_index = end_index
-        start_column = end_column
+    non_zero = np.where(np.array(output_label) != 0)[0]
 
-    for i in range(start_index, 240):
-        output_label[i, start_column] = 1
+    for i in xrange(non_zero.size - 1):
+        start = non_zero[i]
+        end = non_zero[i+1]
+        start_val = output_label[start]
+        end_val = output_label[end]
+        for j in xrange(start+1, end):
+            output_label[j] = start_val + int((j - start) * (end_val - start_val) / (end - start))
+
+    if non_zero.size != 0:
+        end = np.max(non_zero)
+        end_val = output_label[end]
+        for i in xrange(end + 1, len(positions)):
+            output_label[i] = end_val
 
     return output_label
 
@@ -59,9 +68,9 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
         imgs.append(reshaped)
 
         framenum = start_frame + count
-        label = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam)
-        label = formatLabel(label)
-        labels.append(label)
+        mask = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam)
+        points = formatLabel(mask)
+        labels.append(points)
 
         count += 1
 
@@ -75,7 +84,7 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
         merge_labels = labels[output_num*960:(output_num+1)*960]
 
         merge_file = "%s_%d" % (output_base, output_num)
-        raw.save_raw_merged_file(merge_file, merge_imgs, merge_labels) 
+        pml.save_merged_file(merge_file, merge_imgs, merge_labels) 
 
     print 'finished batch for %s' % output_base
     return (success, count)
@@ -89,9 +98,9 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
     cam['R_to_c_from_i'] = np.array([[-1, 0, 0], \
                          [0, 0, -1], \
                          [0, -1, 0]]);
-    cam['rot_x'] = deg2rad(-0.66); # -0.569
-    cam['rot_y'] = deg2rad(-0.71); # 0.298
-    cam['rot_z'] = deg2rad(0.0); # 0.027
+    cam['rot_x'] = deg2rad(-0.569) #deg2rad(-0.66); # -0.569
+    cam['rot_y'] = deg2rad(0.298) #deg2rad(-0.71); # 0.298
+    cam['rot_z'] = deg2rad(0.027) #deg2rad(0.0); # 0.027
 
     cam['fx'] = 2221.8
     cam['fy'] = 2233.7
@@ -127,7 +136,7 @@ if __name__ == '__main__':
     final_frame = int(sys.argv[4]) if len(sys.argv) > 4 else -1
     for gps_file in gps_files:
         prefix = gps_file[0:-8]
-        file_path = prefix + '1.avi'
+        file_path = prefix + '2.avi'
         print file_path
         print gps_file
         runLabeling(file_path, gps_file, output_name + '_' + prefix[-1] + '1', frames_to_skip, final_frame)

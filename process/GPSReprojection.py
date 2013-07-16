@@ -39,6 +39,7 @@ def GPSMask(GPSData, Camera):
     pos_wrt_imu = dot(R_to_i_from_w, world_coordinates);
     pos_wrt_camera = dot(R_to_c_from_i, pos_wrt_imu);
     pos_wrt_camera[1,:] += 1.1 #move to ground
+    pos_wrt_camera[0,:] += 0.5 #move to ground
     vpix = around(dot(Camera['KK'], divide(pos_wrt_camera, pos_wrt_camera[2,:])))
 
     for idx in range(1,pts.shape[1]):
