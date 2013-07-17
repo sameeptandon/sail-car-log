@@ -18,12 +18,12 @@ class RandomVideoReader(VideoReader):
     self.cap_num = 0; 
 
   def getNextFrame(self):
-    if self.cap_num >= len(self.captures):
-      return (False, None)
-
     if self.framenum == self.lengths[self.cap_num]:
       self.framenum = 0
       self.cap_num += 1
+
+    if self.cap_num >= len(self.captures):
+      return (False, None)
 
     cap = self.captures[self.cap_num]
     frame_in_stream = self.order[self.cap_num][self.framenum]
