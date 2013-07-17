@@ -10,7 +10,7 @@ import tempfile
 from scipy.misc import toimage, imresize
 from GPSReader import *
 from GPSReprojection import *
-from VideoReader import *
+from RandomVideoReader import *
 from WGS84toENU import *
 import pdb
 
@@ -45,7 +45,7 @@ def formatLabel(orig_label):
     if non_zero.size != 0:
         end = np.max(non_zero)
         end_val = output_label[end]
-        for i in xrange(end + 1, len(positions)):
+        for i in xrange(end + 1, len(output_label)):
             output_label[i] = end_val
 
     return output_label
@@ -54,46 +54,42 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
     num_imgs_fwd = 120
 
     count = 0
+    output_num = 0
     imgs = []
     labels = []
     success = True
     while True:
-        (success, I) = video_reader.getNextFrame()
+        (success, I, frame) = video_reader.getNextFrame()
         if count % 160 == 0:
             print count
-        if success == False or count == 9600 or start_frame + count == final_frame:
+        if success == False:
             break
+        if frame < start_frame or (final_frame != -1 and frame >= final_frame):
+            continue
 
         reshaped = pp.resize(I, (240, 320))[0]
         imgs.append(reshaped)
 
-        framenum = start_frame + count
+        framenum = frame
         mask = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam)
         points = formatLabel(mask)
         labels.append(points)
 
+        if len(imgs) == 960:
+            merge_file = "%s_%d" % (output_base, output_num)
+            pml.save_merged_file(merge_file, imgs, labels)
+            imgs = []
+            labels = []
+            output_num += 1
+
         count += 1
 
-    state = random.getstate()
-    random.shuffle(imgs)
-    random.setstate(state)
-    random.shuffle(labels)
-
-    for output_num in range(count / 960):
-        merge_imgs = imgs[output_num*960:(output_num+1)*960]
-        merge_labels = labels[output_num*960:(output_num+1)*960]
-
-        merge_file = "%s_%d" % (output_base, output_num)
-        pml.save_merged_file(merge_file, merge_imgs, merge_labels) 
-
-    print 'finished batch for %s' % output_base
-    return (success, count)
-
 def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_frame):
-    video_reader = VideoReader(file_path)
+    video_reader = RandomVideoReader(file_path)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
 
+    # cam 2
     cam = { }
     cam['R_to_c_from_i'] = np.array([[-1, 0, 0], \
                          [0, 0, -1], \
@@ -113,19 +109,10 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
     more_batches = True
     batch_number = 0
 
-    for i in xrange(frames_to_skip):
-        video_reader.getNextFrame()
-
     start_frame = frames_to_skip
-    while more_batches:
-        (more_batches, frames) = runBatch(video_reader, gps_dat, cam, "%s_%d" % (output_name, batch_number), start_frame, final_frame)
+    runBatch(video_reader, gps_dat, cam, output_name, start_frame, final_frame)
 
-        batch_number += 1
-        print "Done with %d" % batch_number
-        start_frame += frames
-
-        if start_frame == final_frame:
-            more_batches = False
+    print "Done with %s" % output_name
 
 if __name__ == '__main__':
     folder = sys.argv[1]
@@ -139,5 +126,5 @@ if __name__ == '__main__':
         file_path = prefix + '2.avi'
         print file_path
         print gps_file
-        runLabeling(file_path, gps_file, output_name + '_' + prefix[-1] + '1', frames_to_skip, final_frame)
+        runLabeling(file_path, gps_file, output_name + '_' + prefix[-1] + '2', frames_to_skip, final_frame)
 
