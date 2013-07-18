@@ -1,4 +1,4 @@
-import cv2
+import cv2, cv
 import os
 
 class VideoReader():
@@ -27,6 +27,20 @@ class VideoReader():
     success, img = self.captures[self.framenum % self.num_splits].read()
     return (success, img) 
 
+  def setFrame(self, framenum):
+      self.framenum = framenum;
+      for j in range(1,self.num_splits+1):
+          capture_framenum = (framenum/10 + 1) if j-1 < framenum % 10 else framenum/10
+          self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
+          self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
+          self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
+          print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_FPS)
+          #self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_MSEC, float(capture_framenum)/0.05)
+          #a,b = self.captures[j % self.num_splits].read()
+          print j, capture_framenum
+          print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_POS_MSEC)
+          print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_FRAME_COUNT)
+
   def playVideo(self):
     self.framenum = 0;
     while True:
@@ -35,5 +49,3 @@ class VideoReader():
         break;
       cv2.imshow("video", img)
       key = cv2.waitKey(5);
-
-
