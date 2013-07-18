@@ -38,17 +38,15 @@ def GPSMask(GPSData, Camera, width=2):
     world_coordinates = pts;
     pos_wrt_imu = dot(R_to_i_from_w, world_coordinates);
     pos_wrt_camera = dot(R_to_c_from_i, pos_wrt_imu);
-    #pos_wrt_camera[0,:] += 0.5 #move to center
     pos_wrt_camera[1,:] += 1.1 #move to ground
-    pos_wrt_camera[0,:] += 0.5 #move to ground
+    #pos_wrt_camera[0,:] += 0.5 #move to ground
     vpix = around(dot(Camera['KK'], divide(pos_wrt_camera, pos_wrt_camera[2,:])))
-    #indx = np.where((vpix[0,:] > 0) & (vpix[0,:] < 1280) & (vpix[1,:] > 0) & vpix[1] < 960);
     vpix = vpix.astype(np.int32)
     vpix = vpix[:,vpix[0,:] > 0 + width/2]
     vpix = vpix[:,vpix[1,:] > 0 + width/2]
     vpix = vpix[:,vpix[0,:] < 1280 - width/2]
     vpix = vpix[:,vpix[1,:] < 960 - width/2]
-    #I[vpix[1,:]-width+1:vpix[1,:]+width, vpix[0,:]-width+1:vpix[0,:]+width, 0] = 0
+    
     for p in range(-width/2,width/2):
         I[vpix[1,:]+p, vpix[0,:], :] = 0
         I[vpix[1,:], vpix[0,:]+p, :] = 0
