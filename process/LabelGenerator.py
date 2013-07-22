@@ -67,6 +67,10 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
         if frame < start_frame or (final_frame != -1 and frame >= final_frame):
             continue
 
+        gps_frames = gps_dat[frame:frame+num_imgs_fwd,:]
+        if gps_frames.shape[0] < num_imgs_fwd:
+            continue
+
         reshaped = pp.resize(I, (240, 320))[0]
         imgs.append(reshaped)
 
@@ -89,28 +93,37 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
 
-    # cam 2
-    cam = { }
-    cam['R_to_c_from_i'] = np.array([[-1, 0, 0], \
-                         [0, 0, -1], \
-                         [0, -1, 0]]);
-    cam['rot_x'] = deg2rad(-0.569) #deg2rad(-0.66); # -0.569
-    cam['rot_y'] = deg2rad(0.298) #deg2rad(-0.71); # 0.298
-    cam['rot_z'] = deg2rad(0.027) #deg2rad(0.0); # 0.027
+    cam = [{}, {}]
+    for i in xrange(len(cam)):
+        cam[i] = { }
+        cam[i]['R_to_c_from_i'] = np.array([[-1, 0, 0], \
+                                 [0, 0, -1], \
+                                 [0, -1, 0]]);
+        cam[i]['fx'] = 2221.8
+        cam[i]['fy'] = 2233.7
+        cam[i]['cu'] = 623.7
+        cam[i]['cv'] = 445.7
+        cam[i]['KK'] = array([[cam[i]['fx'], 0.0, cam[i]['cu']], \
+                             [0.0, cam[i]['fy'], cam[i]['cv']], \
+                             [0.0, 0.0, 1.0]]);
+        cam[i]['t_y'] = 1.1
+        cam[i]['t_z'] = 0.0
 
-    cam['fx'] = 2221.8
-    cam['fy'] = 2233.7
-    cam['cu'] = 623.7
-    cam['cv'] = 445.7
-    cam['KK'] = array([[cam['fx'], 0.0, cam['cu']], \
-                     [0.0, cam['fy'], cam['cv']], \
-                     [0.0, 0.0, 1.0]]);
 
-    more_batches = True
-    batch_number = 0
+    cam[0]['rot_x'] = deg2rad(-0.8)
+    cam[0]['rot_y'] = deg2rad(-0.5)
+    cam[0]['rot_z'] = deg2rad(-0.005)
+    cam[0]['t_x'] = -0.5
+
+    cam[1]['rot_x'] = deg2rad(-0.62)
+    cam[1]['rot_y'] = deg2rad(0.2)
+    cam[1]['rot_z'] = deg2rad(0.0)
+    cam[1]['t_x'] = 0.5
+
+    cam_to_use = cam[int(output_name[-1]) - 1]
 
     start_frame = frames_to_skip
-    runBatch(video_reader, gps_dat, cam, output_name, start_frame, final_frame)
+    runBatch(video_reader, gps_dat, cam_to_use, output_name, start_frame, final_frame)
 
     print "Done with %s" % output_name
 
@@ -123,8 +136,9 @@ if __name__ == '__main__':
     final_frame = int(sys.argv[4]) if len(sys.argv) > 4 else -1
     for gps_file in gps_files:
         prefix = gps_file[0:-8]
-        file_path = prefix + '2.avi'
-        print file_path
-        print gps_file
-        runLabeling(file_path, gps_file, output_name + '_' + prefix[-1] + '2', frames_to_skip, final_frame)
+        for i in [1,2]:
+            file_path = prefix + str(i) + '.avi'
+            print file_path
+            print gps_file
+            runLabeling(file_path, gps_file, output_name + '_' + prefix[-1] + str(i), frames_to_skip, final_frame)
 
