@@ -4,7 +4,7 @@ from VideoReader import *
 from WGS84toENU import *
 from GPSReprojection import *
 from transformations import euler_matrix
-from numpy import array, dot, zeros, around, divide
+from numpy import array, dot, zeros, around, divide, arange, logical_or, concatenate
 from cv2 import imshow, waitKey, resize
 import time
 
@@ -24,8 +24,12 @@ if __name__ == '__main__':
   else:
     output_width = 1280
     output_height = 960
+  if len(sys.argv) > 5:
+    length_in_seconds = int(sys.argv[5])
+  else:
+    length_in_seconds = 999999999999
 
-  num_imgs_fwd = 1000; 
+  num_imgs_fwd = 250; 
   video_reader = VideoReader(video_filename)
   gps_reader = GPSReader(gps_filename)
   gps_dat = gps_reader.getNumericData()
@@ -70,6 +74,7 @@ if __name__ == '__main__':
                      [0.0, 0.0, 1.0]]);
 
   writer = cv2.VideoWriter(output_filename, cv.CV_FOURCC('F','M','P','4'), 50.0, (output_width, output_height))
+  #writer = cv2.VideoWriter(output_filename, cv.CV_FOURCC('D','I','V','X'), 50.0, (output_width, output_height))
 
   framenum = 0
   frameRate = 0 
@@ -83,16 +88,35 @@ if __name__ == '__main__':
       break
     if framenum + num_imgs_fwd + 1 > gps_dat.shape[0]:
       break
+    if framenum > length_in_seconds * 50:
+      break
 
-    M = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, width=1); 
+    framenums_to_reproject = arange(framenum,framenum+num_imgs_fwd)
+
+    special_frame_idx = framenums_to_reproject % 50 == 0 
+    for frame_depth in range(1,5):
+      special_frame_idx = logical_or(framenums_to_reproject % 50 == frame_depth, special_frame_idx)
+    special_frames = framenums_to_reproject[special_frame_idx]
+
+    if framenum not in special_frames:
+      special_frames = concatenate([[framenum], special_frames])
+    
+    M = GPSMask(gps_dat[framenums_to_reproject,:], cam, width=5); 
     I = np.minimum(M,I)
+    M = 255 - M;
+    I[:,:,2] = np.maximum(M[:,:,2], I[:,:,2])
+    M = GPSMask(gps_dat[special_frames,:], cam, width=5); 
+    I = np.minimum(M,I)
+    M = 255 - M;
+    I[:,:,1] = np.maximum(M[:,:,1], I[:,:,1])
     I = resize(I,(output_width, output_height))
+    
     #imshow('video', I)
     #key = waitKey(10)
-    writer.write(I);
-
     #if key == ord('q'):
     #  break;
+
+    writer.write(I);
     currentTime = time.time();
     if (currentTime - lastTime > 10):
         print 'Encoding at', frameRate / 10,  'Hz'
