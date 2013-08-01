@@ -3,6 +3,7 @@ import preprocess_many_labels as pml
 import glob
 import numpy as np
 import os
+import os.path
 import random
 import shutil
 import sys
@@ -71,6 +72,10 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
         if gps_frames.shape[0] < num_imgs_fwd:
             continue
 
+        min_speed = GPSMinVelocity(gps_frames)
+        if min_speed < 18:  # slower than 40 mph
+            continue
+
         reshaped = pp.resize(I, (240, 320))[0]
         imgs.append(reshaped)
 
@@ -90,6 +95,7 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
 
 def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_frame):
     video_reader = RandomVideoReader(file_path)
+    video_reader.setSubsample(True)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
 
@@ -127,18 +133,23 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
 
     print "Done with %s" % output_name
 
-if __name__ == '__main__':
-    folder = sys.argv[1]
-    gps_files = glob.glob(folder + '*_gps.out')
+def parseFolder(args):
+    (folder, output_folder) = args
+    gps_files = glob.glob(folder +  '*_gps.out')
 
-    output_name = sys.argv[2]
-    frames_to_skip = int(sys.argv[3]) if len(sys.argv) > 3 else 0
-    final_frame = int(sys.argv[4]) if len(sys.argv) > 4 else -1
+    frames_to_skip = 0  #int(sys.argv[3]) if len(sys.argv) > 3 else 0
+    final_frame = -1  #int(sys.argv[4]) if len(sys.argv) > 4 else -1
     for gps_file in gps_files:
         prefix = gps_file[0:-8]
         for i in [1,2]:
             file_path = prefix + str(i) + '.avi'
-            print file_path
-            print gps_file
-            runLabeling(file_path, gps_file, output_name + '_' + prefix[-1] + str(i), frames_to_skip, final_frame)
+            #print file_path
+            #print gps_file
+            path, output_base = os.path.split(prefix)
+            output_name = os.path.join(output_folder, output_base + str(i))
+            print output_name
+            runLabeling(file_path, gps_file, output_name, frames_to_skip, final_frame)
 
+if __name__ == '__main__':
+    folder = (sys.argv[1], sys.argv[2])
+    parseFolder(folder)

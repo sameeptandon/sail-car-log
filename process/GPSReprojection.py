@@ -3,6 +3,9 @@ import numpy as np
 from WGS84toENU import *
 from numpy import array, dot, zeros, around, divide, ones
 
+def GPSMinVelocity(GPSData):
+   return np.min(np.apply_along_axis(np.linalg.norm, 1, GPSData[:,4:7]))
+
 def GPSMask(GPSData, Camera, width=2): 
 
     roll_start = -deg2rad(GPSData[0,7]);
