@@ -15,15 +15,19 @@ class RandomVideoReader(VideoReader):
       random.shuffle(list_order)
       self.order.append(list_order)
 
-    print self.lengths
-    self.cap_num = 0; 
+    self.subsample = False
+    self.cap_num = 0;
+
+  def setSubsample(self, subs):
+    self.subsample = subs
 
   def getNextFrame(self):
     if self.framenum == self.lengths[self.cap_num]:
       self.framenum = 0
       self.cap_num += 1
 
-    if self.cap_num >= len(self.captures):
+    num_captures = 1 if self.subsample else len(self.captures)
+    if self.cap_num >= num_captures:
       return (False, None, -1)
 
     cap = self.captures[self.cap_num]

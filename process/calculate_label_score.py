@@ -3,6 +3,7 @@ import sys
 from cv2 import imread, imshow, resize, waitKey
 from scipy.io import loadmat, savemat
 from scipy.misc import imresize
+from scipy.ndimage import gaussian_filter
 from scipy.ndimage.morphology import *
 from GPSReader import *
 from GPSTransforms import *
@@ -15,7 +16,7 @@ if __name__ == '__main__':
     vidname = vfname.split('.')[0]
     cam_num = int(vidname[-1])
     gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
-    num_imgs_fwd = 25
+    num_imgs_fwd = 50
     video_reader = VideoReader(video_filename)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
@@ -74,6 +75,7 @@ if __name__ == '__main__':
     count = 0
     start = 0
     end = 0
+    scale = 4
 
     score = np.zeros((points.shape[0],))
     score_thresh = 0.25
@@ -83,39 +85,46 @@ if __name__ == '__main__':
         if not success:
             break
 
-        O = findLanes(I)
+        I = imresize(I, (240, 320))
+        O = findLanes(I, (240, 320))
+
         response = O < 0.25
         score_O = distance_transform_edt(response)
         m = np.max(np.max(score_O))
         score_O = score_O / m
         score_O = np.exp(-25*score_O)
+        #imshow('video', O)
+        #waitKey()
+        #score_O = gaussian_filter(O, sigma=7)
+        #score_O = O
 
-        if count % 100 == 0:
+        if count % 10 == 0:
             print count
+
+        if count % 100 == 0 and count > 0:
             savemat(output_name, {'score': score})
-        while start < points.shape[0] and points[start][2] < count:
+        while start < points.shape[0] and points[start,4] < count:
             start += 1
-        while end < points.shape[0] and points[end][2] < count + num_imgs_fwd:
+        while end < points.shape[0] and points[end,4] < count + num_imgs_fwd:
             end += 1
 
+        if start == end:
+            break
+
         pts = points[start:end]
-        x = pts[:,0]
-        y = pts[:,1]
-        Z = ((y-cam['cv'])*np.sin(pitch)*height + f*cos(pitch) * height)/(cos(pitch)*(y-cam['cv']) - f*sin(pitch))
-        X = (cos(pitch)*Z-sin(pitch)*height)*(x-cam['cu'])/f
-        Y = np.zeros((x.shape[0], 1))
+        tr_inv = np.linalg.inv(tr[count,:,:])
+        Pos2 = np.dot(tr_inv, pts[:,0:4].transpose())
 
-        dirs = np.array([X, Y, Z])
-        dirs = np.append(dirs, np.ones((1, dirs.shape[1])), 0)
-        print dirs.shape
-        intermediate = np.linalg.solve(Tc, dirs)
-        Pos = np.dot(tr[pts[:,2].astype(int)], intermediate)
-        print Pos.shape
-        Pos2 = np.linalg.solve(tr[count,:,:], Pos.transpose())
-
-        pos2 = np.around(np.dot(cam['KK'], np.divide(Pos2[:,0:3], Pos2[:,2])))
-        y = min(959, max(0, pos2[:,1]))
-        x = min(1279, max(0, pos2[:,0]))
+        pos2 = np.around(np.dot(cam['KK'], np.divide(Pos2[0:3, :], Pos2[2, :])))
+        y = pos2[1, :].astype(int)
+        y = y / scale
+        y[y < 0] = 0
+        y[y > 239] = 239
+        x = pos2[0, :].astype(int)
+        x = x / scale
+        x[x < 0] = 0
+        x[x > 319] = 319
+        score[start:end] = score[start:end] + score_O[y, x]
 
         """
         points_count = start
@@ -139,8 +148,6 @@ if __name__ == '__main__':
             points_count += 1
         """
         count += 1
-
-    score = score / num_imgs_fwd
 
     stable_points = np.zeros((0, 3))
     for i in xrange(score.shape[0]):
