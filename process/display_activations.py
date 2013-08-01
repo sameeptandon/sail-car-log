@@ -75,7 +75,7 @@ if __name__ == '__main__':
  
         if not success:
             break
-        if count % 25 != 0:
+        if count % 100 != 0:
             count += 1
             continue
 
@@ -99,21 +99,13 @@ if __name__ == '__main__':
 
         if count % 100 == 0:
             print count
-        while start < points.shape[0] and points[start][2] < count:
+        while start < points.shape[0] and points[start][4] < count:
             start += 1
 
         points_count = start
-        while points_count < points.shape[0] and points[points_count][2] <= count + num_imgs_fwd:
+        while points_count < points.shape[0] and points[points_count][4] <= count + num_imgs_fwd:
             pt = points[points_count]
-            x = pt[0]
-            y = pt[1]
-            Z = ((y-cam['cv'])*np.sin(pitch)*height + f*cos(pitch) * height)/(cos(pitch)*(y-cam['cv']) - f*sin(pitch))
-            X = (cos(pitch)*Z-sin(pitch)*height)*(x-cam['cu'])/f
-            Y = 0
-
-            intermediate = np.linalg.solve(Tc, np.array([X, Y, Z, 1]))
-            Pos = np.dot(tr[pt[2],:,:], intermediate)
-            Pos2 = np.linalg.solve(tr[count,:,:], Pos) # will have to change to deal with Tc2
+            Pos2 = np.linalg.solve(tr[count,:,:], pt[0:4]) # will have to change to deal with Tc2
 
             pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
 
@@ -125,7 +117,7 @@ if __name__ == '__main__':
         count += 1
         I = imresize(I, (480, 640))
         imshow('video', I)
-        key = waitKey()
+        key = waitKey(2)
         if key == ord('q'):
             break
 
