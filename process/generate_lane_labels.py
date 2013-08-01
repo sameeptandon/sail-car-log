@@ -4,11 +4,7 @@ import sys
 from VideoReader import *
 from scipy.ndimage.filters import convolve
 from scipy.io import loadmat
-
-sys.path.append('/afs/cs.stanford.edu/u/nikhilb/libs/liblinear-1.93/python')
-from liblinearutil import *
-
-import features
+import cv2
 
 def rgb2gray(img):
     (width, height, colors) = img.shape
@@ -62,42 +58,140 @@ def interpolateLanes(x, y):
     return (xout, yout)
 
 
-def findLanes(img, origSize=(960,1280)):
-    if len(img.shape) == 3:
-        img = rgb2gray(img)
-    (rows, cols) = img.shape
-    m = np.mean(np.mean(img[rows/2:rows,:]))
+def findLanes(img, origSize=(960,1280), lastCols=[None, None]):
+    #if len(img.shape) == 3:
+    #    img = rgb2gray(img)
+    (rows, cols, channels) = img.shape
+
+    # mean subtraction on image, clamp to 0
+    m = np.mean(np.mean(img[:,:],axis=0),axis=0)
     img = img - m
     img[img < 0] = 0
-    max_lane_size = int(np.round(origSize[1] / 36)) # approximation of lane width
+
+    # set max_lane_size to about 20 in the 1280x960 image
+    max_lane_size = int(np.round(origSize[1] / 64)) # approximation of lane width
     if max_lane_size % 2 == 1:
         max_lane_size += 1
     width_step = 2
     index_steps = int(np.round((float(origSize[0]) / 2) / (max_lane_size / width_step)))
 
-    O = np.zeros((rows, cols))
-
+    O = np.zeros((rows, cols, channels))
     lane_width = max_lane_size
     row_index = rows
-    while row_index > 0 and lane_width > 2:
-        v = 4*np.array([np.concatenate([-1*np.ones(lane_width/2), np.ones(lane_width+1), -1*np.ones(lane_width/2)])])
-        v = v/v.size
+    v = 4*np.array([np.concatenate([-1*np.ones(lane_width/2), 1*np.ones(lane_width+1), -1*np.ones(lane_width/2)])])
+    v = v/v.size
+    start_index = max(0, row_index - index_steps)
+    O_1 = np.round(convolve(img[:,:,0], v, mode='reflect')).reshape((rows,cols,1)) 
+    O_2 = np.round(convolve(img[:,:,1], v, mode='reflect')).reshape((rows,cols,1)) 
+    O_3 = np.round(convolve(img[:,:,2], v, mode='reflect')).reshape((rows,cols,1)) 
 
-        start_index = max(0, row_index - index_steps)
-        O[start_index:row_index, :] = np.round(convolve(
-            img[start_index:row_index, :], v, mode='reflect'))
-        lane_width -= width_step
-        row_index -= index_steps
+    O = cv2.merge([O_1, O_2, O_3])
 
-    low_vals = O < 0
-    O[low_vals] = 0
-    high_vals = O > 255
-    O[high_vals] = 255
+   
+    """
+    #idea for windowing around current lastCol, but could be bad as possible
+    to not recover on a bad misdetection
+    if lastCols[0] != None and lastCols[1] != None:
+        right_lane_min_x = lastCols[1]-40;
+        right_lane_max_x = lastCols[1]+40;
+        left_lane_min_x = lastCols[0]-40;
+        left_lane_max_x = lastCols[0]+40;
+        O[:,0:left_lane_min_x] = 0
+        O[:,left_lane_max_x:right_lane_min_x] = 0
+        O[:,right_lane_max_x:] = 0
+    """
 
+    """
+    #mean subtract output image
+    m = np.mean(np.mean(O[rows/2:rows,:],axis=0),axis=0)
+    O = O - m
+    O[O < 0] = 0
+    """
+
+    # thresholding for lane detection
+    white_lane_detect = np.sum(O,axis=2) > 350
+    yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 100, O[:,:,0] < 30) 
+    low_vals = np.logical_and(np.logical_not(white_lane_detect), np.logical_not(yellow_lane_detect))
+    O[low_vals,:] = 0
+
+    # get rid of top of the image so we don't find a column fit to it
+    O[0:2*rows/4,:] = 0
+
+    # go to gray scale for convenience
+    O_gray = rgb2gray(O);
+
+    # if you have lastCols, find the midpoint and submidpoints for 
+    # zero-ing the center of the lane
+    if lastCols[0] is not None and lastCols[1] is not None:
+        midpoint_lastCols = 0.5*(lastCols[0] + lastCols[1])
+        mid_left = 0.5*(lastCols[0] + midpoint_lastCols);
+        mid_right = 0.5*(lastCols[1] + midpoint_lastCols);
+        O_gray[:, mid_left:mid_right] = 0
+    else:
+        midpoint_lastCols = cols/2
+
+    # compute the sum of activations in each column and find the max 
+    # responding column on the left and right sides
+    column_O = np.sum(O_gray,axis=0);
+    resp_left = np.argmax(column_O[0: midpoint_lastCols]);
+    resp_right = np.argmax(column_O[midpoint_lastCols:]) + midpoint_lastCols;
+
+    # was there a detection on either side? 
+    LEFT_LANE_DETECTION = np.max(column_O[0: midpoint_lastCols]) != 0
+    RIGHT_LANE_DETECTION = np.max(column_O[midpoint_lastCols:]) != 0
+
+    if not LEFT_LANE_DETECTION and lastCols[0] is not None:
+        resp_left = lastCols[0]
+    if not RIGHT_LANE_DETECTION and lastCols[1] is not None:
+        resp_right = lastCols[1]
+
+    # how to move the columns based on previous cols 
+    if LEFT_LANE_DETECTION:
+        if lastCols[0] is not None:
+            lastCols[0] = 0.08*resp_left + 0.92*lastCols[0];
+        else:
+            lastCols[0] = resp_left
+    if RIGHT_LANE_DETECTION:
+        if lastCols[1] is not None:
+            lastCols[1] = 0.08*resp_right + 0.92*lastCols[1];
+        else:
+            lastCols[1] = resp_right
+    
+    # only consider detections around lastCol
+    if LEFT_LANE_DETECTION:
+        left_lane_min_x = lastCols[0]-max_lane_size;
+        left_lane_max_x = lastCols[0]+max_lane_size;
+    else:
+        left_lane_min_x = midpoint_lastCols
+        left_lane_max_x = midpoint_lastCols
+    if RIGHT_LANE_DETECTION:
+        right_lane_min_x = lastCols[1]-max_lane_size;
+        right_lane_max_x = lastCols[1]+max_lane_size;
+    else:
+        right_lane_min_x = cols 
+        right_lane_max_x = cols
+
+    O[:,0:left_lane_min_x] = 0
+    O[:,left_lane_max_x:right_lane_min_x] = 0
+    O[:,right_lane_max_x:] = 0
+
+    # if the cols want to move too close or too far, push them away/closer
+    if lastCols[0] is not None and lastCols[1] is not None:
+        if lastCols[1] - lastCols[0] > 9/16.0*cols:
+            lastCols[0] = midpoint_lastCols - 9/32.0*cols;
+            lastCols[1] = midpoint_lastCols + 9/32.0*cols;
+    
+        if lastCols[1] - lastCols[0] < 7/16.0*cols:
+            lastCols[0] = midpoint_lastCols - 7/32.0*cols;
+            lastCols[1] = midpoint_lastCols + 7/32.0*cols;
+
+    """
+    # output normalization
     O_min = np.amin(O)
     O_max = np.amax(O)
     O = (O - O_min) / (O_max - O_min)
-    return O
+    """
+    return (O, lastCols)
 
 
 if __name__ == '__main__':
