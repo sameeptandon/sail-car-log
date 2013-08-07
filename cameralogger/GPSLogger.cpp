@@ -66,14 +66,19 @@ void GPSLogger::Run() {
 }
 
 void GPSLogger::Close() {
-    safeWrite("unlogall\r\n");
     safeWrite("eventoutcontrol mark2 disable\r\n");
+    safeWrite("unlogall\r\n");
+    cout << "flushing GPS buffers" << endl;
     _port->flush();
+    sleep(1);
     // hack since flush doesn't do it:
     size_t buf_size = _port->available();
+    cout << "bytes in buffer after flush: " << buf_size << endl; 
     uint8_t* buf = (uint8_t*) malloc(sizeof(uint8_t)*buf_size);
     _port->read(buf, buf_size);
     free(buf);
+    buf_size = _port->available();
+    cout << "bytes in buffer after force clean: " << buf_size << endl; 
     _port->close();
     delete _port; 
 }
