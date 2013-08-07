@@ -1,107 +1,15 @@
+import cv
+import cv2
 import numpy as np
 import sys
 from GPSReader import *
 from GPSTransforms import *
 from VideoReader import *
 from WGS84toENU import *
+from generate_lane_labels import *
 from scipy.ndimage.filters import convolve
 from scipy.io import savemat
-
-sys.path.append('/afs/cs.stanford.edu/u/nikhilb/libs/liblinear-1.93/python')
-from liblinearutil import *
-
-import features
-
-
-def rgb2gray(img):
-    (width, height, colors) = img.shape
-
-    return 0.2989 * img[:, :, 0] + 0.5870 * img[:, :, 1] + 0.1140 * img[:, :, 2]
-
-
-def hogConv(O, weights):
-    w, h = O.shape
-    im = np.zeros((w, h, 3))
-    for i in xrange(3):
-        im[:, :, i] = O
-    hv = features.hog(im, sbin=16)
-    w, h, d = hv.shape
-    test = np.reshape(hv, (w*h, d))
-    return np.reshape(np.dot(test, weights), (w, h))
-
-
-def interpolateLanes(x, y):
-    xout = -1*np.ones(x.shape)
-    yout = -1*np.ones(y.shape)
-
-    for i in [0, 1]:
-        lane_x = x[i, :]
-        lane_y = y[i, :]
-
-        last_indexed = -1
-
-        for j in xrange(lane_x.size):
-            if lane_x[j] != -1:
-                xout[i, j] = lane_x[j]
-                yout[i, j] = lane_y[j]
-                if last_indexed != -1 and last_indexed != j-1:
-                    old_x = lane_x[last_indexed]
-                    old_y = lane_y[last_indexed]
-                    for k in xrange(last_indexed+1, j):
-                        xout[i, k] = np.round(old_x + (k - last_indexed) * (lane_x[j] - old_x) / (j - last_indexed))
-                        yout[i, k] = np.round(old_y + (k - last_indexed) * (lane_y[j] - old_y) / (j - last_indexed))
-                last_indexed = j
-
-        # make sure the end is populated
-        endIndex = xout.shape[1] - 1
-        if xout[i, endIndex] == -1:
-            while endIndex >= 0 and xout[i, endIndex] == -1:
-                endIndex -= 1
-            x_val = xout[i, endIndex]
-            y_val = yout[i, endIndex]
-
-            for j in xrange(endIndex+1, xout.shape[1]):
-                xout[i, j] = x_val
-                yout[i, j] = y_val
-
-    return (xout, yout)
-
-
-def findLanes(img, origSize=(960, 1280)):
-    if len(img.shape) == 3:
-        img = rgb2gray(img)
-    (rows, cols) = img.shape
-    m = np.mean(np.mean(img[rows/2:rows, :]))
-    img = abs(img - m)
-    max_lane_size = int(np.round(origSize[1] / 36))  # approximation of lane width
-    if max_lane_size % 2 == 1:
-        max_lane_size += 1
-    width_step = 2
-    index_steps = int(np.round((float(origSize[0]) / 2) / (max_lane_size / width_step)))
-
-    O = np.zeros((rows, cols))
-
-    lane_width = max_lane_size
-    row_index = rows
-    while row_index > 0 and lane_width > 0:
-        v = np.array([np.concatenate([-1*np.ones(lane_width/2), np.ones(lane_width+1), -1*np.ones(lane_width/2)])])
-        v = v/v.size
-
-        start_index = max(0, row_index - index_steps)
-        O[start_index:row_index, :] = np.round(convolve(
-            img[start_index:row_index, :], v, mode='reflect'))
-        lane_width -= width_step
-        row_index -= index_steps
-
-    low_vals = O < 0
-    O[low_vals] = 0
-    high_vals = O > 255
-    O[high_vals] = 255
-
-    O_min = np.amin(O)
-    O_max = np.amax(O)
-    O = (O - O_min) / (O_max - O_min)
-    return O
+from skimage.morphology import label
 
 
 if __name__ == '__main__':
@@ -109,7 +17,7 @@ if __name__ == '__main__':
     prev_y = -1*np.ones((2, 1))
     consec_borders = np.zeros((2, 1))
 
-    points = np.empty((0, 5))
+    points = np.empty((0, 7))
 
     remove_top = .75
     consec_sides = 5
@@ -167,8 +75,15 @@ if __name__ == '__main__':
     f = (cam['fx'] + cam['fy']) / 2
 
     tr = GPSTransforms(gps_dat, cam)
+    src = np.array([[499,597],[972,597],[1112,661],[448,678]], np.float32) / 4
+    dst = np.array([[320,320],[960,320],[960,640],[320,640]], np.float32) / 4
+    P = cv2.getPerspectiveTransform(src, dst)
 
+    lastCols = [None, None]
+
+    edge_size = 100
     count = 0
+    ratio = 4
     while True:
         (success, I) = video_reader.getNextFrame()
 
@@ -179,50 +94,35 @@ if __name__ == '__main__':
             print count
             savemat(output_name, {'points': points})
 
-        if count == 5000:
-            break
+        #if count == 5000:
+        #    break
 
-        O = findLanes(I)
+        imsize = (320,240)
+        I = cv2.resize(I, imsize)
+        (O, lastCols) = findLanes(I, (imsize[1], imsize[0]), lastCols, P)
 
-        (rows, cols) = O.shape
-        halves = np.array([O[int(np.round(remove_top*rows)):rows, 0:cols/2],
-                           O[int(np.round(remove_top*rows)):rows, cols/2:cols]])
+        O_bin = O[:,:,2] > 0
+        labels = label(O_bin, 8, 0)
+        num = np.amax(labels)
+        if num < 0:
+            count += 1
+            continue
+        new_points = np.zeros((0,3))
 
-        new_points = np.zeros((0, 2))
-        for i in [0, 1]:
-            side = halves[i]
-            bottom = side[side.shape[0] - 1, :]
-            if True:
-                edge = np.zeros(side.shape[0])
-                if i == 0:
-                    edge = side[:, min_from_side]
-                else:
-                    edge = side[:, cols/2 - min_from_side]
-                val = np.amax(edge)
-                ind = np.argmax(edge)
-                if val > threshold:
-                    x_val = 0
-                    if i == 0:
-                        x_val = min_from_side
-                    else:
-                        x_val = cols - min_from_side
+        for i in xrange(0, num+1):
+            tuple = np.where(labels == i)
+            x = tuple[1] * ratio + ratio/2
+            y = tuple[0] * ratio + ratio/2
+            if x.size > 0:
+                avg = np.mean(np.vstack([x, y]).transpose(), axis=0)
+                avg = np.hstack([avg, x.size])
+                new_points = np.append(new_points, avg.reshape((1,3)), axis=0)
 
-                    for j in xrange(0, edge.size, skippedPoints):
-                        if edge[j] > threshold:
-                            val = np.asarray([[x_val, min(j + int(rows*remove_top), rows - min_from_edge)]])
-                            new_points = np.append(new_points, val, 0)
-            if True:
-                y_val = rows - min_from_edge
-                r = range(0, bottom.size/4)
-                r.extend(range(bottom.size - bottom.size/4, bottom.size))
-                for j in r:
-                    if bottom[j] > threshold:
-                        x_val = max(min_from_edge, j) if i == 0 else min(cols/2 + j, cols - min_from_edge)
-                        val = np.asarray([[x_val, y_val]])
-                        new_points = np.append(new_points, val, 0)
-
+        if True:    
             x = new_points[:, 0]
             y = new_points[:, 1]
+            left_lane = x < 640
+
             Z = ((y-cam['cv'])*np.sin(pitch)*height + f*cos(pitch) * height)/(cos(pitch)*(y-cam['cv']) - f*sin(pitch))
             X = (cos(pitch)*Z-sin(pitch)*height)*(x-cam['cu'])/f
             Y = np.zeros((x.shape[0], 1))
@@ -232,6 +132,8 @@ if __name__ == '__main__':
             intermediate = np.linalg.solve(Tc, dirs)
             Pos = np.dot(tr[count, :, :], intermediate)
             Pos = np.append(Pos, count*np.ones((1, Pos.shape[1])), 0)
+            Pos = np.append(Pos, new_points[:, 2].reshape((1, Pos.shape[1])), 0)
+            Pos = np.append(Pos, left_lane.reshape((1, Pos.shape[1])), 0)
             points = np.append(points, Pos.transpose(), 0)
 
         count += 1

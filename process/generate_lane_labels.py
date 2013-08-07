@@ -4,6 +4,7 @@ import sys
 from VideoReader import *
 from scipy.ndimage.filters import convolve
 from scipy.io import loadmat
+import cv
 import cv2
 
 def rgb2gray(img):
@@ -58,10 +59,12 @@ def interpolateLanes(x, y):
     return (xout, yout)
 
 
-def findLanes(img, origSize=(960,1280), lastCols=[None, None]):
+def findLanes(img, origSize=(960,1280), lastCols=[None, None], P=np.eye(3)):
     #if len(img.shape) == 3:
     #    img = rgb2gray(img)
     (rows, cols, channels) = img.shape
+    
+    img = cv2.warpPerspective(img, P, (cols, rows))
 
     # mean subtraction on image, clamp to 0
     m = np.mean(np.mean(img[:,:],axis=0),axis=0)
@@ -132,9 +135,23 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None]):
 
     # compute the sum of activations in each column and find the max 
     # responding column on the left and right sides
+    top_k = 50
     column_O = np.sum(O_gray,axis=0);
-    resp_left = np.argmax(column_O[0: midpoint_lastCols]);
-    resp_right = np.argmax(column_O[midpoint_lastCols:]) + midpoint_lastCols;
+    top_k = min(top_k, np.nonzero(column_O[0:midpoint_lastCols])[0].size)
+    top_k = min(top_k, np.nonzero(column_O[midpoint_lastCols:])[0].size)
+
+    resp_left = np.copy(column_O[0:midpoint_lastCols].argsort()[-top_k:][::-1])
+    min_left = np.argmin(np.abs(resp_left - lastCols[0]))
+    resp_left = resp_left[min_left]
+
+    resp_right = np.copy(column_O[midpoint_lastCols:].argsort()[-top_k:][::-1])
+    min_right = np.argmin(np.abs(resp_right + midpoint_lastCols - lastCols[1]))
+    resp_right = resp_right[min_right] + midpoint_lastCols
+
+    #resp_left = np.argmax(column_O[0: midpoint_lastCols]);
+    #resp_right = np.argmax(column_O[midpoint_lastCols:]) + midpoint_lastCols;
+    print resp_left
+    print resp_right
 
     # was there a detection on either side? 
     LEFT_LANE_DETECTION = np.max(column_O[0: midpoint_lastCols]) != 0
@@ -148,12 +165,12 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None]):
     # how to move the columns based on previous cols 
     if LEFT_LANE_DETECTION:
         if lastCols[0] is not None:
-            lastCols[0] = 0.08*resp_left + 0.92*lastCols[0];
+            lastCols[0] = 0.15*resp_left + 0.85*lastCols[0];
         else:
             lastCols[0] = resp_left
     if RIGHT_LANE_DETECTION:
         if lastCols[1] is not None:
-            lastCols[1] = 0.08*resp_right + 0.92*lastCols[1];
+            lastCols[1] = 0.15*resp_right + 0.85*lastCols[1];
         else:
             lastCols[1] = resp_right
     
@@ -175,15 +192,17 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None]):
     O[:,left_lane_max_x:right_lane_min_x] = 0
     O[:,right_lane_max_x:] = 0
 
+    too_far = 8.5/16.0
+    too_close = 6.5/16.0
     # if the cols want to move too close or too far, push them away/closer
     if lastCols[0] is not None and lastCols[1] is not None:
-        if lastCols[1] - lastCols[0] > 9/16.0*cols:
-            lastCols[0] = midpoint_lastCols - 9/32.0*cols;
-            lastCols[1] = midpoint_lastCols + 9/32.0*cols;
+        if lastCols[1] - lastCols[0] > too_far*cols:
+            lastCols[0] = midpoint_lastCols - too_far/2*cols;
+            lastCols[1] = midpoint_lastCols + too_far/2*cols;
     
-        if lastCols[1] - lastCols[0] < 7/16.0*cols:
-            lastCols[0] = midpoint_lastCols - 7/32.0*cols;
-            lastCols[1] = midpoint_lastCols + 7/32.0*cols;
+        if lastCols[1] - lastCols[0] < too_close*cols:
+            lastCols[0] = midpoint_lastCols - too_close/2*cols;
+            lastCols[1] = midpoint_lastCols + too_close/2*cols;
 
     """
     # output normalization
@@ -191,6 +210,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None]):
     O_max = np.amax(O)
     O = (O - O_min) / (O_max - O_min)
     """
+    O = cv2.warpPerspective(O, P, (cols, rows), flags=cv.CV_WARP_INVERSE_MAP)
     return (O, lastCols)
 
 

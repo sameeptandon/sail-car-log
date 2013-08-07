@@ -20,7 +20,8 @@ if __name__ == '__main__':
     gps_dat = gps_reader.getNumericData()
 
     labels = loadmat(sys.argv[2])
-    points = labels['points']
+    left_points = labels['left']
+    right_points = labels['right']
 
     cam = { }
     cam['R_to_c_from_i'] = array([[-1, 0, 0], \
@@ -72,53 +73,44 @@ if __name__ == '__main__':
     start = 0
     while True:
         (success, I) = video_reader.getNextFrame()
- 
+
         if not success:
             break
         if count % 25 != 0:
             count += 1
             continue
 
+        if count > left_points.shape[0] or count > right_points.shape[0]:
+            break
 
-        #from scipy.ndimage.morphology import *
-        #O = findLanes(I)
-        """response = O < 0.25
-        O = response
-        O = distance_transform_edt(response)
-        m = np.max(np.max(O))
-        O = O / m
-        O = np.exp(-25*O)
-        """
-        #O = 255 * O
+        start = count
+        for points_count in xrange(start, min(left_points.shape[0], start+num_imgs_fwd)):
+            pt = left_points[points_count]
+            if pt[5] == 1:
+                Pos2 = np.linalg.solve(tr[count,:,:], pt[0:4]) # will have to change to deal with Tc2
 
-        #O = O.astype(int)
-        #for z in xrange(3):
-        #    I[:,:,z] = O
-        #I = I.astype(int)
-        
+                pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
 
-        if count % 100 == 0:
-            print count
-        while start < points.shape[0] and points[start][4] < count:
-            start += 1
+                if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 255
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 0
 
-        points_count = start
-        while points_count < points.shape[0] and points[points_count][4] <= count + num_imgs_fwd:
-            pt = points[points_count]
-            Pos2 = np.linalg.solve(tr[count,:,:], pt[0:4]) # will have to change to deal with Tc2
+            pt = right_points[points_count]
+            if pt[5] == 1:
+                Pos2 = np.linalg.solve(tr[count,:,:], pt[0:4]) # will have to change to deal with Tc2
 
-            pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
+                pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
 
-            if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 255
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 0
-            points_count += 1
+                if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 0
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 255
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 0
 
         count += 1
         I = imresize(I, (480, 640))
         imshow('video', I)
-        key = waitKey(5)
+        key = waitKey()
         if key == ord('q'):
             break
 

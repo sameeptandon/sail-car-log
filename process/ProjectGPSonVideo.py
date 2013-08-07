@@ -73,7 +73,7 @@ if __name__ == '__main__':
                      [0.0, 0.0, 1.0]]);
 
   #framenum = 1926;
-  framenum = 0
+  framenum = 20000
   lastTime = time.time()
   lastCols = [None, None]
   video_reader.setFrame(framenum)
@@ -114,23 +114,63 @@ if __name__ == '__main__':
     #WARP = resize(WARP, imsize)
     #I[0:480,:,:]=0
     I = WARP
+    
+    if lastCols[0] is None:
+        M = 255 - resize(M, imsize)
+        warped_M = np.nonzero(warpPerspective(M, P, imsize))
+        col_avg = np.mean(warped_M[1])
+        lastCols[0] = col_avg - 50
+        lastCols[1] = col_avg + 50
+
+
     (WARP, lastCols) = findLanes(WARP, (imsize[1], imsize[0]), lastCols)
-    print 'lastCols = ', lastCols
     #WARP = warpPerspective(WARP, P, imsize,flags=cv.CV_WARP_INVERSE_MAP);
     
+    I_t = np.zeros((imsize[1], imsize[0], 3))
+    I_t[239, :, 0] = 255
+    #I_t = warpPerspective(I_t, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
     I[WARP[:,:,0] > 0, 0] = 0
     I[WARP[:,:,0] > 0, 2] = 0
     I[WARP[:,:,0] > 0, 1] = 255
+    I[I_t[:, :, 0] > 0, 0] = 255
+    I[I_t[:, :, 0] > 0, 1] = 0
+    I[I_t[:, :, 0] > 0, 2] = 0
+
+    """
+    if lastCols[0] is not None:
+        y, x = np.nonzero(WARP[:,lastCols[0]-20:lastCols[0]+20,0])
+        if y.size > 4:
+            p = np.polyfit(y, x, 1)
+            if True: #p[0] < 0:
+                for y in xrange(240):
+                    x = p[0]*y + p[1] + lastCols[0] - 20
+                    if x < 0 or x >= 320: continue
+                    I[y, p[0]*y + p[1] + lastCols[0]-20] = [255, 0, 0]
+
+    if lastCols[1] is not None:
+        y, x = np.nonzero(WARP[:, lastCols[1]-20:lastCols[1]+20,0])
+        if y.size > 4:
+            p = np.polyfit(y, x, 1)
+            if True: #p[0] > 0:
+                for y in xrange(240):
+                    x = p[0]*y + p[1] + lastCols[1] - 20
+                    if x < 0 or x >= 320: continue
+                    I[y, x] = [255, 0, 0]
+
+    """
     if lastCols[0] is not None and lastCols[1] is not None:
         I[:,lastCols[0],:] = 0
         I[:,lastCols[1],:] = 0
         I[:,(lastCols[0]+lastCols[1])/2,:] = 0
+
+    #I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
+    I = resize(I, (640, 480))
     imshow('video', I )
     key = (waitKey(4) & 255)
     if key == ord('q'):
       break;
     currentTime = time.time();
     if (currentTime - lastTime > 1):
-        print framenum
+        
         lastTime = currentTime
 
