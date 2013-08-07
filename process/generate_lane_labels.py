@@ -150,8 +150,6 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], P=np.eye(3)):
 
     #resp_left = np.argmax(column_O[0: midpoint_lastCols]);
     #resp_right = np.argmax(column_O[midpoint_lastCols:]) + midpoint_lastCols;
-    print resp_left
-    print resp_right
 
     # was there a detection on either side? 
     LEFT_LANE_DETECTION = np.max(column_O[0: midpoint_lastCols]) != 0

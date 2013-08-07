@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import sys
 from GPSReader import *
+from GPSReprojection import *
 from GPSTransforms import *
 from VideoReader import *
 from WGS84toENU import *
@@ -98,6 +99,14 @@ if __name__ == '__main__':
 
         imsize = (320, 240)
         I = cv2.resize(I, imsize)
+        if lastCols[0] is None:
+            M = GPSMask(gps_dat[count:count+num_imgs_fwd], cam, width=1)
+            M = 255 - cv2.resize(M, imsize)
+            warped_M = np.nonzero(cv2.warpPerspective(M, P, imsize))
+            col_avg = np.mean(warped_M[1])
+            lastCols[0] = col_avg - 50
+            lastCols[1] = col_avg + 50
+        
         (O, lastCols) = findLanes(I, (imsize[1], imsize[0]), lastCols, P)
 
         """
