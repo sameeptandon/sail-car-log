@@ -59,7 +59,7 @@ def interpolateLanes(x, y):
     return (xout, yout)
 
 
-def findLanes(img, origSize=(960,1280), lastCols=[None, None], P=np.eye(3)):
+def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3)):
     #if len(img.shape) == 3:
     #    img = rgb2gray(img)
     (rows, cols, channels) = img.shape
@@ -113,12 +113,13 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], P=np.eye(3)):
 
     # thresholding for lane detection
     white_lane_detect = np.sum(O,axis=2) > 350
-    yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 100, O[:,:,0] < 30) 
+    yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 120, O[:,:,0] < 50) 
     low_vals = np.logical_and(np.logical_not(white_lane_detect), np.logical_not(yellow_lane_detect))
-    O[low_vals,:] = 0
+    O[low_vals,:] = -0
 
     # get rid of top of the image so we don't find a column fit to it
     O[0:2*rows/4,:] = 0
+    #return(O,lastCols)
 
     # go to gray scale for convenience
     O_gray = rgb2gray(O);
@@ -141,24 +142,25 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], P=np.eye(3)):
     top_k = min(top_k, np.nonzero(column_O[midpoint_lastCols:])[0].size)
 
     resp_left = np.copy(column_O[0:midpoint_lastCols].argsort()[-top_k:][::-1])
-    min_left = np.argmin(np.abs(resp_left - lastCols[0]))
+    min_left = np.argmax(np.abs(resp_left)) # closest to midpoint
     resp_left = resp_left[min_left]
 
     resp_right = np.copy(column_O[midpoint_lastCols:].argsort()[-top_k:][::-1])
-    min_right = np.argmin(np.abs(resp_right + midpoint_lastCols - lastCols[1]))
+    min_right = np.argmin(np.abs(resp_right)) #closest to midpoint
     resp_right = resp_right[min_right] + midpoint_lastCols
 
     #resp_left = np.argmax(column_O[0: midpoint_lastCols]);
     #resp_right = np.argmax(column_O[midpoint_lastCols:]) + midpoint_lastCols;
 
+
     # was there a detection on either side? 
     LEFT_LANE_DETECTION = np.max(column_O[0: midpoint_lastCols]) != 0
     RIGHT_LANE_DETECTION = np.max(column_O[midpoint_lastCols:]) != 0
 
-    if not LEFT_LANE_DETECTION and lastCols[0] is not None:
-        resp_left = lastCols[0]
-    if not RIGHT_LANE_DETECTION and lastCols[1] is not None:
+    if not LEFT_LANE_DETECTION:
         resp_right = lastCols[1]
+    if not RIGHT_LANE_DETECTION:
+        resp_left = lastCols[0]
 
     # how to move the columns based on previous cols 
     if LEFT_LANE_DETECTION:
@@ -185,12 +187,48 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], P=np.eye(3)):
     else:
         right_lane_min_x = cols 
         right_lane_max_x = cols
-
+   
     O[:,0:left_lane_min_x] = 0
     O[:,left_lane_max_x:right_lane_min_x] = 0
     O[:,right_lane_max_x:] = 0
 
-    too_far = 8.5/16.0
+    line_O = np.copy(O)
+    O[:,:,:] = 0 
+    if lastCols[0] is not None:
+        y, x = np.nonzero(line_O[:,0:midpoint_lastCols,0])
+        if y.size > 20:
+            #L = LinearLeastSquaresModel([0,1],[2]);
+            #data = np.vstack([y, np.ones(len(x)), x]).transpose()
+            #p_left = L.fit(data).reshape((2))
+            #p_left = ransac(data,L,10,100,max_lane_size/5,15).reshape((2))
+
+            p_left = np.polyfit(y, x, 1)
+            #lastLine[0] = p_left[0]
+            #lastLine[1] = p_left[1]
+            lastLine[0] = 0.9*lastLine[0] + 0.1*p_left[0]
+            lastLine[1] = 0.9*lastLine[1] + 0.1*p_left[1]
+        for y in xrange(240):
+            x = lastLine[0]*y + lastLine[1] 
+            if x < 0 or x >= 320: continue
+            O[y, lastLine[0]*y + lastLine[1]] = [255, 0, 0]
+
+    if lastCols[1] is not None:
+        y, x = np.nonzero(line_O[:, lastCols[1]-20:lastCols[1]+20,0])
+        if y.size > 20:
+            #L = LinearLeastSquaresModel([0,1],[2]);
+            #data = np.vstack([y, np.ones(len(x)), x]).transpose()
+            #p_right = ransac(data,L,10,100,max_lane_size/5,15).reshape((2))
+            #lastLine[0] = p_right[0]
+            #lastLine[2] = p_right[1]
+            p_right = np.polyfit(y, x, 1)
+            lastLine[2] = 0.9*lastLine[2] + 0.1*p_right[0]
+            lastLine[3] = 0.9*lastLine[3] + 0.1*p_right[1]
+        for y in xrange(240):
+            x = lastLine[2]*y + lastLine[3] + lastCols[1] - 20
+            if x < 0 or x >= 320: continue
+            O[y, x] = [255, 0, 0]
+
+    too_far = 9/16.0
     too_close = 6.5/16.0
     # if the cols want to move too close or too far, push them away/closer
     if lastCols[0] is not None and lastCols[1] is not None:

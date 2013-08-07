@@ -73,9 +73,11 @@ if __name__ == '__main__':
                      [0.0, 0.0, 1.0]]);
 
   #framenum = 1926;
-  framenum = 20000
+  #framenum = 29000
+  framenum = 000
   lastTime = time.time()
   lastCols = [None, None]
+  lastLine = [None, None, None, None]
   video_reader.setFrame(framenum)
   while True:
     framenum = framenum + 1;
@@ -121,9 +123,15 @@ if __name__ == '__main__':
         col_avg = np.mean(warped_M[1])
         lastCols[0] = col_avg - 50
         lastCols[1] = col_avg + 50
+    
+    if lastLine[0] is None:
+        lastLine[0] = 0
+        lastLine[1] = lastCols[0]
+        lastLine[2] = 0
+        lastLine[3] = lastCols[1]
 
 
-    (WARP, lastCols) = findLanes(WARP, (imsize[1], imsize[0]), lastCols)
+    (WARP, lastCols) = findLanes(WARP, (imsize[1], imsize[0]), lastCols, lastLine)
     #WARP = warpPerspective(WARP, P, imsize,flags=cv.CV_WARP_INVERSE_MAP);
     
     I_t = np.zeros((imsize[1], imsize[0], 3))
@@ -136,28 +144,6 @@ if __name__ == '__main__':
     I[I_t[:, :, 0] > 0, 1] = 0
     I[I_t[:, :, 0] > 0, 2] = 0
 
-    """
-    if lastCols[0] is not None:
-        y, x = np.nonzero(WARP[:,lastCols[0]-20:lastCols[0]+20,0])
-        if y.size > 4:
-            p = np.polyfit(y, x, 1)
-            if True: #p[0] < 0:
-                for y in xrange(240):
-                    x = p[0]*y + p[1] + lastCols[0] - 20
-                    if x < 0 or x >= 320: continue
-                    I[y, p[0]*y + p[1] + lastCols[0]-20] = [255, 0, 0]
-
-    if lastCols[1] is not None:
-        y, x = np.nonzero(WARP[:, lastCols[1]-20:lastCols[1]+20,0])
-        if y.size > 4:
-            p = np.polyfit(y, x, 1)
-            if True: #p[0] > 0:
-                for y in xrange(240):
-                    x = p[0]*y + p[1] + lastCols[1] - 20
-                    if x < 0 or x >= 320: continue
-                    I[y, x] = [255, 0, 0]
-
-    """
     if lastCols[0] is not None and lastCols[1] is not None:
         I[:,lastCols[0],:] = 0
         I[:,lastCols[1],:] = 0
