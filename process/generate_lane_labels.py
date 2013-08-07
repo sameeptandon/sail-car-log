@@ -164,15 +164,25 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
 
     # how to move the columns based on previous cols 
     if LEFT_LANE_DETECTION:
-        if lastCols[0] is not None:
+        if abs(lastCols[0] - resp_left) < 2:
+            lastCols[0] = 0.2*resp_left + 0.8*lastCols[0];
+        elif abs(lastCols[0] - resp_left) < 5:
             lastCols[0] = 0.15*resp_left + 0.85*lastCols[0];
+        elif abs(lastCols[0] - resp_left) < 10:
+            lastCols[0] = 0.15*resp_left + 0.85*lastCols[0];
+        #elif abs(lastCols[0] - resp_left) < 20:
         else:
-            lastCols[0] = resp_left
+            lastCols[0] = 0.01*resp_left + 0.99*lastCols[0];
     if RIGHT_LANE_DETECTION:
-        if lastCols[1] is not None:
+        if abs(lastCols[1] - resp_right) < 2:
+            lastCols[1] = 0.2*resp_right + 0.8*lastCols[1];
+        elif abs(lastCols[1] - resp_right) < 5:
             lastCols[1] = 0.15*resp_right + 0.85*lastCols[1];
+        elif abs(lastCols[1] - resp_right) < 10:
+            lastCols[1] = 0.15*resp_right + 0.85*lastCols[1];
+        #elif abs(lastCols[1] - resp_right) < 20:
         else:
-            lastCols[1] = resp_right
+            lastCols[1] = 0.01*resp_right + 0.99*lastCols[1];
     
     # only consider detections around lastCol
     if LEFT_LANE_DETECTION:
@@ -193,7 +203,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     O[:,right_lane_max_x:] = 0
 
     line_O = np.copy(O)
-    O[:,:,:] = 0 
+    #O[:,:,:] = 0 
     if lastCols[0] is not None:
         y, x = np.nonzero(line_O[:,0:midpoint_lastCols,0])
         if y.size > 20:
@@ -210,7 +220,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
         for y in xrange(240):
             x = lastLine[0]*y + lastLine[1] 
             if x < 0 or x >= 320: continue
-            O[y, lastLine[0]*y + lastLine[1]] = [255, 0, 0]
+            #O[y, lastLine[0]*y + lastLine[1]] = [255, 0, 0]
 
     if lastCols[1] is not None:
         y, x = np.nonzero(line_O[:, lastCols[1]-20:lastCols[1]+20,0])
@@ -226,7 +236,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
         for y in xrange(240):
             x = lastLine[2]*y + lastLine[3] + lastCols[1] - 20
             if x < 0 or x >= 320: continue
-            O[y, x] = [255, 0, 0]
+            #O[y, x] = [255, 0, 0]
 
     too_far = 9/16.0
     too_close = 6.5/16.0

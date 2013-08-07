@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
   #framenum = 1926;
   #framenum = 29000
-  framenum = 000
+  framenum = 27000
   lastTime = time.time()
   lastCols = [None, None]
   lastLine = [None, None, None, None]
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     
     I_t = np.zeros((imsize[1], imsize[0], 3))
     I_t[239, :, 0] = 255
-    #I_t = warpPerspective(I_t, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
+    I_t = warpPerspective(I_t, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
     I[WARP[:,:,0] > 0, 0] = 0
     I[WARP[:,:,0] > 0, 2] = 0
     I[WARP[:,:,0] > 0, 1] = 255
@@ -149,7 +149,7 @@ if __name__ == '__main__':
         I[:,lastCols[1],:] = 0
         I[:,(lastCols[0]+lastCols[1])/2,:] = 0
 
-    #I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
+    I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
     I = resize(I, (640, 480))
     imshow('video', I )
     key = (waitKey(4) & 255)
