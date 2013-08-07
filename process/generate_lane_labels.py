@@ -220,7 +220,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
         for y in xrange(240):
             x = lastLine[0]*y + lastLine[1] 
             if x < 0 or x >= 320: continue
-            #O[y, lastLine[0]*y + lastLine[1]] = [255, 0, 0]
+            O[y, lastLine[0]*y + lastLine[1]] = [255, 0, 0]
 
     if lastCols[1] is not None:
         y, x = np.nonzero(line_O[:, lastCols[1]-20:lastCols[1]+20,0])
@@ -236,7 +236,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
         for y in xrange(240):
             x = lastLine[2]*y + lastLine[3] + lastCols[1] - 20
             if x < 0 or x >= 320: continue
-            #O[y, x] = [255, 0, 0]
+            O[y, x] = [255, 0, 0]
 
     too_far = 9/16.0
     too_close = 6.5/16.0
@@ -257,7 +257,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     O = (O - O_min) / (O_max - O_min)
     """
     O = cv2.warpPerspective(O, P, (cols, rows), flags=cv.CV_WARP_INVERSE_MAP)
-    return (O, lastCols)
+    return (O, lastCols, lastLine)
 
 
 if __name__ == '__main__':
