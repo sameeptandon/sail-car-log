@@ -93,17 +93,16 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
    
     """
     #idea for windowing around current lastCol, but could be bad as possible
-    to not recover on a bad misdetection
+    #to not recover on a bad misdetection
     if lastCols[0] != None and lastCols[1] != None:
-        right_lane_min_x = lastCols[1]-40;
-        right_lane_max_x = lastCols[1]+40;
-        left_lane_min_x = lastCols[0]-40;
+        left_lane_min_x = max(0,lastCols[0]-40);
         left_lane_max_x = lastCols[0]+40;
+        right_lane_min_x = lastCols[1]-40;
+        right_lane_max_x = min(cols,lastCols[1]+40);
         O[:,0:left_lane_min_x] = 0
         O[:,left_lane_max_x:right_lane_min_x] = 0
         O[:,right_lane_max_x:] = 0
     """
-
     """
     #mean subtract output image
     m = np.mean(np.mean(O[rows/2:rows,:],axis=0),axis=0)
@@ -112,10 +111,11 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     """
 
     # thresholding for lane detection
-    white_lane_detect = np.sum(O,axis=2) > 500
+    white_lane_detect = np.sum(O,axis=2) > 400
     yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 120, O[:,:,0] < 50) 
     low_vals = np.logical_and(np.logical_not(white_lane_detect), np.logical_not(yellow_lane_detect))
     O[low_vals,:] = -0
+
 
     # increase yellow lane detection score
     O[yellow_lane_detect,:] *= 5
@@ -134,8 +134,8 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     # responding column on the left and right sides
     top_k = 15
     column_O = np.sum(np.sum(O,axis=2),axis=0);
-    column_O[column_O < 2000] = 0
-    O[:,column_O < 2000,:] = 0
+    column_O[column_O < 1000] = 0
+    O[:,column_O < 1000,:] = 0
     top_k = min(top_k, np.nonzero(column_O[0:midpoint_lastCols])[0].size)
     top_k = min(top_k, np.nonzero(column_O[midpoint_lastCols:])[0].size)
 
