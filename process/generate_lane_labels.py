@@ -59,7 +59,7 @@ def interpolateLanes(x, y):
     return (xout, yout)
 
 
-def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3)):
+def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3), responseOnlyNearLastCols=False):
     #if len(img.shape) == 3:
     #    img = rgb2gray(img)
     (rows, cols, channels) = img.shape
@@ -91,10 +91,9 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     O = cv2.merge([O_1, O_2, O_3])
 
    
-    """
     #idea for windowing around current lastCol, but could be bad as possible
     #to not recover on a bad misdetection
-    if lastCols[0] != None and lastCols[1] != None:
+    if responseOnlyNearLastCols == True:
         left_lane_min_x = max(0,lastCols[0]-40);
         left_lane_max_x = lastCols[0]+40;
         right_lane_min_x = lastCols[1]-40;
@@ -102,7 +101,6 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
         O[:,0:left_lane_min_x] = 0
         O[:,left_lane_max_x:right_lane_min_x] = 0
         O[:,right_lane_max_x:] = 0
-    """
     """
     #mean subtract output image
     m = np.mean(np.mean(O[rows/2:rows,:],axis=0),axis=0)
