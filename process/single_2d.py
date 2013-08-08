@@ -2,6 +2,7 @@ import cv
 import cv2
 import numpy as np
 import sys
+import pdb
 from GPSReader import *
 from GPSReprojection import *
 from GPSTransforms import *
@@ -80,6 +81,7 @@ if __name__ == '__main__':
     P = cv2.getPerspectiveTransform(src, dst)
 
     lastCols = [None, None]
+    lastLines = [None, None, None, None]
 
     edge_size = 100
     count = 0
@@ -90,6 +92,9 @@ if __name__ == '__main__':
         if success is False:
             break
 
+        if count < 75:
+            count += 1
+            continue
         if count % 100 == 0:
             print count
             savemat(output_name, {'left': left_points, 'right': right_points})
@@ -107,7 +112,13 @@ if __name__ == '__main__':
             lastCols[0] = col_avg - 50
             lastCols[1] = col_avg + 50
         
-        (O, lastCols) = findLanes(I, (imsize[1], imsize[0]), lastCols, P)
+        if lastLines[0] is None:
+            lastLines[0] = 0
+            lastLines[1] = lastCols[0]
+            lastLines[2] = 0
+            lastLines[3] = lastCols[1]
+
+        (O, lastCols, lastLines) = findLanes(I, (imsize[1], imsize[0]), lastCols, lastLines, P)
 
         """
         Instead of the below, check the borders for an activation and if
@@ -117,7 +128,7 @@ if __name__ == '__main__':
         Later, you'll interpolate the (x, y, z) for each discovered point
         and from there you can treat it however
         """
-        mask = O[:, :, 2] > 0
+        mask = O[:, :, 0] > 0
         I[mask, 0] = 0
         I[mask, 1] = 0
         I[mask, 2] = 255
@@ -126,8 +137,24 @@ if __name__ == '__main__':
         bottom_vals[238:239, :, 2] = 255
         bottom_vals = cv2.warpPerspective(bottom_vals, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
 
-        O_bin = np.copy(O[:, :, 2])
+        O_bin = np.copy(O[:, :, 0])
+        right_point = np.array([-1, -1])
+        left_point = np.array([-1, -1])
 
+        if np.any(O_bin[:, 0:160] > 0):
+            bl_row = np.max(np.nonzero(O_bin[:, 0:160])[0])
+            bl_col = np.min(np.nonzero(O_bin[bl_row, 0:160])[0])
+            left_point = np.array([4* bl_col + 2, 4* bl_row + 2])
+
+        if np.any(O_bin[:, 160:320] > 0):
+            br_row = np.max(np.nonzero(O_bin[:, 160:320])[0])
+            br_col = np.max(np.nonzero(O_bin[br_row, 160:320])[0])
+            right_point = np.array([4*(br_col+160) + 2, 4* (br_row) + 2])
+
+
+
+
+        """
         O_bin[bottom_vals[:, :, 2] == 0] = 0
         O_bleft = O_bin[:, 0:160]
         O_bright = O_bin[:, 160:320]
@@ -137,12 +164,10 @@ if __name__ == '__main__':
         bottom_right = np.unravel_index(np.argmax(O_bright), (240, 160))
         bottom_right = (bottom_right[0] * ratio + ratio, (bottom_right[1] + 160) * ratio + ratio)
 
-        left_activations = np.argmax(O[:, 2, 2])
-        right_activations = np.argmax(O[:, 317, 2])
+        left_activations = np.argmax(O[:, 0, 0])
+        right_activations = np.argmax(O[:, 319, 0])
 
         new_points = np.zeros((0, 3))
-        right_point = np.array([-1, -1])
-        left_point = np.array([-1, -1])
         if np.max(O_bleft) > 0:
             left_point[0] = bottom_left[1]
             left_point[1] = bottom_left[0]
@@ -150,31 +175,32 @@ if __name__ == '__main__':
             right_point[0] = bottom_right[1]
             right_point[1] = bottom_right[0]
 
-        if left_point[0] == -1 and np.max(O[:, 2, 2]) > 0:
+        if left_point[0] == -1 and np.max(O[:, 0, 0]) > 0:
             left_point[0] = 4
             left_point[1] = left_activations * ratio + ratio
 
-        if right_point[0] == -1 and np.max(O[:, 317, 2]) > 0:
+        if right_point[0] == -1 and np.max(O[:, 319, 0]) > 0:
             right_point[0] = 1276
             right_point[1] = right_activations * ratio + ratio
-
+        """
         left_points = np.append(left_points, left_point.reshape((1, left_point.size)), axis=0)
         right_points = np.append(right_points, right_point.reshape((1, right_point.size)), axis=0)
 
         """
-        if right_point[5] == 1:
+        if right_point[1] != -1:
             Pos2 = np.linalg.solve(tr[count, :, :], right_point[0:4])
             pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2] / ratio)
             pos2[1] = max(pos2[1], 4)
             pos2[1] = min(pos2[1], 237)
             pos2[0] = min(pos2[0], 317)
             pos2[0] = max(pos2[0], 4)
+            pos2 = right_point / 4 - 3
             print 'right', pos2, right_point
-            if pos2[1] > 3 and pos2[1] < 237 and pos2[0] > 3 and pos2[0] < 317:
+            if pos2[1] >= 3 and pos2[1] < 237 and pos2[0] >= 3 and pos2[0] < 317:
                 I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 255
                 I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
                 I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 0
-        if left_point[5] == 1:
+        if left_point[1] != -1:
             Pos2 = np.linalg.solve(tr[count, :, :], left_point[0:4])
             pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
             pos2 = pos2 / ratio
@@ -182,8 +208,9 @@ if __name__ == '__main__':
             pos2[1] = min(pos2[1], 237)
             pos2[0] = min(pos2[0], 317)
             pos2[0] = max(pos2[0], 4)
+            pos2 = left_point / 4 + 3
             print 'left', pos2, left_point
-            if pos2[1] > 3 and pos2[1] < 237 and pos2[0] > 3 and pos2[0] < 317:
+            if pos2[1] >= 3 and pos2[1] < 237 and pos2[0] >= 3 and pos2[0] < 317:
                 I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 0
                 I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 255
                 I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 0

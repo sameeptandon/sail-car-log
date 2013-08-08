@@ -196,7 +196,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     O[:,right_lane_max_x:] = 0
 
     line_O = np.copy(O)
-    #O[:,:,:] = 0 
+    O[:,:,:] = 0 
     if lastCols[0] is not None:
         y, x, z = np.nonzero(line_O[:,lastCols[0]-max_lane_size:lastCols[0]+max_lane_size])
         if y.size > 5:

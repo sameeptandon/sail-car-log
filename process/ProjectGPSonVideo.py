@@ -73,8 +73,13 @@ if __name__ == '__main__':
                      [0.0, 0.0, 1.0]]);
 
   #framenum = 1926;
+<<<<<<< HEAD
   #framenum = 27000
   framenum = 27000
+=======
+  #framenum = 29000
+  framenum = 0
+>>>>>>> plot point at best fit line
   lastTime = time.time()
   lastCols = [None, None]
   lastLine = [None, None, None, None]
@@ -86,6 +91,8 @@ if __name__ == '__main__':
       break
     #if framenum % 10 != 0:
     #  continue
+    if framenum % 100 == 0:
+        print framenum
 
     M = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, width=1); 
     I = np.minimum(M,I)
@@ -108,6 +115,8 @@ if __name__ == '__main__':
 
     imsize = (320,240)
     I = resize(I, imsize)
+    I[:, :5] = [255, 0, 0]
+    I[:, -5:] = [255, 0, 0]
     src = src / 4;
     dst = dst / 4;
     #dst = array([[0,0],[1280,0],[1280,960],[0,960]], float32)
@@ -148,6 +157,7 @@ if __name__ == '__main__':
         I[:,lastCols[0],:] = 0
         I[:,lastCols[1],:] = 0
         I[:,(lastCols[0]+lastCols[1])/2,:] = 0
+
     #I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
     I = resize(I, (640, 480))
     imshow('video', I )

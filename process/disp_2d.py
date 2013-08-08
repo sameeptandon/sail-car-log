@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
         if not success:
             break
-        if count % 25 != 0 or count < 25:
+        if count % 25 != 0 or count < 250:
             count += 1
             continue
 
@@ -94,14 +94,15 @@ if __name__ == '__main__':
             Pos = np.dot(tr[points_count, :, :], np.linalg.solve(Tc, np.array([X, Y, Z, 1])))
             Pos2 = np.linalg.solve(tr[count, :, :], Pos)
 
-            pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
-            if not (pos2[1] < 0 or pos2[0] < 0 or pos2[1] >= 960 or pos2[0] >= 1280):
-                left_points[pos2[1], pos2[0]] += 1
+            if pt[0] != -1:
+                pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
+                if not (pos2[1] < 0 or pos2[0] < 0 or pos2[1] >= 960 or pos2[0] >= 1280):
+                    left_points[pos2[1], pos2[0]] += 1
 
-            if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 0
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 255
+                if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 0
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 255
 
             pt = rp[points_count]
             Z = ((pt[1]-cam['cv'])*sin(pitch)*height+f*cos(pitch)*height)/(cos(pitch)*(pt[1]-cam['cv'])-f*sin(pitch))
@@ -110,19 +111,21 @@ if __name__ == '__main__':
             Pos = np.dot(tr[points_count, :, :], np.linalg.solve(Tc, np.array([X, Y, Z, 1])))
             Pos2 = np.linalg.solve(tr[count, :, :], Pos)
 
-            pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
-            if not (pos2[1] < 0 or pos2[0] < 0 or pos2[1] >= 960 or pos2[0] >= 1280):
-                right_points[pos2[1], pos2[0]] += 1
+            if pt[0] != -1:
+                pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
+                if not (pos2[1] < 0 or pos2[0] < 0 or pos2[1] >= 960 or pos2[0] >= 1280):
+                    right_points[pos2[1], pos2[0]] += 1
 
-            if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 0
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
-                I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 255
+                if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 0
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
+                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 255
 
         step_size = 1
-        polynomial_fit = 5
+        polynomial_fit = 3
         sum_thresh = 1
         thickness = 2
+
 
         avg_left = np.dot(left_points, range(0, 1280))
         left_count = np.sum(left_points, axis=1)
