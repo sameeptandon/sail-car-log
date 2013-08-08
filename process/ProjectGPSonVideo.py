@@ -73,13 +73,8 @@ if __name__ == '__main__':
                      [0.0, 0.0, 1.0]]);
 
   #framenum = 1926;
-<<<<<<< HEAD
-  #framenum = 27000
-  framenum = 27000
-=======
   #framenum = 29000
   framenum = 0
->>>>>>> plot point at best fit line
   lastTime = time.time()
   lastCols = [None, None]
   lastLine = [None, None, None, None]
