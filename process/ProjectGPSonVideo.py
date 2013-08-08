@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
   #framenum = 1926;
   #framenum = 27000
-  framenum = 2000
+  framenum = 27000
   lastTime = time.time()
   lastCols = [None, None]
   lastLine = [None, None, None, None]
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     WARP = warpPerspective(I, P, imsize);
     #WARP = resize(WARP, imsize)
     #I[0:480,:,:]=0
-    I = WARP
+    #I = WARP
     
     if lastCols[0] is None:
         M = 255 - resize(M, imsize)
@@ -132,24 +132,23 @@ if __name__ == '__main__':
 
 
     (WARP, lastCols, lastLine) = findLanes(WARP, (imsize[1], imsize[0]), lastCols, lastLine)
-    #WARP = warpPerspective(WARP, P, imsize,flags=cv.CV_WARP_INVERSE_MAP);
+    WARP = warpPerspective(WARP, P, imsize,flags=cv.CV_WARP_INVERSE_MAP);
     
     I_t = np.zeros((imsize[1], imsize[0], 3))
-    I_t[239, :, 0] = 255
+    I_t[239/2, :, 0] = 255
     I_t = warpPerspective(I_t, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
     I[WARP[:,:,0] > 0, 0] = 0
-    I[WARP[:,:,0] > 0, 2] = 0
-    I[WARP[:,:,0] > 0, 1] = 255
-    I[I_t[:, :, 0] > 0, 0] = 255
-    I[I_t[:, :, 0] > 0, 1] = 0
-    I[I_t[:, :, 0] > 0, 2] = 0
+    I[WARP[:,:,0] > 0, 1] = 0
+    I[WARP[:,:,0] > 0, 2] = 255
+    #I[I_t[:, :, 0] > 0, 0] = 255
+    #I[I_t[:, :, 0] > 0, 1] = 0
+    #I[I_t[:, :, 0] > 0, 2] = 0
 
     if lastCols[0] is not None and lastCols[1] is not None:
         I[:,lastCols[0],:] = 0
         I[:,lastCols[1],:] = 0
         I[:,(lastCols[0]+lastCols[1])/2,:] = 0
-
-    I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
+    #I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
     I = resize(I, (640, 480))
     imshow('video', I )
     key = (waitKey(4) & 255)
