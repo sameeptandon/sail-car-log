@@ -131,7 +131,7 @@ if __name__ == '__main__':
         I[mask, 2] = 255
 
         bottom_vals = np.zeros((240, 320, 3))
-        bottom_vals[238:239, :, 2] = 255
+        bottom_vals[158:162, :, 2] = 255
         bottom_vals = cv2.warpPerspective(bottom_vals, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
 
         O_bin = np.copy(O[:, :, 2])

@@ -59,7 +59,7 @@ def interpolateLanes(x, y):
     return (xout, yout)
 
 
-def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3), responseOnlyNearLastCols=False):
+def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3), responseOnlyNearLastCols=False, frame_rate=1):
     #if len(img.shape) == 3:
     #    img = rgb2gray(img)
     (rows, cols, channels) = img.shape
@@ -72,7 +72,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     img[img < 0] = 0
 
     # set max_lane_size to about 20 in the 1280x960 image
-    max_lane_size = int(np.round(origSize[1] / 64)) # approximation of lane width
+    max_lane_size = int(np.round(origSize[1] / 96)) # approximation of lane width
     if max_lane_size % 2 == 1:
         max_lane_size += 1
     width_step = 2
@@ -109,7 +109,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     """
 
     # thresholding for lane detection
-    white_lane_detect = np.sum(O,axis=2) > 400
+    white_lane_detect = np.sum(O,axis=2) > 350
     yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 120, O[:,:,0] < 50) 
     low_vals = np.logical_and(np.logical_not(white_lane_detect), np.logical_not(yellow_lane_detect))
     O[low_vals,:] = -0
@@ -119,7 +119,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     O[yellow_lane_detect,:] *= 5
 
     # get rid of top of the image so we don't find a column fit to it
-    O[0:0*rows/4,:] = 0
+    O[0:2*rows/4,:] = 0
 
     # nd the midpoint and submidpoints for 
     # zero-ing the center of the lane
@@ -155,25 +155,26 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
         resp_left = lastCols[0]
 
     # how to move the columns based on previous cols 
+    left_mom = 0.01
     if LEFT_LANE_DETECTION:
         if abs(lastCols[0] - resp_left) < 2:
-            lastCols[0] = 0.5*resp_left + 0.5*lastCols[0];
+            left_mom = 0.5
         elif abs(lastCols[0] - resp_left) < 5:
-            lastCols[0] = 0.3*resp_left + 0.7*lastCols[0];
+            left_mom = 0.3
         elif abs(lastCols[0] - resp_left) < 10:
-            lastCols[0] = 0.15*resp_left + 0.85*lastCols[0];
-        else:
-            lastCols[0] = 0.01*resp_left + 0.99*lastCols[0];
+            left_mom = 0.15
+        left_mom = 1 - (1 - left_mom) ** frame_rate
+        lastCols[0] = left_mom*resp_left + (1 - left_mom)*lastCols[0]
+    right_mom = 0.01
     if RIGHT_LANE_DETECTION:
         if abs(lastCols[1] - resp_right) < 2:
-            lastCols[1] = 0.5*resp_right + 0.5*lastCols[1];
+            right_mom = 0.5
         elif abs(lastCols[1] - resp_right) < 5:
-            lastCols[1] = 0.3*resp_right + 0.7*lastCols[1];
+            right_mom = 0.3
         elif abs(lastCols[1] - resp_right) < 10:
-            lastCols[1] = 0.15*resp_right + 0.85*lastCols[1];
-        #elif abs(lastCols[1] - resp_right) < 20:
-        else:
-            lastCols[1] = 0.01*resp_right + 0.99*lastCols[1];
+            right_mom = 0.15
+        right_mom = 1 - (1 - right_mom) ** frame_rate
+        lastCols[1] = right_mom*resp_right + (1 - right_mom)*lastCols[1]
     
     # only consider detections around lastCol
     if LEFT_LANE_DETECTION:
@@ -232,6 +233,10 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
             lastCols[1] = midpoint_lastCols + too_far/2*cols;
     
         if lastCols[1] - lastCols[0] < too_close*cols:
+            if midpoint_lastCols < too_close * cols / 2:
+                midpoint_lastCols = too_close * cols / 2
+            if midpoint_lastCols > cols - too_close * cols / 2:
+                midpoint_lastCols = 1 - too_close * cols / 2
             lastCols[0] = midpoint_lastCols - too_close/2*cols;
             lastCols[1] = midpoint_lastCols + too_close/2*cols;
 
