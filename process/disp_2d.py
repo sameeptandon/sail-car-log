@@ -23,6 +23,8 @@ if __name__ == '__main__':
     lp = labels['left']
     rp = labels['right']
 
+    
+
     cam = { }
     cam['R_to_c_from_i'] = array([[-1, 0, 0], \
                          [0, 0, -1], \
@@ -76,7 +78,7 @@ if __name__ == '__main__':
 
         if not success:
             break
-        if count % 25 != 0 or count < 250:
+        if count % 5 != 0: 
             count += 1
             continue
 
@@ -154,14 +156,18 @@ if __name__ == '__main__':
             p = np.polyfit(left_y, left_x, polynomial_fit)
             #left_spline = UnivariateSpline(left_y, left_x, s=smoothness, k=3, bbox=[left_y[0], 960])
             y_output = range(int(np.min(left_y)), int(np.max(left_y) + 1))
+            x_output = np.interp(y_output, left_y, left_x);
             #x_output = left_spline(y_output)
             for y in range(len(y_output)):
                 y_val = y_output[y]
-                x_val = p[polynomial_fit]
+                #x_val = p[polynomial_fit]
+                x_val = x_output[y]
+                """
                 for x in xrange(polynomial_fit):
                     x_val += p[x] * y_val**(polynomial_fit-x)
                 if x_val < 0 or x_val >= 1280:
                     continue
+                """
                 pos2 = [x_val, y_val]
                 #thickness = 5 + max(0, (y_val-480)*18/480)
                 I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
@@ -220,9 +226,9 @@ if __name__ == '__main__':
                     continue
                 pos2 = [x_val, y_val]
                 #thickness = 5 + max(0, (y_val-480)*18/480)
-                I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 0
-                I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 255
-                I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
+                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 0
+                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 255
+                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
             # slope = p[polynomial_fit-1]
             # y_max = int(np.max(right_y))
             # x_max = p[polynomial_fit]
@@ -242,6 +248,6 @@ if __name__ == '__main__':
         count += 1
         I = imresize(I, (720, 960))
         imshow('video', I)
-        key = waitKey(5)
+        key = waitKey(10)
         if key == ord('q'):
             break

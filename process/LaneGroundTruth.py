@@ -92,7 +92,7 @@ if __name__ == '__main__':
   lastLine = [None, None, None, None]
   video_reader.setFrame(framenum)
 
-  skip_frame = 1 
+  skip_frame = 30 
 
 
   while True:
@@ -131,7 +131,9 @@ if __name__ == '__main__':
         lastLine[2] = 0
         lastLine[3]= lastCols[1]
     
-    (WARP, asdf1,asdf2) = findLanes(WARP, (imsize[1], imsize[0]), lastCols, lastLine)
+    (WARP, asdf1,asdf2) = findLanes(WARP, (imsize[1], imsize[0]), lastCols, lastLine, responseOnlyNearLastCols=False)
+    #I = WARP
+
     line_img = np.zeros((imsize[1], imsize[0]))
     line_img[158:162,:] = 1
 
@@ -151,7 +153,7 @@ if __name__ == '__main__':
         I[:,(lastCols[0]+lastCols[1])/2,:] = 0
 
     I = resize(I, (1280,960))
-    imshow('video',I )
+    imshow('video',I / 255.0 )
     key = (waitKey(50) & 255)
     if pause_labeler == True: 
         key = waitKey(5)

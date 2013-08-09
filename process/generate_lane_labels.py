@@ -59,17 +59,40 @@ def interpolateLanes(x, y):
     return (xout, yout)
 
 
-def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3), responseOnlyNearLastCols=False, frame_rate=1):
+def findLanesConvolution(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3), responseOnlyNearLastCols=False, frame_rate=1):
     #if len(img.shape) == 3:
     #    img = rgb2gray(img)
     (rows, cols, channels) = img.shape
     
     img = cv2.warpPerspective(img, P, (cols, rows))
-
-    # mean subtraction on image, clamp to 0
-    m = np.mean(np.mean(img[:,:],axis=0),axis=0)
-    img = img - m
+    img = img.astype(np.float64)
+    
+    #idea for windowing around current lastCol, but could be bad as possible
+    #to not recover on a bad misdetection
+    if responseOnlyNearLastCols == True:
+        left_lane_min_x = max(0,lastCols[0]-40);
+        left_lane_max_x = lastCols[0]+40;
+        right_lane_min_x = lastCols[1]-40;
+        right_lane_max_x = min(cols,lastCols[1]+40);
+        img[:,0:left_lane_min_x] = 0
+        img[:,left_lane_max_x:right_lane_min_x] = 0
+        img[:,right_lane_max_x:] = 0
+        m_left = np.mean(np.mean(img[:,left_lane_min_x : left_lane_max_x],axis=0),axis=0)
+        m_right = np.mean(np.mean(img[:,right_lane_min_x : right_lane_max_x],axis=0),axis=0)
+        print m_left
+        print np.max(img[:,:,0])
+        img[:, left_lane_min_x : left_lane_max_x,:] -= m_left
+        img[:, right_lane_min_x : right_lane_max_x,:] -= m_right
+        print np.max(img[:,:,0])
+    else:   
+        # mean subtraction on image, clamp to 0
+        m = np.mean(np.mean(img[:,:],axis=0),axis=0)
+        img = img - m
     img[img < 0] = 0
+    #img[:,:,0] = 255*(img[:,:,0] ) / np.max(img[:,:,0])
+    #img[:,:,1] = 255*(img[:,:,1] ) / np.max(img[:,:,1])
+    #img[:,:,2] = 255*(img[:,:,2] ) / np.max(img[:,:,2])
+    
 
     # set max_lane_size to about 20 in the 1280x960 image
     max_lane_size = int(np.round(origSize[1] / 96)) # approximation of lane width
@@ -81,7 +104,7 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     O = np.zeros((rows, cols, channels))
     lane_width = max_lane_size
     row_index = rows
-    v = 4*np.array([np.concatenate([-1*np.ones(lane_width/2), 1*np.ones(lane_width+1), -1*np.ones(lane_width/2)])])
+    v = 4*np.array([np.concatenate([-1*np.ones(lane_width), 2*np.ones(lane_width+1), -1*np.ones(lane_width)])])
     v = v/v.size
     start_index = max(0, row_index - index_steps)
     O_1 = np.round(convolve(img[:,:,0], v, mode='reflect')).reshape((rows,cols,1)) 
@@ -90,17 +113,18 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
 
     O = cv2.merge([O_1, O_2, O_3])
 
+    O = cv2.warpPerspective(O, P, (cols, rows), flags=cv.CV_WARP_INVERSE_MAP)
+    return (O, lastCols, lastLine)
+
+def findLanes(O, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3), responseOnlyNearLastCols=False, frame_rate=1):
    
-    #idea for windowing around current lastCol, but could be bad as possible
-    #to not recover on a bad misdetection
-    if responseOnlyNearLastCols == True:
-        left_lane_min_x = max(0,lastCols[0]-40);
-        left_lane_max_x = lastCols[0]+40;
-        right_lane_min_x = lastCols[1]-40;
-        right_lane_max_x = min(cols,lastCols[1]+40);
-        O[:,0:left_lane_min_x] = 0
-        O[:,left_lane_max_x:right_lane_min_x] = 0
-        O[:,right_lane_max_x:] = 0
+    (rows, cols, channels) = O.shape
+    
+    max_lane_size = int(np.round(origSize[1] / 96)) # approximation of lane width
+    if max_lane_size % 2 == 1:
+        max_lane_size += 1
+
+    O = cv2.warpPerspective(O, P, (cols, rows))
     """
     #mean subtract output image
     m = np.mean(np.mean(O[rows/2:rows,:],axis=0),axis=0)
@@ -109,11 +133,12 @@ def findLanes(img, origSize=(960,1280), lastCols=[None, None], lastLine=[None,No
     """
 
     # thresholding for lane detection
-    white_lane_detect = np.sum(O,axis=2) > 350
-    yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 120, O[:,:,0] < 50) 
+    #white_lane_detect = np.sum(O,axis=2) > 350
+    white_lane_detect = np.logical_and(O[:,:,0] > 120, np.logical_and(O[:,:,1] > 120, O[:,:,2] > 120))
+    #yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 90, O[:,:,0] < 20)
+    yellow_lane_detect = np.logical_and(((O[:,:,1] + O[:,:,2]) / O[:,:,0] ) > 7, O[:,:,1] + O[:,:,2] > 75) 
     low_vals = np.logical_and(np.logical_not(white_lane_detect), np.logical_not(yellow_lane_detect))
-    O[low_vals,:] = -0
-
+    O[low_vals,:] = 0
 
     # increase yellow lane detection score
     O[yellow_lane_detect,:] *= 5

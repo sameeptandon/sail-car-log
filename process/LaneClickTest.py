@@ -136,7 +136,8 @@ if __name__ == '__main__':
 
    
     I = np.copy(WARP)
-    (WARP, lastCols,asdf2) = findLanes(WARP, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
+    (WARP, lastCols,asdf2) = findLanesConvolution(WARP, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
+    #(WARP, lastCols,asdf2) = findLanes(WARP, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
     line_img = np.zeros((imsize[1], imsize[0]))
     line_img[158:162,:] = 1
 
