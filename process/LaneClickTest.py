@@ -139,7 +139,7 @@ if __name__ == '__main__':
     (O, lastCols,asdf2) = findLanesConvolution(I_WARP, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
     (O, lastCols,asdf2) = findLanes(O, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
     line_img = np.zeros((imsize[1], imsize[0]))
-    line_img[158:162,:] = 1
+    line_img[158:200,:] = 1
 
     I_WARP[O[:,:,0] > 0, :] = [0, 0, 255]
     #I[line_img > 0, :] = [255, 0, 0]
@@ -201,7 +201,7 @@ if __name__ == '__main__':
         lastTime = currentTime
         print framenum
 
-  r = np.arange(0,len(frame_data)*skip_frame,skip_frame)
+  r = np.arange(9,len(frame_data)*skip_frame,skip_frame)
   export_data = -1*np.ones((len(frame_data)*skip_frame+1,2))
   export_data[r,:] = frame_data
   left_data = -1*np.ones((len(left_frames)*skip_frame+1,2))
