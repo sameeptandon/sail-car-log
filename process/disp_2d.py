@@ -170,9 +170,9 @@ if __name__ == '__main__':
                 """
                 pos2 = [x_val, y_val]
                 #thickness = 5 + max(0, (y_val-480)*18/480)
-                I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
-                I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 0
-                I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
+                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
+                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 0
+                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
             # slope = p[polynomial_fit-1]
             # y_max = int(np.max(left_y))
             # x_max = p[polynomial_fit]
