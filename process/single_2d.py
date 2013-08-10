@@ -94,10 +94,10 @@ if __name__ == '__main__':
             break
 
         if count % frame_rate != 0:
-            right_point = np.array([-1, -1])
-            left_point = np.array([-1, -1])
-            right_points = np.append(right_points, right_point)
-            left_points = np.append(left_points, left_point)
+            right_point = np.array([-1, -1]).reshape((1, 2))
+            left_point = np.array([-1, -1]).reshape((1, 2))
+            right_points = np.append(right_points, right_point, axis=0)
+            left_points = np.append(left_points, left_point, axis=0)
             count += 1
             continue
 
