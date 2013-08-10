@@ -86,11 +86,16 @@ if __name__ == '__main__':
     edge_size = 100
     count = 0
     ratio = 4
+    frame_rate = 10
     while True:
         (success, I) = video_reader.getNextFrame()
 
         if success is False:
             break
+
+        if count % frame_rate != 0:
+            count += 1
+            continue
 
         if count % 100 == 0:
             print count
@@ -115,7 +120,8 @@ if __name__ == '__main__':
             lastLines[2] = 0
             lastLines[3] = lastCols[1]
 
-        (O, lastCols, lastLines) = findLanes(I, (imsize[1], imsize[0]), lastCols, lastLines, P)
+        (O, lastCols, lastLines) = findLanesConvolution(I, (imsize[1], imsize[0]), lastCols, lastLines, P, frame_rate=frame_rate)
+        (O, lastCols, lastLines) = findLanes(I, (imsize[1], imsize[0]), lastCols, lastLines, P, frame_rate=frame_rate)
 
         """
         Instead of the below, check the borders for an activation and if
@@ -131,7 +137,7 @@ if __name__ == '__main__':
         I[mask, 2] = 255
 
         bottom_vals = np.zeros((240, 320, 3))
-        bottom_vals[158:162, :, 2] = 255
+        bottom_vals[158:200, :, 2] = 255
         bottom_vals = cv2.warpPerspective(bottom_vals, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
 
         O_bin = np.copy(O[:, :, 2])
