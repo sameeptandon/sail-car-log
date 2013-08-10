@@ -40,4 +40,4 @@ if __name__ == '__main__':
     savemat(sys.argv[2], {'left': output_left, 'right':output_right})
     mplot.scatter(all_time, left[:,0])
     mplot.scatter(all_time, spline_left_x(all_time), alpha=0.1)
-    mplot.show()
+    #mplot.show()
