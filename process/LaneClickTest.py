@@ -35,14 +35,12 @@ if __name__ == '__main__':
   vidname = vfname.split('.')[0]
   cam_num = int(vidname[-1])
   gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
-  conv_filename = sys.argv[2]
-  out_name = sys.argv[3]
+  out_name = sys.argv[2]
 
   cv2.namedWindow('video')
   cv.SetMouseCallback('video', on_mouse, 0)
-  num_imgs_fwd = 1250; 
-  video_reader = VideoReader(video_filename)
-  conv_reader = VideoReader(conv_filename,num_splits=1)
+  num_imgs_fwd = 200; 
+  video_reader = VideoReader(video_filename, num_splits=1)
   gps_reader = GPSReader(gps_filename)
   gps_dat = gps_reader.getNumericData()
 
@@ -107,17 +105,11 @@ if __name__ == '__main__':
     if success == False:
       break
 
-    (success, O) = conv_reader.getNextFrame()
-    if success == False:
-      break
-
-    if framenum % skip_frame != 0:
-      continue
+    #if framenum % skip_frame != 0:
+    #  continue
 
     I = resize(I, imsize)
     I_WARP = warpPerspective(I, P, imsize);
-    O_WARP = warpPerspective(O, P, imsize);
-    O_WARP = O_WARP.astype(np.float64)
     
     if lastCols[0] is None:
         M = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, width=1); 
@@ -144,21 +136,21 @@ if __name__ == '__main__':
 
    
     #I = np.copy(WARP)
-    #(WARP, lastCols,asdf2) = findLanesConvolution(WARP, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
-    (O_WARP, lastCols,asdf2) = findLanes(O_WARP, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
+    (O, lastCols,asdf2) = findLanesConvolution(I_WARP, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
+    (O, lastCols,asdf2) = findLanes(O, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
     line_img = np.zeros((imsize[1], imsize[0]))
     line_img[158:162,:] = 1
 
-    I_WARP[O_WARP[:,:,0] > 0, :] = [0, 0, 255]
+    I_WARP[O[:,:,0] > 0, :] = [0, 0, 255]
     #I[line_img > 0, :] = [255, 0, 0]
 
-    good_img = np.copy(O_WARP)
+    good_img = np.copy(O)
     good_img[line_img == 0, : ] = 0
     left_img = np.copy(good_img)
     right_img = np.copy(good_img)
     left_img[:,(lastCols[0]+lastCols[1])/2:,:] = 0
     right_img[:,:(lastCols[0]+lastCols[1])/2,:] = 0
-    I[good_img > 0]  = 0
+    I_WARP[good_img > 0]  = 0
     candidates = np.nonzero(good_img)
     left_candidates = np.nonzero(left_img)
     candidates = np.nonzero(right_img)
@@ -170,7 +162,7 @@ if __name__ == '__main__':
 
     I = resize(I_WARP, (640,480))
     imshow('video',I )
-    key = (waitKey(50) & 255)
+    key = (waitKey(10) & 255)
 
     if left_candidates[0].size > 0:
         chosen_idx = np.argmax(left_candidates[1])
@@ -205,7 +197,7 @@ if __name__ == '__main__':
     if key == ord('q'):
       break;
     currentTime = time.time();
-    if (currentTime - lastTime > 30):
+    if (currentTime - lastTime > 10):
         lastTime = currentTime
         print framenum
 

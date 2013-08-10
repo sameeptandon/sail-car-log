@@ -31,7 +31,7 @@ if __name__ == '__main__':
     (O, lastCols,asdf2) = findLanesConvolution(img, P=P, origSize=(imsize[1], imsize[0]))
 
     O = O.astype(uint8)
-    cv2.imshow('img', cv2.warpPerspective(O, P, imsize))
+    cv2.imshow('img', O)
     cv2.waitKey(5)
 
     writer.write(O)

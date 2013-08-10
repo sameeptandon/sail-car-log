@@ -112,26 +112,7 @@ def findLanesConvolution(img, origSize=(960,1280), lastCols=[None, None], lastLi
     O_3 = np.round(convolve(img[:,:,2], v, mode='reflect')).reshape((rows,cols,1)) 
 
     O = cv2.merge([O_1, O_2, O_3])
-
-    O = cv2.warpPerspective(O, P, (cols, rows), flags=cv.CV_WARP_INVERSE_MAP)
-    return (O, lastCols, lastLine)
-
-def findLanes(O, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3), responseOnlyNearLastCols=False, frame_rate=1):
-   
-    (rows, cols, channels) = O.shape
     
-    max_lane_size = int(np.round(origSize[1] / 96)) # approximation of lane width
-    if max_lane_size % 2 == 1:
-        max_lane_size += 1
-
-    O = cv2.warpPerspective(O, P, (cols, rows))
-    """
-    #mean subtract output image
-    m = np.mean(np.mean(O[rows/2:rows,:],axis=0),axis=0)
-    O = O - m
-    O[O < 0] = 0
-    """
-
     # thresholding for lane detection
     #white_lane_detect = np.sum(O,axis=2) > 350
     white_lane_detect = np.logical_and(O[:,:,0] > 120, np.logical_and(O[:,:,1] > 120, O[:,:,2] > 120))
@@ -142,6 +123,31 @@ def findLanes(O, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None
 
     # increase yellow lane detection score
     O[yellow_lane_detect,:] *= 5
+
+    column_O = np.sum(np.sum(O,axis=2),axis=0);
+    column_O[column_O < 1000] = 0
+    O[:,column_O < 1000,:] = 0
+
+    #O = cv2.warpPerspective(O, P, (cols, rows), flags=cv.CV_WARP_INVERSE_MAP)
+    return (O, lastCols, lastLine)
+
+def findLanes(O, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None,None,None], P=np.eye(3), responseOnlyNearLastCols=False, frame_rate=1):
+  
+    O = O.astype(np.float64)
+    (rows, cols, channels) = O.shape
+    
+    max_lane_size = int(np.round(origSize[1] / 96)) # approximation of lane width
+    if max_lane_size % 2 == 1:
+        max_lane_size += 1
+
+    #O = cv2.warpPerspective(O, P, (cols, rows))
+    """
+    #mean subtract output image
+    m = np.mean(np.mean(O[rows/2:rows,:],axis=0),axis=0)
+    O = O - m
+    O[O < 0] = 0
+    """
+
 
     # get rid of top of the image so we don't find a column fit to it
     O[0:2*rows/4,:] = 0
@@ -155,10 +161,10 @@ def findLanes(O, origSize=(960,1280), lastCols=[None, None], lastLine=[None,None
 
     # compute the sum of activations in each column and find the max 
     # responding column on the left and right sides
-    top_k = 15
     column_O = np.sum(np.sum(O,axis=2),axis=0);
     column_O[column_O < 1000] = 0
     O[:,column_O < 1000,:] = 0
+    top_k = 15
     top_k = min(top_k, np.nonzero(column_O[0:midpoint_lastCols])[0].size)
     top_k = min(top_k, np.nonzero(column_O[midpoint_lastCols:])[0].size)
 
