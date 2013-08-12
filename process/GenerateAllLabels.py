@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 import multiprocessing
-from LabelGenerator import *
+from DistanceLabelGenerator import *
 
 def main(rootdir, out_folder): 
     visited_prefix = set([])

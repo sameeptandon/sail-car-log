@@ -16,6 +16,22 @@ from WGS84toENU import *
 import pdb
 
 
+def outputDistances(distances, framenum, meters_per_point, points_fwd):
+    output = []
+    point_num = 1
+    dist = 0
+
+    framenum += 1
+    while framenum < distances.size and point_num <= points_fwd:
+        dist += distances[framenum]
+        if point_num * meters_per_point <= dist:
+            output.append(framenum)
+            point_num += 1
+        else:
+            framenum += 1
+        
+    return output
+
 def formatLabel(orig_label):
     orig_label = (np.sum(orig_label, axis=2) < 765).astype(float) # < 765ish
 
@@ -52,7 +68,10 @@ def formatLabel(orig_label):
     return output_label
 
 def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
-    num_imgs_fwd = 120
+    meters_per_point = 6
+    points_fwd = 16
+    frames_per_second = 50
+    distances = GPSVelocities(gps_dat) / frames_per_second
 
     count = 0
     output_num = 0
@@ -68,25 +87,26 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
         if frame < start_frame or (final_frame != -1 and frame >= final_frame):
             continue
 
-        gps_frames = gps_dat[frame:frame+num_imgs_fwd,:]
-        if gps_frames.shape[0] < num_imgs_fwd:
+        points = outputDistances(distances, frame, meters_per_point, points_fwd) / 16
+        if len(points) < points_fwd:  # it doesn't travel 80m forward
             continue
+        cols = GPSColumns(gps_dat[points], cam, gps_dat[frame, :])
+        print cols
+        labels.append(cols)
 
+        """
         min_speed = np.min(GPSVelocities(gps_frames))
         if min_speed < 18:  # slower than 40 mph
             continue
+        """
 
         reshaped = pp.resize(I, (240, 320))[0]
         imgs.append(reshaped)
 
-        framenum = frame
-        mask = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam)
-        points = formatLabel(mask)
-        labels.append(points)
 
         if len(imgs) == 960:
             merge_file = "%s_%d" % (output_base, output_num)
-            pml.save_merged_file(merge_file, imgs, labels)
+            pml.save_merged_file(merge_file, imgs, labels, imgRows=points_fwd)
             imgs = []
             labels = []
             output_num += 1
