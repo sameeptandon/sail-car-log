@@ -1,7 +1,6 @@
 import numpy as np
 import sys
-from cv2 import imread, imshow, resize, waitKey
-from scipy.misc import imresize
+from cv2 import imshow, waitKey
 from scipy.io import loadmat
 from GPSReader import *
 from GPSTransforms import *
@@ -16,6 +15,9 @@ if __name__ == '__main__':
     cam_num = int(vidname[-1])
     gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
     num_imgs_fwd = 125
+    base_interp_length = 15
+    polynomial_fit = 1
+    thickness = 2
     width = 10
     video_reader = VideoReader(video_filename)
     gps_reader = GPSReader(gps_filename)
@@ -117,6 +119,22 @@ if __name__ == '__main__':
             I[lpix[1,:], lpix[0,:]+p, :] = [0, 0, 255]
             I[lpix[1,:]-p, lpix[0,:], :] = [0, 0, 255]
             I[lpix[1,:], lpix[0,:]-p, :] = [0, 0, 255]
+
+        lpix_base = lpix[:, :base_interp_length]
+        l_p_fit = np.polyfit(lpix_base[1, :], lpix_base[0, :], polynomial_fit)
+        l_y_output = range(int(np.max(lpix_base[1, :])), 960)  # int(np.max(left_y) + 1))
+        for y in range(len(l_y_output)):
+            y_val = l_y_output[y]
+            x_val = l_p_fit[polynomial_fit]
+            for x in range(polynomial_fit):
+                x_val += l_p_fit[x] * y_val ** (polynomial_fit - x)
+            
+            pos2 = [x_val, y_val]
+            if x_val < 0 or x_val >= 1280:
+                continue
+            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
+            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 0
+            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
         
         rpts = right_Pos[start:end,:];
         rpts = rpts[rp[start:end,0] > 0, :]
@@ -127,162 +145,29 @@ if __name__ == '__main__':
         rpix = rpix[:,rpix[1,:] > 0 + width/2]
         rpix = rpix[:,rpix[0,:] < 1279 - width/2]
         rpix = rpix[:,rpix[1,:] < 959 - width/2]
+        rpix_base = rpix[:, :base_interp_length]
     
         for p in range(-width/2,width/2):
             I[rpix[1,:]+p, rpix[0,:], :] = [0, 0, 255]
             I[rpix[1,:], rpix[0,:]+p, :] = [0, 0, 255]
             I[rpix[1,:]-p, rpix[0,:], :] = [0, 0, 255]
             I[rpix[1,:], rpix[0,:]-p, :] = [0, 0, 255]
-       
-        """
-        for points_count in xrange(start, min(lp.shape[0], start+num_imgs_fwd)):
-            Pos = left_Pos[points_count,:]
-            Pos2 = np.linalg.solve(tr[count, :, :], Pos)
 
-            if lp[points_count,0] != -1:
-                pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
-                if not (pos2[1] < 0 or pos2[0] < 0 or pos2[1] >= 960 or pos2[0] >= 1280):
-                    left_points[pos2[1], pos2[0]] += 1
-
-                if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
-                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 0
-                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
-                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 255
-
-            X = right_XYZ[points_count,0]
-            Y = right_XYZ[points_count,1]
-            Z = right_XYZ[points_count,2]
-            Pos = np.dot(tr[points_count, :, :], np.linalg.solve(Tc, np.array([X, Y, Z, 1])))
-            Pos2 = np.linalg.solve(tr[count, :, :], Pos)
-
-            if rp[points_count,0] != -1:
-                pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
-                if not (pos2[1] < 0 or pos2[0] < 0 or pos2[1] >= 960 or pos2[0] >= 1280):
-                    right_points[pos2[1], pos2[0]] += 1
-
-                if pos2[1] > 3 and pos2[1] < 957 and pos2[0] > 3 and pos2[0] < 1277:
-                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 0] = 0
-                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
-                    I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 255
-
-        """
-        """
-        step_size = 1
-        polynomial_fit = 3
-        sum_thresh = 1
-        thickness = 2
-
-
-        avg_left = np.dot(left_points, range(0, 1280))
-        left_count = np.sum(left_points, axis=1)
-        left_count[left_count == 0] = 1
-        avg_left = avg_left / left_count
-
-        left_control = np.zeros((0, 2))
-        for y in xrange(0, 960, step_size):
-            left_window = np.zeros((6, step_size))
-            for i in xrange(0, step_size):
-                index = y+i
-                if index >= 960:
-                    break
-                pos = avg_left[index]
-                if pos >= 3 and pos <= 1277:
-                    left_window[:, i] = left_points[index, pos-3:pos+3]
-            max_sum = np.max(np.sum(left_window, axis=0))
-            if max_sum >= sum_thresh:
-                y_index = y+np.argmax(np.sum(left_window, axis=0))
-                x_index = avg_left[y_index]
-                left_control = np.append(left_control, np.array([[x_index, y_index]]), axis=0)
-
-        left_x = left_control[:, 0]
-        left_y = left_control[:, 1]
-        if left_x.size > 3:
-            p = np.polyfit(left_y, left_x, polynomial_fit)
-            #left_spline = UnivariateSpline(left_y, left_x, s=smoothness, k=3, bbox=[left_y[0], 960])
-            y_output = range(int(np.min(left_y)), int(np.max(left_y) + 1))
-            x_output = np.interp(y_output, left_y, left_x);
-            #x_output = left_spline(y_output)
-            for y in range(len(y_output)):
-                y_val = y_output[y]
-                #x_val = p[polynomial_fit]
-                x_val = x_output[y]
-                pos2 = [x_val, y_val]
-                #thickness = 5 + max(0, (y_val-480)*18/480)
-                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
-                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 0
-                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
-            # slope = p[polynomial_fit-1]
-            # y_max = int(np.max(left_y))
-            # x_max = p[polynomial_fit]
-            # for x in xrange(polynomial_fit):
-            #     x_max += p[x] * y_max**(polynomial_fit-x)
-            # for x in xrange(polynomial_fit-1):
-            #     slope += (polynomial_fit - x) * p[x] * y_max**(polynomial_fit-1-x)
-            # for y in range(y_max, 960):
-            #     x_val = (y - y_max) * slope + x_max
-            #     if x_val < 0 or x_val >= 1280:
-            #         continue
-            #     pos2 = [x_val, y]
-            #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
-            #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 0
-            #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
-
-        avg_right = np.dot(right_points, range(0, 1280))
-        right_count = np.sum(right_points, axis=1)
-        right_count[right_count == 0] = 1
-        avg_right = avg_right / right_count
-
-        right_control = np.zeros((0, 2))
-        for y in xrange(0, 960, step_size):
-            right_window = np.zeros((6, step_size))
-            for i in xrange(0, step_size):
-                index = y+i
-                if index >= 960:
-                    break
-                pos = avg_right[index]
-                if pos >= 3 and pos <= 1277:
-                    right_window[:, i] = right_points[index, pos-3:pos+3]
-            max_sum = np.max(np.sum(right_window, axis=0))
-            if max_sum >= sum_thresh:
-                y_index = y+np.argmax(np.sum(right_window, axis=0))
-                x_index = avg_right[y_index]
-                right_control = np.append(right_control, np.array([[x_index, y_index]]), axis=0)
-
-        right_x = right_control[:, 0]
-        right_y = right_control[:, 1]
-        if right_x.size > 3:
-            p = np.polyfit(right_y, right_x, polynomial_fit)
-            #right_spline = UnivariateSpline(right_y, right_x, s=smoothness, k=3, bbox=[right_y[0], 960])
-            y_output = range(int(np.min(right_y)), int(np.max(right_y) + 1))
-            #x_output = right_spline(y_output)
-            for y in range(len(y_output)):
-                y_val = y_output[y]
-                x_val = p[polynomial_fit]
-                for x in xrange(polynomial_fit):
-                    x_val += p[x] * y_val**(polynomial_fit-x)
-                if x_val < 0 or x_val >= 1280:
-                    continue
-                pos2 = [x_val, y_val]
-                #thickness = 5 + max(0, (y_val-480)*18/480)
-                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 0
-                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 255
-                #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
-            # slope = p[polynomial_fit-1]
-            # y_max = int(np.max(right_y))
-            # x_max = p[polynomial_fit]
-            # for x in xrange(polynomial_fit):
-            #     x_max += p[x] * y_max**(polynomial_fit-x)
-            # for x in xrange(polynomial_fit-1):
-            #     slope += (polynomial_fit - x) * p[x] * y_max**(polynomial_fit-1-x)
-            # for y in range(y_max, 960):
-            #     x_val = (y - y_max) * slope + x_max
-            #     if x_val < 0 or x_val >= 1280:
-            #         continue
-            #     pos2 = [x_val, y]
-            #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 0
-            #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 255
-            #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
-        """
+        rpix_base = rpix[:, :base_interp_length]
+        r_p_fit = np.polyfit(rpix_base[1, :], rpix_base[0, :], polynomial_fit)
+        r_y_output = range(int(np.max(rpix_base[1, :])), 960)  # int(np.max(left_y) + 1))
+        for y in range(len(r_y_output)):
+            y_val = r_y_output[y]
+            x_val = r_p_fit[polynomial_fit]
+            for x in range(polynomial_fit):
+                x_val += r_p_fit[x] * y_val ** (polynomial_fit - x)
+            
+            pos2 = [x_val, y_val]
+            if x_val < 0 or x_val >= 1280:
+                continue
+            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
+            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 0
+            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
 
         count += 1
         #I = imresize(I, (720, 960))
