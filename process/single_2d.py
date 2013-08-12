@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     output_name = sys.argv[2]
 
-    pitch = 0
+    pitch = 0.015
     height = 1.106
     p2 = 0.00
 
@@ -86,14 +86,15 @@ if __name__ == '__main__':
     edge_size = 100
     count = 0
     ratio = 4
-    frame_rate = 10
+    skip_frame = 10
+    imsize = (320, 240)
     while True:
         (success, I) = video_reader.getNextFrame()
 
         if success is False:
             break
 
-        if count % frame_rate != 0:
+        if count % skip_frame != 0:
             right_point = np.array([-1, -1]).reshape((1, 2))
             left_point = np.array([-1, -1]).reshape((1, 2))
             right_points = np.append(right_points, right_point, axis=0)
@@ -108,15 +109,15 @@ if __name__ == '__main__':
         #if count == 5000:
         #    break
 
-        imsize = (320, 240)
         I = cv2.resize(I, imsize)
+        I_WARP = cv2.warpPerspective(I, P, imsize)
         if lastCols[0] is None:
             M = GPSMask(gps_dat[count:count+num_imgs_fwd], cam, width=1)
             M = 255 - cv2.resize(M, imsize)
             warped_M = np.nonzero(cv2.warpPerspective(M, P, imsize))
             col_avg = np.mean(warped_M[1])
-            lastCols[0] = col_avg - 50
-            lastCols[1] = col_avg + 50
+            lastCols[0] = col_avg - 60
+            lastCols[1] = col_avg + 60
         
         if lastLines[0] is None:
             lastLines[0] = 0
@@ -124,8 +125,8 @@ if __name__ == '__main__':
             lastLines[2] = 0
             lastLines[3] = lastCols[1]
 
-        (O, lastCols, lastLines) = findLanesConvolution(I, (imsize[1], imsize[0]), lastCols, lastLines, P, frame_rate=frame_rate)
-        (O, lastCols, lastLines) = findLanes(I, (imsize[1], imsize[0]), lastCols, lastLines, P, frame_rate=frame_rate)
+        (O, lastCols, asdf2) = findLanesConvolution(I_WARP, (imsize[1], imsize[0]), lastCols, lastLines, frame_rate=skip_frame)
+        (O, lastCols, asdf2) = findLanes(O, (imsize[1], imsize[0]), lastCols, lastLines, frame_rate=skip_frame)
 
         """
         Instead of the below, check the borders for an activation and if
@@ -135,62 +136,47 @@ if __name__ == '__main__':
         Later, you'll interpolate the (x, y, z) for each discovered point
         and from there you can treat it however
         """
-        mask = O[:, :, 2] > 0
-        I[mask, 0] = 0
-        I[mask, 1] = 0
-        I[mask, 2] = 255
 
-        bottom_vals = np.zeros((240, 320, 3))
-        bottom_vals[158:200, :, 2] = 255
+        bottom_vals = np.zeros((240, 320))
+        bottom_vals[158:200, :] = 1
         bottom_vals = cv2.warpPerspective(bottom_vals, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
 
-        O_bin = np.copy(O[:, :, 2])
+        O_bin = np.copy(O)
+        O_bin[bottom_vals == 0, :] = 0
+        left_img = np.copy(O_bin)
+        right_img = np.copy(O_bin)
+        left_img[:, (lastCols[0] + lastCols[1]) / 2:, :] = 0
+        right_img[:, :(lastCols[0] + lastCols[1]) / 2, :] = 0
+
+        right_candidates = np.nonzero(right_img)
+        left_candidates = np.nonzero(left_img)
+
         right_point = np.array([-1, -1])
         left_point = np.array([-1, -1])
-        """
 
-        if np.any(O_bin[:, 0:160] > 0):
-            bl_row = np.max(np.nonzero(O_bin[:, 0:160])[0])
-            bl_col = np.min(np.nonzero(O_bin[bl_row, 0:160])[0])
-            left_point = np.array([4* bl_col + 2, 4* bl_row + 2])
+        if left_candidates[0].size > 0:
+            chosen_idx = np.argmax(left_candidates[1])
+            point = (left_candidates[1][chosen_idx], left_candidates[0][chosen_idx])
+            point_img = np.zeros((imsize[1], imsize[0]))
+            point_img[point[1]-2:point[1]+2, point[0]-2:point[0]+2] = 1
+            unwarped_img = cv2.warpPerspective(point_img, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
+            unwarped_point = np.nonzero(unwarped_img)
+            if len(unwarped_point[0]) > 0:
+                left_point[0] = unwarped_point[1][0] * 4 + 2
+                left_point[1] = unwarped_point[0][0] * 4 + 2
 
-        if np.any(O_bin[:, 160:320] > 0):
-            br_row = np.max(np.nonzero(O_bin[:, 160:320])[0])
-            br_col = np.max(np.nonzero(O_bin[br_row, 160:320])[0])
-            right_point = np.array([4*(br_col+160) + 2, 4* (br_row) + 2])
+        if right_candidates[0].size > 0:
+            chosen_idx = np.argmin(right_candidates[1])
+            point = (right_candidates[1][chosen_idx], right_candidates[0][chosen_idx])
+            point_img = np.zeros((imsize[1], imsize[0]))
+            point_img[point[1]-2:point[1]+2, point[0]-2:point[0]+2] = 1
+            unwarped_img = cv2.warpPerspective(point_img, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
+            unwarped_point = np.nonzero(unwarped_img)
+            if len(unwarped_point[0]) > 0:
+                right_point[0] = unwarped_point[1][0] * 4 + 2
+                right_point[1] = unwarped_point[0][0] * 4 + 2
 
 
-
-
-        """
-        O_bin[bottom_vals[:, :, 2] == 0] = 0
-        O_bleft = O_bin[:, 0:160]
-        O_bright = O_bin[:, 160:320]
-
-        bottom_left = np.unravel_index(np.argmax(O_bleft), (240, 160))
-        bottom_left = (bottom_left[0] * ratio + ratio, bottom_left[1] * ratio + ratio)
-        bottom_right = np.unravel_index(np.argmax(O_bright), (240, 160))
-        bottom_right = (bottom_right[0] * ratio + ratio, (bottom_right[1] + 160) * ratio + ratio)
-
-        left_activations = np.argmax(O[:, 2, 2])
-        right_activations = np.argmax(O[:, 317, 2])
-
-        new_points = np.zeros((0, 3))
-        if np.max(O_bleft) > 0:
-            left_point[0] = bottom_left[1]
-            left_point[1] = bottom_left[0]
-        if np.max(O_bright) > 0:
-            right_point[0] = bottom_right[1]
-            right_point[1] = bottom_right[0]
-
-        if left_point[0] == -1 and np.max(O[:, 2, 2]) > 0:
-            left_point[0] = 4
-            left_point[1] = left_activations * ratio + ratio
-
-        if right_point[0] == -1 and np.max(O[:, 317, 2]) > 0:
-            right_point[0] = 1276
-            right_point[1] = right_activations * ratio + ratio
-        #"""
         left_points = np.append(left_points, left_point.reshape((1, left_point.size)), axis=0)
         right_points = np.append(right_points, right_point.reshape((1, right_point.size)), axis=0)
 
