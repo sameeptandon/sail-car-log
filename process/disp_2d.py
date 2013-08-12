@@ -6,6 +6,7 @@ from scipy.io import loadmat
 from GPSReader import *
 from GPSTransforms import *
 from generate_lane_labels import *
+from CameraReprojection import * 
 from VideoReader import *
 
 if __name__ == '__main__':
@@ -15,6 +16,7 @@ if __name__ == '__main__':
     cam_num = int(vidname[-1])
     gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
     num_imgs_fwd = 125
+    width = 10
     video_reader = VideoReader(video_filename)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
@@ -54,11 +56,10 @@ if __name__ == '__main__':
                      [0.0, 0.0, 1.0]]);
 
     tr = GPSTransforms(gps_dat, cam)
-
-    # probably have to change these
-    pitch = 0.0
+  
+    pitch = 0.005
     height = 1.106
-    p2 = 0.00
+    # probably have to change these
     f = (cam['fx'] + cam['fy']) / 2
     R_to_c_from_i = cam['R_to_c_from_i']
     R_camera_pitch = euler_matrix(cam['rot_x'], cam['rot_y'],\
@@ -71,6 +72,16 @@ if __name__ == '__main__':
 
     Tc2 = np.eye(4) # check testTrackReverse for actual transformation value
 
+    left_XYZ = pixelTo3d(lp, cam)
+    right_XYZ = pixelTo3d(rp, cam)
+    left_Pos = np.zeros((lp.shape[0], 4))
+    right_Pos = np.zeros((rp.shape[0], 4))
+    for t in range(lp.shape[0]):
+      Pos = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([left_XYZ[t,0], left_XYZ[t,1], left_XYZ[t,2], 1])))
+      left_Pos[t,:] = Pos
+      Pos = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([right_XYZ[t,0], right_XYZ[t,1], right_XYZ[t,2], 1])))
+      right_Pos[t,:] = Pos
+
     count = 0
     start = 0
     while True:
@@ -78,7 +89,7 @@ if __name__ == '__main__':
 
         if not success:
             break
-        if count % 5 != 0: 
+        if count % 25 != 0: 
             count += 1
             continue
 
@@ -88,15 +99,47 @@ if __name__ == '__main__':
         start = count
         left_points = np.zeros((960, 1280))
         right_points = np.zeros((960, 1280))
+    
+        end = min(lp.shape[0], start+num_imgs_fwd)
+
+        lpts = left_Pos[start:end,:];
+        lpts = lpts[lp[start:end,0] > 0, :]
+        lPos2 = np.linalg.solve(tr[count, :, :], lpts.transpose())
+        lpix = np.around(np.dot(cam['KK'], np.divide(lPos2[0:3,:], lPos2[2, :])))
+        lpix = lpix.astype(np.int32)
+        lpix = lpix[:,lpix[0,:] > 0 + width/2]
+        lpix = lpix[:,lpix[1,:] > 0 + width/2]
+        lpix = lpix[:,lpix[0,:] < 1279 - width/2]
+        lpix = lpix[:,lpix[1,:] < 959 - width/2]
+    
+        for p in range(-width/2,width/2):
+            I[lpix[1,:]+p, lpix[0,:], :] = [0, 0, 255]
+            I[lpix[1,:], lpix[0,:]+p, :] = [0, 0, 255]
+            I[lpix[1,:]-p, lpix[0,:], :] = [0, 0, 255]
+            I[lpix[1,:], lpix[0,:]-p, :] = [0, 0, 255]
+        
+        rpts = right_Pos[start:end,:];
+        rpts = rpts[rp[start:end,0] > 0, :]
+        rPos2 = np.linalg.solve(tr[count, :, :], rpts.transpose())
+        rpix = np.around(np.dot(cam['KK'], np.divide(rPos2[0:3,:], rPos2[2, :])))
+        rpix = rpix.astype(np.int32)
+        rpix = rpix[:,rpix[0,:] > 0 + width/2]
+        rpix = rpix[:,rpix[1,:] > 0 + width/2]
+        rpix = rpix[:,rpix[0,:] < 1279 - width/2]
+        rpix = rpix[:,rpix[1,:] < 959 - width/2]
+    
+        for p in range(-width/2,width/2):
+            I[rpix[1,:]+p, rpix[0,:], :] = [0, 0, 255]
+            I[rpix[1,:], rpix[0,:]+p, :] = [0, 0, 255]
+            I[rpix[1,:]-p, rpix[0,:], :] = [0, 0, 255]
+            I[rpix[1,:], rpix[0,:]-p, :] = [0, 0, 255]
+       
+        """
         for points_count in xrange(start, min(lp.shape[0], start+num_imgs_fwd)):
-            pt = lp[points_count]
-            Z = ((pt[1]-cam['cv'])*sin(pitch)*height+f*cos(pitch)*height)/(cos(pitch)*(pt[1]-cam['cv'])-f*sin(pitch))
-            X = (cos(pitch)*Z-sin(pitch)*height)*(pt[0]-cam['cu'])/f
-            Y = 0
-            Pos = np.dot(tr[points_count, :, :], np.linalg.solve(Tc, np.array([X, Y, Z, 1])))
+            Pos = left_Pos[points_count,:]
             Pos2 = np.linalg.solve(tr[count, :, :], Pos)
 
-            if pt[0] != -1:
+            if lp[points_count,0] != -1:
                 pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
                 if not (pos2[1] < 0 or pos2[0] < 0 or pos2[1] >= 960 or pos2[0] >= 1280):
                     left_points[pos2[1], pos2[0]] += 1
@@ -106,14 +149,13 @@ if __name__ == '__main__':
                     I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
                     I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 255
 
-            pt = rp[points_count]
-            Z = ((pt[1]-cam['cv'])*sin(pitch)*height+f*cos(pitch)*height)/(cos(pitch)*(pt[1]-cam['cv'])-f*sin(pitch))
-            X = (cos(pitch)*Z-sin(pitch)*height)*(pt[0]-cam['cu'])/f
-            Y = 0
+            X = right_XYZ[points_count,0]
+            Y = right_XYZ[points_count,1]
+            Z = right_XYZ[points_count,2]
             Pos = np.dot(tr[points_count, :, :], np.linalg.solve(Tc, np.array([X, Y, Z, 1])))
             Pos2 = np.linalg.solve(tr[count, :, :], Pos)
 
-            if pt[0] != -1:
+            if rp[points_count,0] != -1:
                 pos2 = np.round(np.dot(cam['KK'], Pos2[0:3]) / Pos2[2])
                 if not (pos2[1] < 0 or pos2[0] < 0 or pos2[1] >= 960 or pos2[0] >= 1280):
                     right_points[pos2[1], pos2[0]] += 1
@@ -123,6 +165,8 @@ if __name__ == '__main__':
                     I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 1] = 0
                     I[pos2[1]-3:pos2[1]+3, pos2[0]-3:pos2[0]+3, 2] = 255
 
+        """
+        """
         step_size = 1
         polynomial_fit = 3
         sum_thresh = 1
@@ -162,12 +206,6 @@ if __name__ == '__main__':
                 y_val = y_output[y]
                 #x_val = p[polynomial_fit]
                 x_val = x_output[y]
-                """
-                for x in xrange(polynomial_fit):
-                    x_val += p[x] * y_val**(polynomial_fit-x)
-                if x_val < 0 or x_val >= 1280:
-                    continue
-                """
                 pos2 = [x_val, y_val]
                 #thickness = 5 + max(0, (y_val-480)*18/480)
                 #I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
@@ -244,9 +282,10 @@ if __name__ == '__main__':
             #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 0
             #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 255
             #     I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
+        """
 
         count += 1
-        I = imresize(I, (720, 960))
+        #I = imresize(I, (720, 960))
         imshow('video', I)
         key = waitKey(10)
         if key == ord('q'):
