@@ -6,7 +6,7 @@ pixels is Nx2 matrix of coordinates,
 cam is camera structure
 """
 def pixelTo3d(pixels, cam):
-  pitch = 0.01 # constants based on camera setup
+  pitch = -cam['rot_x'] # constants based on camera setup
   height = 1.105 # constants based on camera setup 
   N = pixels.shape[0]
   assert(pixels.shape[1] == 2)
