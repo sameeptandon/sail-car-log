@@ -33,9 +33,9 @@ class GPSReader():
     arr[:, 1] = smoothData(arr[:, 1])
     arr[:, 2] = smoothData(arr[:, 2])
     arr[:, 3] = smoothData(arr[:, 3])
-    arr[:, 7] = smoothData(arr[:, 7])
-    arr[:, 8] = smoothData(arr[:, 8])
-    arr[:, 9] = smoothData(arr[:, 9])
+    #arr[:, 7] = smoothData(arr[:, 7])
+    #arr[:, 8] = smoothData(arr[:, 8])
+    #arr[:, 9] = smoothData(arr[:, 9])
 
     return arr;
 

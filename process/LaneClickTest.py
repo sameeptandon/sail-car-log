@@ -19,13 +19,17 @@ mouse_position = None
 left_frames = []
 frame_data = []
 mouse_click = None
+last_click_time = 0
+frameWaitTime = 100
 
 def on_mouse(event, x, y, flags, params):
     global pause_labeler
     global mouse_position
     global mouse_click
+    global last_click_time
     if event == cv.CV_EVENT_LBUTTONDOWN:
         mouse_click = (x, y)
+        last_click_time = time.time() 
         print mouse_click
 
 
@@ -87,6 +91,7 @@ if __name__ == '__main__':
   #framenum = 27000
   framenum = 0
   lastTime = time.time()
+  lastClickProcessed = time.time()
   lastCols = [None, None]
   lastLine = [None, None, None, None]
   video_reader.setFrame(framenum)
@@ -122,11 +127,16 @@ if __name__ == '__main__':
     if mouse_click is not None:
         col_avg = mouse_click[0] / 2
         dist = min(0.95 * (lastCols[1] - lastCols[0]) / 2, col_avg)
+        delta_time = last_click_time - lastClickProcessed
+        print 'delta time: ', delta_time
+        dist *= min(delta_time,1)
         lastCols[0] = col_avg - dist
         lastCols[1] = col_avg + dist
         print dist
         print lastCols
         mouse_click = None
+        lastClickProcessed = last_click_time
+        frameWaitTime = min(500, frameWaitTime*10)
     
     if lastLine[0] is None:
         lastLine[0] = 0
@@ -162,7 +172,8 @@ if __name__ == '__main__':
 
     I = resize(I_WARP, (640,480))
     imshow('video',I )
-    key = (waitKey(10) & 255)
+    key = (waitKey(frameWaitTime) & 255)
+    frameWaitTime = max(int(frameWaitTime / 1.5), 5)
 
     if left_candidates[0].size > 0:
         chosen_idx = np.argmax(left_candidates[1])

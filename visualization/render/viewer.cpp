@@ -9,7 +9,8 @@ int record_num = 1;
 double cx, cy, cz = 0.0;
 vector<GPSRecord> records;
 osg::Geometry* lines;
-osg::MatrixTransform* box; 
+osg::MatrixTransform* box;
+osg::MatrixTransform* box_axis;
 
 inline double radians(double deg) {
   return deg * M_PI / 180; 
@@ -34,18 +35,25 @@ void nextRecord( bool addLines ) {
     if (addLines) 
       addLineSegment(lines, cx, cy, cz);
 
-    double yaw = M_PI/2 - radians(records[record_num].azimuth);
+    double yaw =  M_PI/2 + radians(records[record_num].azimuth);
     double pitch = radians(records[record_num].rot_x);
     double roll = radians(records[record_num].rot_y);
 
+    pitch = radians(records[record_num].rot_y);
+    roll = radians(records[record_num].rot_x);
     osg::Matrixd rot;
-    rot.makeRotate(yaw  ,osg::Vec3d(0.0,0.0,-1.0),
+    rot.makeRotate(yaw  ,osg::Vec3d(0.0,0.0,1.0),
                    pitch,osg::Vec3d(1.0,0.0,0.0),
                    roll ,osg::Vec3d(0.0,1.0,0.0));
 
     cout << "yaw = " << yaw << endl; 
     cout << "pit = " << pitch << endl;
     cout << "rol = " << roll << endl; 
+
+    cout << "altitude = " << cz;
+
+
+
 
     osg::Matrixd trans;
     trans.makeTranslate(cx,cy,cz);
@@ -136,12 +144,14 @@ int run(string gpsFileName) {
   osg::Group* root = new osg::Group(); 
   osg::Geode* geode = createGeode();
   box = createBox(20.0, 40.0, 10.0);
+  box_axis = createAxis();
   lines = createLines(); 
   osg::LineWidth* linewidth = createLineWidth(); 
   geode->addDrawable(lines); 
   geode->getOrCreateStateSet()->setAttributeAndModes(linewidth,
       osg::StateAttribute::ON);
 
+  box->addChild(box_axis);
   root->addChild(box);
   root->addChild(geode);
   root->addChild(createAxis());

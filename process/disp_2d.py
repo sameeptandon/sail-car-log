@@ -1,8 +1,9 @@
 import numpy as np
-import sys
+import sys, time
 from cv2 import imshow, waitKey
 from scipy.io import loadmat
 from GPSReader import *
+from GPSReprojection import *
 from GPSTransforms import *
 from generate_lane_labels import *
 from CameraReprojection import * 
@@ -15,17 +16,23 @@ if __name__ == '__main__':
     cam_num = int(vidname[-1])
     gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
     num_imgs_fwd = 125
-    base_interp_length = 15
+    base_interp_length = 10
     polynomial_fit = 1
     thickness = 2
     width = 10
     video_reader = VideoReader(video_filename)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
+    lastTime = time.time()
 
     labels = loadmat(sys.argv[2])
     lp = labels['left']
     rp = labels['right']
+  
+    writer = None
+    if len(sys.argv) > 3:
+      writer = cv2.VideoWriter(sys.argv[3], cv.CV_FOURCC('F','M','P','4'), 10.0, (640,480))
+
 
     
 
@@ -59,7 +66,7 @@ if __name__ == '__main__':
 
     tr = GPSTransforms(gps_dat, cam)
   
-    pitch = 0.005
+    pitch = -cam['rot_x']
     height = 1.106
     # probably have to change these
     f = (cam['fx'] + cam['fy']) / 2
@@ -91,87 +98,118 @@ if __name__ == '__main__':
 
         if not success:
             break
-        if count % 25 != 0: 
+        if count % 5 != 0: 
             count += 1
             continue
+
+        if count > 5000:
+          print 'stopping at 5k frames' 
+          break
 
         if count > lp.shape[0] or count > rp.shape[0]:
             break
 
         start = count
+        end = min(lp.shape[0], start+num_imgs_fwd)-1
+        framenums_to_reproject = np.arange(start,end)
+        special_frame_idx = framenums_to_reproject % 50 == 0 
+        for frame_depth in range(1,5):
+          special_frame_idx = np.logical_or(framenums_to_reproject % 50 == frame_depth, special_frame_idx)
+        special_frames = framenums_to_reproject[special_frame_idx]
+
+        if start not in special_frames:
+          special_frames = np.concatenate([[start], special_frames])
+    
+        M = GPSMask(gps_dat[framenums_to_reproject,:], cam, width=5); 
+        I = np.minimum(M,I)
+        M = 255 - M;
+        I[:,:,2] = np.maximum(M[:,:,2], I[:,:,2])
+        M = GPSMask(gps_dat[special_frames,:], cam, width=5); 
+        I = np.minimum(M,I)
+        M = 255 - M;
+        I[:,:,1] = np.maximum(M[:,:,1], I[:,:,1])
+
         left_points = np.zeros((960, 1280))
         right_points = np.zeros((960, 1280))
     
-        end = min(lp.shape[0], start+num_imgs_fwd)
 
         lpts = left_Pos[start:end,:];
         lpts = lpts[lp[start:end,0] > 0, :]
         lPos2 = np.linalg.solve(tr[count, :, :], lpts.transpose())
         lpix = np.around(np.dot(cam['KK'], np.divide(lPos2[0:3,:], lPos2[2, :])))
-        lpix = lpix.astype(np.int32)
-        lpix = lpix[:,lpix[0,:] > 0 + width/2]
-        lpix = lpix[:,lpix[1,:] > 0 + width/2]
-        lpix = lpix[:,lpix[0,:] < 1279 - width/2]
-        lpix = lpix[:,lpix[1,:] < 959 - width/2]
+        if lpix.shape[1] > 0:
+          lpix = lpix.astype(np.int32)
+          lpix = lpix[:,lpix[0,:] > 0 + width/2]
+          lpix = lpix[:,lpix[1,:] > 0 + width/2]
+          lpix = lpix[:,lpix[0,:] < 1279 - width/2]
+          lpix = lpix[:,lpix[1,:] < 959 - width/2]
     
-        for p in range(-width/2,width/2):
-            I[lpix[1,:]+p, lpix[0,:], :] = [0, 0, 255]
-            I[lpix[1,:], lpix[0,:]+p, :] = [0, 0, 255]
-            I[lpix[1,:]-p, lpix[0,:], :] = [0, 0, 255]
-            I[lpix[1,:], lpix[0,:]-p, :] = [0, 0, 255]
+          for p in range(-width/2,width/2):
+            I[lpix[1,:]+p, lpix[0,:], :] = [0, 255, 255]
+            I[lpix[1,:], lpix[0,:]+p, :] = [0, 255, 255]
+            I[lpix[1,:]-p, lpix[0,:], :] = [0, 255, 255]
+            I[lpix[1,:], lpix[0,:]-p, :] = [0, 255, 255]
 
-        lpix_base = lpix[:, :base_interp_length]
-        l_p_fit = np.polyfit(lpix_base[1, :], lpix_base[0, :], polynomial_fit)
-        l_y_output = range(int(np.max(lpix_base[1, :])), 960)  # int(np.max(left_y) + 1))
-        for y in range(len(l_y_output)):
-            y_val = l_y_output[y]
-            x_val = l_p_fit[polynomial_fit]
-            for x in range(polynomial_fit):
-                x_val += l_p_fit[x] * y_val ** (polynomial_fit - x)
-            
-            pos2 = [x_val, y_val]
-            if x_val < 0 or x_val >= 1280:
-                continue
-            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
-            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 0
-            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
-        
+          lpix_base = lpix[:, :base_interp_length]
+          l_p_fit = np.polyfit(lpix_base[1, :], lpix_base[0, :], polynomial_fit)
+          l_y_output = np.arange(int(np.max(lpix_base[1, :])), 960 - width / 2)  # int(np.max(left_y) + 1))
+          l_x_output = np.polyval(l_p_fit, l_y_output)
+          l_x_output = l_x_output.astype(np.int32)
+          l_y_output = l_y_output.astype(np.int32)
+          l_y_output = l_y_output[l_x_output >= width / 2]
+          l_x_output = l_x_output[l_x_output >= width / 2]
+          l_y_output = l_y_output[l_x_output < 1280 - width / 2 - 1]
+          l_x_output = l_x_output[l_x_output < 1280 - width / 2 - 1]
+          for p in range(-width/2,width/2):
+            I[l_y_output+p, l_x_output, :] = [255, 0, 0]
+            I[l_y_output, l_x_output+p, :] = [255, 0, 0]
+            I[l_y_output-p, l_x_output, :] = [255, 0, 0]
+            I[l_y_output, l_x_output-p, :] = [255, 0, 0]
+      
         rpts = right_Pos[start:end,:];
         rpts = rpts[rp[start:end,0] > 0, :]
         rPos2 = np.linalg.solve(tr[count, :, :], rpts.transpose())
         rpix = np.around(np.dot(cam['KK'], np.divide(rPos2[0:3,:], rPos2[2, :])))
-        rpix = rpix.astype(np.int32)
-        rpix = rpix[:,rpix[0,:] > 0 + width/2]
-        rpix = rpix[:,rpix[1,:] > 0 + width/2]
-        rpix = rpix[:,rpix[0,:] < 1279 - width/2]
-        rpix = rpix[:,rpix[1,:] < 959 - width/2]
-        rpix_base = rpix[:, :base_interp_length]
-    
-        for p in range(-width/2,width/2):
-            I[rpix[1,:]+p, rpix[0,:], :] = [0, 0, 255]
-            I[rpix[1,:], rpix[0,:]+p, :] = [0, 0, 255]
-            I[rpix[1,:]-p, rpix[0,:], :] = [0, 0, 255]
-            I[rpix[1,:], rpix[0,:]-p, :] = [0, 0, 255]
 
-        rpix_base = rpix[:, :base_interp_length]
-        r_p_fit = np.polyfit(rpix_base[1, :], rpix_base[0, :], polynomial_fit)
-        r_y_output = range(int(np.max(rpix_base[1, :])), 960)  # int(np.max(left_y) + 1))
-        for y in range(len(r_y_output)):
-            y_val = r_y_output[y]
-            x_val = r_p_fit[polynomial_fit]
-            for x in range(polynomial_fit):
-                x_val += r_p_fit[x] * y_val ** (polynomial_fit - x)
-            
-            pos2 = [x_val, y_val]
-            if x_val < 0 or x_val >= 1280:
-                continue
-            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 0] = 255
-            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 1] = 0
-            I[pos2[1]-thickness:pos2[1]+thickness, pos2[0]-thickness:pos2[0]+thickness, 2] = 0
+        if rpix.shape[1] > 0:
+          rpix = rpix.astype(np.int32)
+          rpix = rpix[:,rpix[0,:] > 0 + width/2]
+          rpix = rpix[:,rpix[1,:] > 0 + width/2]
+          rpix = rpix[:,rpix[0,:] < 1279 - width/2]
+          rpix = rpix[:,rpix[1,:] < 959 - width/2]
+          rpix_base = rpix[:, :base_interp_length]
+    
+          for p in range(-width/2,width/2):
+            I[rpix[1,:]+p, rpix[0,:], :] = [0, 255, 255]
+            I[rpix[1,:], rpix[0,:]+p, :] = [0, 255, 255]
+            I[rpix[1,:]-p, rpix[0,:], :] = [0, 255, 255]
+            I[rpix[1,:], rpix[0,:]-p, :] = [0, 255, 255]
+
+          rpix_base = rpix[:, :base_interp_length]
+          r_p_fit = np.polyfit(rpix_base[1, :], rpix_base[0, :], polynomial_fit)
+          r_y_output = np.arange(int(np.max(rpix_base[1, :])), 960 - width / 2)  # int(np.max(reft_y) + 1))
+          r_x_output = np.polyval(r_p_fit, r_y_output)
+          r_x_output = r_x_output.astype(np.int32)
+          r_y_output = r_y_output.astype(np.int32)
+          r_y_output = r_y_output[r_x_output > 0 + width / 2] 
+          r_x_output = r_x_output[r_x_output > 0 + width / 2]
+          r_y_output = r_y_output[r_x_output < 1280 - width / 2 - 1]
+          r_x_output = r_x_output[r_x_output < 1280 - width / 2 - 1]
+          for p in range(-width/2,width/2):
+            I[r_y_output+p, r_x_output, :] = [255, 0, 0]
+            I[r_y_output, r_x_output+p, :] = [255, 0, 0]
+            I[r_y_output-p, r_x_output, :] = [255, 0, 0]
+            I[r_y_output, r_x_output-p, :] = [255, 0, 0]
 
         count += 1
-        #I = imresize(I, (720, 960))
+        I = cv2.resize(I, (640, 480))
+        if writer:
+          writer.write(I) 
         imshow('video', I)
-        key = waitKey(10)
+        key = waitKey(1)
         if key == ord('q'):
             break
+        if time.time() - lastTime > 5:
+          print 'framenum = ', count
+          lastTime = time.time()
+
