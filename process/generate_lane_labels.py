@@ -89,10 +89,10 @@ def findLanesConvolution(img, origSize=(960,1280), lastCols=[None, None], lastLi
         m = np.mean(np.mean(img[:,:],axis=0),axis=0)
         img = img - m
     img[img < 0] = 0
-    #img[:,:,0] = 255*(img[:,:,0] ) / np.max(img[:,:,0])
-    #img[:,:,1] = 255*(img[:,:,1] ) / np.max(img[:,:,1])
-    #img[:,:,2] = 255*(img[:,:,2] ) / np.max(img[:,:,2])
-    
+    img[:,:,0] = 255*(img[:,:,0] ) / np.max(img[:,:,0])
+    img[:,:,1] = 255*(img[:,:,1] ) / np.max(img[:,:,1])
+    img[:,:,2] = 255*(img[:,:,2] ) / np.max(img[:,:,2])
+
 
     # set max_lane_size to about 20 in the 1280x960 image
     max_lane_size = int(np.round(origSize[1] / 96)) # approximation of lane width
@@ -115,10 +115,10 @@ def findLanesConvolution(img, origSize=(960,1280), lastCols=[None, None], lastLi
     
     # thresholding for lane detection
     #white_lane_detect = np.sum(O,axis=2) > 350
-    white_lane_detect = np.logical_and(O[:,:,0] > 120, np.logical_and(O[:,:,1] > 120, O[:,:,2] > 120))
+    white_lane_detect = np.logical_and(O[:,:,0] > 200, np.logical_and(O[:,:,1] > 200, O[:,:,2] > 200))
     #yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 90, O[:,:,0] < 20)
     eps = 0.000001
-    yellow_lane_detect = np.logical_and(((O[:,:,1] + O[:,:,2]) / (eps + O[:,:,0]) ) > 7, O[:,:,1] + O[:,:,2] > 75) 
+    yellow_lane_detect = np.logical_and(((O[:,:,1] + O[:,:,2]) / (eps + O[:,:,0]) ) > 7, O[:,:,1] + O[:,:,2] > 200) 
     low_vals = np.logical_and(np.logical_not(white_lane_detect), np.logical_not(yellow_lane_detect))
     O[low_vals,:] = 0
 
