@@ -66,7 +66,7 @@ def findLanesConvolution(img, origSize=(960,1280), lastCols=[None, None], lastLi
     
     img = cv2.warpPerspective(img, P, (cols, rows))
     img = img.astype(np.float64)
-    
+
     #idea for windowing around current lastCol, but could be bad as possible
     #to not recover on a bad misdetection
     if responseOnlyNearLastCols == True:
@@ -89,10 +89,7 @@ def findLanesConvolution(img, origSize=(960,1280), lastCols=[None, None], lastLi
         m = np.mean(np.mean(img[:,:],axis=0),axis=0)
         img = img - m
     img[img < 0] = 0
-    img[:,:,0] = 255*(img[:,:,0] ) / np.max(img[:,:,0])
-    img[:,:,1] = 255*(img[:,:,1] ) / np.max(img[:,:,1])
-    img[:,:,2] = 255*(img[:,:,2] ) / np.max(img[:,:,2])
-
+    img = 255 * img / np.max(img)
 
     # set max_lane_size to about 20 in the 1280x960 image
     max_lane_size = int(np.round(origSize[1] / 96)) # approximation of lane width
