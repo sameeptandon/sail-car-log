@@ -99,27 +99,38 @@ if __name__ == '__main__':
     maxY = 960
     dst = array([[-1000,200],[2280,200],[780,960],[500,960]], float32)
     """
-    src = array([[499,597],[972,597],[1112,661],[448,678]], float32) #good one
+    #src =  array([(567, 759), (896, 756), (919, 791), (555, 793)], float32)
+    src = array([(570, 737), (864, 737), (881, 761), (564, 761)], float32)
+    #src = array([(520, 727), (916, 733), (950, 775), (497, 771)], float32)
+    #src = array([[499,597],[972,597],[1112,661],[448,678]], float32) #good one
     #src = array([[528,560],[861,557],[1244,759],[271,773]], float32)
     #src = array([[550,524],[840,523],[1019,613],[496,612]], float32)
     ##src = array([(378, 604), (742, 601), (967, 802), (79, 784)], float32)
     ##src = array( [(445, 521), (729, 527), (1159, 819), (27, 747)], float32)
     ##src = array([(386, 521), (829, 517), (1190, 681), (92, 663)], float32)
 
-    dst = array([[320,320],[960,320],[960,640],[320,640]], float32)
+    rx = 38
+    ry = 24
+    sx = 150
+    sy = 100
+    dst = array([[sx,sy],[sx+rx,sy],[sx+rx,sy+ry],[sx,sy+ry]],float32)
+
+    #dst = array([[320,320],[960,320],[960,640],[320,640]], float32)
+    #dst[:,0] += 960
 
     imsize = (320,240)
     I = resize(I, imsize)
     I[:, :5] = [255, 0, 0]
     I[:, -5:] = [255, 0, 0]
+    I[-5:, :] = [0, 255, 0]
     src = src / 4;
-    dst = dst / 4;
+    dst = dst ;
     #dst = array([[0,0],[1280,0],[1280,960],[0,960]], float32)
     P = getPerspectiveTransform(src,dst)
     WARP = warpPerspective(I, P, imsize);
     #WARP = resize(WARP, imsize)
     #I[0:480,:,:]=0
-    #I = WARP
+    I = WARP
     
     if lastCols[0] is None:
         M = 255 - resize(M, imsize)

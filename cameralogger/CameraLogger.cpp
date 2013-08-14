@@ -192,8 +192,15 @@ void ctrlC (int)
   is_done_working = true;
 #endif
 #ifdef DISPLAY
-  printf("\nCtrl-C Disabled! Use 'q' to quit instead\n");
+  //printf("\nCtrl-C Disabled! Use 'q' to quit instead\n");
+  printf("\nCtrl-C detected, exit condition set to true.\n");
+  is_done_working = true;
 #endif
+}
+
+void stopSig (int)
+{
+  is_done_working = true;
 }
 
 int main(int argc, char** argv)
@@ -237,6 +244,7 @@ int main(int argc, char** argv)
     cout  << "Filenames: " << fname1 << " " << fname2 << endl; 
 
     signal (SIGINT, ctrlC);
+    signal (SIGSTOP, stopSig);
 
     for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++)
     {

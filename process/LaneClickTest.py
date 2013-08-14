@@ -99,8 +99,14 @@ if __name__ == '__main__':
   skip_frame = 10
   default_offset = 60
 
-  src = array([[499,597],[972,597],[1112,661],[448,678]], float32) / 4#good one
-  dst = array([[320,320],[960,320],[960,640],[320,640]], float32) / 4
+  src = array([(570, 737), (864, 737), (881, 761), (564, 761)], float32) / 4
+  rx = 33
+  ry = 21
+  sx = 150
+  sy = 120
+  dst = array([[sx,sy],[sx+rx,sy],[sx+rx,sy+ry],[sx,sy+ry]],float32)
+  #src = array([[499,597],[972,597],[1112,661],[448,678]], float32) / 4#good one
+  #dst = array([[320,320],[960,320],[960,640],[320,640]], float32) / 4
   imsize = (320,240)
   P = getPerspectiveTransform(src,dst)
 
@@ -146,13 +152,14 @@ if __name__ == '__main__':
 
    
     #I = np.copy(WARP)
-    (O, lastCols,asdf2) = findLanesConvolution(I_WARP, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
+    (O, lastCols,asdf2) = findLanesConvolution(I, (imsize[1], imsize[0]), lastCols, lastLine, P=P, frame_rate=skip_frame)
     (O, lastCols,asdf2) = findLanes(O, (imsize[1], imsize[0]), lastCols, lastLine, frame_rate=skip_frame)
     line_img = np.zeros((imsize[1], imsize[0]))
-    line_img[158:200,:] = 1
+    line_img[20:200,:] = 1
 
+    #I_WARP = O
     I_WARP[O[:,:,0] > 0, :] = [0, 0, 255]
-    #I[line_img > 0, :] = [255, 0, 0]
+    I[line_img > 0, :] = [255, 0, 0]
 
     good_img = np.copy(O)
     good_img[line_img == 0, : ] = 0
@@ -170,8 +177,9 @@ if __name__ == '__main__':
         I_WARP[:,lastCols[1],:] = 0
         I_WARP[:,(lastCols[0]+lastCols[1])/2,:] = 0
 
+    #I_WARP = cv2.warpPerspective(I_WARP, P, imsize, flags=cv.CV_WARP_INVERSE_MAP) 
     I = resize(I_WARP, (640,480))
-    imshow('video',I )
+    imshow('video',I)
     key = (waitKey(frameWaitTime) & 255)
     frameWaitTime = max(int(frameWaitTime / 1.5), 5)
 

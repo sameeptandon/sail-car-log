@@ -20,7 +20,7 @@ if __name__ == '__main__':
     polynomial_fit = 1
     thickness = 2
     width = 10
-    video_reader = VideoReader(video_filename)
+    video_reader = VideoReader(video_filename,num_splits=1)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
     lastTime = time.time()
@@ -98,13 +98,11 @@ if __name__ == '__main__':
 
         if not success:
             break
-        if count % 5 != 0: 
+        """
+        if count % 10 != 0: 
             count += 1
             continue
-
-        if count > 5000:
-          print 'stopping at 5k frames' 
-          break
+        """
 
         if count > lp.shape[0] or count > rp.shape[0]:
             break
@@ -201,7 +199,7 @@ if __name__ == '__main__':
             I[r_y_output-p, r_x_output, :] = [255, 0, 0]
             I[r_y_output, r_x_output-p, :] = [255, 0, 0]
 
-        count += 1
+        count += 10
         I = cv2.resize(I, (640, 480))
         if writer:
           writer.write(I) 
