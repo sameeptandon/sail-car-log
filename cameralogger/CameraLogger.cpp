@@ -210,6 +210,7 @@ int main(int argc, char** argv)
     desc.add_options()
         ("help", "produce help message")
         ("serial,s", value<string>(), "the serial location for the gps unit")
+        ("maxframes,m", value<uint64_t>(), "maximum number of frames to capture")
         ("output,o", value<string>(), "the filename for data logging");
 
     variables_map vm;
@@ -232,6 +233,12 @@ int main(int argc, char** argv)
         fname2 = "data2.avi";
         fnamegps = "data_gps.out";
     };
+
+    uint64_t maxframes = -1; 
+    if (vm.count("maxframes")) {
+        maxframes = vm["maxframes"].as<uint64_t>(); 
+    }
+    cout << "Capturing for maximum of " << maxframes << " frames" << endl; 
 
     bool useGPS = vm.count("serial");
     GPSLogger gpsLogger;
@@ -315,7 +322,10 @@ int main(int argc, char** argv)
 #endif
     uint64_t numframes = 0; 
     while (!is_done_working) {
-        numframes++; 
+        numframes++;
+        if (numframes > maxframes) { 
+            is_done_working = true;
+        }
         Image image; 
         cam1->RetrieveBuffer(&image);
         ImageCallback(&image, NULL, &cam1_buff[numframes % NUMTHREAD_PER_BUFFER]);
