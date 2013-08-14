@@ -76,14 +76,15 @@ if __name__ == '__main__':
     f = (cam['fx'] + cam['fy']) / 2
 
     tr = GPSTransforms(gps_dat, cam)
-    src = np.array([[499, 597], [972, 597], [1112, 661], [448, 678]], np.float32) / 4
-    dst = np.array([[320, 320], [960, 320], [960, 640], [320, 640]], np.float32) / 4
+    src = np.array([(570, 737), (864, 737), (881, 761), (561, 761)], np.float32) / 4
+    #src = np.array([[499, 597], [972, 597], [1112, 661], [448, 678]], np.float32) / 4
+    #dst = np.array([[320, 320], [960, 320], [960, 640], [320, 640]], np.float32) / 4
+    dst = np.array([[150, 120], [183, 120], [183, 141], [150, 141]], np.float32)
     P = cv2.getPerspectiveTransform(src, dst)
 
     lastCols = [None, None]
     lastLines = [None, None, None, None]
 
-    edge_size = 100
     count = 0
     ratio = 4
     skip_frame = 10
@@ -138,7 +139,7 @@ if __name__ == '__main__':
         """
 
         bottom_vals = np.zeros((240, 320))
-        bottom_vals[158:200, :] = 1
+        bottom_vals[20:200, :] = 1
         bottom_vals = cv2.warpPerspective(bottom_vals, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
 
         O_bin = np.copy(O)
