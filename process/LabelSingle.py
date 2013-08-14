@@ -7,12 +7,12 @@ import multiprocessing
 def command(args):
   (arg, output_folder) = args
   path, name = os.path.split(arg)
+  output_prefix = path.replace('/','_')
   name, ext = os.path.splitext(name)
-  all_points = os.path.join(output_folder, '%s-all-points.mat' % name)
-  scores = os.path.join(output_folder, '%s-interpolated.mat' % name)
-  filtered = os.path.join(output_folder, '%s-filtered.mat' % name)
+  all_points = os.path.join(output_folder, '%s-%s-all-points.mat' % (output_prefix, name))
+  scores = os.path.join(output_folder, '%s-%s-interpolated.mat' % (output_prefix, name))
 
-  command = 'python single_2d.py %s %s; ' % (arg, all_points)
+  command = 'python LaneClickTest.py %s %s --quiet; ' % (arg, all_points)
   command += 'python interp_2d.py %s %s' % (all_points, scores)
 
   return subprocess.call(command, shell=True)

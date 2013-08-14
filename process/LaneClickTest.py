@@ -40,6 +40,10 @@ if __name__ == '__main__':
   cam_num = int(vidname[-1])
   gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
   out_name = sys.argv[2]
+  display = True
+  if '--quiet' in sys.argv:
+      display = False
+
 
   cv2.namedWindow('video')
   cv.SetMouseCallback('video', on_mouse, 0)
@@ -119,6 +123,14 @@ if __name__ == '__main__':
     #if framenum % skip_frame != 0:
     #  continue
 
+    if framenum % 150 == 0:
+        r = np.arange(9,len(frame_data)*skip_frame,skip_frame)
+        export_data = -1*np.ones((len(frame_data)*skip_frame+1,2))
+        export_data[r,:] = frame_data
+        left_data = -1*np.ones((len(left_frames)*skip_frame+1,2))
+        left_data[r, :] = left_frames
+        savemat(out_name, dict(left=left_data,right=export_data))
+
     I = resize(I, imsize)
     I_WARP = warpPerspective(I, P, imsize);
     
@@ -179,8 +191,10 @@ if __name__ == '__main__':
 
     #I_WARP = cv2.warpPerspective(I_WARP, P, imsize, flags=cv.CV_WARP_INVERSE_MAP) 
     I = resize(I_WARP, (640,480))
-    imshow('video',I)
-    key = (waitKey(frameWaitTime) & 255)
+    key = ''
+    if display:
+        imshow('video',I)
+        key = (waitKey(frameWaitTime) & 255)
     frameWaitTime = max(int(frameWaitTime / 1.5), 5)
 
     if left_candidates[0].size > 0:
