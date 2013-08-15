@@ -119,10 +119,10 @@ def findLanesConvolution(img, origSize=(960,1280), lastCols=[None, None], lastLi
 
     # thresholding for lane detection
     #white_lane_detect = np.sum(O,axis=2) > 350
-    white_lane_detect = np.logical_and(O[:,:,0] > 200, np.logical_and(O[:,:,1] > 200, O[:,:,2] > 200))
+    white_lane_detect = np.logical_and(O[:,:,0] > 150, np.logical_and(O[:,:,1] > 150, O[:,:,2] > 150))
     #yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 90, O[:,:,0] < 20)
     eps = 0.000001
-    yellow_lane_detect = np.logical_and(((O[:,:,1] + O[:,:,2]) / (eps + O[:,:,0]) ) > 5, O[:,:,1] + O[:,:,2] > 200) 
+    yellow_lane_detect = np.logical_and(((O[:,:,1] + O[:,:,2]) / (eps + O[:,:,0]) ) > 5, O[:,:,1] + O[:,:,2] > 150) 
     low_vals = np.logical_and(np.logical_not(white_lane_detect), np.logical_not(yellow_lane_detect))
     O[low_vals,:] = 0
 

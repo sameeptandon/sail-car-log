@@ -198,10 +198,11 @@ if __name__ == '__main__':
     frameWaitTime = max(int(frameWaitTime / 1.5), 5)
 
     if left_candidates[0].size > 0:
-        chosen_idx = np.argmax(left_candidates[1])
+        chosen_idx = np.argmax(left_candidates[0])
         point = (left_candidates[1][chosen_idx], left_candidates[0][chosen_idx])
-        point_img = np.zeros((imsize[1], imsize[0]))
-        point_img[point[1]-2:point[1]+2, point[0]-2:point[0]+2] = 1
+        point_img = np.zeros((imsize[1], imsize[0]), dtype=np.uint8)
+        point_img[point[1]-3:point[1]+3, point[0]-3:point[0]+3] = 355
+        I_WARP[point_img > 0] = [255, 255, 0]
         unwarped_img = warpPerspective(point_img, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
         unwarped_point = np.nonzero(unwarped_img)
         if (len(unwarped_point[0]) > 0):
@@ -213,10 +214,10 @@ if __name__ == '__main__':
         left_frames.append((-1, -1))
 
     if candidates[0].size > 0:
-        chosen_idx = np.argmin(candidates[1])
+        chosen_idx = np.argmax(candidates[0])
         point = (candidates[1][chosen_idx], candidates[0][chosen_idx])
         point_img = np.zeros((imsize[1],imsize[0]));
-        point_img[point[1]-2:point[1]+2, point[0]-2:point[0]+2] = 1
+        point_img[point[1]-3:point[1]+3, point[0]-3:point[0]+3] = 1
         unwarped_img = warpPerspective(point_img, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
         unwarped_point = np.nonzero(unwarped_img) 
         if (len(unwarped_point[0]) > 0): 
