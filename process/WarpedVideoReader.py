@@ -5,6 +5,17 @@ import pickle
 import random
 
 class WarpedVideoReader(VideoReader):
+  """
+  WarpedVideoReader is a subclass of VideoReader, which can take in a list
+  of perspective matrix transformations and outputs frames in a random order
+  while iterating through the perspective transformations.
+  
+  All frames will eventually be shown with all transformation matrices.
+
+  setPerspectives must be called before getNextFrame or playVideo can be
+  called
+  """
+
   def setPerspectives(self, filename): 
     self.persps = pickle.load(open(filename, 'rb'))
     self.order = []

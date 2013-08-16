@@ -4,6 +4,7 @@ import glob
 import numpy as np
 import os
 import os.path
+import pickle
 import random
 import shutil
 import sys
@@ -38,41 +39,6 @@ def outputDistances(distances, framenum, meters_per_point, points_fwd):
         
     return output
 
-def formatLabel(orig_label):
-    orig_label = (np.sum(orig_label, axis=2) < 765).astype(float) # < 765ish
-
-    output_label = []
-
-    for i in xrange(60):
-        positions = []
-        for j in xrange(16):
-            positions = np.append(positions, np.where(orig_label[16*i + j] == 1))
-            
-
-        if len(positions) == 0:
-            output_label.append(0)
-        else:
-            x_pos = int(np.mean(positions) / 16) + 1
-            output_label.append(x_pos)
-
-    non_zero = np.where(np.array(output_label) != 0)[0]
-
-    for i in xrange(non_zero.size - 1):
-        start = non_zero[i]
-        end = non_zero[i+1]
-        start_val = output_label[start]
-        end_val = output_label[end]
-        for j in xrange(start+1, end):
-            output_label[j] = start_val + int((j - start) * (end_val - start_val) / (end - start))
-
-    if non_zero.size != 0:
-        end = np.max(non_zero)
-        end_val = output_label[end]
-        for i in xrange(end + 1, len(output_label)):
-            output_label[i] = end_val
-
-    return output_label
-
 def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, left_lanes, right_lanes, tr):
     meters_per_point = 10
     points_fwd = 8
@@ -98,8 +64,8 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         if len(important_frames) < points_fwd or np.max(important_frames) >= left_lanes.shape[0]:  # it doesn't travel 80m forward
             continue
         temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_frames, :].transpose())
-        temp_right = np.linalg.solve(tr[frame, :, :], np.array([right_lanes[important_frames, 0], right_lanes[important_frames, 1], right_lanes[important_frames, 2], np.ones((points_fwd, 1))]))
         temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_frames, :].transpose())
+
         gps_vals = warpPoints(P, GPSColumns(gps_dat[important_frames], cam, gps_dat[frame, :])[0:2])
         left_vals = warpPoints(P, PointsMask(temp_left[0:3, :], cam)[0:2])
         right_vals = warpPoints(P, PointsMask(temp_right[0:3, :], cam)[0:2])
@@ -107,6 +73,9 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         left_vals = (left_vals / 4).astype(np.int32)
         right_vals = (right_vals / 4).astype(np.int32)
         outputs = []
+        
+        # scale down column numbers by 16 to aid bucketing but only scale down
+        # row numbers by 4 to aid visualization
         for i in xrange(points_fwd):
             outputs.append(left_vals[0, i] / 4)
             outputs.append(gps_vals[0, i] / 4)
@@ -136,33 +105,7 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
 
-    cam = [{}, {}]
-    for i in xrange(len(cam)):
-        cam[i] = { }
-        cam[i]['R_to_c_from_i'] = np.array([[-1, 0, 0], \
-                                 [0, 0, -1], \
-                                 [0, -1, 0]]);
-        cam[i]['fx'] = 2221.8
-        cam[i]['fy'] = 2233.7
-        cam[i]['cu'] = 623.7
-        cam[i]['cv'] = 445.7
-        cam[i]['KK'] = array([[cam[i]['fx'], 0.0, cam[i]['cu']], \
-                             [0.0, cam[i]['fy'], cam[i]['cv']], \
-                             [0.0, 0.0, 1.0]]);
-        cam[i]['t_y'] = 1.1
-        cam[i]['t_z'] = 0.0
-
-
-    cam[0]['rot_x'] = deg2rad(-0.8)
-    cam[0]['rot_y'] = deg2rad(-0.5)
-    cam[0]['rot_z'] = deg2rad(-0.005)
-    cam[0]['t_x'] = -0.5
-
-    cam[1]['rot_x'] = deg2rad(-0.62)
-    cam[1]['rot_y'] = deg2rad(0.2)
-    cam[1]['rot_z'] = deg2rad(0.0)
-    cam[1]['t_x'] = 0.5
-
+    cam = pickle.load(open('cam_params.pickle', 'rb'))
     cam_to_use = cam[int(output_name[-1]) - 1]
 
     lp = pixelTo3d(lp, cam_to_use)

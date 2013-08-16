@@ -4,6 +4,7 @@ import glob
 import numpy as np
 import os
 import os.path
+import pickle
 import random
 import shutil
 import sys
@@ -99,33 +100,7 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
 
-    cam = [{}, {}]
-    for i in xrange(len(cam)):
-        cam[i] = { }
-        cam[i]['R_to_c_from_i'] = np.array([[-1, 0, 0], \
-                                 [0, 0, -1], \
-                                 [0, -1, 0]]);
-        cam[i]['fx'] = 2221.8
-        cam[i]['fy'] = 2233.7
-        cam[i]['cu'] = 623.7
-        cam[i]['cv'] = 445.7
-        cam[i]['KK'] = array([[cam[i]['fx'], 0.0, cam[i]['cu']], \
-                             [0.0, cam[i]['fy'], cam[i]['cv']], \
-                             [0.0, 0.0, 1.0]]);
-        cam[i]['t_y'] = 1.1
-        cam[i]['t_z'] = 0.0
-
-
-    cam[0]['rot_x'] = deg2rad(-0.8)
-    cam[0]['rot_y'] = deg2rad(-0.5)
-    cam[0]['rot_z'] = deg2rad(-0.005)
-    cam[0]['t_x'] = -0.5
-
-    cam[1]['rot_x'] = deg2rad(-0.62)
-    cam[1]['rot_y'] = deg2rad(0.2)
-    cam[1]['rot_z'] = deg2rad(0.0)
-    cam[1]['t_x'] = 0.5
-
+    cam = pickle.load(open('cam_params.pickle', 'rb'))
     cam_to_use = cam[int(output_name[-1]) - 1]
 
     start_frame = frames_to_skip

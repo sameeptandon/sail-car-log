@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 import sys, time
 from cv2 import imshow, waitKey
 from scipy.io import loadmat
@@ -34,36 +35,7 @@ if __name__ == '__main__':
       writer = cv2.VideoWriter(sys.argv[3], cv.CV_FOURCC('F','M','P','4'), 10.0, (640,480))
 
 
-    
-
-    cam = { }
-    cam['R_to_c_from_i'] = array([[-1, 0, 0], \
-                         [0, 0, -1], \
-                         [0, -1, 0]]);
-
-    if cam_num == 1:
-        cam['rot_x'] = deg2rad(-0.8); # better cam 1
-        cam['rot_y'] = deg2rad(-0.5);
-        cam['rot_z'] = deg2rad(-0.005);
-        cam['t_x'] = -0.5;
-        cam['t_y'] = 1.1;
-        cam['t_z'] = 0.0;
-    elif cam_num == 2:
-        cam['rot_x'] = deg2rad(-0.61); # better cam 2 
-        cam['rot_y'] = deg2rad(0.2);
-        cam['rot_z'] = deg2rad(0.0);
-        cam['t_x'] = 0.5;
-        cam['t_y'] = 1.1;
-        cam['t_z'] = 0.0;
-
-    cam['fx'] = 2221.8
-    cam['fy'] = 2233.7
-    cam['cu'] = 623.7
-    cam['cv'] = 445.7
-    cam['KK'] = array([[cam['fx'], 0.0, cam['cu']], \
-                     [0.0, cam['fy'], cam['cv']], \
-                     [0.0, 0.0, 1.0]]);
-
+    cam = pickle.load(open('cam_params.pickle', 'rb'))[cam_num - 1]
     tr = GPSTransforms(gps_dat, cam)
   
     pitch = -cam['rot_x']
