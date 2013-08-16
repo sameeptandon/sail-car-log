@@ -29,21 +29,26 @@ def GPSColumns(GPSData, Camera, start_frame):
 
     pts = WGS84toENU(start_frame[1:4], GPSData[:, 1:4])
 
+    world_coordinates = pts;
+    pos_wrt_imu = dot(R_to_i_from_w, world_coordinates);
+    
     R_to_c_from_i = Camera['R_to_c_from_i']
     R_camera_pitch = euler_matrix(Camera['rot_x'], Camera['rot_y'],\
             Camera['rot_z'], 'sxyz')[0:3,0:3]
     R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i) 
 
-    world_coordinates = pts;
-    pos_wrt_imu = dot(R_to_i_from_w, world_coordinates);
     pos_wrt_camera = dot(R_to_c_from_i, pos_wrt_imu);
 
     pos_wrt_camera[0,:] += Camera['t_x'] #move to left/right
     pos_wrt_camera[1,:] += Camera['t_y'] #move up/down image
     pos_wrt_camera[2,:] += Camera['t_z'] #move away from cam
+
+    return PointsMask(pos_wrt_camera, Camera)
+
+def PointsMask(pos_wrt_camera, Camera):
     vpix = around(dot(Camera['KK'], divide(pos_wrt_camera, pos_wrt_camera[2,:])))
     vpix = vpix.astype(np.int32)
-    return vpix[0, :]
+    return vpix
    
 
 def GPSMask(GPSData, Camera, width=2): 

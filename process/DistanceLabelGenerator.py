@@ -8,11 +8,16 @@ import random
 import shutil
 import sys
 import tempfile
+from scipy.io import loadmat
 from scipy.misc import toimage, imresize
+from CameraReprojection import *
 from GPSReader import *
 from GPSReprojection import *
+from GPSTransforms import *
 from RandomVideoReader import *
 from WGS84toENU import *
+from WarpUtils import *
+from WarpedVideoReader import *
 import pdb
 
 
@@ -20,11 +25,12 @@ def outputDistances(distances, framenum, meters_per_point, points_fwd):
     output = []
     point_num = 1
     dist = 0
+    start_offset = -5
 
     framenum += 1
     while framenum < distances.size and point_num <= points_fwd:
         dist += distances[framenum]
-        if point_num * meters_per_point <= dist:
+        if point_num * meters_per_point <= dist - start_offset:
             output.append(framenum)
             point_num += 1
         else:
@@ -67,9 +73,9 @@ def formatLabel(orig_label):
 
     return output_label
 
-def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
-    meters_per_point = 6
-    points_fwd = 16
+def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, left_lanes, right_lanes, tr):
+    meters_per_point = 10
+    points_fwd = 8
     frames_per_second = 50
     distances = GPSVelocities(gps_dat) / frames_per_second
 
@@ -79,7 +85,8 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
     labels = []
     success = True
     while True:
-        (success, I, frame) = video_reader.getNextFrame()
+        (success, I, frame, P) = video_reader.getNextFrame()
+        #P = np.eye(3)
         if count % 160 == 0:
             print count
         if success == False:
@@ -87,18 +94,27 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
         if frame < start_frame or (final_frame != -1 and frame >= final_frame):
             continue
 
-        points = outputDistances(distances, frame, meters_per_point, points_fwd) / 16
-        if len(points) < points_fwd:  # it doesn't travel 80m forward
+        important_frames = (outputDistances(distances, frame, meters_per_point, points_fwd))
+        if len(important_frames) < points_fwd or np.max(important_frames) >= left_lanes.shape[0]:  # it doesn't travel 80m forward
             continue
-        cols = GPSColumns(gps_dat[points], cam, gps_dat[frame, :])
-        print cols
-        labels.append(cols)
-
-        """
-        min_speed = np.min(GPSVelocities(gps_frames))
-        if min_speed < 18:  # slower than 40 mph
-            continue
-        """
+        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_frames, :].transpose())
+        temp_right = np.linalg.solve(tr[frame, :, :], np.array([right_lanes[important_frames, 0], right_lanes[important_frames, 1], right_lanes[important_frames, 2], np.ones((points_fwd, 1))]))
+        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_frames, :].transpose())
+        gps_vals = warpPoints(P, GPSColumns(gps_dat[important_frames], cam, gps_dat[frame, :])[0:2])
+        left_vals = warpPoints(P, PointsMask(temp_left[0:3, :], cam)[0:2])
+        right_vals = warpPoints(P, PointsMask(temp_right[0:3, :], cam)[0:2])
+        gps_vals = (gps_vals / 4).astype(np.int32)
+        left_vals = (left_vals / 4).astype(np.int32)
+        right_vals = (right_vals / 4).astype(np.int32)
+        outputs = []
+        for i in xrange(points_fwd):
+            outputs.append(left_vals[0, i] / 4)
+            outputs.append(gps_vals[0, i] / 4)
+            outputs.append(right_vals[0, i] / 4)
+            outputs.append(left_vals[1, i])
+            outputs.append(gps_vals[1, i])
+            outputs.append(right_vals[1, i])
+        labels.append(outputs)
 
         reshaped = pp.resize(I, (240, 320))[0]
         imgs.append(reshaped)
@@ -106,16 +122,17 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame):
 
         if len(imgs) == 960:
             merge_file = "%s_%d" % (output_base, output_num)
-            pml.save_merged_file(merge_file, imgs, labels, imgRows=points_fwd)
+            pml.save_merged_file(merge_file, imgs, labels, imgRows=(6*points_fwd))
             imgs = []
             labels = []
             output_num += 1
 
         count += 1
 
-def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_frame):
-    video_reader = RandomVideoReader(file_path)
-    video_reader.setSubsample(True)
+def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_frame, lp, rp, pickle_loc):
+    video_reader = WarpedVideoReader(file_path)
+    #video_reader.setSubsample(True)
+    video_reader.setPerspectives(pickle_loc)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
 
@@ -148,13 +165,28 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
 
     cam_to_use = cam[int(output_name[-1]) - 1]
 
+    lp = pixelTo3d(lp, cam_to_use)
+    rp = pixelTo3d(rp, cam_to_use)
+    tr = GPSTransforms(gps_dat, cam_to_use)
+    pitch = -cam_to_use['rot_x']
+    height = 1.106
+    R_camera_pitch = euler_matrix(cam_to_use['rot_x'], cam_to_use['rot_y'], cam_to_use['rot_z'], 'sxyz')[0:3, 0:3]
+    Tc = np.eye(4)
+    Tc[0:3, 0:3] = R_camera_pitch.transpose()
+    Tc[0:3, 3] = [-0.2, -height, -0.5]
+    lpts = np.zeros((lp.shape[0], 4))
+    rpts = np.zeros((rp.shape[0], 4))
+    for t in range(lp.shape[0]):
+        lpts[t, :] = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([lp[t, 0], lp[t, 1], lp[t, 2], 1])))
+        rpts[t, :] = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([rp[t, 0], rp[t, 1], rp[t, 2], 1])))
+
     start_frame = frames_to_skip
-    runBatch(video_reader, gps_dat, cam_to_use, output_name, start_frame, final_frame)
+    runBatch(video_reader, gps_dat, cam_to_use, output_name, start_frame, final_frame, lpts, rpts, tr)
 
     print "Done with %s" % output_name
 
 def parseFolder(args):
-    (folder, output_folder) = args
+    (folder, output_folder, output_prefix, laneLoc, pickleLoc) = args
     gps_files = glob.glob(folder +  '*_gps.out')
 
     frames_to_skip = 0  #int(sys.argv[3]) if len(sys.argv) > 3 else 0
@@ -163,13 +195,20 @@ def parseFolder(args):
         prefix = gps_file[0:-8]
         for i in [1,2]:
             file_path = prefix + str(i) + '.avi'
-            #print file_path
-            #print gps_file
+            
             path, output_base = os.path.split(prefix)
-            output_name = os.path.join(output_folder, output_base + str(i))
+            pts_file = laneLoc + output_base + str(i) + '-interpolated.mat'
+            if not os.path.isfile(pts_file):
+                return
+            pts = loadmat(pts_file)
+            output_base = output_prefix + output_base
+            output_name = os.path.join(os.path.join(output_folder, str(i)), output_base + str(i))
             print output_name
-            runLabeling(file_path, gps_file, output_name, frames_to_skip, final_frame)
+            lp = pts['left']
+            rp = pts['right']
+
+            runLabeling(file_path, gps_file, output_name, frames_to_skip, final_frame, lp, rp, pickleLoc)
 
 if __name__ == '__main__':
-    folder = (sys.argv[1], sys.argv[2])
+    folder = (sys.argv[1], sys.argv[2], '', sys.argv[3], sys.argv[4])
     parseFolder(folder)
