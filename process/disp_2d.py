@@ -50,7 +50,7 @@ if __name__ == '__main__':
         cam['t_z'] = 0.0;
     elif cam_num == 2:
         cam['rot_x'] = deg2rad(-0.61); # better cam 2 
-        cam['rot_y'] = deg2rad(0.2);
+        cam['rot_y'] = deg2rad(0.4);
         cam['rot_z'] = deg2rad(0.0);
         cam['t_x'] = 0.5;
         cam['t_y'] = 1.1;
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     tr = GPSTransforms(gps_dat, cam)
   
     pitch = -cam['rot_x']
-    height = 1.106
+    height = 1.106 
     # probably have to change these
     f = (cam['fx'] + cam['fy']) / 2
     R_to_c_from_i = cam['R_to_c_from_i']
@@ -75,9 +75,11 @@ if __name__ == '__main__':
             cam['rot_z'], 'sxyz')[0:3,0:3]
     R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i)
     Tc = np.eye(4)
-    Tc[0:3, 0:3] = np.transpose(R_to_c_from_i)
-    #Tc[1, 3] -= height
-    Tc = np.array([[1, 0, 0, 0], [0, np.cos(pitch), -np.sin(pitch), -height], [0, np.sin(pitch), np.cos(pitch), 0], [0, 0, 0, 1]])
+    Tc[0:3, 0:3] = np.transpose(R_camera_pitch)
+    Tc[1, 3] -= height
+    Tc[0, 3] -= 0.2
+    Tc[2, 3] -= 0.5
+    #Tc = np.array([[1, 0, 0, 0], [0, np.cos(pitch), -np.sin(pitch), -height], [0, np.sin(pitch), np.cos(pitch), 0], [0, 0, 0, 1]])
 
     Tc2 = np.eye(4) # check testTrackReverse for actual transformation value
 
@@ -138,31 +140,34 @@ if __name__ == '__main__':
         if lpix.shape[1] > 0:
           lpix = lpix.astype(np.int32)
           lpix = lpix[:,lpix[0,:] > 0 + width/2]
-          lpix = lpix[:,lpix[1,:] > 0 + width/2]
-          lpix = lpix[:,lpix[0,:] < 1279 - width/2]
-          lpix = lpix[:,lpix[1,:] < 959 - width/2]
+          if lpix.size > 0:
+            lpix = lpix[:,lpix[1,:] > 0 + width/2]
+          if lpix.size > 0:
+            lpix = lpix[:,lpix[0,:] < 1279 - width/2]
+          if lpix.size > 0:
+            lpix = lpix[:,lpix[1,:] < 959 - width/2]
     
-          for p in range(-width/2,width/2):
-            I[lpix[1,:]+p, lpix[0,:], :] = [0, 255, 255]
-            I[lpix[1,:], lpix[0,:]+p, :] = [0, 255, 255]
-            I[lpix[1,:]-p, lpix[0,:], :] = [0, 255, 255]
-            I[lpix[1,:], lpix[0,:]-p, :] = [0, 255, 255]
+            for p in range(-width/2,width/2):
+              I[lpix[1,:]+p, lpix[0,:], :] = [0, 255, 255]
+              I[lpix[1,:], lpix[0,:]+p, :] = [0, 255, 255]
+              I[lpix[1,:]-p, lpix[0,:], :] = [0, 255, 255]
+              I[lpix[1,:], lpix[0,:]-p, :] = [0, 255, 255]
 
-          lpix_base = lpix[:, :base_interp_length]
-          l_p_fit = np.polyfit(lpix_base[1, :], lpix_base[0, :], polynomial_fit)
-          l_y_output = np.arange(int(np.max(lpix_base[1, :])), 960 - width / 2)  # int(np.max(left_y) + 1))
-          l_x_output = np.polyval(l_p_fit, l_y_output)
-          l_x_output = l_x_output.astype(np.int32)
-          l_y_output = l_y_output.astype(np.int32)
-          l_y_output = l_y_output[l_x_output >= width / 2]
-          l_x_output = l_x_output[l_x_output >= width / 2]
-          l_y_output = l_y_output[l_x_output < 1280 - width / 2 - 1]
-          l_x_output = l_x_output[l_x_output < 1280 - width / 2 - 1]
-          for p in range(-width/2,width/2):
-            I[l_y_output+p, l_x_output, :] = [255, 0, 0]
-            I[l_y_output, l_x_output+p, :] = [255, 0, 0]
-            I[l_y_output-p, l_x_output, :] = [255, 0, 0]
-            I[l_y_output, l_x_output-p, :] = [255, 0, 0]
+            lpix_base = lpix[:, :base_interp_length]
+            l_p_fit = np.polyfit(lpix_base[1, :], lpix_base[0, :], polynomial_fit)
+            l_y_output = np.arange(int(np.max(lpix_base[1, :])), 960 - width / 2)  # int(np.max(left_y) + 1))
+            l_x_output = np.polyval(l_p_fit, l_y_output)
+            l_x_output = l_x_output.astype(np.int32)
+            l_y_output = l_y_output.astype(np.int32)
+            l_y_output = l_y_output[l_x_output >= width / 2]
+            l_x_output = l_x_output[l_x_output >= width / 2]
+            l_y_output = l_y_output[l_x_output < 1280 - width / 2 - 1]
+            l_x_output = l_x_output[l_x_output < 1280 - width / 2 - 1]
+            for p in range(-width/2,width/2):
+              I[l_y_output+p, l_x_output, :] = [255, 0, 0]
+              I[l_y_output, l_x_output+p, :] = [255, 0, 0]
+              I[l_y_output-p, l_x_output, :] = [255, 0, 0]
+              I[l_y_output, l_x_output-p, :] = [255, 0, 0]
       
         rpts = right_Pos[start:end,:];
         rpts = rpts[rp[start:end,0] > 0, :]
@@ -172,32 +177,35 @@ if __name__ == '__main__':
         if rpix.shape[1] > 0:
           rpix = rpix.astype(np.int32)
           rpix = rpix[:,rpix[0,:] > 0 + width/2]
-          rpix = rpix[:,rpix[1,:] > 0 + width/2]
-          rpix = rpix[:,rpix[0,:] < 1279 - width/2]
-          rpix = rpix[:,rpix[1,:] < 959 - width/2]
-          rpix_base = rpix[:, :base_interp_length]
+          if rpix.size > 0:
+            rpix = rpix[:,rpix[1,:] > 0 + width/2]
+          if rpix.size > 0:
+            rpix = rpix[:,rpix[0,:] < 1279 - width/2]
+          if rpix.size > 0:
+            rpix = rpix[:,rpix[1,:] < 959 - width/2]
+            rpix_base = rpix[:, :base_interp_length]
     
-          for p in range(-width/2,width/2):
-            I[rpix[1,:]+p, rpix[0,:], :] = [0, 255, 255]
-            I[rpix[1,:], rpix[0,:]+p, :] = [0, 255, 255]
-            I[rpix[1,:]-p, rpix[0,:], :] = [0, 255, 255]
-            I[rpix[1,:], rpix[0,:]-p, :] = [0, 255, 255]
+            for p in range(-width/2,width/2):
+              I[rpix[1,:]+p, rpix[0,:], :] = [0, 255, 255]
+              I[rpix[1,:], rpix[0,:]+p, :] = [0, 255, 255]
+              I[rpix[1,:]-p, rpix[0,:], :] = [0, 255, 255]
+              I[rpix[1,:], rpix[0,:]-p, :] = [0, 255, 255]
 
-          rpix_base = rpix[:, :base_interp_length]
-          r_p_fit = np.polyfit(rpix_base[1, :], rpix_base[0, :], polynomial_fit)
-          r_y_output = np.arange(int(np.max(rpix_base[1, :])), 960 - width / 2)  # int(np.max(reft_y) + 1))
-          r_x_output = np.polyval(r_p_fit, r_y_output)
-          r_x_output = r_x_output.astype(np.int32)
-          r_y_output = r_y_output.astype(np.int32)
-          r_y_output = r_y_output[r_x_output > 0 + width / 2] 
-          r_x_output = r_x_output[r_x_output > 0 + width / 2]
-          r_y_output = r_y_output[r_x_output < 1280 - width / 2 - 1]
-          r_x_output = r_x_output[r_x_output < 1280 - width / 2 - 1]
-          for p in range(-width/2,width/2):
-            I[r_y_output+p, r_x_output, :] = [255, 0, 0]
-            I[r_y_output, r_x_output+p, :] = [255, 0, 0]
-            I[r_y_output-p, r_x_output, :] = [255, 0, 0]
-            I[r_y_output, r_x_output-p, :] = [255, 0, 0]
+            rpix_base = rpix[:, :base_interp_length]
+            r_p_fit = np.polyfit(rpix_base[1, :], rpix_base[0, :], polynomial_fit)
+            r_y_output = np.arange(int(np.max(rpix_base[1, :])), 960 - width / 2)  # int(np.max(reft_y) + 1))
+            r_x_output = np.polyval(r_p_fit, r_y_output)
+            r_x_output = r_x_output.astype(np.int32)
+            r_y_output = r_y_output.astype(np.int32)
+            r_y_output = r_y_output[r_x_output > 0 + width / 2] 
+            r_x_output = r_x_output[r_x_output > 0 + width / 2]
+            r_y_output = r_y_output[r_x_output < 1280 - width / 2 - 1]
+            r_x_output = r_x_output[r_x_output < 1280 - width / 2 - 1]
+            for p in range(-width/2,width/2):
+              I[r_y_output+p, r_x_output, :] = [255, 0, 0]
+              I[r_y_output, r_x_output+p, :] = [255, 0, 0]
+              I[r_y_output-p, r_x_output, :] = [255, 0, 0]
+              I[r_y_output, r_x_output-p, :] = [255, 0, 0]
 
         count += 10
         I = cv2.resize(I, (640, 480))

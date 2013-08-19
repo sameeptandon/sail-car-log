@@ -85,18 +85,24 @@ def GPSMask(GPSData, Camera, width=2):
     pos_wrt_camera[0,:] += Camera['t_x'] #move to left/right
     pos_wrt_camera[1,:] += Camera['t_y'] #move up/down image
     pos_wrt_camera[2,:] += Camera['t_z'] #move away from cam
-    vpix = around(dot(Camera['KK'], divide(pos_wrt_camera, pos_wrt_camera[2,:])))
+    #vpix = around(dot(Camera['KK'], divide(pos_wrt_camera, pos_wrt_camera[2,:])))
+    vpix = dot(Camera['KK'], pos_wrt_camera)
+    vpix = around(divide(vpix, vpix[2,:]))
+
     vpix = vpix.astype(np.int32)
     vpix = vpix[:,vpix[0,:] > 0 + width/2]
-    vpix = vpix[:,vpix[1,:] > 0 + width/2]
-    vpix = vpix[:,vpix[0,:] < 1279 - width/2]
-    vpix = vpix[:,vpix[1,:] < 959 - width/2]
+    if vpix.size > 0:
+      vpix = vpix[:,vpix[1,:] > 0 + width/2]
+    if vpix.size > 0:
+      vpix = vpix[:,vpix[0,:] < 1279 - width/2]
+    if vpix.size > 0:
+      vpix = vpix[:,vpix[1,:] < 959 - width/2]
     
-    for p in range(-width/2,width/2):
-        I[vpix[1,:]+p, vpix[0,:], :] = 0
-        I[vpix[1,:], vpix[0,:]+p, :] = 0
-        I[vpix[1,:]-p, vpix[0,:], :] = 0
-        I[vpix[1,:], vpix[0,:]-p, :] = 0
+      for p in range(-width/2,width/2):
+          I[vpix[1,:]+p, vpix[0,:], :] = 0
+          I[vpix[1,:], vpix[0,:]+p, :] = 0
+          I[vpix[1,:]-p, vpix[0,:], :] = 0
+          I[vpix[1,:], vpix[0,:]-p, :] = 0
 
     """
     for idx in range(1,pts.shape[1]):
