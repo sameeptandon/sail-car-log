@@ -43,6 +43,7 @@ SyncBuffer cam1_buff[NUMTHREAD_PER_BUFFER];
 SyncBuffer cam2_buff[NUMTHREAD_PER_BUFFER];
 
 bool is_done_working = false; 
+bool quit_via_user_input = false;
 
 void ImageCallback(Image* pImage, const void* pCallbackData, 
         SyncBuffer* w_buff) { 
@@ -192,9 +193,7 @@ void ctrlC (int)
   is_done_working = true;
 #endif
 #ifdef DISPLAY
-  //printf("\nCtrl-C Disabled! Use 'q' to quit instead\n");
-  printf("\nCtrl-C detected, exit condition set to true.\n");
-  is_done_working = true;
+  printf("\nCtrl-C Disabled! Use 'q' to quit instead\n");
 #endif
 }
 
@@ -347,7 +346,10 @@ int main(int argc, char** argv)
             show(&cimage, img, "cam2");
         }
         char r = cvWaitKey(1);
-        if (r == 'q') is_done_working = true;
+        if (r == 'q') {
+            is_done_working = true;
+            quit_via_user_input = true;
+        }
 #endif // DISPLAY
 #endif // TWO_CAM
 
@@ -378,5 +380,6 @@ int main(int argc, char** argv)
     CloseCamera(cam2);
     delete cam2;
 #endif
+    if (quit_via_user_input) return 1;
     return 0;
 }

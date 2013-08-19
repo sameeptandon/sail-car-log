@@ -1,4 +1,7 @@
+# Usage: python two_lanes_display <path to video splits> <path to points in
+# video frame> <path to points in other camera's frame>
 import numpy as np
+import pickle
 import sys
 from cv2 import imread, imshow, resize, waitKey
 from scipy.misc import imresize
@@ -26,35 +29,7 @@ if __name__ == '__main__':
     labels_O = loadmat(sys.argv[3])
     points_O = labels_O['points']
 
-    cam = [{}, {}]
-    for i in [0, 1]:
-        cam[i]['R_to_c_from_i'] = array([[-1, 0, 0],
-                                         [0, 0, -1],
-                                         [0, -1, 0]])
-
-        if i == 0:
-            cam[i]['rot_x'] = deg2rad(-0.8)  # better cam 1
-            cam[i]['rot_y'] = deg2rad(-0.5)
-            cam[i]['rot_z'] = deg2rad(-0.005)
-            cam[i]['t_x'] = -0.5
-            cam[i]['t_y'] = 1.1
-            cam[i]['t_z'] = 0.0
-        elif i == 1:
-            cam[i]['rot_x'] = deg2rad(-0.61)  # better cam 2
-            cam[i]['rot_y'] = deg2rad(0.2)
-            cam[i]['rot_z'] = deg2rad(0.0)
-            cam[i]['t_x'] = 0.5
-            cam[i]['t_y'] = 1.1
-            cam[i]['t_z'] = 0.0
-
-        cam[i]['fx'] = 2221.8
-        cam[i]['fy'] = 2233.7
-        cam[i]['cu'] = 623.7
-        cam[i]['cv'] = 445.7
-        cam[i]['KK'] = array([[cam[i]['fx'], 0.0, cam[i]['cu']],
-                              [0.0, cam[i]['fy'], cam[i]['cv']],
-                              [0.0, 0.0, 1.0]])
-        cam[i]['f'] = (cam[i]['fx'] + cam[i]['fy']) / 2
+    cam = pickle.load(open('cam_params.pickle', 'rb'))
 
     tr = GPSTransforms(gps_dat, cam[cam_num])
     tr_O = GPSTransforms(gps_dat, cam[other_cam])
@@ -101,24 +76,6 @@ if __name__ == '__main__':
             count += 1
             continue
 
-
-        #from scipy.ndimage.morphology import *
-        #O = findLanes(I)
-        """response = O < 0.25
-        O = response
-        O = distance_transform_edt(response)
-        m = np.max(np.max(O))
-        O = O / m
-        O = np.exp(-25*O)
-        """
-        #O = 255 * O
-
-        #O = O.astype(int)
-        #for z in xrange(3):
-        #    I[:,:,z] = O
-        #I = I.astype(int)
-        
-
         if count % 100 == 0:
             print count
         while start < points.shape[0] and points[start][4] < count:
@@ -144,8 +101,6 @@ if __name__ == '__main__':
         points_count_O = start_O
         while points_count_O < points_O.shape[0] and points_O[points_count_O][4] <= count + num_imgs_fwd:
             pt = points_O[points_count_O]
-            #t_local = tr[pt[4],:,:]
-            #pt_orig = np.dot(t_local, np.dot(T_O, np.linalg.solve(t_local, pt[0:4])))
 
             Pos2 = np.dot(T_O, np.linalg.solve(tr_O[count,:,:], pt[0:4]))
 

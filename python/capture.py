@@ -22,7 +22,12 @@ if __name__ == '__main__':
         #launch 
         process = subprocess.Popen(command.split())
         #wait to end
-        while process.poll() is None:
+        process_exit_val = None
+        while process_exit_val is None:
             time.sleep(1)
+            process_exit_val = process.poll()
+
+        if process_exit_val == 1:
+            sys.exit(0)
         
 
