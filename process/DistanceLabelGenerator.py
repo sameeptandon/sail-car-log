@@ -11,6 +11,7 @@ import sys
 import tempfile
 from scipy.io import loadmat
 from scipy.misc import toimage, imresize
+from CameraParams import getCameraParams
 from CameraReprojection import *
 from GPSReader import *
 from GPSReprojection import *
@@ -22,11 +23,10 @@ from WarpedVideoReader import *
 import pdb
 
 
-def outputDistances(distances, framenum, meters_per_point, points_fwd):
+def outputDistances(distances, framenum, meters_per_point, points_fwd, start_offset):
     output = []
     point_num = 1
     dist = 0
-    start_offset = -5
 
     framenum += 1
     while framenum < distances.size and point_num <= points_fwd:
@@ -55,16 +55,20 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         #P = np.eye(3)
         if count % 160 == 0:
             print count
-        if success == False:
+        if success == False or frame >= tr.shape[0]:
             break
         if frame < start_frame or (final_frame != -1 and frame >= final_frame):
             continue
 
-        important_frames = (outputDistances(distances, frame, meters_per_point, points_fwd))
-        if len(important_frames) < points_fwd or np.max(important_frames) >= left_lanes.shape[0]:  # it doesn't travel 80m forward
+        important_frames = (outputDistances(distances, frame, meters_per_point, points_fwd, -5))
+        important_lanes = outputDistances(distances, frame, meters_per_point, points_fwd, -7.5)
+        if len(important_frames) < points_fwd or len(important_lanes) < points_fwd:
             continue
-        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_frames, :].transpose())
-        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_frames, :].transpose())
+        max_idx = max(np.max(important_frames), np.max(important_lanes))
+        if max_idx >= left_lanes.shape[0] or max_idx >= right_lanes.shape[0]:
+            continue
+        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_lanes, :].transpose())
+        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_lanes, :].transpose())
 
         gps_vals = warpPoints(P, GPSColumns(gps_dat[important_frames], cam, gps_dat[frame, :])[0:2])
         left_vals = warpPoints(P, PointsMask(temp_left[0:3, :], cam)[0:2])
@@ -105,7 +109,7 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
 
-    cam = pickle.load(open('cam_params.pickle', 'rb'))
+    cam = getCameraParams()
     cam_to_use = cam[int(output_name[-1]) - 1]
 
     lp = pixelTo3d(lp, cam_to_use)
@@ -119,7 +123,7 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
     Tc[0:3, 3] = [-0.2, -height, -0.5]
     lpts = np.zeros((lp.shape[0], 4))
     rpts = np.zeros((rp.shape[0], 4))
-    for t in range(lp.shape[0]):
+    for t in range(min(tr.shape[0], lp.shape[0])):
         lpts[t, :] = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([lp[t, 0], lp[t, 1], lp[t, 2], 1])))
         rpts[t, :] = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([rp[t, 0], rp[t, 1], rp[t, 2], 1])))
 
