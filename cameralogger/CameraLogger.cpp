@@ -6,7 +6,6 @@
 #include "CameraLogger.h"
 #include "GPSLogger.h"
 
-#define SHUTTER_PARAM (190)
 #define CAMERA_DISPLAY_SKIP 3
 #define NUMTHREAD_PER_BUFFER 10
 
@@ -24,8 +23,6 @@ void show (const Image* obj, IplImage* img, string name) {
     //imshow(name.c_str(), Mat(_img));
 }
 #endif
-
-typedef void(*ImageEventCallback) ( class Image* pImage, const void* pCallbackData);
 
 class SyncBuffer {
     private:
@@ -57,133 +54,6 @@ void ImageCallback(Image* pImage, const void* pCallbackData,
     }
 }
 
-void ImageCallback_1(Image* pImage, const void* pCallbackData) {
-    assert(false);
-}
-
-void ImageCallback_2(Image* pImage, const void* pCallbackData) {
-    assert(false);
-}
-
-Camera* ConnectCamera( int index ) {
-    Error error;
-    BusManager busMgr;
-    unsigned int numCameras;
-    error = busMgr.GetNumOfCameras(&numCameras);
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return NULL;
-    }
-
-    if ( numCameras < 1 )
-    {
-       printf( "No camera detected.\n" );
-       return NULL;
-    }
-    else
-    {
-       printf( "Number of cameras detected: %u\n", numCameras );
-    }
-
-    PGRGuid guid;
-    error = busMgr.GetCameraFromIndex(index, &guid);
-    if (error != PGRERROR_OK)
-    {
-       PrintError(error);
-       return NULL;
-    }
-
-    Camera *cam = new Camera();
-    error = cam->Connect(&guid);
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return NULL;
-    }
-    return cam; 
-}
-
-int RunCamera( Camera* cam, ImageEventCallback callback) { 
-    Error error;
-
-    // Get the camera information
-    CameraInfo camInfo;
-    error = cam->GetCameraInfo(&camInfo);
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-
-    PrintCameraInfo(&camInfo);
-  
-    error = cam->SetVideoModeAndFrameRate(VIDEOMODE_1280x960YUV422,
-            FRAMERATE_60); 
-    if (error != PGRERROR_OK) {
-        PrintError(error);
-        return -1;
-    }
-
-    unsigned int bytes = readRegister(cam, 0x1098);
-    bytes = bytes & (-1 << 12);
-    bytes = bytes | (SHUTTER_PARAM);
-    writeRegister(cam, 0x1098, bytes);
-
-    setWhiteBalance(cam, 511, 815);
-
-    FC2Config pConfig;
-    cam->GetConfiguration(&pConfig);
-    pConfig.grabMode = BUFFER_FRAMES;
-    pConfig.numBuffers = 100;
-    pConfig.isochBusSpeed = BUSSPEED_S5000;
-    pConfig.asyncBusSpeed = BUSSPEED_S5000;
-    pConfig.highPerformanceRetrieveBuffer = true;
-    cam->SetConfiguration(&pConfig);
-
-#ifndef NOSYNC
-    //enable triggering mode
-    TriggerMode mTrigger;
-    mTrigger.mode = 0; 
-    mTrigger.source = 0; 
-    mTrigger.parameter = 0; 
-    mTrigger.onOff = true; 
-    mTrigger.polarity = 1; 
-    error = cam->SetTriggerMode(&mTrigger); 
-    if (error != PGRERROR_OK) {
-        PrintError(error);
-        return -1;
-    }
-#endif
-    
-    // Start capturing images
-    printf( "Starting capture... \n" );
-    //error = cam->StartCapture(callback);
-    error = cam->StartCapture();
-
-    return 0;
-}
-
-int CloseCamera( Camera* cam) {
-    Error error; 
-
-    printf( "Stopping capture... \n" );
-    error = cam->StopCapture();
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-    
-    error = cam->Disconnect();
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-
-    return 0;
-}
 
 
 void ctrlC (int)
@@ -258,9 +128,6 @@ int main(int argc, char** argv)
         cam2_buff[thread_num].getBuffer()->setCapacity(1000);
     }
 
-    //buff_1.getBuffer()->setCapacity(1000);
-    //buff_2.getBuffer()->setCapacity(1000);
-
     int imageWidth = 1280;
     int imageHeight = 960;
 
@@ -270,8 +137,7 @@ int main(int argc, char** argv)
 
     Camera* cam1 = ConnectCamera(0); // 0 indexing
     assert(cam1 != NULL);
-    ImageEventCallback c1 = &ImageCallback_1;
-    RunCamera( cam1, c1);
+    RunCamera(cam1);
 
     Consumer<Image>* cam1_consumer[NUMTHREAD_PER_BUFFER];
     for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
@@ -291,8 +157,7 @@ int main(int argc, char** argv)
 #ifdef TWO_CAM
     Camera* cam2 = ConnectCamera(1); // 0 indexing 
     assert(cam2 != NULL);
-    ImageEventCallback c2 = &ImageCallback_2;
-    RunCamera( cam2, c2); 
+    RunCamera(cam2); 
     Consumer<Image>* cam2_consumer[NUMTHREAD_PER_BUFFER];
     for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
         stringstream sstm;
@@ -354,7 +219,9 @@ int main(int argc, char** argv)
 #endif // TWO_CAM
 
         if (useGPS) {
-            gps_output << gpsLogger.getPacket() << endl;
+            GPSLogger::GPSPacketType packet = gpsLogger.getPacket();
+            string packet_contents = boost::get<1>(packet);
+            gps_output << packet_contents << endl;
         }
     }  
     cout << "numframes = " << numframes << endl;
