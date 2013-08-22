@@ -2,18 +2,11 @@ var warnExpirationTimeout = null;
 
 socket = io.connect('/');
 
-socket.on('button_response', function(res) {
-  var diag_output = document.getElementById('diagnostics');
-  var text_out = document.createElement('div');
-  text_out.innerHTML = res;
-  diag_output.insertBefore(text_out, diag_output.firstChild);
-});
-
 socket.on('update_image', function() {
   document.getElementById('gps_img').src = '/images/test.png?' + Date.now();
 });
 
-socket.on('warn_message', function(data) {
+socket.on('WARN', function(data) {
   if (warnExpirationTimeout) {
     clearTimeout(warnExpirationTimeout);
   }
@@ -23,7 +16,15 @@ socket.on('warn_message', function(data) {
 
   warnExpirationTimeout = setTimeout(function() {
     warnDiv.innerHTML = '';
-  }, 10000);
+  }, 3000);
+});
+
+socket.on('INFOBUFFERSIZE', function(data) {
+  document.getElementById('queue_size').innerHTML = 'Queue Size: ' + data;
+});
+
+socket.on('INFOCAPTURERATE', function(data) {
+  document.getElementById('capture_rate').innerHTML = 'Capture Rate: ' + data;
 });
 
 var sendStart = function() {

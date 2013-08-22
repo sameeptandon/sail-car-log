@@ -53,15 +53,18 @@ server.listen(app.get('port'), function(){
 var io = require('socket.io').listen(server);
 io.sockets.on('connection', function(socket) {
   requester.on('message', function(res) {
+    
     if (res.length >= 4 && res.slice(0, 4).toString() == 'CAM:') {
       fs.writeFile('public/images/test.png', res.slice(4), function(err) {
         if (err) throw err;
         socket.emit('update_image');
       });
-    } else if (res.length >= 5 && res.slice(0, 5).toString() == 'WARN:') {
-      socket.emit('warn_message', res.slice(5).toString());
     } else {
-      socket.emit('button_response', res.toString());
+      var splits = res.toString().split(':');
+      var header = splits[0];
+      var msg = splits[1];
+
+      socket.emit(header, msg);
     }
   });
   socket.on('start_pressed', function(data) {
