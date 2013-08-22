@@ -184,6 +184,7 @@ int main(int argc, char** argv)
         if (command.compare("TERMINATE") == 0) {
           // properly close the application 
           is_done_working = true; 
+          quit_via_user_input = true;
         } 
         else if (command.compare("LASTCAMERADATA") == 0) { 
           // transmit the camera data over
