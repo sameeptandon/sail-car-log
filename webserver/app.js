@@ -52,7 +52,14 @@ server.listen(app.get('port'), function(){
 var io = require('socket.io').listen(server);
 io.sockets.on('connection', function(socket) {
   requester.on('message', function(res) {
-    socket.emit('button_response', res.toString());
+    if (res.length >= 4 && res.slice(0, 4).toString() == 'CAM:') {
+      fs.writeFile('test.png', res, function(err) {
+        if (err) throw err;
+        console.log('wrote file!');
+      });
+    } else {
+      socket.emit('button_response', res.toString());
+    }
   });
   socket.on('start_pressed', function(data) {
     spawnThread(data.name, data.frames);
