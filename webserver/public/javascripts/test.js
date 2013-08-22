@@ -7,6 +7,10 @@ socket.on('button_response', function(res) {
   diag_output.insertBefore(text_out, diag_output.firstChild);
 });
 
+socket.on('update_image', function() {
+  document.getElementById('gps_img').src = '/images/test.png?' + Date.now();
+});
+
 var sendStart = function() {
   var actives = $('.active');
   var minutes_before_reset = 10;
