@@ -73,11 +73,6 @@ io.sockets.on('connection', function(socket) {
 
 var subprocess = null;
 
-var maxFrames = null;
-if (process.argv.length > 3) {
-  maxFrames = parseInt(process.argv[3], 10);
-}
-
 process.on('SIGINT', function() {
   logger_socket.send('TERMINATE');
   
@@ -93,7 +88,6 @@ process.on('SIGINT', function() {
 var spawnThread = function(prefix, maxFrames) {
   var name = prefix + '_' + util.getNextSuffix(prefix);
   var command = util.getCaptureCommand(name, maxFrames).split(' ');
-  console.log(command);
   var head = command.splice(0, 1)[0];
 
   subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
@@ -105,9 +99,7 @@ var spawnThread = function(prefix, maxFrames) {
   });
   subprocess.on('exit', function(code) {
     console.log(code);
-    if (code == 1) {
-      process.exit(0);
-    } else {
+    if (code == 0) {
       spawnThread(prefix, maxFrames);
     }
   });
