@@ -42,11 +42,6 @@ inline void sendDiagnosticsMessage(string message) {
   send_diagnostics.send(diag_msg_t, ZMQ_NOBLOCK);
 }
 
-inline void sendDiagnosticMessage(void* buf, size_t len) { 
-  zmq::message_t diag_msg_t(buf, len, NULL);
-  send_diagnostics.send(diag_msg_t, ZMQ_NOBLOCK);
-}
-
 void ctrlC (int)
 {
 #ifndef DISPLAY
@@ -75,16 +70,6 @@ int main(int argc, char** argv)
   sleep(1);
   sendDiagnosticsMessage("WARN:Connecting to Cameras...");
 
-  Mat lastCameraImage;
-  vector<uchar> lastCameraImageBuf;
-  string lastCameraImageMsg; 
-#ifdef DEBUG_NO_SENSORS
-  lastCameraImage = imread("/home/smart/sail-car-log/cameralogger/xkcd.png");
-  resize(lastCameraImage, lastCameraImage, Size(320,240));
-  imencode(".png", lastCameraImage, lastCameraImageBuf);
-  lastCameraImageMsg = string(lastCameraImageBuf.begin(), lastCameraImageBuf.end());
-  lastCameraImageMsg = "CAM:" + lastCameraImageMsg; 
-#endif
 
   variables_map vm;
   store(parse_command_line(argc, argv, desc), vm);
@@ -111,7 +96,11 @@ int main(int argc, char** argv)
     maxframes = vm["maxframes"].as<uint64_t>(); 
   }
 
-  bool useGPS = true & !DEBUG_NO_SENSORS;
+#ifdef DEBUG_NO_SENSORS
+  bool useGPS = false;
+#else
+  bool useGPS = true; 
+#endif
   GPSLogger gpsLogger;
   ofstream gps_output;
   if (useGPS) {
@@ -170,17 +159,17 @@ int main(int argc, char** argv)
 #endif //DISPLAY
 #endif //TWO_CAM
 
-#ifdef DISPLAY
   IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
-  int counter = 0;
-#endif
-
   //// setup ZMQ communication
   string bind_address = "tcp://*:"+boost::to_string(ZMQ_CAMERALOGGER_BIND_PORT);
   cout << "binding to " << bind_address << endl; 
   my_commands.bind("tcp://*:5001");
   my_commands.setsockopt(ZMQ_SUBSCRIBE, NULL, 0);
   cout << "binding successful" << endl; 
+  
+#ifdef DEBUG_NO_SENSORS
+  img = cvLoadImage("/home/smart/sail-car-log/cameralogger/xkcd.png");
+#endif
   
   // start GPS Trigger
   if (useGPS) gpsLogger.Run();
@@ -216,30 +205,35 @@ int main(int argc, char** argv)
     cam1->RetrieveBuffer(&image);
     ImageCallback(&image, NULL, &cam1_buff[numframes % NUMTHREAD_PER_BUFFER]);
 
-#ifdef DISPLAY
-    counter = (counter + 1) % CAMERA_DISPLAY_SKIP;
     Image cimage; 
-    if (counter == 0) {
+    if (numframes % CAMERA_DISPLAY_SKIP == 0) {
       image.Convert(PIXEL_FORMAT_BGR, &cimage);
-      show(&cimage, img, "cam1");
+      convertToCV(&cimage, img); 
+      #ifdef DISPLAY
+      show(img, "cam1");
+      #endif //DISPLAY
     }
-#endif //DISPLAY
 #endif //DEBUG_NO_SENSORS
+
 #ifdef TWO_CAM
     cam2->RetrieveBuffer(&image);
     ImageCallback(&image, NULL, &cam2_buff[numframes % NUMTHREAD_PER_BUFFER]);
-#ifdef DISPLAY
-    if (counter == 0) {
+    if (numframes % CAMERA_DISPLAY_SKIP == 0) {
       image.Convert(PIXEL_FORMAT_BGR, &cimage);
-      show(&cimage, img, "cam2");
+      convertToCV(&cimage, img); 
+      #ifdef DISPLAY
+      show(img, "cam2");
+      #endif //DISPLAY
     }
+#endif // TWO_CAM
+
+#ifdef DISPLAY
     char r = cvWaitKey(1);
     if (r == 'q') {
       is_done_working = true;
       quit_via_user_input = true;
     }
-#endif // DISPLAY
-#endif // TWO_CAM
+#endif //DISPLAY
 
     if (useGPS) {
       GPSLogger::GPSPacketType packet = gpsLogger.getPacket();
@@ -265,7 +259,16 @@ int main(int argc, char** argv)
       captureRateMsg += ", " + boost::to_string(queue_size);
       
       sendDiagnosticsMessage(captureRateMsg);
-      sendDiagnosticsMessage(lastCameraImageMsg); 
+
+      // encode last image for transmission
+      Mat lastCameraImage(img);
+      vector<uchar> lastCameraImageBuf; string lastCameraImageMsg; 
+      resize(lastCameraImage, lastCameraImage, Size(320,240));
+      imencode(".png", lastCameraImage, lastCameraImageBuf);
+      lastCameraImageMsg = string(lastCameraImageBuf.begin(), lastCameraImageBuf.end());
+      lastCameraImageMsg = "CAM:" + lastCameraImageMsg; 
+      sendDiagnosticsMessage(lastCameraImageMsg);
+
       lastTime = currentTime;
       lastframes = numframes; 
     }
