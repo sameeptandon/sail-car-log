@@ -15,10 +15,12 @@ var spawn = require('child_process').spawn;
 var util = require('./file_conventions.js');
 var zmq = require('zmq');
 
-var requester = zmq.socket('req');
-requester.connect("tcp://127.0.0.1:" + DIAGNOSTICS_PORT);
+var requester = zmq.socket('sub');
+requester.bindSync("tcp://127.0.0.1:" + DIAGNOSTICS_PORT);
+//requester.setsockopt(zmq.ZMQ_SUB, '');
+requester.subscribe('');
 
-var logger_socket = zmq.socket('req');
+var logger_socket = zmq.socket('pub');
 logger_socket.connect('tcp://localhost:' + CAMERALOGGER_PORT);
 
 var app = express();
@@ -53,8 +55,13 @@ io.sockets.on('connection', function(socket) {
     socket.emit('button_response', res.toString());
   });
   socket.on('start_pressed', function(name) {
-    requester.send(name);
+    spawnThread(name);
   });
+
+  socket.on('stop_pressed', function() {
+    logger_socket.send('TERMINATE');
+  });
+
 });
 
 var subprocess = null;
@@ -77,10 +84,18 @@ process.on('SIGINT', function() {
 var spawnThread = function(prefix, maxFrames) {
   var name = prefix + '_' + util.getNextSuffix(prefix);
   var command = util.getCaptureCommand(name, maxFrames).split(' ');
+  console.log(command);
   var head = command.splice(0, 1)[0];
 
-  //subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
+  subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
+  subprocess.stdout.on('data', function(data) {
+    console.log(data.toString());
+  });
+  subprocess.stderr.on('data', function(data) {
+      console.log('error: ' + data.toString());
+  });
   subprocess.on('exit', function(code) {
+    console.log(code);
     if (code == 1) {
       process.exit(0);
     } else {
@@ -89,4 +104,3 @@ var spawnThread = function(prefix, maxFrames) {
   });
 }
 
-spawnThread(process.argv[2])
