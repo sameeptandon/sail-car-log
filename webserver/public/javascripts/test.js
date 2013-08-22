@@ -1,3 +1,5 @@
+var warnExpirationTimeout = null;
+
 socket = io.connect('/');
 
 socket.on('button_response', function(res) {
@@ -9,6 +11,19 @@ socket.on('button_response', function(res) {
 
 socket.on('update_image', function() {
   document.getElementById('gps_img').src = '/images/test.png?' + Date.now();
+});
+
+socket.on('warn_message', function(data) {
+  if (warnExpirationTimeout) {
+    clearTimeout(warnExpirationTimeout);
+  }
+
+  var warnDiv = document.getElementById('warn_message');
+  warnDiv.innerHTML = data;
+
+  warnExpirationTimeout = setTimeout(function() {
+    warnDiv.innerHTML = '';
+  }, 10000);
 });
 
 var sendStart = function() {
@@ -24,5 +39,15 @@ var sendStart = function() {
 };
 
 var sendStop = function() {
+  resetDisplay();
+
   socket.emit('stop_pressed');
 };
+
+var resetDisplay = function() {
+  if (warnExpirationTimeout) {
+    clearTimeout(warnExpirationTimeout);
+  }
+
+  document.getElementById('warn_message').innerHTML = '';
+}

@@ -15,3 +15,7 @@ img {
 .row {
   padding: 20px;
 }
+
+#warn_message {
+  color: #d35400;
+}

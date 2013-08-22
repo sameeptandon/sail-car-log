@@ -58,6 +58,8 @@ io.sockets.on('connection', function(socket) {
         if (err) throw err;
         socket.emit('update_image');
       });
+    } else if (res.length >= 5 && res.slice(0, 5).toString() == 'WARN:') {
+      socket.emit('warn_message', res.slice(5).toString());
     } else {
       socket.emit('button_response', res.toString());
     }
