@@ -54,8 +54,8 @@ io.sockets.on('connection', function(socket) {
   requester.on('message', function(res) {
     socket.emit('button_response', res.toString());
   });
-  socket.on('start_pressed', function(name) {
-    spawnThread(name);
+  socket.on('start_pressed', function(data) {
+    spawnThread(data.name, data.frames);
   });
 
   socket.on('stop_pressed', function() {
@@ -78,6 +78,8 @@ process.on('SIGINT', function() {
     subprocess.on('exit', function() {
       process.exit(0);
     });
+  } else {
+    process.exit(0);
   }
 });
 

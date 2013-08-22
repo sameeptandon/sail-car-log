@@ -7,8 +7,15 @@ block content
     .col-lg-3.col-lg-offset-2
       button.btn.btn-danger.btn-block(type='button', onclick='sendStop();') Stop
   .row
-    .col-lg-4.col-lg-offset-4
+    .col-lg-3.col-lg-offset-3
       input(id='filename_input', class="form-control")
+    .col-lg-3.btn-group.time(data-toggle='buttons')
+      label.btn.btn-default(mins='5') 5 min
+        input#five_min(type='radio', name='reset_time')
+      label.btn.btn-default(mins='10') 10 min
+        input#ten_min(type='radio', name='reset_time', value='10')
+      label.btn.btn-default(mins='20') 20 min
+        input#twenty_min(type='radio', name='reset_time', value='20')
 
   .row
     .col-lg-6
