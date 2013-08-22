@@ -7,10 +7,14 @@
 #include "../util/fps_calc.h"
 #include "Consumer_CV.h"
 #include <boost/program_options.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include "zmq.hpp"
 
 using namespace FlyCapture2;
 using namespace std; 
+
+typedef boost::posix_time::ptime Time;
+typedef boost::posix_time::time_duration TimeDuration; 
 
 class SyncBuffer {
     private:

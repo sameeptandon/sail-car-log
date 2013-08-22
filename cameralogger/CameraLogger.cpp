@@ -1,12 +1,13 @@
-#define TWO_CAM
-#define DISPLAY
+//#define TWO_CAM
+//#define DISPLAY
+#define DEBUG_NO_SENSORS true
 
 #include <fstream>
 #include "CameraLogger.h"
 #include "GPSLogger.h"
 
 #define ZMQ_CAMERALOGGER_BIND_PORT 5001 // this app will listen on this port
-#define ZMQ_MASTER_SEND_PORT 5000 // this app will send to master on this port
+#define ZMQ_DIAGNOSTICS_SEND_PORT 5000 // this app will send to master on this port
 
 #define CAMERA_DISPLAY_SKIP 3
 #define NUMTHREAD_PER_BUFFER 10
@@ -15,11 +16,14 @@ SyncBuffer cam1_buff[NUMTHREAD_PER_BUFFER];
 SyncBuffer cam2_buff[NUMTHREAD_PER_BUFFER];
 
 zmq::context_t context(1);
-zmq::socket_t my_commands(context, ZMQ_REQ);
-zmq::socket_t send_response(context, ZMQ_REQ);
+zmq::socket_t my_commands(context, ZMQ_SUB);
+zmq::socket_t send_diagnostics(context, ZMQ_PUB);
 
 bool is_done_working = false; 
 bool quit_via_user_input = false;
+
+Time currentTime(boost::posix_time::microsec_clock::local_time());
+Time lastTime(currentTime);
 
 inline void ImageCallback(Image* pImage, const void* pCallbackData, 
     SyncBuffer* w_buff) { 
@@ -33,11 +37,16 @@ inline void ImageCallback(Image* pImage, const void* pCallbackData,
   }
 }
 
+inline void sendDiagnosticsMessage(string message) { 
+  zmq::message_t diag_msg_t((void *) message.c_str(), message.length(), NULL);
+  send_diagnostics.send(diag_msg_t, ZMQ_NOBLOCK);
+}
+
 void ctrlC (int)
 {
 #ifndef DISPLAY
-  printf("\nCtrl-C detected, exit condition set to true.\n");
-  is_done_working = true;
+  //printf("\nCtrl-C detected, exit condition set to true.\n");
+  //is_done_working = true;
 #endif
 #ifdef DISPLAY
   printf("\nCtrl-C Disabled! Use 'q' to quit instead\n");
@@ -55,6 +64,11 @@ int main(int argc, char** argv)
     ("output,o", value<string>(), "the filename for data logging");
 
   signal (SIGINT, ctrlC);
+
+  string diagnostics_address = "tcp://localhost:"+boost::to_string(ZMQ_DIAGNOSTICS_SEND_PORT);
+  send_diagnostics.connect(diagnostics_address.c_str());
+  sleep(1);
+  sendDiagnosticsMessage("WARN:Connecting to Cameras...");
 
   variables_map vm;
   store(parse_command_line(argc, argv, desc), vm);
@@ -81,13 +95,15 @@ int main(int argc, char** argv)
     maxframes = vm["maxframes"].as<uint64_t>(); 
   }
 
-  bool useGPS = true;
+  bool useGPS = true & !DEBUG_NO_SENSORS;
   GPSLogger gpsLogger;
   ofstream gps_output;
   if (useGPS) {
     gps_output.open(fnamegps.c_str());
     gpsLogger.Connect(vm["serial"].as<string>());
   }
+  int imageWidth = 1280;
+  int imageHeight = 960;
 
   cout << "Capturing for maximum of " << maxframes << " frames" << endl; 
   cout  << "Filenames: " << fname1 << " " << fname2 << endl; 
@@ -98,9 +114,7 @@ int main(int argc, char** argv)
     cam2_buff[thread_num].getBuffer()->setCapacity(1000);
   }
 
-  int imageWidth = 1280;
-  int imageHeight = 960;
-
+#ifndef DEBUG_NO_SENSORS
   Camera* cam1 = ConnectCamera(0); // 0 indexing
   assert(cam1 != NULL);
   RunCamera(cam1);
@@ -115,6 +129,7 @@ int main(int argc, char** argv)
         thread_fname, cam1_buff[thread_num].getMutex(), 50.0f,
         imageWidth, imageHeight);
   }
+#endif
 
 #ifdef DISPLAY
   cvNamedWindow("cam1", CV_WINDOW_AUTOSIZE);
@@ -136,8 +151,8 @@ int main(int argc, char** argv)
   }
 #ifdef DISPLAY
   cvNamedWindow("cam2", CV_WINDOW_AUTOSIZE);
-#endif
-#endif
+#endif //DISPLAY
+#endif //TWO_CAM
 
 #ifdef DISPLAY
   IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
@@ -145,23 +160,41 @@ int main(int argc, char** argv)
 #endif
 
   //// setup ZMQ communication
-  my_commands.bind("tcp://localhost:"+ZMQ_CAMERALOGGER_BIND_PORT);
-  zmq::message_t command_msg; 
+  string bind_address = "tcp://*:"+boost::to_string(ZMQ_CAMERALOGGER_BIND_PORT);
+  cout << "binding to " << bind_address << endl; 
+  my_commands.bind("tcp://*:5001");
+  my_commands.setsockopt(ZMQ_SUBSCRIBE, NULL, 0);
+  cout << "binding successful" << endl; 
   
   // start GPS Trigger
   if (useGPS) gpsLogger.Run();
   
-  uint64_t numframes = 0; 
+  uint64_t numframes = 0;
+  uint64_t lastframes = 0; 
   ///////// main loop
   while (!is_done_working) {
     numframes++;
     if (numframes > maxframes) { 
       is_done_working = true;
     }
-    if(my_commands.recv(&command_msg, ZMQ_NOBLOCK) == true) {
-      //do stuff
-    }
+    try {
+      zmq::message_t command_msg; 
+      if (my_commands.recv(&command_msg, ZMQ_NOBLOCK) == true) { 
+        string command((const char*)command_msg.data(), command_msg.size());
+        if (command.compare("TERMINATE") == 0) {
+          // properly close the application 
+          is_done_working = true; 
+        } 
+        else if (command.compare("LASTCAMERADATA") == 0) { 
+          // transmit the camera data over
+        }
+        else if (command.compare("LASTGPSDATA") == 0) { 
+          // transmit the last known GPS log over
+        }
+      }
+    } catch (const zmq::error_t&e) {}
 
+#ifndef DEBUG_NO_SENSORS
     Image image; 
     cam1->RetrieveBuffer(&image);
     ImageCallback(&image, NULL, &cam1_buff[numframes % NUMTHREAD_PER_BUFFER]);
@@ -173,7 +206,8 @@ int main(int argc, char** argv)
       image.Convert(PIXEL_FORMAT_BGR, &cimage);
       show(&cimage, img, "cam1");
     }
-#endif
+#endif //DISPLAY
+#endif //DEBUG_NO_SENSORS
 #ifdef TWO_CAM
     cam2->RetrieveBuffer(&image);
     ImageCallback(&image, NULL, &cam2_buff[numframes % NUMTHREAD_PER_BUFFER]);
@@ -192,8 +226,30 @@ int main(int argc, char** argv)
 
     if (useGPS) {
       GPSLogger::GPSPacketType packet = gpsLogger.getPacket();
-      string packet_contents = boost::get<1>(packet);
-      gps_output << packet_contents << endl;
+      int GPSPacketSuccess = boost::get<0>(packet); 
+      if (GPSPacketSuccess > 0) { 
+        string packet_contents = boost::get<1>(packet);
+        gps_output << packet_contents << endl;
+      } else {
+        sendDiagnosticsMessage("WARN:Bad GPS Packet"); 
+      }
+
+    }
+    currentTime = Time(boost::posix_time::microsec_clock::local_time()); 
+    if ((currentTime - lastTime).total_milliseconds() > 1000) {
+      string captureRateMsg = "INFO:Capture Rate, Queue Size= " + boost::to_string(numframes-lastframes);
+
+      int queue_size = 0; 
+      for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++)
+      {
+        queue_size += cam1_buff[thread_num].getBuffer()->getSize();
+        queue_size += cam2_buff[thread_num].getBuffer()->getSize(); 
+      }
+      captureRateMsg += ", " + boost::to_string(queue_size);
+      
+      sendDiagnosticsMessage(captureRateMsg);
+      lastTime = currentTime;
+      lastframes = numframes; 
     }
   }  
   cout << "numframes = " << numframes << endl;
@@ -205,12 +261,14 @@ int main(int argc, char** argv)
   cvDestroyWindow("cam1");
   cvDestroyWindow("cam2");
 #endif
+#ifndef DEBUG_NO_SENSORS
   for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
     cam1_consumer[thread_num]->stop();
     delete cam1_consumer[thread_num];
   }
   CloseCamera(cam1);
   delete cam1; 
+#endif 
 #ifdef TWO_CAM
   for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
     cam2_consumer[thread_num]->stop();

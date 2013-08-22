@@ -24,7 +24,7 @@ class Consumer
     private:
         ///////////////////////////////////////////////////////////////////////////////////////
         void writeToDisk (const T* obj) {
-            FPS_CALC (_aviFileName, _buf);
+            //FPS_CALC (_aviFileName, _buf);
             _img = cvCreateImage(cvSize(obj->GetCols(), obj->GetRows()), IPL_DEPTH_8U, 3);
             _img->height = obj->GetRows();
             _img->width = obj->GetCols();
@@ -81,9 +81,6 @@ class Consumer
 
             Error error;
             _is_done = false; 
-
-            cout << "frameRate = " << _frameRate << endl;
-
 
             _writer = VideoWriter(_aviFileName.c_str(),
                     //CV_FOURCC('X','V','I','D'),
