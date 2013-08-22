@@ -1,6 +1,6 @@
 //#define TWO_CAM
 //#define DISPLAY
-#define DEBUG_NO_SENSORS true
+#define DEBUG_NO_SENSORS
 
 #include <fstream>
 #include "CameraLogger.h"
@@ -246,9 +246,11 @@ int main(int argc, char** argv)
       }
 
     }
+
     currentTime = Time(boost::posix_time::microsec_clock::local_time()); 
     if ((currentTime - lastTime).total_milliseconds() > 1000) {
-      string captureRateMsg = "INFO:Capture Rate, Queue Size= " + boost::to_string(numframes-lastframes);
+      string captureRateMsg = "INFOCAPTURERATE:" + boost::to_string(numframes-lastframes); 
+      sendDiagnosticsMessage(captureRateMsg);
 
       int queue_size = 0; 
       for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++)
@@ -256,9 +258,9 @@ int main(int argc, char** argv)
         queue_size += cam1_buff[thread_num].getBuffer()->getSize();
         queue_size += cam2_buff[thread_num].getBuffer()->getSize(); 
       }
-      captureRateMsg += ", " + boost::to_string(queue_size);
-      
-      sendDiagnosticsMessage(captureRateMsg);
+
+      string bufferSizeMsg = "INFOBUFFERSIZE:" + boost::to_string(queue_size);
+      sendDiagnosticsMessage(bufferSizeMsg);
 
       // encode last image for transmission
       Mat lastCameraImage(img);
