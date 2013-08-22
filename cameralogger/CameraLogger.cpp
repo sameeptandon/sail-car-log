@@ -42,6 +42,11 @@ inline void sendDiagnosticsMessage(string message) {
   send_diagnostics.send(diag_msg_t, ZMQ_NOBLOCK);
 }
 
+inline void sendDiagnosticMessage(void* buf, size_t len) { 
+  zmq::message_t diag_msg_t(buf, len, NULL);
+  send_diagnostics.send(diag_msg_t, ZMQ_NOBLOCK);
+}
+
 void ctrlC (int)
 {
 #ifndef DISPLAY
@@ -69,6 +74,17 @@ int main(int argc, char** argv)
   send_diagnostics.connect(diagnostics_address.c_str());
   sleep(1);
   sendDiagnosticsMessage("WARN:Connecting to Cameras...");
+
+  Mat lastCameraImage;
+  vector<uchar> lastCameraImageBuf;
+  string lastCameraImageMsg; 
+#ifdef DEBUG_NO_SENSORS
+  lastCameraImage = imread("/home/smart/sail-car-log/cameralogger/xkcd.png");
+  resize(lastCameraImage, lastCameraImage, Size(320,240));
+  imencode(".png", lastCameraImage, lastCameraImageBuf);
+  lastCameraImageMsg = string(lastCameraImageBuf.begin(), lastCameraImageBuf.end());
+  lastCameraImageMsg = "CAM:" + lastCameraImageMsg; 
+#endif
 
   variables_map vm;
   store(parse_command_line(argc, argv, desc), vm);
@@ -249,6 +265,7 @@ int main(int argc, char** argv)
       captureRateMsg += ", " + boost::to_string(queue_size);
       
       sendDiagnosticsMessage(captureRateMsg);
+      sendDiagnosticsMessage(lastCameraImageMsg); 
       lastTime = currentTime;
       lastframes = numframes; 
     }
