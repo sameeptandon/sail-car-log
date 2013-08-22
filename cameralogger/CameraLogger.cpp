@@ -269,6 +269,9 @@ int main(int argc, char** argv)
       lastTime = currentTime;
       lastframes = numframes; 
     }
+#ifdef DEBUG_NO_SENSORS
+    usleep(200); 
+#endif
   }  
   cout << "numframes = " << numframes << endl;
 
