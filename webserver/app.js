@@ -7,6 +7,7 @@ var CAMERALOGGER_PORT = 5001
  */
 
 var express = require('express');
+var fs = require('fs');
 var routes = require('./routes');
 var user = require('./routes/user');
 var http = require('http');
@@ -53,9 +54,9 @@ var io = require('socket.io').listen(server);
 io.sockets.on('connection', function(socket) {
   requester.on('message', function(res) {
     if (res.length >= 4 && res.slice(0, 4).toString() == 'CAM:') {
-      fs.writeFile('test.png', res, function(err) {
+      fs.writeFile('public/images/test.png', res.slice(4), function(err) {
         if (err) throw err;
-        console.log('wrote file!');
+        socket.emit('update_image');
       });
     } else {
       socket.emit('button_response', res.toString());
@@ -92,16 +93,17 @@ var spawnThread = function(prefix, maxFrames) {
 
   subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
   subprocess.stdout.on('data', function(data) {
-    console.log(data.toString());
+//console.log(data.toString());
   });
   subprocess.stderr.on('data', function(data) {
-      console.log('error: ' + data.toString());
+//      console.log('error: ' + data.toString());
   });
   subprocess.on('exit', function(code) {
     console.log(code);
     if (code == 0) {
       spawnThread(prefix, maxFrames);
     }
+    subprocess = null;
   });
 }
 
