@@ -1,6 +1,6 @@
-//#define TWO_CAM
-//#define DISPLAY
-#define DEBUG_NO_SENSORS
+#define TWO_CAM
+#define DISPLAY
+//#define DEBUG_NO_SENSORS
 
 #include <fstream>
 #include "CameraLogger.h"
@@ -39,6 +39,7 @@ inline void ImageCallback(Image* pImage, const void* pCallbackData,
 
 inline void sendDiagnosticsMessage(string message) { 
   zmq::message_t diag_msg_t((void *) message.c_str(), message.length(), NULL);
+  //cout << message << endl; 
   send_diagnostics.send(diag_msg_t, ZMQ_NOBLOCK);
 }
 
@@ -160,6 +161,7 @@ int main(int argc, char** argv)
 #endif //TWO_CAM
 
   IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
+  Image* imgToSend = new Image();
   string lastValidGPSPacket;
 
   //// setup ZMQ communication
@@ -222,6 +224,7 @@ int main(int argc, char** argv)
 #ifdef TWO_CAM
     cam2->RetrieveBuffer(&image);
     ImageCallback(&image, NULL, &cam2_buff[numframes % NUMTHREAD_PER_BUFFER]);
+    image.Convert(PIXEL_FORMAT_BGR, imgToSend);
     if (numframes % CAMERA_DISPLAY_SKIP == 0) {
       image.Convert(PIXEL_FORMAT_BGR, &cimage);
       convertToCV(&cimage, img); 
@@ -251,7 +254,7 @@ int main(int argc, char** argv)
 
     }
 
-    currentTime = Time(boost::posix_time::microsec_clock::local_time()); 
+    currentTime = Time(boost::posix_time::microsec_clock::local_time());
     if ((currentTime - lastTime).total_milliseconds() > 1000) {
       string captureRateMsg = "INFOCAPTURERATE:" + boost::to_string(numframes-lastframes); 
       sendDiagnosticsMessage(captureRateMsg);
@@ -267,9 +270,13 @@ int main(int argc, char** argv)
       sendDiagnosticsMessage(bufferSizeMsg);
 
       // encode last image for transmission
-      Mat lastCameraImage(img);
-      vector<uchar> lastCameraImageBuf; string lastCameraImageMsg; 
-      resize(lastCameraImage, lastCameraImage, Size(320,240));
+      Mat lastCameraImage;
+      vector<uchar> lastCameraImageBuf; 
+      string lastCameraImageMsg;
+
+      IplImage* cvImgToSend = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
+      convertToCV(imgToSend, cvImgToSend);
+      resize(Mat(cvImgToSend), lastCameraImage, Size(320,240));
       imencode(".png", lastCameraImage, lastCameraImageBuf);
       lastCameraImageMsg = string(lastCameraImageBuf.begin(), lastCameraImageBuf.end());
       lastCameraImageMsg = "CAM:" + lastCameraImageMsg; 

@@ -53,7 +53,7 @@ class Consumer
                 }
 
                 boost::mutex::scoped_lock io_lock (*_io_mutex);
-                printf("Writing remaning %d images in the buffer to disk...\n", _buf->getSize ());
+                //printf("Writing remaning %d images in the buffer to disk...\n", _buf->getSize ());
                 while (!_buf->isEmpty ()) { 
                     writeToDisk (_buf->getFront ());
                 }
@@ -99,11 +99,11 @@ class Consumer
 
         ///////////////////////////////////////////////////////////////////////////////////////
         void stop ()  {
-            printf("stop called\n");
+            //printf("stop called\n");
             _is_done = true; 
             _thread->join ();
             boost::mutex::scoped_lock io_lock (*_io_mutex);
-            printf("Consumer done.\n");
+            //printf("Consumer done.\n");
         }
 
     private:

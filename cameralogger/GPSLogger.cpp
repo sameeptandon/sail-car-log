@@ -17,6 +17,7 @@ void GPSLogger::safeWrite(string cmd) {
 
     cout << boost::get<1>(ack_1); 
     cout << boost::get<1>(ack_2); // show acknowledgement 
+    cout << endl; 
 }
 
 GPSLogger::GPSPacketType GPSLogger::getPacket() {
