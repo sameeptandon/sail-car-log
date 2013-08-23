@@ -29,11 +29,11 @@ socket.on('INFOCAPTURERATE', function(data) {
 
 socket.on('GPS', function(data) {
   document.getElementById('gps_pos').innerHTML = 'GPS Position: ' + data;
-}
+});
 
 socket.on('disk_usage', function(data) {
   document.getElementById('disk_usage').innerHTML = 'Disk Usage: ' + data;
-}
+});
 
 var sendStart = function() {
   var actives = $('.active');

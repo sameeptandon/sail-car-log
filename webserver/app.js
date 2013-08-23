@@ -68,6 +68,7 @@ io.sockets.on('connection', function(socket) {
     }
   });
   socket.on('start_pressed', function(data) {
+    console.log(data);
     spawnThread(data.name, data.frames);
   });
 
@@ -75,8 +76,9 @@ io.sockets.on('connection', function(socket) {
     logger_socket.send('TERMINATE');
   });
 
+  checkDiskUsage(socket);
   setInterval(function() {
-    socket.emit('disk_usage', diskUsage());
+      checkDiskUsage(socket);
   }, 10000); // 10 seconds
 });
 
@@ -97,14 +99,15 @@ process.on('SIGINT', function() {
 var spawnThread = function(prefix, maxFrames) {
   var name = prefix + '_' + util.getNextSuffix(prefix);
   var command = util.getCaptureCommand(name, maxFrames).split(' ');
+  console.log(command);
   var head = command.splice(0, 1)[0];
 
   subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
   subprocess.stdout.on('data', function(data) {
-//console.log(data.toString());
+    console.log(data.toString());
   });
   subprocess.stderr.on('data', function(data) {
-//      console.log('error: ' + data.toString());
+      console.log('error: ' + data.toString());
   });
   subprocess.on('exit', function(code) {
     console.log(code);
@@ -115,7 +118,7 @@ var spawnThread = function(prefix, maxFrames) {
   });
 }
 
-var checkDiskUsage = function() {
+var checkDiskUsage = function(socket) {
   var disk_check = spawn('df', ['-h']);
   var grep = spawn('grep', ['/dev/sda1']);
   var awk = spawn('awk', ['{print $5}']);
@@ -137,6 +140,7 @@ var checkDiskUsage = function() {
   });
 
   awk.stdout.on('data', function(data) {
-    return data.toString().trim();
+    var output = data.toString().trim();
+    socket.emit('disk_usage', output);
   });
 }
