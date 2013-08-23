@@ -1,5 +1,4 @@
 body {
-  padding: 50px;
   font: 24px "Lucida Grande", Helvetica, Arial, sans-serif;
   margin-left: auto;
   margin-right: auto;
@@ -14,19 +13,29 @@ img {
   margin-right: auto;
 }
 
-input {
-  padding: 20px;
-  font-size: 240px;
+label.btn {
+  font-size: 64px;
+}
+
+.btn-group {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+input[class=input-large] {
+    width: 100%;
+    font-size: 64px;
 }
 
 .row {
   padding: 20px;
 }
 
-  .col-sm-6 .btn-lg {
-    font-size: 64px;
-    min-height: 200px;
-  }
+.col-sm-6 .btn-lg {
+  font-size: 100px;
+  min-height: 300px;
+}
 
 #warn_message {
   color: #d35400;
