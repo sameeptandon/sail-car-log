@@ -75,6 +75,9 @@ io.sockets.on('connection', function(socket) {
     logger_socket.send('TERMINATE');
   });
 
+  setInterval(function() {
+    socket.emit('disk_usage', diskUsage());
+  }, 10000); // 10 seconds
 });
 
 var subprocess = null;
@@ -113,10 +116,27 @@ var spawnThread = function(prefix, maxFrames) {
 }
 
 var checkDiskUsage = function() {
-  var disk_check = spawn('df', ['-h', '|', 'grep', '/dev/sda1', '|', 'awk', '\'{print $5}\'']);
+  var disk_check = spawn('df', ['-h']);
+  var grep = spawn('grep', ['/dev/sda1']);
+  var awk = spawn('awk', ['{print $5}']);
 
   disk_check.stdout.on('data', function(data) {
-    console.log(data);
-    socket.emit('disk_quota', data);
+    grep.stdin.write(data);
+  });
+
+  disk_check.on('close', function(code) {
+    grep.stdin.end();
+  });
+
+  grep.stdout.on('data', function(data) {
+    awk.stdin.write(data);
+  });
+
+  grep.on('close', function(code) {
+    awk.stdin.end();
+  });
+
+  awk.stdout.on('data', function(data) {
+    return data.toString().trim();
   });
 }
