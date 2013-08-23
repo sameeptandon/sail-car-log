@@ -175,6 +175,7 @@ int main(int argc, char** argv)
 #endif
   
   // start GPS Trigger
+  sendDiagnosticsMessage("WARN:Connecting to GPS...");
   if (useGPS) gpsLogger.Run();
   
   uint64_t numframes = 0;
@@ -298,10 +299,12 @@ int main(int argc, char** argv)
 
 
   /////// cleanup
+  sendDiagnosticsMessage("WARN:Shutting Down GPS...");
   if (useGPS) gpsLogger.Close();
 #ifdef DISPLAY
   cvDestroyWindow("cam1");
   cvDestroyWindow("cam2");
+  sendDiagnosticsMessage("WARN:Shutting Down Cameras...");
 #endif
 #ifndef DEBUG_NO_SENSORS
   for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
