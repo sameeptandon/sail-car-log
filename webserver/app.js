@@ -111,7 +111,7 @@ var spawnThread = function(prefix, maxFrames) {
 
   io.sockets.emit('subprocess_running', true);
 
-  subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
+  subprocess = spawn(head, command, {cwd: "/home/smart/sail-car-log/cameralogger/build/", env: process.env});
   subprocess.stdout.on('data', function(data) {
     //console.log(data.toString());
   });
