@@ -74,7 +74,7 @@ io.sockets.on('connection', function(socket) {
   socket.on('start_pressed', function(data) {
     //console.log(data);
     if (subprocess) return;
-    var requested_terminate = false;
+    requested_terminate = false;
     spawnThread(data.name, data.frames);
   });
 

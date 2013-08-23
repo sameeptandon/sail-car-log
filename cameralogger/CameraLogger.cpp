@@ -304,8 +304,8 @@ int main(int argc, char** argv)
 #ifdef DISPLAY
   cvDestroyWindow("cam1");
   cvDestroyWindow("cam2");
-  sendDiagnosticsMessage("WARN:Shutting Down Cameras...");
 #endif
+  sendDiagnosticsMessage("WARN:Shutting Down Cameras...");
 #ifndef DEBUG_NO_SENSORS
   for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
     cam1_consumer[thread_num]->stop();

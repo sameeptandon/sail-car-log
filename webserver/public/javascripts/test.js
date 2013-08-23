@@ -56,6 +56,15 @@ socket.on('subprocess_running', function(running) {
 });
 
 var sendStart = function() {
+  var name = document.getElementById('filename_input').value;
+  var warnDiv = document.getElementById('warn_message');
+  if (name == '') {
+    warnDiv.innerHTML = 'Please input a name before hitting start';
+    return;
+  } else {
+    warnDiv.innerHTML = '';
+  }
+
   var actives = $('.active');
   var minutes_before_reset = 10;
 
@@ -63,7 +72,7 @@ var sendStart = function() {
     minutes_before_reset = parseInt(actives.attr('mins'), 10);
   }
 
-  var data = {name: document.getElementById('filename_input').value, frames: 3000*minutes_before_reset};
+  var data = {name: name, frames: 3000*minutes_before_reset};
   socket.emit('start_pressed', data);
 };
 
