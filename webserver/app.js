@@ -112,3 +112,11 @@ var spawnThread = function(prefix, maxFrames) {
   });
 }
 
+var checkDiskUsage = function() {
+  var disk_check = spawn('df', ['-h', '|', 'grep', '/dev/sda1', '|', 'awk', '\'{print $5}\'']);
+
+  disk_check.stdout.on('data', function(data) {
+    console.log(data);
+    socket.emit('disk_quota', data);
+  });
+}
