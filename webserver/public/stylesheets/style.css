@@ -9,18 +9,25 @@ a {
 }
 
 img {
-  margin-left: auto;
-  margin-right: auto;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    min-height: 30%;
 }
 
 label.btn {
-  font-size: 64px;
+  font-size: 40px;
 }
 
 .btn-group {
+  width: auto;
   display: block;
   margin-left: auto;
   margin-right: auto;
+}
+
+.diagnostics_text {
+    font-size: 40px;
 }
 
 input[class=input-large] {
@@ -39,4 +46,6 @@ input[class=input-large] {
 
 #warn_message {
   color: #d35400;
+  text-align: center;
+  font-size:60px;
 }

@@ -45,6 +45,8 @@ if ('development' == app.get('env')) {
 app.get('/', routes.index);
 app.get('/users', user.list);
 
+var requested_terminate = false;
+
 var server = http.createServer(app);
 server.listen(app.get('port'), function(){
   console.log('Express server listening on port ' + app.get('port'));
@@ -52,6 +54,8 @@ server.listen(app.get('port'), function(){
 
 var io = require('socket.io').listen(server);
 io.sockets.on('connection', function(socket) {
+  var running = subprocess ? true : false;
+  socket.emit('subprocess_running', running);
   requester.on('message', function(res) {
     
     if (res.length >= 4 && res.slice(0, 4).toString() == 'CAM:') {
@@ -70,11 +74,13 @@ io.sockets.on('connection', function(socket) {
   socket.on('start_pressed', function(data) {
     //console.log(data);
     if (subprocess) return;
+    var requested_terminate = false;
     spawnThread(data.name, data.frames);
   });
 
   socket.on('stop_pressed', function() {
     logger_socket.send('TERMINATE');
+    requested_terminate = true;
   });
 
   checkDiskUsage(socket);
@@ -114,11 +120,13 @@ var spawnThread = function(prefix, maxFrames) {
   });
   subprocess.on('exit', function(code) {
     //console.log(code);
-    if (code == 0) {
-      spawnThread(prefix, maxFrames);
-    }
-    io.sockets.emit('subprocess_running', false);
     subprocess = null;
+    if (code == 0 && !requested_terminate) {
+      spawnThread(prefix, maxFrames);
+    } else {
+      io.sockets.emit('subprocess_running', false);
+    }
+
   });
 }
 

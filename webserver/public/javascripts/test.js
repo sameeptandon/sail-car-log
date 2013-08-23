@@ -28,6 +28,10 @@ socket.on('INFOCAPTURERATE', function(data) {
 });
 
 socket.on('GPS', function(data) {
+  var coords = data.split(',');
+  coords[0] = coords[0].slice(0, coords[0].indexOf('.') + 4);
+  coords[1] = coords[1].slice(0, coords[1].indexOf('.') + 4);
+  data = coords[0] + ', ' + coords[1];
   document.getElementById('gps_pos').innerHTML = 'GPS Position: ' + data;
 });
 
@@ -69,14 +73,12 @@ var sendStop = function() {
   socket.emit('stop_pressed');
 };
 
-var toggleDisabled = function() {
-}
-
 var resetDisplay = function() {
   if (warnExpirationTimeout) {
     clearTimeout(warnExpirationTimeout);
   }
 
+  console.log('woeifjioj');
   document.getElementById('warn_message').innerHTML = '';
   document.getElementById('capture_rate').innerHTML = '';
   document.getElementById('queue_size').innerHTML = '';
