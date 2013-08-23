@@ -23,7 +23,7 @@ include_directories(${zmq_INCLUDE_DIR})
 
 link_directories(${Boost_LIBRARY_DIR})
 
-add_executable(CameraLogger CameraLogger.cpp GPSLogger.cpp)
+add_executable(CameraLogger CameraLogger.cpp GPSLogger.cpp GPSRecord.cpp)
 target_link_libraries(CameraLogger ${serial_LIBRARIES} 
     ${Boost_LIBRARIES} ${OpenCV_LIBS} ${flycap_LIBRARIES}
     ${zmq_LIBRARIES})

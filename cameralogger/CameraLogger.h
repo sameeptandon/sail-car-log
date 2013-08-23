@@ -9,6 +9,7 @@
 #include <boost/program_options.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "zmq.hpp"
+#include "GPSRecord.h"
 
 using namespace FlyCapture2;
 using namespace std; 

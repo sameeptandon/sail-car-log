@@ -160,6 +160,8 @@ int main(int argc, char** argv)
 #endif //TWO_CAM
 
   IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
+  string lastValidGPSPacket;
+
   //// setup ZMQ communication
   string bind_address = "tcp://*:"+boost::to_string(ZMQ_CAMERALOGGER_BIND_PORT);
   cout << "binding to " << bind_address << endl; 
@@ -169,6 +171,7 @@ int main(int argc, char** argv)
   
 #ifdef DEBUG_NO_SENSORS
   img = cvLoadImage("/home/smart/sail-car-log/cameralogger/xkcd.png");
+  lastValidGPSPacket="#MARK1PVAA,USB1,0,92.0,EXACT,1753,238273.050,00000000,0000,470;1753,238273.050000025,37.856359728,-122.494864165,110.390118713,16.041177523,-24.789919285,-1.752024973,-3.954175540,4.393638450,32.292000751,INS_SOLUTION_GOOD*016857cc";
 #endif
   
   // start GPS Trigger
@@ -239,8 +242,8 @@ int main(int argc, char** argv)
       GPSLogger::GPSPacketType packet = gpsLogger.getPacket();
       int GPSPacketSuccess = boost::get<0>(packet); 
       if (GPSPacketSuccess > 0) { 
-        string packet_contents = boost::get<1>(packet);
-        gps_output << packet_contents << endl;
+        lastValidGPSPacket = boost::get<1>(packet);
+        gps_output << lastValidGPSPacket << endl;
       } else {
         sendDiagnosticsMessage("WARN:Bad GPS Packet"); 
       }
@@ -270,6 +273,19 @@ int main(int argc, char** argv)
       lastCameraImageMsg = string(lastCameraImageBuf.begin(), lastCameraImageBuf.end());
       lastCameraImageMsg = "CAM:" + lastCameraImageMsg; 
       sendDiagnosticsMessage(lastCameraImageMsg);
+
+      GPSRecord record(lastValidGPSPacket);
+      if (record.isValid()) {
+        std::ostringstream lat;
+        lat << std::fixed << std::setprecision(8);
+        lat << record.latitude; 
+        std::ostringstream lon;
+        lon << std::fixed << std::setprecision(8);
+        lon << record.longitude;
+        string gpsMsg = "GPS:" + lat.str() + "," + lon.str();
+        sendDiagnosticsMessage(gpsMsg);
+      }
+
 
       lastTime = currentTime;
       lastframes = numframes; 
