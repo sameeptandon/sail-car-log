@@ -102,6 +102,8 @@ var spawnThread = function(prefix, maxFrames) {
   //console.log(command);
   var head = command.splice(0, 1)[0];
 
+  io.sockets.emit('subprocess_running', true);
+
   subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
   subprocess.stdout.on('data', function(data) {
     //console.log(data.toString());
@@ -114,6 +116,7 @@ var spawnThread = function(prefix, maxFrames) {
     if (code == 0) {
       spawnThread(prefix, maxFrames);
     }
+    io.sockets.emit('subprocess_running', false);
     subprocess = null;
   });
 }

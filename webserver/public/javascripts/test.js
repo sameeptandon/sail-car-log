@@ -35,6 +35,20 @@ socket.on('disk_usage', function(data) {
   document.getElementById('disk_usage').innerHTML = 'Disk Usage: ' + data;
 });
 
+socket.on('subprocess_running', function(running) {
+  var enabled = document.getElementById('start_button');
+  var disabled = document.getElementById('stop_button');
+  
+  if (!running) {
+    var tmp = enabled;
+    enabled = disabled;
+    disabled = enabled;
+  }
+
+  enabled.classList.remove('disabled');
+  disabled.classList.add('disabled');
+});
+
 var sendStart = function() {
   var actives = $('.active');
   var minutes_before_reset = 10;
@@ -42,7 +56,6 @@ var sendStart = function() {
   if (actives.length > 0) {
     minutes_before_reset = parseInt(actives.attr('mins'), 10);
   }
-  toggleDisabled();
 
   var data = {name: document.getElementById('filename_input').value, frames: 3000*minutes_before_reset};
   socket.emit('start_pressed', data);
@@ -50,14 +63,11 @@ var sendStart = function() {
 
 var sendStop = function() {
   resetDisplay();
-  toggleDisabled();
 
   socket.emit('stop_pressed');
 };
 
 var toggleDisabled = function() {
-  $('#start_button').toggleClass('disabled');
-  $('#stop_button').toggleClass('disabled');
 }
 
 var resetDisplay = function() {
