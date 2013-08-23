@@ -69,6 +69,7 @@ io.sockets.on('connection', function(socket) {
   });
   socket.on('start_pressed', function(data) {
     //console.log(data);
+    if (subprocess) return;
     spawnThread(data.name, data.frames);
   });
 
