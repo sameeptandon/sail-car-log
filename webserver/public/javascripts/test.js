@@ -39,12 +39,14 @@ socket.on('subprocess_running', function(running) {
   var enabled = document.getElementById('start_button');
   var disabled = document.getElementById('stop_button');
   
-  if (!running) {
-    var tmp = enabled;
-    enabled = disabled;
-    disabled = enabled;
+  console.log(running);
+  if (running) {
+    enabled = document.getElementById('stop_button');
+    disabled = document.getElementById('start_button');
   }
 
+  console.log(enabled);
+  console.log(disabled);
   enabled.classList.remove('disabled');
   disabled.classList.add('disabled');
 });
