@@ -59,4 +59,7 @@ var resetDisplay = function() {
   }
 
   document.getElementById('warn_message').innerHTML = '';
+  document.getElementById('capture_rate').innerHTML = '';
+  document.getElementById('queue_size').innerHTML = '';
+  document.getElementById('gps_pos').innerHTML = '';
 }

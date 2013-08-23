@@ -68,7 +68,7 @@ io.sockets.on('connection', function(socket) {
     }
   });
   socket.on('start_pressed', function(data) {
-    console.log(data);
+    //console.log(data);
     spawnThread(data.name, data.frames);
   });
 
@@ -99,18 +99,18 @@ process.on('SIGINT', function() {
 var spawnThread = function(prefix, maxFrames) {
   var name = prefix + '_' + util.getNextSuffix(prefix);
   var command = util.getCaptureCommand(name, maxFrames).split(' ');
-  console.log(command);
+  //console.log(command);
   var head = command.splice(0, 1)[0];
 
   subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
   subprocess.stdout.on('data', function(data) {
-    console.log(data.toString());
+    //console.log(data.toString());
   });
   subprocess.stderr.on('data', function(data) {
-      console.log('error: ' + data.toString());
+    //console.log('error: ' + data.toString());
   });
   subprocess.on('exit', function(code) {
-    console.log(code);
+    //console.log(code);
     if (code == 0) {
       spawnThread(prefix, maxFrames);
     }
