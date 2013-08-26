@@ -1,0 +1,9 @@
+Dependencies: 
+Ubuntu 12.04 LTS
+cmake 
+flycap2.6 (get from Point Grey)
+catkin (install ros-groovy)
+serial (https://github.com/wjwwood/serial or https://github.com/sameeptandon/serial for a not maintained forked version, but working as of 8/21/2013)
+zeromq3.2 
+
+

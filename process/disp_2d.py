@@ -59,7 +59,7 @@ if __name__ == '__main__':
     right_XYZ = pixelTo3d(rp, cam)
     left_Pos = np.zeros((lp.shape[0], 4))
     right_Pos = np.zeros((rp.shape[0], 4))
-    for t in range(lp.shape[0]):
+    for t in range(min(lp.shape[0], tr.shape[0])):
       Pos = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([left_XYZ[t,0], left_XYZ[t,1], left_XYZ[t,2], 1])))
       left_Pos[t,:] = Pos
       Pos = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([right_XYZ[t,0], right_XYZ[t,1], right_XYZ[t,2], 1])))
@@ -187,7 +187,7 @@ if __name__ == '__main__':
         key = waitKey(1)
         if key == ord('q'):
             break
-        if time.time() - lastTime > 5:
+        if time.time() - lastTime > 1:
           print 'framenum = ', count
           lastTime = time.time()
 

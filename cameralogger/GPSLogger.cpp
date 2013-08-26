@@ -12,26 +12,29 @@ void GPSLogger::safeWrite(string cmd) {
     _port->write(cmd);
     _port->flushOutput();
     sleep(1);
-    cout << safeRead(); 
-    cout << safeRead(); // show acknowledgement 
+    GPSPacketType ack_1 = getPacket();
+    GPSPacketType ack_2 = getPacket();
+
+    cout << boost::get<1>(ack_1); 
+    cout << boost::get<1>(ack_2); // show acknowledgement 
 }
 
-string GPSLogger::getPacket() {
+GPSLogger::GPSPacketType GPSLogger::getPacket() {
     string candidatePacket; 
     for (int i = 0; i < RETRY_ATTEMPTS; i++) {
         candidatePacket = safeRead();
         //cout << candidatePacket << endl; 
         if (boost::contains(candidatePacket, PACKET_HEADER)) {
-            return candidatePacket;
+            return GPSPacketType(1,candidatePacket);
         }
     }
 
-    return "INVALID PACKET: " + candidatePacket;
+    return GPSPacketType(0, candidatePacket);
 }
 
 string GPSLogger::safeRead() {
-    string buf = _port->readline();
-    return buf;
+    string ret = _port->readline();
+    return ret;
 }
 
 void GPSLogger::Connect(string port) {
@@ -40,12 +43,9 @@ void GPSLogger::Connect(string port) {
     cout << "port = " << port << endl; 
     _port = new Serial(port, baudrate, my_timeout);
 
-    
     // reset stuff
     safeWrite("unlogall\r\n");
     safeWrite("fix none\r\n");
-    //safeWrite(_port, "fix position 37.123 -123.32 20.20\r\n");
-    //safeWrite(_port, "saveconfig\r\n");
     safeWrite("eventincontrol mark1 event\r\n");
     
     // flush stuff from previous runs
@@ -54,7 +54,6 @@ void GPSLogger::Connect(string port) {
     _port->readlines();
     
     ///////// logging /////////////////
-
     //safeWrite("log mark1time onnew\r\n");
     safeWrite("log mark1pvaa onnew\r\n");
     //safeWrite(port, "log usb1 bestposa ontime 0.5 0 nohold\r\n");

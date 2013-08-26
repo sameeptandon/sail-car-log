@@ -1,0 +1,51 @@
+body {
+  font: 24px "Lucida Grande", Helvetica, Arial, sans-serif;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+a {
+  color: #00B7FF;
+}
+
+img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    min-height: 30%;
+}
+
+label.btn {
+  font-size: 40px;
+}
+
+.btn-group {
+  width: auto;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.diagnostics_text {
+    font-size: 40px;
+}
+
+input[class=input-large] {
+    width: 100%;
+    font-size: 64px;
+}
+
+.row {
+  padding: 20px;
+}
+
+.col-sm-6 .btn-lg {
+  font-size: 100px;
+  min-height: 300px;
+}
+
+#warn_message {
+  color: #d35400;
+  text-align: center;
+  font-size:60px;
+}

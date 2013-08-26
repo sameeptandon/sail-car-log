@@ -1,0 +1,34 @@
+extends layout
+
+block content
+  .row
+    .col-lg-3.col-lg-offset-2.col-sm-6
+      button.btn.btn-success.btn-block.btn-lg#start_button(type='button', onclick='sendStart();') Start
+    .col-lg-3.col-lg-offset-2.col-sm-6
+      button.btn.btn-danger.btn-block.btn-lg.disabled#stop_button(type='button', onclick='sendStop();') Stop
+
+  .row
+    .col-lg-3.col-lg-offset-3.col-sm-6
+      input.input-large(id='filename_input')
+    .col-lg-3.col-sm-6
+      .btn-group(data-toggle='buttons')
+        label.btn.btn-default(mins='5') 5 min
+          input#five_min(type='radio', name='reset_time')
+        label.btn.btn-default.active(mins='10') 10 min
+          input#ten_min(type='radio', name='reset_time', value='10')
+        label.btn.btn-default(mins='20') 20 min
+          input#twenty_min(type='radio', name='reset_time', value='20')
+
+  .row#warn_message
+
+  .row
+    .col-sm-12
+      img#gps_img(src='/images/300.png')
+  .row
+    .col-sm-12.diagnostics_text
+      .row
+        .col-lg-6.col-sm-6#queue_size
+        .col-lg-6.col-sm-6#capture_rate
+      .row
+        .col-lg-6.col-sm-6#gps_pos
+        .col-lg-6.col-sm-6#disk_usage
