@@ -8,6 +8,7 @@ class VideoReader():
     self.num_splits = num_splits;
     self.filename = filename;
     self.initReader();
+    self.jump = 1 
 
   def initReader(self): 
     path, basename = os.path.split(self.filename)
@@ -27,14 +28,14 @@ class VideoReader():
     self.subsample = subs
 
   def getNextFrame(self):
-    jump = 10 if self.subsample else 1
-    self.framenum = self.framenum + jump;
+    self.jump = 10 if self.subsample else 1
+    self.framenum = self.framenum + self.jump;
     success, img = self.captures[self.framenum % self.num_splits].read()
     return (success, img) 
 
   def setFrame(self, framenum):
       self.framenum = framenum;
-      for j in range(1,self.num_splits+1, jump):
+      for j in range(1,self.num_splits+1, self.jump):
           capture_framenum = (framenum/10 + 1) if j-1 < framenum % 10 else framenum/10
           self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
           self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
