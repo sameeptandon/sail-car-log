@@ -54,6 +54,7 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         #(success, I, frame, P) = video_reader.getNextFrame()
         (success, I) = video_reader.getNextFrame()
         frame = 10*count
+        #frame = count
         P = np.eye(3)
         if count % 160 == 0:
             print count
