@@ -53,7 +53,7 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
     while True:
         #(success, I, frame, P) = video_reader.getNextFrame()
         (success, I) = video_reader.getNextFrame()
-        frame = count
+        frame = 10*count
         P = np.eye(3)
         if count % 160 == 0:
             print count
@@ -112,7 +112,7 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
 
 def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_frame, lp, rp, pickle_loc):
     video_reader = VideoReader(file_path)
-    #video_reader.setSubsample(True)
+    video_reader.setSubsample(True)
     #video_reader.setPerspectives(pickle_loc)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
