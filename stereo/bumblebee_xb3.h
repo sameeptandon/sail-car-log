@@ -210,7 +210,6 @@ public:
     }
   }  
 
-
   Camera& camera() { return mCam; }
 
 private:
