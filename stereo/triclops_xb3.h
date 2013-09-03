@@ -41,15 +41,24 @@ void flycap2triclops(const Image& one, const Image& two, TriclopsInput* merged) 
 }
 
 
+void nullTriclopsInput( TriclopsInput* input ) {
+  input->u.rgb.red = NULL;
+  input->u.rgb.green = NULL;
+  input->u.rgb.blue = NULL;
 
-void rgb2rgbu(const std::vector<unsigned char>& rgb, unsigned char** rgbu) {
+  input->u.rgb32BitPacked.data=NULL;
+}
+
+void rgb2bgru(const std::vector<unsigned char>& rgb, unsigned char** bgru) {
   // This allocates the data!
   assert((rgb.size() % 3) == 0);
-  if (*rgbu) delete *rgbu;
-  *rgbu = new unsigned char[(rgb.size()/3)*4];
+  if (*bgru) delete *bgru;
+  *bgru = new unsigned char[(rgb.size()/3)*4];
   int pixel = 0;
-  for (int i = 0; i < (rgb.size()/3)*4; i++) {
-    if (i%4 < 3) (*rgbu)[i] = rgb[pixel++];
+  for (int i = 0; i < (rgb.size()/3); i++) {
+    for (int ii = 2; ii >= 0; ii--) {
+      (*bgru)[ii + i*4] = rgb[pixel++];
+    }
   }
 }
 
@@ -75,6 +84,25 @@ void delaceRGB(const std::vector<unsigned char>& rgb, unsigned char** red, unsig
       (*blue)[i/3] = rgb[i];
   }
 }
+
+
+void interlaceRGB(const int& nrows, const int& ncols, const int& rowinc,
+		  const unsigned char* red, const unsigned char* green,
+		  const unsigned char* blue, std::vector<unsigned char>* rgb) {
+
+  rgb->resize(nrows*ncols*3);
+  std::vector<const unsigned char*> zs(3);
+  zs[0] = red; zs[1] = green; zs[2] = blue;
+
+  for (int r = 0; r < nrows; r++) {
+    for (int c = 0; c < ncols; c++) {
+      for (int z = 0; z < 3; z++) {
+	(*rgb)[z+c*3+r*ncols*3] = zs[z][c + r*rowinc];
+      }
+    }
+  }
+}
+		  
 
 double sRGB_to_linear(double x) {
   if (x < 0.04045) return x/12.92;
@@ -114,7 +142,7 @@ void pngReadToTriclopsInput( std::string filename,
   input->nrows     = height;
   input->ncols     = width;
   input->rowinc    = 4 * width;
-  rgb2rgbu(image, (unsigned char**)&input->u.rgb32BitPacked.data);
+  rgb2bgru(image, (unsigned char**)&input->u.rgb32BitPacked.data);
 }
 
 void pngReadToTriclopsInputRGB( std::string filename,
@@ -167,10 +195,77 @@ void pngReadToStereoTriclopsInputRGB( const std::string& leftFilename,
 }
 
 
-void nullTriclopsInput( TriclopsInput* input ) {
-  input->u.rgb.red = NULL;
-  input->u.rgb.green = NULL;
-  input->u.rgb.blue = NULL;
 
-  input->u.rgb32BitPacked.data=NULL;
+void pngWriteFromTriclopsColorImage( const std::string& filename,
+				     const TriclopsColorImage& image ) {
+  std::vector<unsigned char> rgb;
+  interlaceRGB(image.nrows, image.ncols, image.rowinc,
+  	       image.red, image.green, image.blue, &rgb);
+  // interlaceRGB(image.nrows, image.ncols, image.rowinc,
+  // 	       image.blue, image.green, image., &rgb);  
+  lodepng::encode(filename, rgb, image.ncols, image.nrows, LCT_RGB);
 }
+
+void pngWriteFromTriclopsImage16( const std::string& filename,
+				  const TriclopsImage16& image ) {
+
+  // Note: this will convert 16 bit to 8 bit 
+  assert( image.rowinc == 2*image.ncols );
+
+  std::vector<unsigned char> data(image.nrows*image.ncols);
+  for (int i = 0; i < image.nrows*image.ncols; i++)
+    data[i] = image.data[i]/256.0;
+
+  lodepng::encode(filename, data.data(),
+		  image.ncols, image.nrows, LCT_GREY);
+}
+
+
+void disparity2ptsfile(const std::string& filename,
+		       const TriclopsContext& context,
+		       const TriclopsColorImage& colorImage,
+		       const TriclopsImage16& disparityImage ) {
+  
+  FILE*	       pointFile;  
+  float	               x, y, z; 
+  int	               r, g, b;
+  int		       nPoints = 0;
+  int		       pixelinc ;
+  int		       i, j, k;
+  unsigned short*      row;
+  unsigned short       disparity;
+
+  pointFile = fopen( filename.c_str(), "w+" );  
+
+  // Determine the number of pixels spacing per row
+  pixelinc = disparityImage.rowinc/2;
+  for ( i = 0, k = 0; i < disparityImage.nrows; i++ )
+    {
+      row     = disparityImage.data + i * pixelinc;
+      for ( j = 0; j < disparityImage.ncols; j++, k++ )
+	{
+	  disparity = row[j];
+	 
+	  // do not save invalid points
+	  if ( disparity < 0xFF00 )
+	    {
+	      // convert the 16 bit disparity value to floating point x,y,z
+	      triclopsRCD16ToXYZ( context, i, j, disparity, &x, &y, &z );
+	      
+	      // look at points within a range
+	      if ( z < 5.0 ) {
+		r = (int)colorImage.red[k];
+		g = (int)colorImage.green[k];
+		b = (int)colorImage.blue[k];		  
+		fprintf( pointFile, "%f %f %f %d %d %d %d %d\n", x, y, z, r, g, b, i, j );
+		nPoints++;
+	      }
+	    }
+	}
+    }
+}
+
+
+
+
+

@@ -27,12 +27,12 @@ int main( int argc, char* argv[] ) {
   cam.StartCapture();
   
   Image rawRight, rawCenter, rawLeft, right, center, left;
-  unsigned int k_numImages = 5;
+  unsigned int k_numImages = 50;
   Error error;
   for ( int imageCnt=0; imageCnt < k_numImages; imageCnt++ ) {
     
     // Retrieve an image
-    cam.RetrieveBuffer( &rawRight, &rawCenter, &rawLeft );
+    cam.RetrieveBuffer( &rawLeft, &rawCenter, &rawRight );
 
     rawRight.Convert( PIXEL_FORMAT_RGB8, &right );
     rawCenter.Convert( PIXEL_FORMAT_RGB8, &center );
