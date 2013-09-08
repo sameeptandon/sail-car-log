@@ -66,7 +66,7 @@ void rectifyImageFileName(std::string prefix) {
 
 
 int main(int argc, char* argv[]) {
-  std::string indir = "./bumblebee_images/";
+  std::string indir = "./images/";
   std::string outdir = "./stereo_short_images/";
   mkdir(outdir.c_str(),755);
   std::vector<std::string> prefixes = prefixList(glob(indir+"/*.png"), "left.png");

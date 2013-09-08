@@ -9,65 +9,68 @@ using namespace std;
 template <typename T>
 class SynchronizedBuffer
 {
-  public:
-    SynchronizedBuffer (boost::mutex *io_mtx) {
-      is_done = false;
-      io_mutex = io_mtx; 
-    }
+public:
+  SynchronizedBuffer (boost::mutex *io_mtx) {
+    is_done = false;
+    io_mutex = io_mtx; 
+  }
 
-    bool 
-    pushBack (const T*); // thread-save wrapper for push_back() method of ciruclar_buffer
+  bool 
+  pushBack (const T*); // thread-save wrapper for push_back() method of ciruclar_buffer
 
-    const T* 
-    getFront (); // thread-save wrapper for front() method of ciruclar_buffer
+  const T* 
+  getFront (); // thread-save wrapper for front() method of ciruclar_buffer
+  
+  void
+  waitUntilEmpty();
 
-    inline void setDone() { 
-      is_done = true; 
-    }
+  inline void setDone() { 
+    is_done = true; 
+  }
 
-    inline bool 
-    isFull ()
-    {
-      boost::mutex::scoped_lock buff_lock (bmutex_);
-      return (buffer_.full ());
-    }
+  inline bool 
+  isFull ()
+  {
+    boost::mutex::scoped_lock buff_lock (bmutex_);
+    return (buffer_.full ());
+  }
 
-    inline bool
-    isEmpty ()
-    {
-      boost::mutex::scoped_lock buff_lock (bmutex_);
-      return (buffer_.empty ());
-    }
+  inline bool
+  isEmpty ()
+  {
+    boost::mutex::scoped_lock buff_lock (bmutex_);
+    return (buffer_.empty ());
+  }
 
-    inline int 
-    getSize ()
-    {
-      boost::mutex::scoped_lock buff_lock (bmutex_);
-      return (int (buffer_.size ()));
-    }
+  inline int 
+  getSize ()
+  {
+    boost::mutex::scoped_lock buff_lock (bmutex_);
+    return (int (buffer_.size ()));
+  }
 
-    inline int 
-    getCapacity ()
-    {
-      return (int (buffer_.capacity ()));
-    }
+  inline int 
+  getCapacity ()
+  {
+    return (int (buffer_.capacity ()));
+  }
 
-    inline void 
-    setCapacity (int buff_size)
-    {
-      boost::mutex::scoped_lock buff_lock (bmutex_);
-      buffer_.set_capacity (buff_size);
-    }
+  inline void 
+  setCapacity (int buff_size)
+  {
+    boost::mutex::scoped_lock buff_lock (bmutex_);
+    buffer_.set_capacity (buff_size);
+  }
 
-  private:
-    SynchronizedBuffer (const SynchronizedBuffer&); // Disabled copy constructor
-    SynchronizedBuffer& operator =(const SynchronizedBuffer&); // Disabled assignment operator
+private:
+  SynchronizedBuffer (const SynchronizedBuffer&); // Disabled copy constructor
+  SynchronizedBuffer& operator =(const SynchronizedBuffer&); // Disabled assignment operator
 
-    boost::mutex bmutex_;
-    boost::condition_variable buff_empty_;
-    boost::circular_buffer<const T*> buffer_;
-    bool is_done;
-    boost::mutex* io_mutex;
+  boost::mutex bmutex_;
+  boost::condition_variable buff_empty_, buff_has_data_;
+  boost::circular_buffer<const T*> buffer_;
+  bool is_done;
+  boost::mutex* io_mutex;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -93,19 +96,31 @@ SynchronizedBuffer<T>::getFront ()
   {
     boost::mutex::scoped_lock buff_lock (bmutex_);
     while (buffer_.empty ())
-    {
-      if (is_done)
-        break;
       {
-        boost::mutex::scoped_lock io_lock (*io_mutex);
-        cerr << "No data in buffer_ yet or buffer is empty." << endl;
+	if (is_done)
+	  break;
+	{
+	  boost::mutex::scoped_lock io_lock (*io_mutex);
+	  cerr << "No data in buffer_ yet or buffer is empty." << endl;
+	}
+	buff_empty_.wait (buff_lock);
       }
-      buff_empty_.wait (buff_lock);
-    }
     obj = buffer_.front ();
     buffer_.pop_front ();
+    buff_has_data_.notify_one();
   }
   return (obj);
 }
 
+template <typename T> void
+SynchronizedBuffer<T>::waitUntilEmpty() {
+  boost::mutex::scoped_lock buff_lock (bmutex_);
+  while (!buffer_.empty ()) {
+    if (is_done)
+      break;
+    buff_has_data_.wait(buff_lock);
+  }
+}
+
 #endif
+ 

@@ -152,6 +152,30 @@ public:
       error.PrintErrorTrace();
   }
 
+  void setFrameRate(float frameRate) {
+    Error error;
+    Property prop;
+    prop.type = FRAME_RATE;
+    error = mCam.GetProperty( &prop );
+    if (error != PGRERROR_OK) {
+      error.PrintErrorTrace();
+      exit(-1);
+    }
+
+    prop.type = FRAME_RATE;
+    prop.absControl = true;
+    prop.autoManualMode = false;
+    prop.onOff = true;
+    prop.onePush = false;
+    prop.absValue = frameRate;
+
+    error = mCam.SetProperty( &prop );
+    if (error != PGRERROR_OK) {
+      error.PrintErrorTrace();
+      exit(-1);
+    }    
+  }
+
   static void deinterlace(const Image& rawImage, Image* right, Image* center, Image* left) {
     unsigned int cols = rawImage.GetCols();
     unsigned int rows = rawImage.GetRows();
