@@ -7,7 +7,6 @@
 
 #pragma once
 
-
 void flycap2triclops(const Image& one, const Image& two, TriclopsInput* merged) {
   // NEVER TESTED/DEBUGED BECAREFUL!!!!  
   Image mono_one, mono_two;
@@ -41,12 +40,13 @@ void flycap2triclops(const Image& one, const Image& two, TriclopsInput* merged) 
 }
 
 
-void nullTriclopsInput( TriclopsInput* input ) {
-  input->u.rgb.red = NULL;
-  input->u.rgb.green = NULL;
-  input->u.rgb.blue = NULL;
-
-  input->u.rgb32BitPacked.data=NULL;
+TriclopsInput nullTriclopsInput() {
+  TriclopsInput input;
+  input.u.rgb.red = NULL;
+  input.u.rgb.green = NULL;
+  input.u.rgb.blue = NULL;
+  input.u.rgb32BitPacked.data=NULL;
+  return input;
 }
 
 void rgb2bgru(const std::vector<unsigned char>& rgb, unsigned char** bgru) {
@@ -60,6 +60,14 @@ void rgb2bgru(const std::vector<unsigned char>& rgb, unsigned char** bgru) {
       (*bgru)[ii + i*4] = rgb[pixel++];
     }
   }
+}
+
+char* bgr2bgru(char* bgr, int width, int height) {
+  char* bgru = new char[width*height*4];
+  int pixel = 0;
+  for (int i = 0; i < width*height*4; i++)
+    if (i%4 < 3) bgru[i] = bgr[pixel++];
+  return bgru;
 }
 
 void delaceRGB(const std::vector<unsigned char>& rgb, unsigned char** red, unsigned char** green, unsigned char** blue) {
@@ -122,13 +130,42 @@ unsigned char grayPixel(unsigned char R, unsigned char G, unsigned char B) {
   return round(linear_to_sRGB(gray_linear) * 255);
 }
 
-void rgb2gray(const std::vector<unsigned char>& rgb, unsigned char** gray) {
-  assert((rgb.size() % 3) == 0);
+void rgb2gray(const unsigned char* rgb, const unsigned int& rgbSize, unsigned char** gray,
+	      bool RGBU=false) {
+  assert((rgbSize % 3) == 0);
   if (*gray) delete *gray;
-  *gray = new unsigned char[rgb.size()/3];
-  for (int i = 0; i < rgb.size(); i+=3 ){
-    (*gray)[i/3] = grayPixel(rgb[i], rgb[i+1], rgb[i+2]);
+  *gray = new unsigned char[rgbSize/3];
+  unsigned int pixel = 0;
+  unsigned int skipSize = (RGBU) ? 4 : 3;
+  for (int i = 0; i < rgbSize; i+=skipSize ){
+    (*gray)[pixel++] = grayPixel(rgb[i], rgb[i+1], rgb[i+2]);
   }
+}
+
+void rgb2gray(const std::vector<unsigned char>& rgb, unsigned char** gray, bool RGBU=false) {
+  rgb2gray(rgb.data(), rgb.size(), gray, RGBU);
+}
+
+void rgb2stereo(const TriclopsInput& left, const TriclopsInput& right,
+		TriclopsInput* stereo) {
+
+  assert( left.nrows == right.nrows );
+  assert( left.ncols == right.ncols );
+  assert( left.rowinc == 4 * left.ncols );
+  assert( right.rowinc == 4 * right.ncols );
+  assert( left.inputType == TriInp_RGB_32BIT_PACKED );
+  assert( right.inputType == TriInp_RGB_32BIT_PACKED );  
+  
+  stereo->inputType = TriInp_RGB;
+  stereo->nrows     = left.nrows;
+  stereo->ncols     = left.ncols;
+  stereo->rowinc    = stereo->ncols;
+
+  rgb2gray((unsigned char*) right.u.rgb32BitPacked.data, right.nrows*right.ncols*4,
+	   (unsigned char**) &stereo->u.rgb.red, true);
+  rgb2gray((unsigned char*) left.u.rgb32BitPacked.data, left.nrows*left.ncols*4,
+	   (unsigned char**) &stereo->u.rgb.green, true);
+  stereo->u.rgb.blue = stereo->u.rgb.green;
 }
 
 void pngReadToTriclopsInput( std::string filename,
@@ -195,7 +232,6 @@ void pngReadToStereoTriclopsInputRGB( const std::string& leftFilename,
 }
 
 
-
 void pngWriteFromTriclopsColorImage( const std::string& filename,
 				     const TriclopsColorImage& image ) {
   std::vector<unsigned char> rgb;
@@ -206,20 +242,22 @@ void pngWriteFromTriclopsColorImage( const std::string& filename,
   lodepng::encode(filename, rgb, image.ncols, image.nrows, LCT_RGB);
 }
 
-void pngWriteFromTriclopsImage16( const std::string& filename,
-				  const TriclopsImage16& image ) {
-
-  // Note: this will convert 16 bit to 8 bit 
-  assert( image.rowinc == 2*image.ncols );
-
-  std::vector<unsigned char> data(image.nrows*image.ncols);
-  for (int i = 0; i < image.nrows*image.ncols; i++)
-    data[i] = image.data[i]/256.0;
-
-  lodepng::encode(filename, data.data(),
-		  image.ncols, image.nrows, LCT_GREY);
+void pngWriteFromTriclopsImage( const std::string& filename,
+				const TriclopsImage& image ) {
+  assert(image.rowinc == image.ncols);
+  lodepng::encode(filename, (unsigned char*)image.data, image.ncols, image.nrows, LCT_GREY);
 }
 
+void pngWriteFromTriclopsImage16( const std::string& filename,
+				  const TriclopsImage16& image ) {
+  // Not sure if this actually works...
+  assert( image.rowinc == 2*image.ncols );
+
+  std::vector<unsigned char> data((unsigned char*) image.data,
+				  (unsigned char*) (image.data+(image.nrows*image.ncols)));
+  lodepng::encode(filename, data.data(),
+		  image.ncols, image.nrows, LCT_GREY, 16);
+}
 
 void disparity2ptsfile(const std::string& filename,
 		       const TriclopsContext& context,
@@ -268,4 +306,48 @@ void disparity2ptsfile(const std::string& filename,
 
 
 
+// TriclopsBool
+// freeImage( TriclopsImage* pimage )
+// {
+//    if( pimage->data != NULL )
+//    {
+//       free( pimage->data );
+//       pimage->data = NULL;
+//    }
 
+//    return true;
+// }
+
+
+// TriclopsBool
+// freeImage16( TriclopsImage16* pimage )
+// {
+//    if( pimage->data != NULL )
+//    {
+//       free( pimage->data );
+//       pimage->data = NULL;
+//    }
+
+//    return true;
+// }
+
+TriclopsBool
+freeColorImage( TriclopsColorImage* pimage )
+{
+  if ( pimage->red != NULL )
+    {
+      free( pimage->red );
+      pimage->red = NULL;
+    }
+  if ( pimage->green != NULL )
+    {
+      free( pimage->green );
+      pimage->green = NULL;
+    }
+  if ( pimage->blue != NULL )
+    {
+      free( pimage->blue );
+      pimage->blue = NULL;
+    }
+  return true;
+}
