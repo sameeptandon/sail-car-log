@@ -13,6 +13,9 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include "opencv2/calib3d/calib3d.hpp"
+#include "opencv2/contrib/contrib.hpp"
+
 
 #include "bumblebee_xb3.h"
 #include "triclops_xb3.h"
@@ -26,6 +29,7 @@ using namespace cv;
 enum DisparityMethod {
   TRICLOPS,
   LIBELAS,
+  OPENCV,
   MATLAB
 };
 
@@ -95,6 +99,63 @@ void float2int16(const float* fBuf, const int32_t* dims, unsigned short* sBuf) {
   // copy float to ushort
   for (int32_t i=0; i < dims[0]*dims[1]; i++)
     sBuf[i] = (unsigned short) std::max(65535.0f*fBuf[i]/255.0f, 0.0f);
+}
+
+
+void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
+		  TriclopsImage16* dispLeft, TriclopsImage16* dispRight, bool one = false) {
+
+  int width = left.ncols;
+  int height = left.nrows;
+
+  Mat matLeft(height, width, CV_8UC1, left.data);
+  Mat matRight(height, width, CV_8UC1, right.data);
+  Mat disp;
+
+  if (dispRight->data) delete dispRight->data;
+  dispRight->data = new unsigned short[right.nrows*right.ncols];  
+  const int32_t dims[2] = {width,height};
+  
+  if (one) {
+    StereoBM sbm;
+    sbm.state->SADWindowSize = 9;
+    sbm.state->minDisparity = 0; //-39;  
+    sbm.state->numberOfDisparities = 48; //112;
+    sbm.state->preFilterSize = 5;
+    sbm.state->preFilterCap = 61;
+    sbm.state->textureThreshold = 507;
+    sbm.state->uniquenessRatio = 0;
+    sbm.state->speckleWindowSize = 0;
+    sbm.state->speckleRange = 8;
+    sbm.state->disp12MaxDiff = 1;
+    sbm(matLeft, matRight, disp, CV_32F);
+    float2int16((float*)disp.data, dims, dispRight->data);    
+  }
+  else {
+    StereoSGBM sgbm;
+    sgbm.SADWindowSize = 5;
+    sgbm.numberOfDisparities = 48;//192;
+    sgbm.preFilterCap = 4;
+    sgbm.minDisparity = 0; //-64;
+    sgbm.uniquenessRatio = 1;
+    sgbm.speckleWindowSize = 150;
+    sgbm.speckleRange = 2;
+    //sgbm.disp12MaxDiff = 10;
+    sgbm.fullDP = true;
+    sgbm.P1 = 600;
+    sgbm.P2 = 2400;
+    sgbm(matLeft, matRight, disp);
+
+    std::vector<float> dispTmp(width*height);
+    for (int i = 0; i < dispTmp.size(); i++)
+      dispTmp[i] = ((short*)disp.data)[i]/16.0f;
+    
+    float2int16(dispTmp.data(), dims, dispRight->data);
+  }
+
+  dispRight->nrows = right.nrows;
+  dispRight->ncols  = right.ncols;
+  dispRight->rowinc = dispRight->ncols*2;
 }
 
 void libelasStereo(const TriclopsImage& left, const TriclopsImage& right,
@@ -180,7 +241,7 @@ TriclopsInput* ipl2triclops(IplImage* iplImg) {
 int main(int argc, char* argv[]) {
   std::string indir = "./";
   std::string outdir = "./stereo_images/";
-  DisparityMethod method = LIBELAS;
+  DisparityMethod method = OPENCV;
   bool upsidedown = true;
   mkdir(outdir.c_str(),0775);
   const int numCameras=3;
@@ -247,6 +308,7 @@ int main(int argc, char* argv[]) {
     prefixes.pop();    
     PRINT("done getting captures");        
     while (true) {
+
       // get next frame
       std::vector<IplImage*> frames = nextFrame(captures);
       if (frames.size() == 0) break;
@@ -257,6 +319,12 @@ int main(int argc, char* argv[]) {
       std::string outPrefix = ss.str();
       std::cout << "out prefix: " << outPrefix << std::endl;
 
+      // std::ifstream my_file((outPrefix+"disparity_right.pgm").c_str());
+      // if (my_file.good()) {
+      // 	iter++;
+      // 	continue;      
+      // }
+      
       // allocate triclops data
       std::vector<TriclopsInput*> inputs(frames.size()); // left, center, right
       std::vector<TriclopsColorImage>  colorImages(inputs.size());
@@ -288,24 +356,18 @@ int main(int argc, char* argv[]) {
 	_HANDLE_TRICLOPS_ERROR( "triclopsStereo()", error );
 	
 	// Retrieve the interpolated depth image from the context
-	error = triclopsGetImage16( context, TriImg16_DISPARITY, TriCam_LEFT, &depthImage16Left );
-	_HANDLE_TRICLOPS_ERROR( "triclopsGetImage16()", error );	
-	error = triclopsGetImage16( context, TriImg16_DISPARITY, TriCam_RIGHT, &depthImage16Right );
-	_HANDLE_TRICLOPS_ERROR( "triclopsGetImage16()", error );
+	error = triclopsGetImage16( context, TriImg16_DISPARITY, TriCam_REFERENCE, &depthImage16Left );
+	_HANDLE_TRICLOPS_ERROR( "triclopsGetImage16() Left", error );	
+	// error = triclopsGetImage16( context, TriImg16_DISPARITY, TriCam_RIGHT, &depthImage16Right );
+	// _HANDLE_TRICLOPS_ERROR( "triclopsGetImage16() Right", error );
 
       }	break;
       case LIBELAS: {
-	PRINT("about to get left image");
-	PRINT("got right image");		
 	libelasStereo( rectifiedLeft, rectifiedRight, &depthImage16Left, &depthImage16Right );
-	PRINT("got stereo image");
-	// if (rectifiedLeft.data) free( (char*) rectifiedLeft.data );
-	// PRINT("deleting right stereo image");	
-	// if (rectifiedRight.data) free( (char*) rectifiedRight.data );
-	// freeImage(&rectifiedLeft);
-	// freeImage(&rectifiedRight);
-	PRINT("Done freeing image");
       }	break;
+      case OPENCV: {
+	opencvStereo( rectifiedLeft, rectifiedRight, &depthImage16Left, &depthImage16Right );
+      } break;
       case MATLAB: {
 	for (int i = 0; i < colorImages.size(); i++)
 	  pngWriteFromTriclopsColorImage( outPrefix+"rectified"+outNames[i]+".png", colorImages[i] );
