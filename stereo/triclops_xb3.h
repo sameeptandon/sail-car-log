@@ -308,12 +308,13 @@ void disparity2depth(const TriclopsContext& context,
 		     std::vector<float>* xyz) {
   int height  = disp.nrows;
   int width = disp.ncols;
-  xzy->resize(width * height * 3);
+  xyz->resize(width * height * 3);
   
   unsigned int pix = 0;
   for (int r = 0; r < height; r++) {
     for (int c = 0; c < width; c++) {
-      triclopsRCD16ToXYZ(context, r, c, disp[c+r*width], &(*xyz)[pix], &(*xyz)[pix+1], &(*xyz)[pix+2]);
+      triclopsRCD16ToXYZ(context, r, c, disp.data[c+r*width],
+			 &(*xyz)[pix], &(*xyz)[pix+1], &(*xyz)[pix+2]);
       pix += 3;
     }
   }
