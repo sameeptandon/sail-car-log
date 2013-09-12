@@ -18,11 +18,13 @@ public:
   bool 
   pushBack (const T*); // thread-save wrapper for push_back() method of ciruclar_buffer
 
-  const T* 
-  getFront (); // thread-save wrapper for front() method of ciruclar_buffer
+  const T* getFront (); // thread-save wrapper for front() method of ciruclar_buffer  
   
   void
   waitUntilEmpty();
+
+  void
+  waitForSpace();
 
   inline void setDone() { 
     is_done = true; 
@@ -89,8 +91,8 @@ SynchronizedBuffer<T>::pushBack (const T* obj)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-template <typename T> const T* 
-SynchronizedBuffer<T>::getFront ()
+template <typename T>
+const T* SynchronizedBuffer<T>::getFront ()
 {
   const T* obj;
   {
@@ -112,10 +114,22 @@ SynchronizedBuffer<T>::getFront ()
   return (obj);
 }
 
+
+
 template <typename T> void
 SynchronizedBuffer<T>::waitUntilEmpty() {
   boost::mutex::scoped_lock buff_lock (bmutex_);
   while (!buffer_.empty ()) {
+    if (is_done)
+      break;
+    buff_has_data_.wait(buff_lock);
+  }
+}
+
+template <typename T> void
+SynchronizedBuffer<T>::waitForSpace() {
+  boost::mutex::scoped_lock buff_lock (bmutex_);
+  while (buffer_.full()) {
     if (is_done)
       break;
     buff_has_data_.wait(buff_lock);
