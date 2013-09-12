@@ -305,6 +305,7 @@ void disparity2ptsfile(const std::string& filename,
 
 void disparity2depth(const TriclopsContext& context,
 		     const TriclopsImage16& disp,
+		     const int& maxDisparity,
 		     std::vector<float>* xyz) {
   int height  = disp.nrows;
   int width = disp.ncols;
@@ -315,14 +316,22 @@ void disparity2depth(const TriclopsContext& context,
     for (int c = 0; c < width; c++) {
       triclopsRCD16ToXYZ(context, r, c, disp.data[c+r*width],
 			 &(*xyz)[pix], &(*xyz)[pix+1], &(*xyz)[pix+2]);
-      pix += 3;
+      
+      // Convert all bad depth values to max
+      // based on the larges depth observed (triclops documentation doesn't seem to mention it :-\)
+      if ((*xyz)[pix+2] == 0.0f && disp.data[c+r*width] == (unsigned short)0)
+	if (c >= maxDisparity)
+	  (*xyz)[pix+2] = 84.2419434f;
+	// if (c < 35)
+	//   ;
+	// else if ((*xyz)[pix-1] > 20.0f)
+	//   (*xyz)[pix+2] = 84.2419434f;
+	// else
+	//   (*xyz)[pix+2] = (*xyz)[pix-1];
+      pix += 3;	
     }
   }
 }
-
-
-
-
 
 
 // TriclopsBool

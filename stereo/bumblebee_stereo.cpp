@@ -22,7 +22,7 @@
 #include "lodepng.h"
 #include "pnmutils.h"
 #include "elas.h"
-
+#include "BinaryIO.h"
 
 using namespace cv;
 
@@ -101,15 +101,19 @@ void rectifyColor(const TriclopsContext& context,
   _HANDLE_TRICLOPS_ERROR( "triclopsRectifyColorImage()", error );  
 }
 
-void float2int16(const float* fBuf, const int32_t* dims, unsigned short* sBuf) {
+void float2int16(const float* fBuf, const int32_t size, unsigned short* sBuf) {
   // copy float to ushort
-  for (int32_t i=0; i < dims[0]*dims[1]; i++)
+  for (int32_t i=0; i < size; i++)
     sBuf[i] = (unsigned short) std::max(65535.0f*fBuf[i]/255.0f, 0.0f);
 }
 
+void float2int16(const float* fBuf, const int32_t* dims, unsigned short* sBuf) {
+  float2int16(fBuf, dims[0]*dims[1], sBuf);
+}
 
 void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
-		  TriclopsImage16* dispLeft, TriclopsImage16* dispRight, OpenCvStereo ocvs) {
+		  TriclopsImage16* dispLeft, TriclopsImage16* dispRight,
+		  OpenCvStereo ocvs, int maxDisparity = 32) {
 
   int width = left.ncols;
   int height = left.nrows;
@@ -126,7 +130,7 @@ void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
     StereoBM sbm;
     sbm.state->SADWindowSize = 9;
     sbm.state->minDisparity = 0; //-39;  
-    sbm.state->numberOfDisparities = 48; //112;
+    sbm.state->numberOfDisparities = maxDisparity; //112;
     sbm.state->preFilterSize = 5;
     sbm.state->preFilterCap = 61;
     sbm.state->textureThreshold = 507;
@@ -149,14 +153,14 @@ void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
   case SGBM: {
     // run opencv stereo
     StereoSGBM sgbm;
-    sgbm.SADWindowSize = 5;
-    sgbm.numberOfDisparities = 32;//192;
+    sgbm.SADWindowSize = 9;
+    sgbm.numberOfDisparities = maxDisparity;//192;
     sgbm.preFilterCap = 4;
     sgbm.minDisparity = 0; //-64;
     sgbm.uniquenessRatio = 1;
-    sgbm.speckleWindowSize = 150;
-    sgbm.speckleRange = 2;
-    sgbm.disp12MaxDiff = 10;
+    // sgbm.speckleWindowSize = 150;
+    // sgbm.speckleRange = 2;
+    sgbm.disp12MaxDiff = 20;//10;
     sgbm.fullDP = true;
     sgbm.P1 = 600;
     sgbm.P2 = 2400;
@@ -176,7 +180,7 @@ void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
     dispLeft->rowinc = dispLeft->ncols*2;    
   } break;
   case GC: {
-    CvStereoGCState* state = cvCreateStereoGCState( 25, 4 );
+    CvStereoGCState* state = cvCreateStereoGCState( maxDisparity, 4 );
     CvMat matLeft2=matLeft, matRight2=matRight, matDispLeft2=matDispLeft, matDispRight2=matDispRight;
     cvFindStereoCorrespondenceGC(&matLeft2, &matRight2, &matDispLeft2, &matDispRight2, state);
     
@@ -285,13 +289,29 @@ TriclopsInput* ipl2triclops(IplImage* iplImg) {
   return triImg;
 }
 
+void saveDepthMap(const std::string& floatname, const std::string shortname,
+		  const std::vector<float>& xyz, int dims[]) {
+  std::vector<short> depth(dims[1]*dims[2]);
+  for (int i = 0; i < depth.size(); i++) 
+    depth[i] = xyz[i*3+2];
+  
+  std::vector<int> floatDimsVec(dims, dims+3);
+  std::vector<int> shortDimsVec(dims+1, dims+3);
+  writeBin(floatname.c_str(), xyz, floatDimsVec, FORMAT_FLOAT);
+  writeBin(shortname.c_str(), depth, shortDimsVec, FORMAT_SHORT);
+}
+
 int main(int argc, char* argv[]) {
   std::string indir = "./";
   std::string outdir = "./stereo_images/";
+
+  
   DisparityMethod method = OPENCV;
   bool upsidedown = true;
-  mkdir(outdir.c_str(),0775);
   const int numCameras=3;
+  const int maxDisparity = 32;
+  
+  mkdir(outdir.c_str(),0775);
   std::vector<std::string> inNames(numCameras), outNames(numCameras);
   outNames[0] = "left"; outNames[1] = "center"; outNames[2] = "right";
   inNames[1] = outNames[1];
@@ -440,7 +460,9 @@ int main(int argc, char* argv[]) {
       pngWriteFromTriclopsImage(outPrefix+"grey_rectified_"+outNames[1]+".png", rectifiedRight);
 
       std::vector<float> xyz;
-      disparity2depth(context, depthImage16Left, &xyz);
+      disparity2depth(context, depthImage16Left, maxDisparity, &xyz);
+      int dims[] = {3, depthImage16Left.ncols, depthImage16Left.nrows};
+      saveDepthMap(outPrefix+"xyz.bin",outPrefix+"depth.bin", xyz, dims);
       
       PRINT("done saving depth map");      
       // disparity2ptsfile( outdir+basename+"cloud.pts", context, leftImage, depthImage16 );
