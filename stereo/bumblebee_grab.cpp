@@ -66,9 +66,10 @@ int main( int argc, char* argv[] ) {
     camBuff[c].getBuffer()->setCapacity(1000);
 
   std::vector<Consumer<Image>* > camConsumer(3);
+  std::string currentTime = currentDateTime();
   for (int c = 0; c < camBuffSize; c++)
     camConsumer[c] = new Consumer<Image>(camBuff[c].getBuffer(),
-					 outdir+"/"+currentDateTime()+"_"+names[c]+".avi",
+					 outdir+"/"+currentTime+"_"+names[c]+".avi",
 					 camBuff[c].getMutex(), frameRate, 1280, 960);
 			      
   std::vector<Image> rawImgs(camBuffSize);
