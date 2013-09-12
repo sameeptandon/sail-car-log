@@ -33,6 +33,12 @@ enum DisparityMethod {
   MATLAB
 };
 
+enum OpenCvStereo {
+  SBM,
+  SGBM,
+  GC
+};
+
 //#define PRINT( msg ) std::cout << msg << std::endl;
 #define PRINT( msg ) 
 
@@ -103,20 +109,20 @@ void float2int16(const float* fBuf, const int32_t* dims, unsigned short* sBuf) {
 
 
 void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
-		  TriclopsImage16* dispLeft, TriclopsImage16* dispRight, bool one = false) {
+		  TriclopsImage16* dispLeft, TriclopsImage16* dispRight, OpenCvStereo ocvs) {
 
   int width = left.ncols;
   int height = left.nrows;
 
   Mat matLeft(height, width, CV_8UC1, left.data);
   Mat matRight(height, width, CV_8UC1, right.data);
-  Mat disp;
-
-  if (dispRight->data) delete dispRight->data;
-  dispRight->data = new unsigned short[right.nrows*right.ncols];  
+  Mat matDispLeft(height, width, CV_16S);
+  Mat matDispRight(height, width, CV_16S);
   const int32_t dims[2] = {width,height};
-  
-  if (one) {
+
+  switch (ocvs) {
+  case SBM: {
+    // run opencv stereo
     StereoBM sbm;
     sbm.state->SADWindowSize = 9;
     sbm.state->minDisparity = 0; //-39;  
@@ -128,34 +134,75 @@ void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
     sbm.state->speckleWindowSize = 0;
     sbm.state->speckleRange = 8;
     sbm.state->disp12MaxDiff = 1;
-    sbm(matLeft, matRight, disp, CV_32F);
-    float2int16((float*)disp.data, dims, dispRight->data);    
-  }
-  else {
+    sbm(matLeft, matRight, matDispLeft, CV_32F);
+
+    // allocate data
+    if (dispLeft->data) delete dispLeft->data;
+    dispLeft->data = new unsigned short[left.nrows*left.ncols];
+
+    // fill data
+    float2int16((float*)matDispLeft.data, dims, dispLeft->data);
+    dispLeft->nrows = right.nrows;
+    dispLeft->ncols  = right.ncols;
+    dispLeft->rowinc = dispLeft->ncols*2;    
+  } break;
+  case SGBM: {
+    // run opencv stereo
     StereoSGBM sgbm;
     sgbm.SADWindowSize = 5;
-    sgbm.numberOfDisparities = 48;//192;
+    sgbm.numberOfDisparities = 32;//192;
     sgbm.preFilterCap = 4;
     sgbm.minDisparity = 0; //-64;
     sgbm.uniquenessRatio = 1;
     sgbm.speckleWindowSize = 150;
     sgbm.speckleRange = 2;
-    //sgbm.disp12MaxDiff = 10;
+    sgbm.disp12MaxDiff = 10;
     sgbm.fullDP = true;
     sgbm.P1 = 600;
     sgbm.P2 = 2400;
-    sgbm(matLeft, matRight, disp);
+    sgbm(matLeft, matRight, matDispLeft);
 
+    // allocate data
+    if (dispLeft->data) delete dispLeft->data;
+    dispLeft->data = new unsigned short[left.nrows*left.ncols];
+
+    // fill data
     std::vector<float> dispTmp(width*height);
     for (int i = 0; i < dispTmp.size(); i++)
-      dispTmp[i] = ((short*)disp.data)[i]/16.0f;
+      dispTmp[i] = ((short*)matDispLeft.data)[i]/16.0f;
+    float2int16(dispTmp.data(), dims, dispLeft->data);
+    dispLeft->nrows = right.nrows;
+    dispLeft->ncols  = right.ncols;
+    dispLeft->rowinc = dispLeft->ncols*2;    
+  } break;
+  case GC: {
+    CvStereoGCState* state = cvCreateStereoGCState( 25, 4 );
+    CvMat matLeft2=matLeft, matRight2=matRight, matDispLeft2=matDispLeft, matDispRight2=matDispRight;
+    cvFindStereoCorrespondenceGC(&matLeft2, &matRight2, &matDispLeft2, &matDispRight2, state);
     
-    float2int16(dispTmp.data(), dims, dispRight->data);
+    // allocate data
+    if (dispLeft->data) delete dispLeft->data;
+    dispLeft->data = new unsigned short[left.nrows*left.ncols];    
+    for (int i = 0; i < width*height; i++)
+      dispLeft->data[i]=(unsigned short)std::max(65535.0f*-((short*)matDispLeft.data)[i]/255.0f, 0.0f);
+
+    // allocate data
+    if (dispRight->data) delete dispRight->data;
+    dispRight->data = new unsigned short[right.nrows*right.ncols];    
+    for (int i = 0; i < width*height; i++)
+      dispRight->data[i]=(unsigned short)std::max(65535.0f*((short*)matDispRight.data)[i]/255.0f, 0.0f);
+
+    dispLeft->nrows = right.nrows;
+    dispLeft->ncols  = right.ncols;
+    dispLeft->rowinc = dispLeft->ncols*2;
+
+    dispRight->nrows = right.nrows;
+    dispRight->ncols  = right.ncols;
+    dispRight->rowinc = dispRight->ncols*2;
+    cvReleaseStereoGCState( &state );    
+  } break;
   }
 
-  dispRight->nrows = right.nrows;
-  dispRight->ncols  = right.ncols;
-  dispRight->rowinc = dispRight->ncols*2;
 }
 
 void libelasStereo(const TriclopsImage& left, const TriclopsImage& right,
@@ -193,7 +240,7 @@ void libelasStereo(const TriclopsImage& left, const TriclopsImage& right,
   dispRight->data = new unsigned short[width*height];
   float2int16(D1_data, dims, dispLeft->data);
   float2int16(D2_data, dims, dispRight->data);
-
+  
   dispLeft->nrows  = height;
   dispLeft->ncols  = width;
   dispLeft->rowinc = width*2;
@@ -292,7 +339,7 @@ int main(int argc, char* argv[]) {
   error = triclopsSetSubpixelInterpolation( context, 1 );
   _HANDLE_TRICLOPS_ERROR( "triclopsSetSubpixelInterpolation()", error );
   
-  clock_t single, total=0;
+  clock_t timer;
   int iter = 0;
   while (!prefixes.empty()) {
     // Open next video file
@@ -317,7 +364,7 @@ int main(int argc, char* argv[]) {
       std::stringstream ss;
       ss << outdir << iter << "_";
       std::string outPrefix = ss.str();
-      std::cout << "out prefix: " << outPrefix << std::endl;
+
 
       // std::ifstream my_file((outPrefix+"disparity_right.pgm").c_str());
       // if (my_file.good()) {
@@ -348,7 +395,7 @@ int main(int argc, char* argv[]) {
       triclopsGetImage( context, TriImg_RECTIFIED, TriCam_LEFT, &rectifiedLeft );
       triclopsGetImage( context, TriImg_RECTIFIED, TriCam_RIGHT, &rectifiedRight );
       
-      single = clock();
+      timer = clock();
       switch (method) {
       case TRICLOPS: {
 	// Stereo processing
@@ -366,15 +413,16 @@ int main(int argc, char* argv[]) {
 	libelasStereo( rectifiedLeft, rectifiedRight, &depthImage16Left, &depthImage16Right );
       }	break;
       case OPENCV: {
-	opencvStereo( rectifiedLeft, rectifiedRight, &depthImage16Left, &depthImage16Right );
+	opencvStereo( rectifiedLeft, rectifiedRight, &depthImage16Left, &depthImage16Right, SGBM );
       } break;
       case MATLAB: {
 	for (int i = 0; i < colorImages.size(); i++)
 	  pngWriteFromTriclopsColorImage( outPrefix+"rectified"+outNames[i]+".png", colorImages[i] );
       }break;
       }
+      std::cout << "prefix: " << outPrefix << " time: " <<
+	(clock()-timer)/(double)CLOCKS_PER_SEC  << "s" << std::endl;
       
-      total += clock() - single;
       PRINT("Saving depth map");
       error = triclopsSaveImage16( &depthImage16Left,
 				   const_cast<char*>((outPrefix+"disparity_left.pgm").c_str()) );
@@ -390,6 +438,9 @@ int main(int argc, char* argv[]) {
 
       pngWriteFromTriclopsImage(outPrefix+"grey_rectified_"+outNames[0]+".png", rectifiedLeft);
       pngWriteFromTriclopsImage(outPrefix+"grey_rectified_"+outNames[1]+".png", rectifiedRight);
+
+      std::vector<float> xyz;
+      disparity2depth(context, depthImage16Left, &xyz);
       
       PRINT("done saving depth map");      
       // disparity2ptsfile( outdir+basename+"cloud.pts", context, leftImage, depthImage16 );
