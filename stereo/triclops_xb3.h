@@ -306,7 +306,9 @@ void disparity2ptsfile(const std::string& filename,
 void disparity2depth(const TriclopsContext& context,
 		     const TriclopsImage16& disp,
 		     const int& maxDisparity,
-		     std::vector<float>* xyz) {
+		     std::vector<float>* xyz,
+		     bool depthOnly=false) {
+  
   int height  = disp.nrows;
   int width = disp.ncols;
   xyz->resize(width * height * 3);
@@ -330,6 +332,15 @@ void disparity2depth(const TriclopsContext& context,
 	//   (*xyz)[pix+2] = (*xyz)[pix-1];
       pix += 3;	
     }
+  }
+
+  if (depthOnly) {
+    std::vector<float> depth(width*height);
+    for (int i = 0; i < depth.size(); i++) 
+      depth[i] = (*xyz)[i*3+2];
+    
+    xyz->resize(width*height);
+    std::copy(depth.data(), depth.data() + depth.size(), xyz->data());
   }
 }
 

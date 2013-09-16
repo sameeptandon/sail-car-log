@@ -23,8 +23,7 @@
 #include "pnmutils.h"
 #include "elas.h"
 #include "BinaryIO.h"
-
-using namespace cv;
+#include "SString.h"
 
 enum DisparityMethod {
   TRICLOPS,
@@ -54,27 +53,26 @@ enum OpenCvStereo {
       }							\
   }							\
 
-std::vector<std::string> glob(const std::string& pat){
-  using namespace std;
+std::vector<String> glob(const String& pat){
   glob_t glob_result;
   glob(pat.c_str(),GLOB_TILDE,NULL,&glob_result);
-  vector<string> ret;
+  std::vector<String> ret;
   for(unsigned int i=0;i<glob_result.gl_pathc;++i){
-    ret.push_back(string(glob_result.gl_pathv[i]));
+    ret.push_back(String(glob_result.gl_pathv[i]));
   }
   globfree(&glob_result);
   return ret;
 }
 
-void printFiles(std::vector<std::string> files) {
+void printFiles(std::vector<String> files) {
   std::cout << files.size() << std::endl;
   for (int i = 0; i < files.size(); i++)
     std::cout << files[i] << std::endl;
 }
 
-std::vector<std::string> prefixList(std::vector<std::string> files, std::string postfix) {
+std::vector<String> prefixList(std::vector<String> files, String postfix) {
   using namespace std;
-  vector<string> prefixes;
+  vector<String> prefixes;
   size_t found;
   for (int i = 0; i < files.size(); i++) {
     found = files[i].find(postfix);
@@ -118,16 +116,16 @@ void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
   int width = left.ncols;
   int height = left.nrows;
 
-  Mat matLeft(height, width, CV_8UC1, left.data);
-  Mat matRight(height, width, CV_8UC1, right.data);
-  Mat matDispLeft(height, width, CV_16S);
-  Mat matDispRight(height, width, CV_16S);
+  cv::Mat matLeft(height, width, CV_8UC1, left.data);
+  cv::Mat matRight(height, width, CV_8UC1, right.data);
+  cv::Mat matDispLeft(height, width, CV_16S);
+  cv::Mat matDispRight(height, width, CV_16S);
   const int32_t dims[2] = {width,height};
 
   switch (ocvs) {
   case SBM: {
     // run opencv stereo
-    StereoBM sbm;
+    cv::StereoBM sbm;
     sbm.state->SADWindowSize = 9;
     sbm.state->minDisparity = 0; //-39;  
     sbm.state->numberOfDisparities = maxDisparity; //112;
@@ -152,11 +150,11 @@ void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
   } break;
   case SGBM: {
     // run opencv stereo
-    StereoSGBM sgbm;
+    cv::StereoSGBM sgbm;
     sgbm.SADWindowSize = 9;
     sgbm.numberOfDisparities = maxDisparity;//192;
     sgbm.preFilterCap = 4;
-    sgbm.minDisparity = 0; //-64;
+    sgbm.minDisparity = 0; //-64; 
     sgbm.uniquenessRatio = 1;
     // sgbm.speckleWindowSize = 150;
     // sgbm.speckleRange = 2;
@@ -181,7 +179,7 @@ void opencvStereo(const TriclopsImage& left, const TriclopsImage& right,
   } break;
   case GC: {
     CvStereoGCState* state = cvCreateStereoGCState( maxDisparity, 4 );
-    CvMat matLeft2=matLeft, matRight2=matRight, matDispLeft2=matDispLeft, matDispRight2=matDispRight;
+    CvMat matLeft2=matLeft,matRight2=matRight,matDispLeft2=matDispLeft,matDispRight2=matDispRight;
     cvFindStereoCorrespondenceGC(&matLeft2, &matRight2, &matDispLeft2, &matDispRight2, state);
     
     // allocate data
@@ -248,7 +246,7 @@ void libelasStereo(const TriclopsImage& left, const TriclopsImage& right,
   dispLeft->nrows  = height;
   dispLeft->ncols  = width;
   dispLeft->rowinc = width*2;
-
+  
   dispRight->nrows  = height;
   dispRight->ncols  = width;
   dispRight->rowinc = width*2;  
@@ -289,30 +287,109 @@ TriclopsInput* ipl2triclops(IplImage* iplImg) {
   return triImg;
 }
 
-void saveDepthMap(const std::string& floatname, const std::string shortname,
+void saveDepthMap(const String& floatname, const String shortname,
 		  const std::vector<float>& xyz, int dims[]) {
-  std::vector<short> depth(dims[1]*dims[2]);
+  std::vector<float> depth(dims[1]*dims[2]);
   for (int i = 0; i < depth.size(); i++) 
     depth[i] = xyz[i*3+2];
   
   std::vector<int> floatDimsVec(dims, dims+3);
   std::vector<int> shortDimsVec(dims+1, dims+3);
-  writeBin(floatname.c_str(), xyz, floatDimsVec, FORMAT_FLOAT);
-  writeBin(shortname.c_str(), depth, shortDimsVec, FORMAT_SHORT);
+  //writeBin(floatname.c_str(), xyz, floatDimsVec, FORMAT_FLOAT);
+  writeBin(shortname.c_str(), depth, shortDimsVec, FORMAT_FLOAT);
 }
 
-int main(int argc, char* argv[]) {
-  std::string indir = "./";
-  std::string outdir = "./stereo_images/";
+void getRectifiedImages(TriclopsContext* context, TriclopsInput* left, TriclopsInput* right,
+			TriclopsImage* rectifiedLeft, TriclopsImage* rectifiedRight) {
+  
+  TriclopsError error;
+  TriclopsInput stereoInput = nullTriclopsInput();
+  PRINT("rgb2stereo");
+  rgb2stereo(*left, *right, &stereoInput);
+  // Preprocessing the images
+  PRINT("rectify");
+  error = triclopsRectify( *context, &stereoInput );
+  _HANDLE_TRICLOPS_ERROR( "triclopsRectify()", error );
 
+  PRINT("get image");
+  triclopsGetImage( *context, TriImg_RECTIFIED, TriCam_LEFT, rectifiedLeft );
+  triclopsGetImage( *context, TriImg_RECTIFIED, TriCam_RIGHT, rectifiedRight );
+
+  PRINT("deleting");
+  delete stereoInput.u.rgb.red; 
+  delete stereoInput.u.rgb.green;
+  PRINT("returning");
+}
+
+template <typename T>
+void cropImage(const T* img, int nrows, int ncols,
+	       int cmin, int cmax, int rmin, int rmax, T* cimg) {
+  int pix = 0;
+  for (int r = 0; r < nrows; r++) 
+    if (r >= rmin && r < rmax) 
+      for (int c = 0; c < ncols; c++) 
+	if (c >= cmin && c < cmax) 
+	  cimg[pix++] = img[c + r*ncols];
+}
+
+template <typename T>
+void cropImage(const std::vector<T>& img, const std::vector<int>& dim,
+	       int cmin, int cmax, int rmin, int rmax, std::vector<T>* cropped) {
+  cropped->resize( (cmax-cmin) * (rmax-rmin) );
+  cropImage(img.data(), dim[0], dim[1], cmin, cmax, rmin, rmax, cropped->data());
+}
+
+void cropTriclopsColorImage(const TriclopsColorImage& img,
+			    int cmin, int cmax, int rmin, int rmax,
+			    TriclopsColorImage* cropped) {
+  
+  cropped->red   = new unsigned char[(cmax-cmin) * (rmax-rmin)];
+  cropped->green = new unsigned char[(cmax-cmin) * (rmax-rmin)];
+  cropped->blue  = new unsigned char[(cmax-cmin) * (rmax-rmin)];
+
+  cropped->nrows  = rmax-rmin;
+  cropped->ncols  = cmax-cmin;
+  cropped->rowinc = cropped->ncols;
+
+  cropImage(img.red, img.nrows, img.ncols, cmin, cmax, rmin, rmax, cropped->red);
+  cropImage(img.green, img.nrows, img.ncols, cmin, cmax, rmin, rmax, cropped->green);
+  cropImage(img.blue, img.nrows, img.ncols, cmin, cmax, rmin, rmax, cropped->blue);
+}
+
+void cropTriclopsImage16(const TriclopsImage16& img,
+			 int cmin, int cmax, int rmin, int rmax,
+			 TriclopsImage16* cropped) {
+  assert(img.rowinc == img.ncols*2);
+  cropped->data = new unsigned short[(cmax-cmin)*(rmax-rmin)];
+  
+  cropped->nrows  = rmax-rmin;
+  cropped->ncols  = cmax-cmin;
+  cropped->rowinc = cropped->ncols * 2;
+  
+  cropImage(img.data, img.nrows, img.ncols, cmin, cmax, rmin, rmax, cropped->data);
+}
+
+
+int main(int argc, char* argv[]) {
+  String indir = "./recordings/";
+  String outdir = "./recordings_results2/";
   
   DisparityMethod method = OPENCV;
-  bool upsidedown = true;
-  const int numCameras=3;
-  const int maxDisparity = 32;
+  bool upsidedown = false;
+  int numCameras=3;
+  int maxDisparity = 48;
+  int skipCount = 250;
+  bool saveDisparity = true;
+  bool cropMaxDisparity = true;  
+  bool shortBaseline = true;
+  bool wideBaseline = true;
+  std::vector<int> depthDim(2);
+  //depthDim[0] = 320; depthDim[1] = 240;
+  //depthDim[0] = 192; depthDim[1] = 144;
+  depthDim[0] = 320; depthDim[1] = 240;
   
   mkdir(outdir.c_str(),0775);
-  std::vector<std::string> inNames(numCameras), outNames(numCameras);
+  std::vector<String> inNames(numCameras), outNames(numCameras);
   outNames[0] = "left"; outNames[1] = "center"; outNames[2] = "right";
   inNames[1] = outNames[1];
   if (upsidedown) {
@@ -322,25 +399,31 @@ int main(int argc, char* argv[]) {
   }
   
   // get the prefixes to all the files by only looking at the left files
-  std::queue<std::string> prefixes = vector2queue(prefixList(glob(indir+"/*.avi"), "left.avi"));
+  std::queue<String> prefixes = vector2queue(prefixList(glob(indir+"/*.avi"), "_left.avi"));
   
   // set up triclops
-  bool wideBaseline = false;
-  const char* calFile = (wideBaseline) ? "./wide.cal" : "./short.cal";
-  TriclopsContext     context;
+  const char* shortCalFile = "./short.cal";  
+  const char* wideCalFile = "./wide.cal";
+  TriclopsContext     shortContext, wideContext;
   TriclopsError       error;
-
+  
   PRINT("About to get context");
-  error=triclopsGetDefaultContextFromFile( &context, const_cast<char*>(calFile) );
+  error=triclopsGetDefaultContextFromFile( &shortContext, const_cast<char*>(shortCalFile) );
+  _HANDLE_TRICLOPS_ERROR( "triclopsGetDefaultContextFromFile()", error );  
+  error=triclopsGetDefaultContextFromFile( &wideContext, const_cast<char*>(wideCalFile) );  
   _HANDLE_TRICLOPS_ERROR( "triclopsGetDefaultContextFromFile()", error );
   PRINT("done gettting context");
   // Set up some stereo parameters:
   // Set to 320x240 output images
-  error = triclopsSetResolution( context, 240, 320 );
+  error = triclopsSetResolution( shortContext, depthDim[1], depthDim[0] );
   _HANDLE_TRICLOPS_ERROR( "triclopsSetResolution()", error );
+  error = triclopsSetResolution( wideContext, depthDim[1], depthDim[0] );
+  _HANDLE_TRICLOPS_ERROR( "triclopsSetResolution()", error );  
 
   // Set disparity range
-  error = triclopsSetDisparity( context, 0, 100 );
+  error = triclopsSetDisparity( shortContext, 0, maxDisparity );
+  _HANDLE_TRICLOPS_ERROR( "triclopsSetDisparity()", error );  
+  error = triclopsSetDisparity( wideContext, 0, maxDisparity );
   _HANDLE_TRICLOPS_ERROR( "triclopsSetDisparity()", error );
   
   // error = triclopsSetDisparityMapping( context, 0, 100 );
@@ -350,149 +433,247 @@ int main(int argc, char* argv[]) {
   
   // Lets turn off all validation except subpixel and surface
   // This works quite well
-  error = triclopsSetTextureValidation( context, 0 );
+  error = triclopsSetTextureValidation( shortContext, 0 );
   _HANDLE_TRICLOPS_ERROR( "triclopsSetTextureValidation()", error );
-  error = triclopsSetUniquenessValidation( context, 0 );
+  error = triclopsSetTextureValidation( wideContext, 0 );
+  _HANDLE_TRICLOPS_ERROR( "triclopsSetTextureValidation()", error );  
+  error = triclopsSetUniquenessValidation( shortContext, 0 );
   _HANDLE_TRICLOPS_ERROR( "triclopsSetUniquenessValidation()", error );
+  error = triclopsSetUniquenessValidation( wideContext, 0 );
+  _HANDLE_TRICLOPS_ERROR( "triclopsSetUniquenessValidation()", error );  
    
   // Turn on sub-pixel interpolation
-  error = triclopsSetSubpixelInterpolation( context, 1 );
+  error = triclopsSetSubpixelInterpolation( shortContext, 1 );
   _HANDLE_TRICLOPS_ERROR( "triclopsSetSubpixelInterpolation()", error );
+  error = triclopsSetSubpixelInterpolation( wideContext, 1 );
+  _HANDLE_TRICLOPS_ERROR( "triclopsSetSubpixelInterpolation()", error );  
   
   clock_t timer;
-  int iter = 0;
+
+  int fileInd = 0;
   while (!prefixes.empty()) {
+    
+    // if (strcmp(prefixes.front().c_str(), "./recordings//2013-09-13_16:44") != 0) {
+    //   prefixes.pop();
+    //   continue;
+    // }
+    
+    // create output sub dir
+    mkdir((outdir+"/"+prefixes.front().basename()).c_str(), 0775);
+    
     // Open next video file
     std::vector<CvCapture*> captures(inNames.size());
     for (int i = 0; i < inNames.size(); i++) {
-      std::string fileName = prefixes.front()+inNames[i]+".avi";
+      String fileName = prefixes.front()+"_"+inNames[i]+".avi";
       captures[i] = cvCreateFileCapture(fileName.c_str());
       if (!captures[i]) {
 	std::cout << "Could not find file " << fileName << std::endl;
 	exit(-1);
       }
     }
-    prefixes.pop();    
-    PRINT("done getting captures");        
-    while (true) {
 
+    int imgInd = 0;    
+    while (true) {
       // get next frame
       std::vector<IplImage*> frames = nextFrame(captures);
       if (frames.size() == 0) break;
-
+      
+      if (imgInd < skipCount) {
+	imgInd++;
+	continue;
+      }
+      
       // set output prefix
       std::stringstream ss;
-      ss << outdir << iter << "_";
-      std::string outPrefix = ss.str();
-
-
-      // std::ifstream my_file((outPrefix+"disparity_right.pgm").c_str());
-      // if (my_file.good()) {
-      // 	iter++;
-      // 	continue;      
-      // }
+      ss << outdir+"/"+prefixes.front().basename()+"/"+prefixes.front().basename()+"_" << imgInd << "_";
+      String outPrefix = ss.str();
       
       // allocate triclops data
       std::vector<TriclopsInput*> inputs(frames.size()); // left, center, right
-      std::vector<TriclopsColorImage>  colorImages(inputs.size());
-      for (int i = 0; i < colorImages.size(); i++) colorImages[i] = {0};      
-      TriclopsInput       stereoInput = nullTriclopsInput(); 
-      TriclopsImage16     depthImage16Left = {0}, depthImage16Right = {0};
-      TriclopsImage       depthImage = {0}, rectifiedLeft = {0}, rectifiedRight = {0};
-      
+      TriclopsColorImage  shortColorImage = {0}, wideColorImage = {0};
+      TriclopsImage16     shortDepthImage16Left = {0}, shortDepthImage16Right = {0};
+      TriclopsImage16     wideDepthImage16Left = {0}, wideDepthImage16Right = {0};      
+      TriclopsImage       shortRectifiedLeft = {0}, shortRectifiedRight = {0};
+      TriclopsImage       wideRectifiedLeft = {0}, wideRectifiedRight = {0};
+
       // convert frames to triclops
-      for (int i = 0; i < frames.size(); i++) inputs[i] = ipl2triclops(frames[i]);
+      for (int i = 0; i < frames.size(); i++) inputs[i] = ipl2triclops(frames[i]);      
       
+      PRINT("short rectified")
+      if (shortBaseline)
+	getRectifiedImages(&shortContext,inputs[1],inputs[2],&shortRectifiedLeft,&shortRectifiedRight);
+      PRINT("wide rectified")      
       if (wideBaseline)
-	rgb2stereo(*inputs[0], *inputs[2], &stereoInput);      
-      else
-	rgb2stereo(*inputs[1], *inputs[2], &stereoInput);
-      
-      // Preprocessing the images
-      error = triclopsRectify( context, &stereoInput );
-      _HANDLE_TRICLOPS_ERROR( "triclopsRectify()", error );
-      
-      triclopsGetImage( context, TriImg_RECTIFIED, TriCam_LEFT, &rectifiedLeft );
-      triclopsGetImage( context, TriImg_RECTIFIED, TriCam_RIGHT, &rectifiedRight );
+	getRectifiedImages(&wideContext,inputs[0],inputs[2],&wideRectifiedLeft,&wideRectifiedRight);
       
       timer = clock();
       switch (method) {
       case TRICLOPS: {
-	// Stereo processing
-	error = triclopsStereo( context ) ;
-	_HANDLE_TRICLOPS_ERROR( "triclopsStereo()", error );
+	if (shortBaseline) {
+	  // Stereo processing
+	  error = triclopsStereo( shortContext ) ;
+	  _HANDLE_TRICLOPS_ERROR( "triclopsStereo()", error );
 	
-	// Retrieve the interpolated depth image from the context
-	error = triclopsGetImage16( context, TriImg16_DISPARITY, TriCam_REFERENCE, &depthImage16Left );
-	_HANDLE_TRICLOPS_ERROR( "triclopsGetImage16() Left", error );	
-	// error = triclopsGetImage16( context, TriImg16_DISPARITY, TriCam_RIGHT, &depthImage16Right );
-	// _HANDLE_TRICLOPS_ERROR( "triclopsGetImage16() Right", error );
+	  // Retrieve the interpolated depth image from the context
+	  error = triclopsGetImage16( shortContext, TriImg16_DISPARITY,
+				      TriCam_REFERENCE, &shortDepthImage16Left );
+	  _HANDLE_TRICLOPS_ERROR( "triclopsGetImage16() Left", error );
+	}	
+	if (wideBaseline) {
+	  // Stereo processing
+	  error = triclopsStereo( wideContext ) ;
+	  _HANDLE_TRICLOPS_ERROR( "triclopsStereo()", error );
+	
+	  // Retrieve the interpolated depth image from the context
+	  error = triclopsGetImage16( wideContext, TriImg16_DISPARITY,
+				      TriCam_REFERENCE, &wideDepthImage16Left );
+	  _HANDLE_TRICLOPS_ERROR( "triclopsGetImage16() Left", error );
+	}
 
       }	break;
       case LIBELAS: {
-	libelasStereo( rectifiedLeft, rectifiedRight, &depthImage16Left, &depthImage16Right );
+	if (shortBaseline) {
+	  libelasStereo( shortRectifiedLeft, shortRectifiedRight,
+			 &shortDepthImage16Left, &shortDepthImage16Right );
+	}
+	if (wideBaseline) {
+	  libelasStereo( wideRectifiedLeft, wideRectifiedRight,
+			 &wideDepthImage16Left, &wideDepthImage16Right );
+	}
       }	break;
       case OPENCV: {
-	opencvStereo( rectifiedLeft, rectifiedRight, &depthImage16Left, &depthImage16Right, SGBM );
+	PRINT("stereo short");
+	if (shortBaseline) {
+	  opencvStereo( shortRectifiedLeft, shortRectifiedRight,
+			&shortDepthImage16Left, &shortDepthImage16Right, SGBM );
+	}
+	PRINT("stereo wide");	
+	if (wideBaseline)  {
+	  opencvStereo( wideRectifiedLeft, wideRectifiedRight,
+			&wideDepthImage16Left, &wideDepthImage16Right, SGBM );
+
+	}
       } break;
       case MATLAB: {
-	for (int i = 0; i < colorImages.size(); i++)
-	  pngWriteFromTriclopsColorImage( outPrefix+"rectified"+outNames[i]+".png", colorImages[i] );
+	// needs to rectify color images first
+	// for (int i = 0; i < colorImages.size(); i++)
+	//   pngWriteFromTriclopsColorImage( outPrefix+"rectified"+outNames[i]+".png", colorImages[i] );
       }break;
       }
-      std::cout << "prefix: " << outPrefix << " time: " <<
-	(clock()-timer)/(double)CLOCKS_PER_SEC  << "s" << std::endl;
       
-      PRINT("Saving depth map");
-      error = triclopsSaveImage16( &depthImage16Left,
-				   const_cast<char*>((outPrefix+"disparity_left.pgm").c_str()) );
-      error = triclopsSaveImage16( &depthImage16Right,
-				   const_cast<char*>((outPrefix+"disparity_right.pgm").c_str()) );      
-      _HANDLE_TRICLOPS_ERROR( "tricolopsSaveImage()", error );
+      std::cout << "prefix: " << prefixes.front() << " fileInd: " << fileInd
+		<< " imgInd: " << imgInd
+		<< " time: " << (clock()-timer)/(double)CLOCKS_PER_SEC  << "s" << std::endl;
 
-      // get rectified images
-      for (int i = 0; i < inputs.size(); i++) {
-	rectifyColor(context, inputs[i], &colorImages[i]);
-	pngWriteFromTriclopsColorImage(outPrefix+"rectified_"+outNames[i]+".png", colorImages[i]);	
+      
+      if (shortBaseline) {
+	// get depth
+	std::vector<float> depth;
+	disparity2depth(shortContext, shortDepthImage16Left, maxDisparity, &depth, true);
+	rectifyColor(shortContext, inputs[0], &shortColorImage);
+	
+	// save results
+	if (cropMaxDisparity) {
+	  // save color image
+	  TriclopsColorImage croppedImage;
+	  cropTriclopsColorImage(shortColorImage, maxDisparity, depthDim[0],
+				 0, depthDim[1], &croppedImage);
+	  pngWriteFromTriclopsColorImage(outPrefix+"short_image.png", croppedImage);
+	  freeColorImage( &croppedImage );
+	  
+	  // save depth map
+	  std::vector<float> croppedDepth;
+	  std::vector<int> croppedDepthDim(2);
+	  croppedDepthDim[0] = (depthDim[0]-maxDisparity); croppedDepthDim[1] = depthDim[1];
+	  cropImage(depth, depthDim, maxDisparity, depthDim[0], 0, depthDim[1], &croppedDepth);
+	  writeBin((outPrefix+"short_depth.bin").c_str(), depth, croppedDepthDim, FORMAT_FLOAT);
+
+	  // save disparity
+	  if (saveDisparity) {
+	    TriclopsImage16 croppedDepthImage;
+	    cropTriclopsImage16(shortDepthImage16Left, maxDisparity, depthDim[0], 0, depthDim[1],
+				&croppedDepthImage);
+	    error=triclopsSaveImage16(&croppedDepthImage,
+				      const_cast<char*>((outPrefix+"short_disparity.pgm").c_str()));
+	    _HANDLE_TRICLOPS_ERROR( "tricolopsSaveImage()", error );
+	    freeImage16(&croppedDepthImage);
+	  }	  
+	}
+	else  {
+	  pngWriteFromTriclopsColorImage(outPrefix+"short_image.png", shortColorImage);
+	  writeBin((outPrefix+"short_depth.bin").c_str(), depth, depthDim, FORMAT_FLOAT);
+	  if (saveDisparity) {
+	    error=triclopsSaveImage16(&shortDepthImage16Left,
+				      const_cast<char*>((outPrefix+"short_disparity.pgm").c_str()));
+	    _HANDLE_TRICLOPS_ERROR( "tricolopsSaveImage()", error );
+	  }	  
+	}
+	
+	freeImage16(&shortDepthImage16Left);
+	freeImage16(&shortDepthImage16Right);      
+      }      
+
+      if (wideBaseline) {
+	// get depth
+	std::vector<float> depth;
+	disparity2depth(wideContext, wideDepthImage16Left, maxDisparity, &depth, true);
+	rectifyColor(wideContext, inputs[0], &wideColorImage);
+	
+	// save results
+	if (cropMaxDisparity) {
+	  // save color image
+	  TriclopsColorImage croppedImage;
+	  cropTriclopsColorImage(wideColorImage, maxDisparity, depthDim[0],
+				 0, depthDim[1], &croppedImage);
+	  pngWriteFromTriclopsColorImage(outPrefix+"wide_image.png", croppedImage);
+	  freeColorImage( &croppedImage );
+	  
+	  // save depth map
+	  std::vector<float> croppedDepth;
+	  std::vector<int> croppedDepthDim(2);
+	  croppedDepthDim[0] = (depthDim[0]-maxDisparity); croppedDepthDim[1] = depthDim[1];
+	  cropImage(depth, depthDim, maxDisparity, depthDim[0], 0, depthDim[1], &croppedDepth);
+	  writeBin((outPrefix+"wide_depth.bin").c_str(), depth, croppedDepthDim, FORMAT_FLOAT);
+
+	  // save disparity
+	  if (saveDisparity) {
+	    TriclopsImage16 croppedDepthImage;
+	    cropTriclopsImage16(wideDepthImage16Left, maxDisparity, depthDim[0], 0, depthDim[1],
+				&croppedDepthImage);
+	    error=triclopsSaveImage16(&croppedDepthImage,
+				      const_cast<char*>((outPrefix+"wide_disparity.pgm").c_str()));
+	    _HANDLE_TRICLOPS_ERROR( "tricolopsSaveImage()", error );
+	    freeImage16(&croppedDepthImage);
+	  }	  
+	}
+	else  {
+	  pngWriteFromTriclopsColorImage(outPrefix+"wide_image.png", wideColorImage);
+	  writeBin((outPrefix+"wide_depth.bin").c_str(), depth, depthDim, FORMAT_FLOAT);
+	  if (saveDisparity) {
+	    error=triclopsSaveImage16(&wideDepthImage16Left,
+				      const_cast<char*>((outPrefix+"wide_disparity.pgm").c_str()));
+	    _HANDLE_TRICLOPS_ERROR( "tricolopsSaveImage()", error );
+	  }	  
+	}
+	
+	freeImage16(&wideDepthImage16Left);
+	freeImage16(&wideDepthImage16Right);      
       }
-
-      pngWriteFromTriclopsImage(outPrefix+"grey_rectified_"+outNames[0]+".png", rectifiedLeft);
-      pngWriteFromTriclopsImage(outPrefix+"grey_rectified_"+outNames[1]+".png", rectifiedRight);
-
-      std::vector<float> xyz;
-      disparity2depth(context, depthImage16Left, maxDisparity, &xyz);
-      int dims[] = {3, depthImage16Left.ncols, depthImage16Left.nrows};
-      saveDepthMap(outPrefix+"xyz.bin",outPrefix+"depth.bin", xyz, dims);
       
-      PRINT("done saving depth map");      
-      // disparity2ptsfile( outdir+basename+"cloud.pts", context, leftImage, depthImage16 );
-
-      PRINT("Freeing data");            
-      delete stereoInput.u.rgb.red; 
-      delete stereoInput.u.rgb.green; 
-      
-      PRINT("Freeing data");
+      // free memory
       for (int i = 0; i < inputs.size(); i++) freeInput(inputs[i]);
-      PRINT("Freeing data");      
-      //for (int i = 0; i < colorImages.size(); i++) freeColorImage(&colorImages[i]);
-      PRINT("Freeing data");      
-      freeImage16(&depthImage16Left);
-      freeImage16(&depthImage16Right);      
-      PRINT("Freeing data");      
-      freeImage(&depthImage);
-      // PRINT("Free left");
-      // freeImage(&rectifiedLeft);
-      // PRINT("Free right");      
-      // freeImage(&rectifiedRight);      
-      // PRINT("Done freeing data"); 
-      iter++;
+      imgInd++;
     }
+    fileInd++;
+    prefixes.pop();    
     for (int i = 0; i < captures.size(); i++) cvReleaseCapture( &captures[i] );
   }
   
   // Destroy the Triclops context
-  error = triclopsDestroyContext( context ) ;
+  error = triclopsDestroyContext( shortContext ) ;
   _HANDLE_TRICLOPS_ERROR( "triclopsDestroyContext()", error );
+  error = triclopsDestroyContext( wideContext ) ;
+  _HANDLE_TRICLOPS_ERROR( "triclopsDestroyContext()", error );  
   
   return 0;
 }
