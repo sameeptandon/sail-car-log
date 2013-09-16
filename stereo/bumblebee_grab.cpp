@@ -51,7 +51,7 @@ int main( int argc, char* argv[] ) {
   names[0] = "left"; names[1] = "center"; names[2] = "right";
 
   float frameRate = 3.75f;
-  unsigned int recordingSize = 500;
+  unsigned int recordingSize = 10000;
   
   // create and connect to camera
   BumblebeeXb3 cam;
