@@ -46,6 +46,9 @@ target_link_libraries(bumblebee_stereo ${OpenCV_LIBS} ${flycap_LIBRARIES}
 #target_link_libraries(bumblebee_stereo ${OpenCV_LIBS} ${flycap_LIBRARIES}
   ${triclops_LIBRARIES} ${pnmutils_LIBRARIES} dl)
 
+add_executable(video2png video2png.cpp)
+target_link_libraries(video2png ${OpenCV_LIBS} ${flycap_LIBRARIES}
+  ${zmq_LIBRARIES})
 
 
 
