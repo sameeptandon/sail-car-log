@@ -1,5 +1,7 @@
 #define TWO_CAM
 #define DISPLAY
+#define NOGPS
+//#define NOSYNC
 //#define DEBUG_NO_SENSORS
 
 #include <fstream>
@@ -97,7 +99,7 @@ int main(int argc, char** argv)
     maxframes = vm["maxframes"].as<uint64_t>(); 
   }
 
-#ifdef DEBUG_NO_SENSORS
+#if defined(DEBUG_NO_SENSORS) || defined(NOSYNC) || defined(NOGPS)
   bool useGPS = false;
 #else
   bool useGPS = true; 
@@ -123,6 +125,8 @@ int main(int argc, char** argv)
 #ifndef DEBUG_NO_SENSORS
   Camera* cam1 = ConnectCamera(0); // 0 indexing
   assert(cam1 != NULL);
+  //setProperty(cam1, GAMMA, 4.0);
+  //cout << "GAMMA: " << getProperty(cam1, GAMMA) << endl; 
   RunCamera(cam1);
 
   Consumer<Image>* cam1_consumer[NUMTHREAD_PER_BUFFER];
@@ -144,6 +148,8 @@ int main(int argc, char** argv)
 #ifdef TWO_CAM
   Camera* cam2 = ConnectCamera(1); // 0 indexing 
   assert(cam2 != NULL);
+  //setProperty(cam2, GAMMA, 4.0);
+  //cout << "GAMMA: " << getProperty(cam2, GAMMA) << endl; 
   RunCamera(cam2); 
   Consumer<Image>* cam2_consumer[NUMTHREAD_PER_BUFFER];
   for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
@@ -183,7 +189,7 @@ int main(int argc, char** argv)
   uint64_t numframes = 0;
   uint64_t lastframes = 0; 
   ///////// main loop
-  while (!is_done_working) {
+  while (!is_done_working or numframes < 250) {
     numframes++;
     if (numframes > maxframes) { 
       is_done_working = true;
@@ -249,7 +255,7 @@ int main(int argc, char** argv)
         lastValidGPSPacket = boost::get<1>(packet);
         gps_output << lastValidGPSPacket << endl;
       } else {
-        sendDiagnosticsMessage("WARN:Bad GPS Packet"); 
+        sendDiagnosticsMessage("WARN:Bad GPS Packet:" + boost::get<1>(packet)); 
       }
 
     }
@@ -257,6 +263,7 @@ int main(int argc, char** argv)
     currentTime = Time(boost::posix_time::microsec_clock::local_time());
     if ((currentTime - lastTime).total_milliseconds() > 1000) {
       string captureRateMsg = "INFOCAPTURERATE:" + boost::to_string(numframes-lastframes); 
+      cout << captureRateMsg << endl;
       sendDiagnosticsMessage(captureRateMsg);
 
       int queue_size = 0; 

@@ -5,7 +5,7 @@ using namespace std;
 using namespace serial;
 
 #define PACKET_HEADER "#MARK1PVAA"
-#define RETRY_ATTEMPTS 2
+#define RETRY_ATTEMPTS 3
 
 void GPSLogger::safeWrite(string cmd) {
     cout << "Command: " << cmd; 
@@ -40,7 +40,7 @@ string GPSLogger::safeRead() {
 
 void GPSLogger::Connect(string port) {
     int baudrate = 115200;
-    Timeout my_timeout(3,3,0,3,0); // 3 millisecond read and write timeout
+    Timeout my_timeout(6,6,0,6,0); // 6 millisecond read and write timeout
     cout << "port = " << port << endl; 
     _port = new Serial(port, baudrate, my_timeout);
 
@@ -50,9 +50,9 @@ void GPSLogger::Connect(string port) {
     safeWrite("eventincontrol mark1 event\r\n");
     
     // flush stuff from previous runs
-    _port->flushInput();
-    _port->flushOutput();
-    _port->readlines();
+    //_port->flushInput();
+    //_port->flushOutput();
+    //_port->readlines();
     
     ///////// logging /////////////////
     //safeWrite("log mark1time onnew\r\n");
