@@ -39,7 +39,7 @@ def outputDistances(distances, framenum, meters_per_point, points_fwd, start_off
         
     return output
 
-def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, left_lanes, right_lanes, tr):
+def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, left_lanes, right_lanes, ldist, rdist, tr):
     meters_per_point = 10
     points_fwd = 8
     frames_per_second = 50
@@ -64,14 +64,23 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
             continue
 
         important_frames = (outputDistances(distances, frame, meters_per_point, points_fwd, -5))
-        important_lanes = outputDistances(distances, frame, meters_per_point, points_fwd, -7.5)
-        if len(important_frames) < points_fwd or len(important_lanes) < points_fwd:
+        if len(important_frames) < points_fwd:
             continue
-        max_idx = max(np.max(important_frames), np.max(important_lanes))
+        max_idx = np.max(important_frames)
         if max_idx >= left_lanes.shape[0] or max_idx >= right_lanes.shape[0]:
             continue
-        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_lanes, :].transpose())
-        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_lanes, :].transpose())
+
+        important_left = np.array(outputDistances(ldist, frame, meters_per_point, points_fwd, -5))
+        important_right = np.array(outputDistances(rdist, frame, meters_per_point, points_fwd, -5))
+
+        if min(len(important_left), len(important_right)) < points_fwd:
+            continue
+
+        if max(np.max(important_left), np.max(important_right)) >= left_lanes.shape[0]:
+            continue
+
+        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_left, :].transpose())
+        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_right, :].transpose())
 
         gps_vals = warpPoints(P, GPSColumns(gps_dat[important_frames], cam, gps_dat[frame, :])[0:2])
         left_vals = warpPoints(P, PointsMask(temp_left[0:3, :], cam)[0:2])
@@ -136,8 +145,10 @@ def runLabeling(file_path, gps_filename, output_name, frames_to_skip, final_fram
         lpts[t, :] = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([lp[t, 0], lp[t, 1], lp[t, 2], 1])))
         rpts[t, :] = np.dot(tr[t, :, :], np.linalg.solve(Tc, np.array([rp[t, 0], rp[t, 1], rp[t, 2], 1])))
 
+    ldist = np.apply_along_axis(np.linalg.norm, 1, np.concatenate((np.array([[0, 0, 0, 0]]), lpts[1:] - lpts[0:-1])))
+    rdist = np.apply_along_axis(np.linalg.norm, 1, np.concatenate((np.array([[0, 0, 0, 0]]), rpts[1:] - rpts[0:-1])))
     start_frame = frames_to_skip
-    runBatch(video_reader, gps_dat, cam_to_use, output_name, start_frame, final_frame, lpts, rpts, tr)
+    runBatch(video_reader, gps_dat, cam_to_use, output_name, start_frame, final_frame, lpts, rpts, ldist, rdist, tr)
 
     print "Done with %s" % output_name
 
