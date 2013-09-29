@@ -44,6 +44,11 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
     points_fwd = 8
     frames_per_second = 50
     distances = GPSVelocities(gps_dat) / frames_per_second
+    pts = GPSPos(gps_dat, cam, gps_dat[0, :])[0:2]
+    #pts = WGS84toENU(gps_dat[0, 1:4], gps_dat[:, 1:4])[0:2]
+    base_vels = np.concatenate((np.array([[0], [0]]), pts[:, 1:] - pts[:, :-1]), axis=1)
+
+    vels = np.array([-1 * base_vels[1, :], base_vels[0, :]])
 
     count = 0
     output_num = 0
@@ -56,16 +61,32 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         if count % 160 == 0:
             print count
         if success == False or frame >= tr.shape[0]:
+            print success, frame, tr.shape[0]
             break
         if frame < start_frame or (final_frame != -1 and frame >= final_frame):
             continue
 
         important_frames = (outputDistances(distances, frame, meters_per_point, points_fwd, -5))
-        important_lanes = outputDistances(distances, frame, meters_per_point, points_fwd, -7.5)
-        if len(important_frames) < points_fwd or len(important_lanes) < points_fwd:
+        if len(important_frames) < points_fwd:
             continue
+
+        gps_directions = np.transpose(vels[:, important_frames])
+        for i in xrange(gps_directions.shape[0]):
+            gps_directions[i] = gps_directions[i] / np.linalg.norm(gps_directions[i])
+
+        important_lanes = []
+        for fr in important_frames:
+            min_val = max(important_frames[0] - 250, 0)
+            max_val = min(important_frames[0] + 250, left_lanes.shape[0] - 1)
+            distances = np.abs(np.dot(left_lanes[min_val:max_val, 0:2] - pts[:, important_frames[0]], gps_directions[0]))
+            important_lanes.append(np.argmin(distances)+min_val)
+
+        important_lanes = np.array(important_lanes)
+
+
         max_idx = max(np.max(important_frames), np.max(important_lanes))
         if max_idx >= left_lanes.shape[0] or max_idx >= right_lanes.shape[0]:
+            print 'maxing out'
             continue
         temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_lanes, :].transpose())
         temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_lanes, :].transpose())
