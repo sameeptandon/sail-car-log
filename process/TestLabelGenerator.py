@@ -48,7 +48,7 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
     #pts = WGS84toENU(gps_dat[0, 1:4], gps_dat[:, 1:4])[0:2]
     base_vels = np.concatenate((np.array([[0], [0], [0]]), pts[:, 1:] - pts[:, :-1]), axis=1)
 
-    vels = np.array([-1 * base_vels[1, :], base_vels[0, :]])
+    vels = np.array([-1 * base_vels[2, :], base_vels[0, :]])
 
     count = 0
     output_num = 0
@@ -76,6 +76,7 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         gps_directions = np.transpose(vels[:, important_frames])
         for i in xrange(gps_directions.shape[0]):
             gps_directions[i] = gps_directions[i] / np.linalg.norm(gps_directions[i])
+            #gps_directions[i] = np.array([1, 0])
 
         important_left = []
         important_right = []
@@ -83,8 +84,10 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
             fr = important_frames[ind]
             min_val = max(fr - 15, 0)
             max_val = min(fr + 15, left_lanes.shape[0] - 1)
-            l_distances = np.abs(np.dot(left_lanes[min_val:max_val, 0:2] - pts[0:2, fr], gps_directions[ind]))
-            r_distances = np.abs(np.dot(right_lanes[min_val:max_val, 0:2] - pts[0:2, fr], gps_directions[ind]))
+            l_compare = np.array([left_lanes[min_val:max_val, 0], left_lanes[min_val:max_val, 2]]).transpose()
+            r_compare = np.array([right_lanes[min_val:max_val, 0], right_lanes[min_val:max_val, 2]]).transpose()
+            l_distances = np.abs(np.dot(l_compare - pts[0:2, fr], gps_directions[ind]))
+            r_distances = np.abs(np.dot(r_compare - pts[0:2, fr], gps_directions[ind]))
             important_left.append(np.argmin(l_distances)+min_val)
             important_right.append(np.argmin(r_distances)+min_val)
 
