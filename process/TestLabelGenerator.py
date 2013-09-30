@@ -46,7 +46,8 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
     distances = GPSVelocities(gps_dat) / frames_per_second
     pts = GPSPos(gps_dat, cam, gps_dat[0, :])
     #pts = WGS84toENU(gps_dat[0, 1:4], gps_dat[:, 1:4])[0:2]
-    base_vels = np.concatenate((np.array([[0], [0], [0]]), pts[:, 1:] - pts[:, :-1]), axis=1)
+    window = 25
+    base_vels = np.concatenate((np.tile(np.array([[0], [1], [1]]), (1, window)), pts[:, 2*window:] - pts[:, :-2*window], np.tile(np.array([[0], [1], [1]]), (1, window))), axis=1)
 
     vels = np.array([-1 * base_vels[2, :], base_vels[0, :]])
 
