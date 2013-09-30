@@ -44,9 +44,9 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
     points_fwd = 8
     frames_per_second = 50
     distances = GPSVelocities(gps_dat) / frames_per_second
-    pts = GPSPos(gps_dat, cam, gps_dat[0, :])[0:2]
+    pts = GPSPos(gps_dat, cam, gps_dat[0, :])
     #pts = WGS84toENU(gps_dat[0, 1:4], gps_dat[:, 1:4])[0:2]
-    base_vels = np.concatenate((np.array([[0], [0]]), pts[:, 1:] - pts[:, :-1]), axis=1)
+    base_vels = np.concatenate((np.array([[0], [0], [0]]), pts[:, 1:] - pts[:, :-1]), axis=1)
 
     vels = np.array([-1 * base_vels[1, :], base_vels[0, :]])
 
@@ -77,23 +77,55 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         for i in xrange(gps_directions.shape[0]):
             gps_directions[i] = gps_directions[i] / np.linalg.norm(gps_directions[i])
 
-        important_lanes = []
-        for fr in important_frames:
-            min_val = max(important_frames[0] - 250, 0)
-            max_val = min(important_frames[0] + 250, left_lanes.shape[0] - 1)
-            distances = np.abs(np.dot(left_lanes[min_val:max_val, 0:2] - pts[:, important_frames[0]], gps_directions[0]))
-            important_lanes.append(np.argmin(distances)+min_val)
+        important_left = []
+        important_right = []
+        for ind in xrange(len(important_frames)):
+            fr = important_frames[ind]
+            min_val = max(fr - 15, 0)
+            max_val = min(fr + 15, left_lanes.shape[0] - 1)
+            l_distances = np.abs(np.dot(left_lanes[min_val:max_val, 0:2] - pts[0:2, fr], gps_directions[ind]))
+            r_distances = np.abs(np.dot(right_lanes[min_val:max_val, 0:2] - pts[0:2, fr], gps_directions[ind]))
+            important_left.append(np.argmin(l_distances)+min_val)
+            important_right.append(np.argmin(r_distances)+min_val)
 
-        important_lanes = np.array(important_lanes)
+        important_left = np.array(important_left)
+        important_right = np.array(important_right)
 
-
-        max_idx = max(np.max(important_frames), np.max(important_lanes))
+        max_idx = max(max(np.max(important_frames), np.max(important_left)), np.max(important_right))
         if max_idx >= left_lanes.shape[0] or max_idx >= right_lanes.shape[0]:
             print 'maxing out'
             continue
-        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_lanes, :].transpose())
-        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_lanes, :].transpose())
+        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_left, :].transpose())
+        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_right, :].transpose())
 
+        """
+        outputs = []
+        # encode left points
+        for ind in xrange(temp_left.shape[0]):
+            outputs.append(temp_left[ind, 0])
+            outputs.append(temp_left[ind, 1])
+            outputs.append(temp_left[ind, 2])
+        # encode center points
+        for fr in important_frames:
+            outputs.append(pts[0, fr])
+            outputs.append(pts[1, fr])
+            outputs.append(pts[2, fr])
+        # encode right points
+        for ind in xrange(temp_right.shape[0]):
+            outputs.append(temp_right[ind, 0])
+            outputs.append(temp_right[ind, 1])
+            outputs.append(temp_right[ind, 2])
+
+        for fr in important_frames:
+            outputs.append(base_vels[0, fr])
+            outputs.append(base_vels[1, fr])
+            outputs.append(base_vels[2, fr])
+
+        for i in xrange(P.shape[0]):
+            for j in xrange(P.shape[1]):
+                outputs.append(P[i, j])
+
+        """
         gps_vals = warpPoints(P, GPSColumns(gps_dat[important_frames], cam, gps_dat[frame, :])[0:2])
         left_vals = warpPoints(P, PointsMask(temp_left[0:3, :], cam)[0:2])
         right_vals = warpPoints(P, PointsMask(temp_right[0:3, :], cam)[0:2])
@@ -121,11 +153,11 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
 
         reshaped = pp.resize(I, (240, 320))[0]
         imgs.append(reshaped)
-
+        
 
         if len(imgs) == 960:
             merge_file = "%s_%d" % (output_base, output_num)
-            pml.save_merged_file(merge_file, imgs, labels, imgRows=(6*points_fwd))
+            pml.save_merged_file(merge_file, imgs, labels, imgRows=6*points_fwd)
             imgs = []
             labels = []
             output_num += 1
