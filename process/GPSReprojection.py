@@ -6,7 +6,7 @@ from numpy import array, dot, zeros, around, divide, ones
 def GPSVelocities(GPSData):
    return (np.apply_along_axis(np.linalg.norm, 1, GPSData[:,4:7]))
 
-def GPSColumns(GPSData, Camera, start_frame):
+def GPSPos(GPSData, Camera, start_frame):
     roll_start = -deg2rad(start_frame[7]);
     pitch_start = deg2rad(start_frame[8]);
     yaw_start = -deg2rad(start_frame[9]+90);
@@ -42,7 +42,10 @@ def GPSColumns(GPSData, Camera, start_frame):
     pos_wrt_camera[0,:] += Camera['t_x'] #move to left/right
     pos_wrt_camera[1,:] += Camera['t_y'] #move up/down image
     pos_wrt_camera[2,:] += Camera['t_z'] #move away from cam
+    return pos_wrt_camera
 
+def GPSColumns(GPSData, Camera, start_frame):
+    pos_wrt_camera = GPSPos(GPSData, Camera, start_frame)
     return PointsMask(pos_wrt_camera, Camera)
 
 def PointsMask(pos_wrt_camera, Camera):
