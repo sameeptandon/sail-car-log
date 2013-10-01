@@ -32,7 +32,7 @@ def main(rootdir, out_folder, pts_loc, pickle_loc, exclude_list, test):
         visited_prefix.add(prefix)
 
     #command(arglist[0])
-    pool = multiprocessing.Pool(processes=8)
+    pool = multiprocessing.Pool(processes=1)
     print pool.map(parseFolder, arglist)
 
 if __name__ == '__main__':
