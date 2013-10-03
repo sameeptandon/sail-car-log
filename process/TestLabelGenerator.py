@@ -76,16 +76,21 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         velocities[:,[0, 1]] = velocities[:,[1, 0]]
         sideways = np.cross(velocities, np.array([0,0,1]), axisa=1)
         sideways/= np.sqrt((sideways ** 2).sum(-1))[..., np.newaxis]
-        sideways = GPSPosCamera(ENU2IMU(np.transpose(sideways), gps_dat[0, :]), cam) # sideways vector wrt camera
+        vel_start = ENU2IMU(np.transpose(velocities), gps_dat[0,:])
+        vel_current = ENU2IMU(np.transpose(velocities), gps_dat[frame,:])
+        sideways_start = GPSPosCamera(np.cross(vel_start, np.array([0,0,1]), axisa=0).transpose(), cam) # sideways vector wrt starting frame (camera)
+        sideways_current = GPSPosCamera(np.cross(vel_current, np.array([0,0,1]), axisa=0).transpose(), cam) # sideways vector wrt starting frame (camera)
+        sideways_start /= np.sqrt((sideways_start ** 2).sum(0))[np.newaxis, ...]
+        sideways_current /= np.sqrt((sideways_current ** 2).sum(0))[np.newaxis, ...] # save sideways_current
         center = GPSPos(gps_dat[important_frames,:], cam, gps_dat[0, :]) # points wrt imu
         for ind in xrange(len(important_frames)):
             fr = important_frames[ind]
             min_val = max(fr - 50, 0)
             max_val = min(fr + 50, left_lanes.shape[0] - 1)
 
-            l_distances = np.cross(left_lanes[min_val:max_val, 0:3] - np.transpose(center[:,ind]), np.transpose(sideways[:, ind]), axisa=1)
+            l_distances = np.cross(left_lanes[min_val:max_val, 0:3] - np.transpose(center[:,ind]), np.transpose(sideways_start[:, ind]), axisa=1)
             l_distances = np.sqrt((l_distances ** 2).sum(-1))
-            r_distances = np.cross(right_lanes[min_val:max_val, 0:3] - np.transpose(center[:,ind]), np.transpose(sideways[:, ind]), axisa=1)
+            r_distances = np.cross(right_lanes[min_val:max_val, 0:3] - np.transpose(center[:,ind]), np.transpose(sideways_start[:, ind]), axisa=1)
             r_distances = np.sqrt((r_distances ** 2).sum(-1))
             important_left.append(np.argmin(l_distances)+min_val)
             important_right.append(np.argmin(r_distances)+min_val)
@@ -95,10 +100,16 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
         if max_idx >= left_lanes.shape[0] or max_idx >= right_lanes.shape[0]:
             print 'maxing out'
             continue
-        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_left, :].transpose())
-        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_right, :].transpose())
 
-        gps_vals = warpPoints(P, GPSColumns(gps_dat[important_frames], cam, gps_dat[frame, :])[0:2])
+        temp_left = np.linalg.solve(tr[frame, :, :], left_lanes[important_left, :].transpose()) # save temp_left [0:3,:]
+        #temp_left[0:3, :] += sideways_current*0.8
+
+        temp_gps = GPSPos(gps_dat[important_frames], cam, gps_dat[frame, :]) # save temp_gps [0:3,:]
+
+        temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_right, :].transpose()) # save temp_right [0:3,:]
+        #temp_right[0:3, :] -= sideways_current*0.8
+        
+        gps_vals = warpPoints(P, PointsMask(temp_gps[0:3, :], cam)[0:2]) # save P
         left_vals = warpPoints(P, PointsMask(temp_left[0:3, :], cam)[0:2])
         right_vals = warpPoints(P, PointsMask(temp_right[0:3, :], cam)[0:2])
 
