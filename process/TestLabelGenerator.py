@@ -1,6 +1,6 @@
 import glob
-#import preprocess as pp
-#import preprocess_many_labels as pml
+import preprocess as pp
+import preprocess_velocities as pml
 import numpy as np
 import os
 import os.path
@@ -108,60 +108,41 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
 
         temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_right, :].transpose()) # save temp_right [0:3,:]
         #temp_right[0:3, :] -= sideways_current*0.8
-        
-        gps_vals = warpPoints(P, PointsMask(temp_gps[0:3, :], cam)[0:2]) # save P
-        left_vals = warpPoints(P, PointsMask(temp_left[0:3, :], cam)[0:2])
-        right_vals = warpPoints(P, PointsMask(temp_right[0:3, :], cam)[0:2])
 
-        gps_vals = (gps_vals / 4).astype(np.int32)
-        left_vals = (left_vals / 4).astype(np.int32)
-        right_vals = (right_vals / 4).astype(np.int32)
-        left_vals = left_vals.clip(0,500)
-        right_vals = right_vals.clip(0,500)
-        gps_vals = gps_vals.clip(0,500)
-        gps_vals[0, gps_vals[0, :] >= 320] = 319
-        gps_vals[1, gps_vals[1, :] >= 240] = 239
-        left_vals[0, left_vals[0, :] >= 320] = 319
-        left_vals[1, left_vals[1, :] >= 240] = 239
-        right_vals[0, right_vals[0, :] >= 320] = 319
-        right_vals[1, right_vals[1, :] >= 240] = 239
         outputs = []
-        
-        # scale down column numbers by 16 to aid bucketing but only scale down
-        # row numbers by 4 to aid visualization
-        for i in xrange(points_fwd):
-            outputs.append(left_vals[0, i] / 4)
-            outputs.append(gps_vals[0, i] / 4)
-            outputs.append(right_vals[0, i] / 4)
-            outputs.append(left_vals[1, i])
-            outputs.append(gps_vals[1, i])
-            outputs.append(right_vals[1, i])
+        for i in xrange(temp_left.shape[1]):
+            outputs.append(temp_left[0, i])
+            outputs.append(temp_left[1, i])
+            outputs.append(temp_left[2, i])
+        for i in xrange(temp_gps.shape[1]):
+            outputs.append(temp_gps[0, i])
+            outputs.append(temp_gps[1, i])
+            outputs.append(temp_gps[2, i])
+        for i in xrange(temp_left.shape[1]):
+            outputs.append(temp_right[0, i])
+            outputs.append(temp_right[1, i])
+            outputs.append(temp_right[2, i])
+
+        for i in xrange(sideways_current.shape[1]):
+            outputs.append(sideways_current[0, i])
+            outputs.append(sideways_current[1, i])
+            outputs.append(sideways_current[2, i])
+
+        for i in xrange(P.shape[0]):
+            for j in xrange(P.shape[1]):
+                outputs.append(P[i, j])
+
         labels.append(outputs)
-
-        reshaped = resize(I, (320, 240))
-        for i in xrange(points_fwd):
-            lx= left_vals[0,i]
-            ly= left_vals[1,i]
-            rx= right_vals[0,i]
-            ry= right_vals[1,i]
-            gx = gps_vals[0,i]
-            gy = gps_vals[1,i]
-            reshaped[gy-1:gy+2, gx-1:gx+2] = [0, 255, 0]
-            reshaped[ly-1:ly+2, lx-1:lx+2] = [0, 0, 255]
-            reshaped[ry-1:ry+2, rx-1:rx+2] = [255, 0, 0]
-        reshaped = resize(reshaped, (640, 480))
-        imshow('video', reshaped)
-        key = waitKey(10)
-
         
         
-        #imgs.append(reshaped)
-        #if len(imgs) == 960:
-        #    merge_file = "%s_%d" % (output_base, output_num)
-        #    pml.save_merged_file(merge_file, imgs, labels, imgRows=6*points_fwd)
-        #    imgs = []
-        #    labels = []
-        #    output_num += 1
+        reshaped = pp.resize(I, (240, 320))[0]
+        imgs.append(reshaped)
+        if len(imgs) == 960:
+            merge_file = "%s_%d" % (output_base, output_num)
+            pml.save_merged_file(merge_file, imgs, labels, imgRows=len(labels[0]))
+            imgs = []
+            labels = []
+            output_num += 1
 
         count += 1
 
