@@ -34,6 +34,7 @@ class Consumer
             Mat imgMat(_img);
             _writer << imgMat;
             delete obj;
+            framesConsumed++; 
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -58,6 +59,7 @@ class Consumer
                     writeToDisk (_buf->getFront ());
                 }
         }
+        
 
 
         void toOpenCv(Image* fly_img, IplImage* cv_img) {
@@ -80,7 +82,8 @@ class Consumer
         {
 
             Error error;
-            _is_done = false; 
+            _is_done = false;
+            framesConsumed = 0; 
 
             _writer = VideoWriter(_aviFileName.c_str(),
                     //CV_FOURCC('X','V','I','D'),
@@ -105,6 +108,10 @@ class Consumer
             boost::mutex::scoped_lock io_lock (*_io_mutex);
             //printf("Consumer done.\n");
         }
+        
+        uint64_t getNumFramesConsumed() { 
+            return framesConsumed;
+        }
 
     private:
         SynchronizedBuffer<T>* _buf;
@@ -116,5 +123,6 @@ class Consumer
         bool _is_done;
         IplImage* _img;
         Image* _tmp;
+        uint64_t framesConsumed; 
 };
 
