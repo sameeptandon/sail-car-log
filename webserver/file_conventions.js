@@ -2,8 +2,8 @@ var path = require('path');
 var fs = require('fs');
 
 module.exports = {
-  getNextSuffix: function(prefix) {
-    files = fs.readdirSync(process.cwd());
+  getNextSuffix: function(dir, prefix) {
+    files = fs.readdirSync(dir);
     gps_logs = files.filter(function(elem) {
       return elem.indexOf('.out') != -1 && elem.indexOf(prefix) != -1;
     });
