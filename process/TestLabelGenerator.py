@@ -108,7 +108,7 @@ def runBatch(video_reader, gps_dat, cam, output_base, start_frame, final_frame, 
 
         temp_right = np.linalg.solve(tr[frame, :, :], right_lanes[important_right, :].transpose()) # save temp_right [0:3,:]
         #temp_right[0:3, :] -= sideways_current*0.8
-        
+
         gps_vals = warpPoints(P, PointsMask(temp_gps[0:3, :], cam)[0:2]) # save P
         left_vals = warpPoints(P, PointsMask(temp_left[0:3, :], cam)[0:2])
         right_vals = warpPoints(P, PointsMask(temp_right[0:3, :], cam)[0:2])
