@@ -3,5 +3,8 @@
 *.mp4
 *.swp
 *.pyc
+*~
+bin
+build
 cameralogger/build
 gps_test/build/

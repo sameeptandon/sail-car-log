@@ -184,7 +184,7 @@ if __name__ == '__main__':
         if writer:
           writer.write(I) 
         imshow('video', I)
-        key = waitKey(1)
+        key = waitKey(10)
         if key == ord('q'):
             break
         if time.time() - lastTime > 1:

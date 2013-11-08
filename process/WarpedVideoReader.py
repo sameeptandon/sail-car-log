@@ -48,5 +48,6 @@ class WarpedVideoReader(VideoReader):
       (success, img, frame, P) = self.getNextFrame()
       if success == False:
         break
+      print self.framenum
       cv2.imshow("video", img)
-      key = cv2.waitKey(5)
+      #key = cv2.waitKey(5)

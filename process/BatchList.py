@@ -2,12 +2,8 @@ import os
 import sys
 import subprocess
 import multiprocessing
-if '--test' in sys.argv:
-    from TestLabelGenerator import *
-else:
-    from DistanceLabelGenerator import *
 
-def main(rootdir, out_folder, pts_loc, pickle_loc, exclude_list, test): 
+def main(rootdir, out_folder, pickle_loc, exclude_list, test): 
     root_to_prefix = rootdir if rootdir[-1] is not '/' else rootdir[:-1]
     pref = os.path.basename(root_to_prefix) + '_'
     visited_prefix = set([])
@@ -31,15 +27,16 @@ def main(rootdir, out_folder, pts_loc, pickle_loc, exclude_list, test):
         arglist.append((prefix, out_folder, pref, os.path.join(pts_loc, pts_base), pickle_loc))
         visited_prefix.add(prefix)
 
+    # run parseFolder analog over each set of arguments
     #command(arglist[0])
-    pool = multiprocessing.Pool(processes=1)
-    print pool.map(parseFolder, arglist)
+    #pool = multiprocessing.Pool(processes=12)
+    #print pool.map(parseFolder, arglist)
 
 if __name__ == '__main__':
-    f = open(sys.argv[5], 'rb')
+    f = open(sys.argv[4], 'rb')
     lines = f.readlines()
     f.close()
     test = False
     for i in xrange(len(lines)):
         lines[i] = lines[i].strip()
-    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], lines, test)
+    main(sys.argv[1], sys.argv[2], sys.argv[3], lines, test)
