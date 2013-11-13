@@ -1,3 +1,4 @@
+import matplotlib.pylab as pp
 import cv2, cv
 import os
 
@@ -53,5 +54,10 @@ class VideoReader():
       (success, img) = self.getNextFrame()
       if success == False:
         break;
-      cv2.imshow("video", img)
-      key = cv2.waitKey(5);
+      savename = '/scail/group/deeplearning/driving_data/stillimgs/280N_right_%d.png'%(self.framenum)
+      img = img[:,:,::-1]
+      print savename
+      pp.imsave(savename, img)
+
+#      cv2.imshow("video", img)
+#      key = cv2.waitKey(5);

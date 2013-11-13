@@ -11,7 +11,7 @@ def getCameraParams():
                                          [0, -1, 0]])
 
         if i == 0:
-            cam[i]['rot_x'] = deg2rad(-0.8)  # better cam 1
+            cam[i]['rot_x'] = deg2rad(-0.7)  # better cam 1
             cam[i]['rot_y'] = deg2rad(-0.5)
             cam[i]['rot_z'] = deg2rad(-0.005)
             cam[i]['t_x'] = -0.5

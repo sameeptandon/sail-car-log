@@ -154,7 +154,7 @@ def GPSPosCamera(pos_wrt_imu, Camera):
 
 def GPSColumns(GPSData, Camera, start_frame):
     pos_wrt_camera = GPSPos(GPSData, Camera, start_frame)
-    return PointsMask(pos_wrt_camera, Camera)
+    return PointsMask(pos_wrt_camera[:,1:], Camera)
 
 def GPSShiftedColumns(GPSData, Camera, start_frame):
     pos_wrt_camera = GPSPosShifted(GPSData, Camera, start_frame)

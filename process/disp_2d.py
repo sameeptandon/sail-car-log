@@ -47,10 +47,10 @@ if __name__ == '__main__':
             cam['rot_z'], 'sxyz')[0:3,0:3]
     R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i)
     Tc = np.eye(4)
-    Tc[0:3, 0:3] = np.transpose(R_camera_pitch)
-    Tc[1, 3] -= height
-    Tc[0, 3] -= 0.2
-    Tc[2, 3] -= 0.5
+    #Tc[0:3, 0:3] = np.transpose(R_camera_pitch)
+    #Tc[1, 3] -= height
+    #Tc[0, 3] -= 0.2
+    #Tc[2, 3] -= 0.5
     #Tc = np.array([[1, 0, 0, 0], [0, np.cos(pitch), -np.sin(pitch), -height], [0, np.sin(pitch), np.cos(pitch), 0], [0, 0, 0, 1]])
 
     Tc2 = np.eye(4) # check testTrackReverse for actual transformation value

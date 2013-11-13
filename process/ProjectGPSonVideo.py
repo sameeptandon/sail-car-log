@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
   cv2.namedWindow('video')
   cv.SetMouseCallback('video', on_mouse, 0)
-  num_imgs_fwd = 1250; 
+  num_imgs_fwd = 200; 
   video_reader = VideoReader(video_filename)
   gps_reader = GPSReader(gps_filename)
   gps_dat = gps_reader.getNumericData()
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     maxX = 1200
     maxY = 960
     dst = array([[-1000,200],[2280,200],[780,960],[500,960]], float32)
-    """
+    
     #src =  array([(567, 759), (896, 756), (919, 791), (555, 793)], float32)
     src = array([(570, 737), (864, 737), (881, 761), (564, 761)], float32)
     #src = array([(520, 727), (916, 733), (950, 775), (497, 771)], float32)
@@ -127,11 +127,11 @@ if __name__ == '__main__':
         I[:,lastCols[0],:] = 0
         I[:,lastCols[1],:] = 0
         I[:,(lastCols[0]+lastCols[1])/2,:] = 0
-
+    """
     #I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
     I = resize(I, (640, 480))
     imshow('video', I )
-    key = (waitKey(4) & 255)
+    key = (waitKey(2) & 255)
     if key == ord('q'):
       break;
     currentTime = time.time();
