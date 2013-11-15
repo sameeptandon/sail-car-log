@@ -11,7 +11,7 @@ from cv2 import imshow, waitKey, resize, warpPerspective, getPerspectiveTransfor
 import cv
 import cv2
 import time
-from scipy.io import savemat
+from scipy.io import loadmat
 
 
 left_frames = []
@@ -20,12 +20,12 @@ frameWaitTime = 100
 
 if __name__ == '__main__':
   video_filename = sys.argv[1]
-  existing_lanes = []
   path, vfname = os.path.split(video_filename)
   vidname = vfname.split('.')[0]
   cam_num = int(vidname[-1])
   gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
   out_name = sys.argv[2]
+  existing_lanes = loadmat(out_name)
   display = True
   if '--quiet' in sys.argv:
       display = False
@@ -51,12 +51,14 @@ if __name__ == '__main__':
   right_present = -1
 
   while True:
-    framenum = framenum + 1;
+    framenum = framenum + 10;
     (success, I) = video_reader.getNextFrame()
     if success == False:
       print framenum, 'finished'
       break
 
+    left_present = existing_lanes['left'][framenum]
+    right_present = existing_lanes['right'][framenum]
     if framenum % skip_frame != 0:
       continue
 
@@ -79,6 +81,7 @@ if __name__ == '__main__':
     if key == ord('q'):
       break;
 
+    """
     switched_left = True
     if key == ord('s') and left_present != 2:
         left_present = 2
@@ -107,7 +110,6 @@ if __name__ == '__main__':
 
         existing_lanes.append([left_present, right_present])
     elif switched_left:
-        print 'left', framenum
         for i in xrange(len(existing_lanes) - 1, max(-1, len(existing_lanes) - 1 - 10 * skip_frame * seconds_back), -1):
             prev_lane = existing_lanes[i]
             existing_lanes[i] = [-1, prev_lane[1]]
@@ -116,7 +118,6 @@ if __name__ == '__main__':
 
         existing_lanes.append([left_present, right_present])
     elif switched_right:
-        print 'right', framenum
         for i in xrange(len(existing_lanes) - 1, max(-1, len(existing_lanes) - 1 - 10 * skip_frame * seconds_back), -1):
             prev_lane = existing_lanes[i]
             existing_lanes[i] = [prev_lane[0], -1]
@@ -133,9 +134,6 @@ if __name__ == '__main__':
         lastTime = currentTime
         print framenum
 
-  existing_lanes = np.array(existing_lanes)
-  savemat(out_name, dict(left = existing_lanes[:,0], right=existing_lanes[:, 1]))
-  """
   r = np.arange(9,len(frame_data)*skip_frame,skip_frame)
   export_data = -1*np.ones((len(frame_data)*skip_frame+1,2))
   export_data[r,:] = frame_data
