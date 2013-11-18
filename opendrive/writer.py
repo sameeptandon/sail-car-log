@@ -23,13 +23,12 @@ for i in range(C.shape[0]-1):
 	start = C[i, :]
 	st = "<geometry "
 	st += 's ="{:.16e}" x="{:.16e}" y="{:.16e}" hdg="{:.16e}" length="{:.16e}"'.format(s, start[0], start[1], Heading[i], Distance[i]);
-	st += ">\n\t</line>\n</geometry>"
+	st += ">\n\t<line/>\n</geometry>"
 	s += Distance[i];
-	#print st;
+	print st;
 
 inertialB = 'minx:{:.16e} maxx:{:.16e} miny:{:.16e} maxy:{:.16e}'.format(np.min(C[:,0]), np.max(C[:,0]), np.min(C[:,1]),
 		np.max(C[:,1]));
-print inertialB
 
 
 
