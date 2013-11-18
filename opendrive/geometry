@@ -1,15 +1,4 @@
-<?xml version="1.0" standalone="yes"?>
-<OpenDRIVE>
-    <!--north south east west max and min inertial value in [m] -->
-    <header revMajor="1" revMinor="1" name="OpenDRIVE Testfile" version="1.00" date="Sun Nov  17 14:24:06 2013" north="3.0000000000000000e+04" south="-1.1500000000000000e+01" east="2.0000000000000000e+04" west="-1.15000000000000000e+01" maxRoad="35" maxJunc="27" maxPrg="0">
-    </header>
-    <road name="" length="4.1990127482212934e+04" id="17" junction="-1">
-        <link>
-            <predecessor elementType="road" elementId="5" contactPoint="start" />
-            <successor elementType="road" elementId="1" contactPoint="end" />
-        </link>
-        <planView>
-            <geometry s ="0.0000000000000000e+00" x="-2.6934848551581574e+00" y="1.2369891188495552e+01" hdg="1.5678664515927931e+00" length="5.1701051755986079e+01">
+<geometry s ="0.0000000000000000e+00" x="-2.6934848551581574e+00" y="1.2369891188495552e+01" hdg="1.5678664515927931e+00" length="5.1701051755986079e+01">
 	</line>
 </geometry>
 <geometry s ="5.1701051755986079e+01" x="-2.5420074424137815e+00" y="6.4070721039365253e+01" hdg="1.5664179273530079e+00" length="5.8732624847026884e+01">
@@ -2178,57 +2167,3 @@
 <geometry s ="4.1926268964365561e+04" x="1.8832822963903080e+04" y="2.8484566457622168e+04" hdg="1.3541760821059532e+00" length="6.3858517847371651e+01">
 	</line>
 </geometry>
-
-        </planView>
-        <elevationProfile>
-            <elevation s="0.0000000000000000e+00" a="000000000000000e+00" b="0.0000000000000000e+00" c="0.0000000000000000e+00" d="0.0000000000000000e+00"/>
-        </elevationProfile>
-        <lanes>
-            <laneSection s="0.0000000000000000e+00">
-                <left>
-                    <lane id="2" type="border" level= "0">
-                        <link>
-                            <predecessor id="-2"/>
-                            <successor id="-2"/>
-                        </link>
-                        <width sOffset="0.0000000000000000e+00" a="1.5000000000000000e+00" b="0.0000000000000000e+00" c="0.0000000000000000e+00" d="0.0000000000000000e+00"/>
-                        <roadMark sOffset="0.0000000000000000e+00" type="none" weight="standard" color="standard" width="1.3000000000000000e-01"/>
-                    </lane>
-                    <lane id="1" type="driving" level= "0">
-                        <link>
-                            <predecessor id="-1"/>
-                            <successor id="-1"/>
-                        </link>
-                        <width sOffset="0.0000000000000000e+00" a="3.2500000000000000e+00" b="0.0000000000000000e+00" c="0.0000000000000000e+00" d="0.0000000000000000e+00"/>
-                        <roadMark sOffset="0.0000000000000000e+00" type="solid" weight="standard" color="standard" width="1.3000000000000000e-01"/>
-                    </lane>
-                </left>
-                <center>
-                    <lane id="0" type="driving" level= "0">
-                        <link>
-                        </link>
-                        <roadMark sOffset="0.0000000000000000e+00" type="broken" weight="standard" color="standard" width="1.3000000000000000e-01"/>
-                    </lane>
-                </center>
-                <right>
-                    <lane id="-1" type="driving" level= "0">
-                        <link>
-                            <predecessor id="1"/>
-                            <successor id="1"/>
-                        </link>
-                        <width sOffset="0.0000000000000000e+00" a="3.2500000000000000e+00" b="0.0000000000000000e+00" c="0.0000000000000000e+00" d="0.0000000000000000e+00"/>
-                        <roadMark sOffset="0.0000000000000000e+00" type="solid" weight="standard" color="standard" width="1.3000000000000000e-01"/>
-                    </lane>
-                    <lane id="-2" type="border" level= "0">
-                        <link>
-                            <predecessor id="2"/>
-                            <successor id="2"/>
-                        </link>
-                        <width sOffset="0.0000000000000000e+00" a="1.5000000000000000e+00" b="0.0000000000000000e+00" c="0.0000000000000000e+00" d="0.0000000000000000e+00"/>
-                        <roadMark sOffset="0.0000000000000000e+00" type="none" weight="standard" color="standard" width="1.3000000000000000e-01"/>
-                    </lane>
-                </right>
-            </laneSection>
-        </lanes>
-    </road>
-</OpenDRIVE>
