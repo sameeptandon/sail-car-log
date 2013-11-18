@@ -13,18 +13,19 @@ int main(int argc, char ** argv){
 	}
 
 	cerr << "main: printing data contents" << endl;
-	myManager.printData();
+	//myManager.printData();
 
 	OpenDrive::Position* myPos = myManager.createPosition();
 	myManager.activatePosition(myPos);
 
-	for(double s = 0.0; s < 2300.00; s+= 100.0){
-		
-		myManager.setTrackPos(1,s,1.0);
-		
+	for(double s = 0.0; s < 41926; s+= 10.0){
+
+		myManager.setTrackPos(17,s,0);
+
 		bool result = myManager.track2inertial();
 
-		cout << myManager.getInertialPos().getX() << " " << myManager.getInertialPos().getY() << " " << myManager.getInertialPos().getZ();
+		cout << myManager.getInertialPos().getX() << " " << myManager.getInertialPos().getY() << endl;
+// << " " << myManager.getInertialPos().getZ() << endl;
 	}
 	return 0;
 }
