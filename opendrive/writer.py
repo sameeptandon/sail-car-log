@@ -7,8 +7,8 @@ A = pickle.load(open('data.txt', 'rb'));
 #get the x and z coordinates
 C = A[:, [0,2]]
 
-#plt.plot(C[:,0], C[:,1]);
-#plt.show();
+plt.plot(C[:,0], C[:,1]);
+plt.show();
 C = C[0:-1:100];
 Next = C[1:];
 Current = C[0:-1]
