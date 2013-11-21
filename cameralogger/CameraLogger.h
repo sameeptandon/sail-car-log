@@ -30,17 +30,15 @@ class SyncBuffer {
 };
 
 void convertToCV(const Image* obj, IplImage* img) {
-    IplImage* _img = img;
-    _img->height = obj->GetRows();
-    _img->width = obj->GetCols();
-    _img->widthStep = obj->GetStride();
-    _img->nChannels = 3;
-    _img->imageData = (char*)obj->GetData();
+    img->height = obj->GetRows();
+    img->width = obj->GetCols();
+    img->widthStep = obj->GetStride();
+    img->nChannels = 3;
+    img->imageData = (char*)obj->GetData();
 }
 
 void show (IplImage* img, string name) {
-    IplImage* _img = img;
-    Mat im_out;
-    resize(Mat(_img), im_out, Size(320,240));
-    imshow(name.c_str(), im_out);
+    Mat imout;
+    resize(Mat(img), imout, Size(320,240));
+    imshow(name.c_str(), imout);
 }

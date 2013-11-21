@@ -1,6 +1,8 @@
-//#define TWO_CAM
-//#define DISPLAY
-#define DEBUG_NO_SENSORS
+#define DISPLAY
+#define NOGPS
+#define NUM_CAMS 3
+//#define NOSYNC
+//#define DEBUG_NO_SENSORS
 
 #include <fstream>
 #include "CameraLogger.h"
@@ -12,8 +14,9 @@
 #define CAMERA_DISPLAY_SKIP 3
 #define NUMTHREAD_PER_BUFFER 10
 
-SyncBuffer cam1_buff[NUMTHREAD_PER_BUFFER];
-SyncBuffer cam2_buff[NUMTHREAD_PER_BUFFER];
+SyncBuffer cam_buff[NUM_CAMS][NUMTHREAD_PER_BUFFER];
+Camera* cam[NUM_CAMS]; 
+Consumer<Image>* cam_consumer[NUM_CAMS][NUMTHREAD_PER_BUFFER]; 
 
 zmq::context_t context(1);
 zmq::socket_t my_commands(context, ZMQ_SUB);
@@ -39,6 +42,7 @@ inline void ImageCallback(Image* pImage, const void* pCallbackData,
 
 inline void sendDiagnosticsMessage(string message) { 
   zmq::message_t diag_msg_t((void *) message.c_str(), message.length(), NULL);
+  //cout << message << endl; 
   send_diagnostics.send(diag_msg_t, ZMQ_NOBLOCK);
 }
 
@@ -70,7 +74,6 @@ int main(int argc, char** argv)
   sleep(1);
   sendDiagnosticsMessage("WARN:Connecting to Cameras...");
 
-
   variables_map vm;
   store(parse_command_line(argc, argv, desc), vm);
   notify(vm);
@@ -78,12 +81,11 @@ int main(int argc, char** argv)
     cout << desc << endl;
     return 1;
   }
-  string fname1 = "";
-  string fname2 = "";
+  string fname = "";
+  string ext = ".avi"; 
   string fnamegps = "";
   if (vm.count("output")) { 
-    fname1 = vm["output"].as<string>() + "1.avi";
-    fname2 = vm["output"].as<string>() + "2.avi";
+    fname = vm["output"].as<string>();
     fnamegps = vm["output"].as<string>() + "_gps.out";
   }
   else {
@@ -96,7 +98,7 @@ int main(int argc, char** argv)
     maxframes = vm["maxframes"].as<uint64_t>(); 
   }
 
-#ifdef DEBUG_NO_SENSORS
+#if defined(DEBUG_NO_SENSORS) || defined(NOSYNC) || defined(NOGPS)
   bool useGPS = false;
 #else
   bool useGPS = true; 
@@ -111,55 +113,43 @@ int main(int argc, char** argv)
   int imageHeight = 960;
 
   cout << "Capturing for maximum of " << maxframes << " frames" << endl; 
-  cout  << "Filenames: " << fname1 << " " << fname2 << endl; 
 
-  for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++)
+  for (int cam_num = 0; cam_num < NUM_CAMS; cam_num++) 
   {
-    cam1_buff[thread_num].getBuffer()->setCapacity(1000);
-    cam2_buff[thread_num].getBuffer()->setCapacity(1000);
+      for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++)
+      {
+          cam_buff[cam_num][thread_num].getBuffer()->setCapacity(1000);
+      }
   }
 
 #ifndef DEBUG_NO_SENSORS
-  Camera* cam1 = ConnectCamera(0); // 0 indexing
-  assert(cam1 != NULL);
-  RunCamera(cam1);
+  for (int cam_num = 0; cam_num < NUM_CAMS; cam_num++)  {
+      cam[cam_num] = ConnectCamera(cam_num);
+      assert(cam[cam_num] != NULL);
+      RunCamera(cam[cam_num]);
 
-  Consumer<Image>* cam1_consumer[NUMTHREAD_PER_BUFFER];
-  for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
-    stringstream sstm;
-    sstm << "split_" << thread_num << "_" << fname1; 
-    string thread_fname = sstm.str();
-    cam1_consumer[thread_num] = new Consumer<Image>(
-        cam1_buff[thread_num].getBuffer(),
-        thread_fname, cam1_buff[thread_num].getMutex(), 50.0f,
-        imageWidth, imageHeight);
-  }
+      for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++)
+      {
+          stringstream sstm;
+          sstm << "split_" << thread_num << "_" << fname << cam_num+1 << ext; 
+          string thread_fname = sstm.str();
+          cam_consumer[cam_num][thread_num] = new Consumer<Image>(
+                  cam_buff[cam_num][thread_num].getBuffer(),
+                  thread_fname, cam_buff[cam_num][thread_num].getMutex(), 50.0f,
+                  imageWidth, imageHeight);
+      }
+
+    #ifdef DISPLAY
+      stringstream wstm;
+      wstm << "cam" << cam_num;
+      string window_name = wstm.str();
+      cvNamedWindow(window_name.c_str(), CV_WINDOW_AUTOSIZE); // TODO
+    #endif
 #endif
-
-#ifdef DISPLAY
-  cvNamedWindow("cam1", CV_WINDOW_AUTOSIZE);
-#endif
-
-#ifdef TWO_CAM
-  Camera* cam2 = ConnectCamera(1); // 0 indexing 
-  assert(cam2 != NULL);
-  RunCamera(cam2); 
-  Consumer<Image>* cam2_consumer[NUMTHREAD_PER_BUFFER];
-  for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
-    stringstream sstm;
-    sstm << "split_" << thread_num << "_" << fname2; 
-    string thread_fname = sstm.str();
-    cam2_consumer[thread_num] = new Consumer<Image>(
-        cam2_buff[thread_num].getBuffer(),
-        thread_fname, cam2_buff[thread_num].getMutex(), 50.0f,
-        imageWidth, imageHeight);
   }
-#ifdef DISPLAY
-  cvNamedWindow("cam2", CV_WINDOW_AUTOSIZE);
-#endif //DISPLAY
-#endif //TWO_CAM
 
   IplImage* img = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
+  Image* imgToSend = new Image();
   string lastValidGPSPacket;
 
   //// setup ZMQ communication
@@ -181,7 +171,7 @@ int main(int argc, char** argv)
   uint64_t numframes = 0;
   uint64_t lastframes = 0; 
   ///////// main loop
-  while (!is_done_working) {
+  while (!is_done_working or numframes < 250) {
     numframes++;
     if (numframes > maxframes) { 
       is_done_working = true;
@@ -205,31 +195,25 @@ int main(int argc, char** argv)
     } catch (const zmq::error_t&e) {}
 
 #ifndef DEBUG_NO_SENSORS
-    Image image; 
-    cam1->RetrieveBuffer(&image);
-    ImageCallback(&image, NULL, &cam1_buff[numframes % NUMTHREAD_PER_BUFFER]);
+    for (int cam_num = 0; cam_num < NUM_CAMS; cam_num++) { 
+        Image image; 
+        cam[cam_num]->RetrieveBuffer(&image);
+        image.Convert(PIXEL_FORMAT_BGR, imgToSend);
+        ImageCallback(&image, NULL, &cam_buff[cam_num][numframes % NUMTHREAD_PER_BUFFER]);
 
-    Image cimage; 
-    if (numframes % CAMERA_DISPLAY_SKIP == 0) {
-      image.Convert(PIXEL_FORMAT_BGR, &cimage);
-      convertToCV(&cimage, img); 
-      #ifdef DISPLAY
-      show(img, "cam1");
-      #endif //DISPLAY
+        Image cimage; 
+        if (numframes % CAMERA_DISPLAY_SKIP == 0) {
+            image.Convert(PIXEL_FORMAT_BGR, &cimage);
+            convertToCV(&cimage, img); 
+#ifdef DISPLAY
+            stringstream wstm;
+            wstm << "cam" << cam_num;
+            string window_name = wstm.str();
+            show(img, window_name.c_str());
+#endif //DISPLAY
+        }
     }
 #endif //DEBUG_NO_SENSORS
-
-#ifdef TWO_CAM
-    cam2->RetrieveBuffer(&image);
-    ImageCallback(&image, NULL, &cam2_buff[numframes % NUMTHREAD_PER_BUFFER]);
-    if (numframes % CAMERA_DISPLAY_SKIP == 0) {
-      image.Convert(PIXEL_FORMAT_BGR, &cimage);
-      convertToCV(&cimage, img); 
-      #ifdef DISPLAY
-      show(img, "cam2");
-      #endif //DISPLAY
-    }
-#endif // TWO_CAM
 
 #ifdef DISPLAY
     char r = cvWaitKey(1);
@@ -246,30 +230,36 @@ int main(int argc, char** argv)
         lastValidGPSPacket = boost::get<1>(packet);
         gps_output << lastValidGPSPacket << endl;
       } else {
-        sendDiagnosticsMessage("WARN:Bad GPS Packet"); 
+        sendDiagnosticsMessage("WARN:Bad GPS Packet:" + boost::get<1>(packet)); 
       }
 
     }
 
-    currentTime = Time(boost::posix_time::microsec_clock::local_time()); 
+    currentTime = Time(boost::posix_time::microsec_clock::local_time());
     if ((currentTime - lastTime).total_milliseconds() > 1000) {
       string captureRateMsg = "INFOCAPTURERATE:" + boost::to_string(numframes-lastframes); 
+      cout << captureRateMsg << endl;
       sendDiagnosticsMessage(captureRateMsg);
 
-      int queue_size = 0; 
-      for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++)
-      {
-        queue_size += cam1_buff[thread_num].getBuffer()->getSize();
-        queue_size += cam2_buff[thread_num].getBuffer()->getSize(); 
+      int queue_size = 0;
+      for (int cam_num = 0; cam_num < NUM_CAMS; cam_num++) { 
+          for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; 
+                  thread_num++) {
+              queue_size += cam_buff[cam_num][thread_num].getBuffer()->getSize();
+          }
       }
-
       string bufferSizeMsg = "INFOBUFFERSIZE:" + boost::to_string(queue_size);
-      sendDiagnosticsMessage(bufferSizeMsg);
+      cout << bufferSizeMsg << endl; 
+      sendDiagnosticsMessage(bufferSizeMsg); 
 
       // encode last image for transmission
-      Mat lastCameraImage(img);
-      vector<uchar> lastCameraImageBuf; string lastCameraImageMsg; 
-      resize(lastCameraImage, lastCameraImage, Size(320,240));
+      Mat lastCameraImage;
+      vector<uchar> lastCameraImageBuf; 
+      string lastCameraImageMsg;
+
+      IplImage* cvImgToSend = cvCreateImage(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 3);
+      convertToCV(imgToSend, cvImgToSend);
+      resize(Mat(cvImgToSend), lastCameraImage, Size(320,240));
       imencode(".png", lastCameraImage, lastCameraImageBuf);
       lastCameraImageMsg = string(lastCameraImageBuf.begin(), lastCameraImageBuf.end());
       lastCameraImageMsg = "CAM:" + lastCameraImageMsg; 
@@ -301,26 +291,20 @@ int main(int argc, char** argv)
   /////// cleanup
   sendDiagnosticsMessage("WARN:Shutting Down GPS...");
   if (useGPS) gpsLogger.Close();
-#ifdef DISPLAY
-  cvDestroyWindow("cam1");
-  cvDestroyWindow("cam2");
-#endif
   sendDiagnosticsMessage("WARN:Shutting Down Cameras...");
 #ifndef DEBUG_NO_SENSORS
-  for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
-    cam1_consumer[thread_num]->stop();
-    delete cam1_consumer[thread_num];
+  for (int cam_num = 0; cam_num < NUM_CAMS; cam_num++) { 
+
+      for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
+          cam_consumer[cam_num][thread_num]->stop();
+          delete cam_consumer[cam_num][thread_num];
+      }
+      CloseCamera(cam[cam_num]);
+      delete cam[cam_num]; 
   }
-  CloseCamera(cam1);
-  delete cam1; 
-#endif 
-#ifdef TWO_CAM
-  for (int thread_num = 0; thread_num < NUMTHREAD_PER_BUFFER; thread_num++) {
-    cam2_consumer[thread_num]->stop();
-    delete cam2_consumer[thread_num];
-  }
-  CloseCamera(cam2);
-  delete cam2;
+#endif
+#ifdef DISPLAY
+  cvDestroyAllWindows(); 
 #endif
   if (quit_via_user_input) return 1;
   return 0;
