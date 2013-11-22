@@ -1,8 +1,7 @@
 """ 
 This script takes as input lane labels given by our detector and output GPS coordinates of the lane marking in WGS84 format.
 
-python LabelsToGPS.py <video/gps identifier> <lane labels in px> <output: lane labels in gps> 
-""" 
+python LabelsToGPS.py <video/gps identifier> <lane labels in px> """ 
 
 import numpy as np
 import pickle
