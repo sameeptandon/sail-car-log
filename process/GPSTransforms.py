@@ -3,7 +3,7 @@ import numpy as np
 from WGS84toENU import *
 from numpy import array, dot, zeros, around, divide, ones
 
-def R_to_c_from_w(roll, pitch, yaw, cam):
+def R_to_i_from_w(roll, pitch, yaw): 
     cp = cos(pitch)
     sp = sin(pitch)
     ct = cos(roll)
@@ -16,11 +16,17 @@ def R_to_c_from_w(roll, pitch, yaw, cam):
                   [sg*cp+cg*st*sp, cg*ct, sg*sp-cg*st*cp],
                   [-ct*sp, st, ct*cp]]).transpose()
 
+    return R_to_i_from_w; 
+
+def R_to_c_from_i(cam): 
     R_to_c_from_i = cam['R_to_c_from_i']
     R_camera_pitch = euler_matrix(cam['rot_x'], cam['rot_y'], cam['rot_z'], 'sxyz')[0:3,0:3]
     R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i)
 
-    return dot(R_to_c_from_i, R_to_i_from_w)
+    return R_to_c_from_i
+
+def R_to_c_from_w(roll, pitch, yaw, cam):
+    return dot(R_to_c_from_i(cam), R_to_i_from_w(roll, pitch, yaw) )
 
 
 def GPSTransforms(GPSData, Camera, width=2): 
