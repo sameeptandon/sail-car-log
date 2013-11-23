@@ -29,16 +29,17 @@ def R_to_c_from_w(roll, pitch, yaw, cam):
     return dot(R_to_c_from_i(cam), R_to_i_from_w(roll, pitch, yaw) )
 
 
-def GPSTransforms(GPSData, Camera, width=2): 
-
+def GPSTransforms(GPSData, Camera, refData=None, width=2): 
+    if refData is None:
+        refData = GPSData
     tr = np.array([np.eye(4),]*GPSData.shape[0])
-
+    #Define all start points relative to reference data set
     roll_start = -deg2rad(GPSData[0,7]);
     pitch_start = deg2rad(GPSData[0,8]);
-    yaw_start = -deg2rad(GPSData[0,9]+90);
+    yaw_start = -deg2rad(refData[0,9]+90);
 
     base_R_to_c_from_w = R_to_c_from_w(roll_start, pitch_start, yaw_start, Camera)
-    pts = WGS84toENU(GPSData[0,1:4], GPSData[:,1:4])
+    pts = WGS84toENU(refData[0,1:4], GPSData[:,1:4])
 
     world_coordinates = pts;
     pos_wrt_camera = dot(base_R_to_c_from_w, world_coordinates);
@@ -58,5 +59,3 @@ def GPSTransforms(GPSData, Camera, width=2):
         tr[i, 0:3,0:3] = dot(base_R_to_c_from_w, rot)
 
     return tr
-
-

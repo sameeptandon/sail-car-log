@@ -8,3 +8,5 @@ bin
 build
 cameralogger/build
 gps_test/build/
+*.mat
+*.png
