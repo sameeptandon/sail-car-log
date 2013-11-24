@@ -1,0 +1,1 @@
+g++ -m32 -o odrTest2 src/mymain.cc -Iinc -Llib/Linux/i586 -lODriveLite.1.3.4 && ./odrTest2 ../mysamp2.xodr
