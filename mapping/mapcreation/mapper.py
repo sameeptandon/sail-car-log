@@ -11,6 +11,7 @@ class Map(object):
 	#getting sample lambdas
 	def getSampleLambdas(self):
 		return np.arange(0., self.data.shape[0]+1, 0.1);
+
 	#given as input a lambda, the function outputs its best prediction for the
 	#location of the point.
 	def predict(self,lam):

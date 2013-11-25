@@ -20,5 +20,4 @@ newPredCoords = m.generateMap();
 draw(newData, "black");
 draw(predCoords, "red");
 draw(newPredCoords, "green");
-
 plt.show();
