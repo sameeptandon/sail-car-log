@@ -17,7 +17,7 @@ class Map(object):
 	def predict(self,lam):
 		m = self.data.shape[0];
 		W = np.zeros([m,m]);
-		tau = 0.9;
+		tau = 0.1;
 		for i in range(0, m):
 			W[i,i] = np.exp(-((lam - self.datalambs[i, 1])**2)/(2*(tau**2)));
 			#intermediary result to allow calc of both X and Y without redundancy

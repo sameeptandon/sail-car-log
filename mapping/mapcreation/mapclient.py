@@ -19,6 +19,7 @@ def run(data, newData):
 	newPredCoords = m.generateMap();
 	#draw(newData, "black");
 	#draw(predCoords, "red");
+	draw(data, "black");
 	draw(newPredCoords, "green");
 	plt.show();
 
@@ -36,7 +37,7 @@ def realRun(filename):
 	startindex = int((num/2)-(num/8))
 	endindex = int((num/2)+(num/8))
 	newData = C[startindex:endindex, :]
-	data = np.vstack((C[0:startindex,:], C[endindex:C.shape[0], :]))
+	data = np.vstack((C[0:startindex,:], C[startindex:endindex:10,:], C[endindex:C.shape[0], :]))
 	run(data, newData);
 
 if __name__ == '__main__':
