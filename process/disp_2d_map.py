@@ -52,8 +52,8 @@ if __name__ == '__main__':
     writer = None
     saveImageDest = None
     if len(sys.argv) > 5:
-			saveImageDest = sys.argv[5]
-      #writer = cv2.VideoWriter(sys.argv[5], cv.CV_FOURCC('F','M','P','4'), 10.0, (640,480))
+			#saveImageDest = sys.argv[5]
+      writer = cv2.VideoWriter(sys.argv[5], cv.CV_FOURCC('F','M','P','4'), 10.0, (640,480))
 
     cam = getCameraParams()[cam_num - 1] 
     ## Get GPS transforms of both data sets relative to one dataset
@@ -113,7 +113,8 @@ if __name__ == '__main__':
     yaw = -np.pi/180*yaw+np.pi
     yaw = yaw+np.pi/2-yaw[0]
     yawRate = np.diff(yaw)
-    pf = ParticleFilterDriving((gps_Pos[0,0],gps_Pos[0,3],yaw[0]),(5,5,5*pi/180),200,left_Pos_Map)
+    pf = ParticleFilterDriving((gps_Pos[0,0],gps_Pos[0,3],yaw[0]),(5,5,5*pi/180),200,left_Pos_Map,trMap,cam_num)
+    pf2 = ParticleFilterDriving((0,0),(1,1),1,left_Pos,tr,cam_num)
     #print pf.particles
     #print pf.map
     pfOutput = np.zeros(gps_Pos.shape)
@@ -204,10 +205,13 @@ if __name__ == '__main__':
         
         pf.propogate((gps_dat[count,[4,5]]*dT*10,yaw[count],yawRate[count]*10))
         pf.gpsMeasurement((gps_Pos[count,[0,2]],yaw[count]))
+        visionInput = pf2.getMapPts((gps_Pos[count,0],gps_Pos[count,2],yaw[count]))
+        pf.visionMeasurement(visionInput)
         pfOutput[count,0:3] = pf.state()
         #print pf.state()
         #print (gps_Pos[count,[0,2]],yaw[count])
 
+        '''
         """ code to compute the Map left lane reprojection"""
 				#Compute closest map point to current point
 				##Brute force 
@@ -234,12 +238,12 @@ if __name__ == '__main__':
         offset = np.mean(lPos2[0,:] - lPos2Map[0,:])
 				#print(offset)
 
-        '''
+        
         print lPos2Map[0:3,0:5]
         mapPts = pf.getMapPts()
         print 'Map'
         print mapPts[0:3,0:5]
-        '''
+        
 
         lPos2Map[0,:] = lPos2Map[0,:]+offset
         lpix = np.around(np.dot(cam['KK'], np.divide(lPos2Map[0:3,:], lPos2Map[2, :])))
@@ -258,11 +262,13 @@ if __name__ == '__main__':
               I[lpix[1,:], lpix[0,:]+p, :] = [255, 255, 0]
               I[lpix[1,:]-p, lpix[0,:], :] = [255, 255, 0]
               I[lpix[1,:], lpix[0,:]-p, :] = [255, 255, 0]
-        
-        mapPts = pf.getMapPts() 
-        mapPts[1,:] = lPos2Map[1,:]
-        lPos2Map = mapPts.copy()
-        lpix = np.around(np.dot(cam['KK'], np.divide(lPos2Map[0:3,:], lPos2Map[2, :])))
+
+        '''
+        #mapPts = pf.getMapPts() 
+        #mapPts[1,:] = np.interp(mapPts[2,:],lPos2Map[2,:], lPos2Map[1,:])
+        #lPos2Map = mapPts.copy()
+        #lpix = np.around(np.dot(cam['KK'], np.divide(lPos2Map[0:3,:], lPos2Map[2, :])))
+        lpix = pf.getMapPts(pf.state(),np.zeros(1))
         if lpix.shape[1] > 0:
           lpix = lpix.astype(np.int32)
           lpix = lpix[:,lpix[0,:] > 0 + width/2]
@@ -274,10 +280,10 @@ if __name__ == '__main__':
             lpix = lpix[:,lpix[1,:] < 959 - width/2]
 
             for p in range(-width/2,width/2):
-              I[lpix[1,:]+p, lpix[0,:], :] = [0, 255, 0]
-              I[lpix[1,:], lpix[0,:]+p, :] = [0, 255, 0]
-              I[lpix[1,:]-p, lpix[0,:], :] = [0, 255, 0]
-              I[lpix[1,:], lpix[0,:]-p, :] = [0, 255, 0]
+              I[lpix[1,:]+p, lpix[0,:], :] = [255, 255, 0]
+              I[lpix[1,:], lpix[0,:]+p, :] = [255, 255, 0]
+              I[lpix[1,:]-p, lpix[0,:], :] = [255, 255, 0]
+              I[lpix[1,:], lpix[0,:]-p, :] = [255, 255, 0]
 
 
         '''
