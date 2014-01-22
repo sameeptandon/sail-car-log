@@ -1,4 +1,6 @@
-import dpkt, socket, sys
+#!/usr/bin/python
+
+import dpkt, socket, sys, time
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 2929
@@ -13,16 +15,19 @@ filename=sys.argv[1]
 
 for ts, pkt in dpkt.pcap.Reader(open(filename,'r')):
 
-    counter+=1
-    eth=dpkt.ethernet.Ethernet(pkt) 
-    if eth.type!=dpkt.ethernet.ETH_TYPE_IP:
-       continue
+    counter += 1
+    eth = dpkt.ethernet.Ethernet(pkt)
+    if eth.type != dpkt.ethernet.ETH_TYPE_IP:
+        continue
 
-    ip=eth.data
+    ip = eth.data
     sock.sendto(ip.udp.data, (UDP_IP, UDP_PORT))
 
-    if ip.p==dpkt.ip.IP_PROTO_UDP:
-       udpcounter+=1
+    if ip.p == dpkt.ip.IP_PROTO_UDP:
+        udpcounter += 1
+
+    if counter % 180 == 0:
+        time.sleep(0.1)
 
 sock.close()
 print "Total number of packets in the pcap file: ", counter
