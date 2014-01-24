@@ -42,7 +42,6 @@
 #include <pcl/visualization/point_cloud_color_handlers.h>
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/visualization/image_viewer.h>
-#include <pcl/io/openni_camera/openni_driver.h>
 #include <pcl/console/parse.h>
 #include <pcl/visualization/boost.h>
 #include <pcl/visualization/mouse_event.h>
@@ -181,6 +180,7 @@ class SimpleHDLViewer
           }
 
           cloud_viewer_->spinOnce();
+
           std::string time = boost::posix_time::to_iso_string(boost::posix_time::microsec_clock::local_time());
           stringstream ss;
           ss << dir << time << ".pcd";
@@ -213,7 +213,7 @@ void
 usage(char ** argv)
 {
   cout << "usage: " << argv[0]
-      << " [-hdlCalibration <path-to-calibration-file>] [-pcapFile <path-to-pcap-file>] [-h | --help] [-format XYZ(default)|XYZI|XYZRGB]"
+      << " [-hdlCalibration <path-to-calibration-file>] [-pcapFile <path-to-pcap-file>] [-ip <ip-address>] [-h | --help] [-format XYZ(default)|XYZI|XYZRGB]"
       << endl;
   cout << argv[0] << " -h | --help : shows this help" << endl;
   return;
@@ -222,7 +222,7 @@ usage(char ** argv)
 int 
 main(int argc, char ** argv)
 {
-  string hdlCalibration, pcapFile, format("XYZ");
+  string hdlCalibration, pcapFile, format("XYZ"), ip("127.0.0.1");
 
   if(find_switch(argc, argv, "-h") || 
       find_switch(argc, argv, "--help"))
@@ -234,13 +234,19 @@ main(int argc, char ** argv)
   parse_argument(argc, argv, "-calibrationFile", hdlCalibration);
   parse_argument(argc, argv, "-pcapFile", pcapFile);
   parse_argument(argc, argv, "-format", format);
+  parse_argument(argc, argv, "-ip", ip);
 
-  string ip = "127.0.0.1";
-  boost::asio::ip::address ipAddress =  boost::asio::ip::address::from_string(ip);
-  short port = 2929;
-  
-  HDLGrabber grabber(ipAddress, port, hdlCalibration);
+  HDLGrabber *grabber = NULL;
 
+  if(pcapFile.empty()) {
+    boost::asio::ip::address ipAddress =  boost::asio::ip::address::from_string(ip);
+    short port = 2368;
+    grabber = new HDLGrabber(ipAddress, port, hdlCalibration);
+    cout << "ip address: " << ipAddress << endl;
+  } else {
+     grabber = new HDLGrabber(hdlCalibration, pcapFile);
+    cout << "pcap file: " << pcapFile << endl;
+  }
   cout << "viewer format:" << format << endl;
   if(boost::iequals(format, std::string("XYZ")))
   {
@@ -248,21 +254,21 @@ main(int argc, char ** argv)
     pcl::console::parse_3x_arguments(argc, argv, "-fc", fcolor[0], fcolor[1], fcolor[2]);
     PointCloudColorHandlerCustom<PointXYZ> color_handler(fcolor[0], fcolor[1], fcolor[2]);
 
-    SimpleHDLViewer<PointXYZ> v(grabber, color_handler);
+    SimpleHDLViewer<PointXYZ> v(*grabber, color_handler);
     v.run();
   }
   else if(boost::iequals(format, std::string("XYZI")))
   {
     PointCloudColorHandlerGenericField<PointXYZI> color_handler("intensity");
 
-    SimpleHDLViewer<PointXYZI> v(grabber, color_handler);
+    SimpleHDLViewer<PointXYZI> v(*grabber, color_handler);
     v.run();
   }
   else if(boost::iequals(format, std::string("XYZRGB")))
   {
     PointCloudColorHandlerRGBField<PointXYZRGBA> color_handler;
 
-    SimpleHDLViewer<PointXYZRGBA> v(grabber, color_handler);
+    SimpleHDLViewer<PointXYZRGBA> v(*grabber, color_handler);
     v.run();
   }
   return(0);
