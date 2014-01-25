@@ -1,7 +1,7 @@
 #define DISPLAY
 #define NOGPS
-#define NUM_CAMS 3
-//#define NOSYNC
+#define NUM_CAMS 1
+#define NOSYNC
 //#define DEBUG_NO_SENSORS
 
 #include <fstream>
@@ -65,6 +65,7 @@ int main(int argc, char** argv)
     ("help", "produce help message")
     ("serial,s", value<string>(), "the serial location for the gps unit")
     ("maxframes,m", value<uint64_t>(), "maximum number of frames to capture")
+    ("lidar_capture,l", "run LIDAR data collection")
     ("output,o", value<string>(), "the filename for data logging");
 
   signal (SIGINT, ctrlC);
@@ -96,6 +97,33 @@ int main(int argc, char** argv)
   uint64_t maxframes = -1; 
   if (vm.count("maxframes")) {
     maxframes = vm["maxframes"].as<uint64_t>(); 
+  }
+
+  bool useLIDAR = false; 
+  int lidar_pid = 0; 
+  
+  if (vm.count("lidar_capture")) {
+    string outputPcap = "/home/smart/sail-car-log/cameralogger/build/" + fname + ".pcap";
+    useLIDAR = true;
+    int pid = fork();
+    if (pid == 0) {
+        
+        char* const parmList[] = {(char *)"/usr/sbin/tcpdump",
+            (char*)"-i" ,
+            (char*)"eth0",
+            (char*)"-w",
+            (char*)strdup(outputPcap.c_str()),
+            (char*)"udp port 2368 or udp port 8308", 
+            NULL}; 
+            
+        int rc = execv("/usr/sbin/tcpdump", parmList);
+        if (rc == -1) {
+            cout << "error loading lidar script" << endl;
+            return 0; 
+        }
+    } else { 
+        lidar_pid = pid;
+    }
   }
 
 #if defined(DEBUG_NO_SENSORS) || defined(NOSYNC) || defined(NOGPS)
@@ -302,6 +330,8 @@ int main(int argc, char** argv)
       CloseCamera(cam[cam_num]);
       delete cam[cam_num]; 
   }
+  if (useLIDAR) 
+      kill(lidar_pid, SIGTERM); 
 #endif
 #ifdef DISPLAY
   cvDestroyAllWindows(); 

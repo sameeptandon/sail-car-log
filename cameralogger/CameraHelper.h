@@ -4,7 +4,8 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#define SHUTTER_PARAM (190)
+#define SHUTTER_PARAM (190) // 3 MS
+//#define SHUTTER_PARAM (1590)
 
 using namespace FlyCapture2;
 using namespace std; 
