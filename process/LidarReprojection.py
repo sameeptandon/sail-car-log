@@ -35,36 +35,32 @@ if __name__ == '__main__':
     raw_pts[:, 1] += ty
     raw_pts[:, 2] += tz
 
+    print 'load done'
     pts_wrt_cam = dot(R_to_c_from_l(cam), raw_pts.transpose())
     print pts_wrt_cam.shape
 
-
     pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3,:], pts_wrt_cam[2, :])))
     pix = pix.astype(np.int32)
-    for idx in range(pix.shape[1]):
-        if pix[0,idx] > 0 and pix[0,idx] < 1279-width/2 and pix[1,idx] > 0 and pix[1,idx] < 959-width/2 and pts_wrt_cam[2,idx] > 0:
-            dist = norm(pts[idx,0:3])
-            #print pts[idx,0:3]
-            #print pts_wrt_cam[0:3,idx]
-            #print dist
-            intensity = pts[idx,3]
-            print intensity, dist
-            #rgbval = heatColorMap(intensity,0, 255)
-            rgbval = heatColorMap(exp(-dist/3),0,1)
-            print rgbval
+    mask = pix[0,:] > 0 + width/2
+    mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
+    mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
+    mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
+    mask = np.logical_and(mask, pts_wrt_cam[2,:] > 0)
+    print mask.shape
 
-            px = pix[1,idx]
-            py = pix[0,idx]
+    dist_wrt_cam = np.sum( pts[:, 0:3] ** 2, axis=1 ) ** (1.0/2)
+    intensity = pts[:, 3]
+    #colors = heatColorMapFast(dist_wrt_cam, 0, np.max(dist_wrt_cam))
+    #colors = heatColorMapFast(exp(-dist_wrt_cam/3), 0, 1)
+    colors = heatColorMapFast(intensity, 0, 255)
 
-            colormap[px,py,:] = rgbval
-            I[px,py,:]=colormap[px,py,:]
-            for p in range(-width/2,width/2):
-                I[px+p,py, :] = colormap[px,py,:] 
-                I[px,py+p, :] = colormap[px,py,:]
-                I[px-p,py, :] = colormap[px,py,:]
-                I[px,py-p, :] = colormap[px,py,:]
-
-
-    #applyColorMap(colormap, cv2.COLORMAP_HOT) 
+    px = pix[1,mask]
+    py = pix[0,mask]
+    I[px, py, :] = colors[0,mask,:]
+    for p in range(-width/2,width/2):
+        I[px+p,py, :] = colors[0,mask,:] 
+        I[px,py+p, :] = colors[0,mask,:]
+        I[px-p,py, :] = colors[0,mask,:]
+        I[px,py-p, :] = colors[0,mask,:]
     imshow('display', I)
     waitKey()
