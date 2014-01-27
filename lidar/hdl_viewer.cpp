@@ -38,7 +38,6 @@
 #include <pcl/point_types.h>
 #include <pcl/common/time.h> //fps calculations
 #include <pcl/io/pcd_io.h>
-#include <pcl/io/hdl_grabber.h>
 #include <pcl/visualization/point_cloud_color_handlers.h>
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/visualization/image_viewer.h>
@@ -50,6 +49,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <typeinfo>
+
+#include "gps_hdl_grabber.h"
 
 using namespace std;
 using namespace pcl;
@@ -257,15 +258,15 @@ main(int argc, char ** argv)
   parse_argument(argc, argv, "-pcapFile", pcapFile);
   parse_argument(argc, argv, "-ip", ip);
 
-  HDLGrabber *grabber = NULL;
+  GPSHDLGrabber *grabber = NULL;
 
   if(pcapFile.empty()) {
     boost::asio::ip::address ipAddress =  boost::asio::ip::address::from_string(ip);
     short port = 2368;
-    grabber = new HDLGrabber(ipAddress, port, hdlCalibration);
+    grabber = new GPSHDLGrabber(ipAddress, port, hdlCalibration);
     cout << "ip address: " << ipAddress << endl;
   } else {
-    grabber = new HDLGrabber(hdlCalibration, pcapFile);
+    grabber = new GPSHDLGrabber(hdlCalibration, pcapFile);
     cout << "pcap file: " << pcapFile << endl;
   }
   float minDistance = 0.00001f;
