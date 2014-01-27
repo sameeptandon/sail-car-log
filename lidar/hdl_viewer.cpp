@@ -80,15 +80,14 @@ do \
 #endif
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<typename PointType>
 class SimpleHDLViewer
 {
   public:
-    typedef PointCloud<PointType> Cloud;
+    typedef PointCloud<PointXYZI> Cloud;
     typedef typename Cloud::ConstPtr CloudConstPtr;
 
     SimpleHDLViewer(Grabber& grabber,
-                     PointCloudColorHandler<PointType> &handler) 
+                     PointCloudColorHandler<PointXYZI> &handler)
       : cloud_viewer_(new PCLVisualizer("PCL HDL Cloud"))
       , grabber_(grabber)
       , handler_(handler)
@@ -160,6 +159,7 @@ class SimpleHDLViewer
       boost::filesystem::create_directories(dir);
       cout << dir << " was created" << endl;
 
+      uint64_t last_stamp = 0;
       while(!cloud_viewer_->wasStopped())
       {
         CloudConstPtr cloud;
@@ -181,10 +181,8 @@ class SimpleHDLViewer
 
           cloud_viewer_->spinOnce();
 
-          std::string time = boost::posix_time::to_iso_string(boost::posix_time::microsec_clock::local_time());
-          stringstream ss;
-          ss << dir << time << ".pcd";
-          pcl::io::savePCDFile(ss.str(), *cloud.get(), true);
+          //Save the ldr files to disk
+          writeLDRFile(dir, cloud);
         }
 
         if(!grabber_.isRunning())
@@ -198,6 +196,28 @@ class SimpleHDLViewer
       cloud_connection.disconnect();
     }
 
+    void
+    writeLDRFile(const std::string& dir, const CloudConstPtr& cloud)
+    {
+      PointCloud<PointXYZI> dataCloud = *cloud.get();
+      uint64_t timeStamp = dataCloud.header.stamp & 0x00000000ffffffffl;
+
+      stringstream ss;
+      ss << dir << timeStamp << ".ldr";
+
+      FILE *ldrFile = fopen(ss.str().c_str(), "wb");
+
+      for(PointCloud<PointXYZI>::iterator iter = dataCloud.begin(); iter != dataCloud.end(); ++iter)
+      {
+          //File format is little endian, 3 floats and 1 short (14 bytes) per entry
+          float pBuffer[] = {iter->x, iter->y, iter->z};
+          fwrite(pBuffer, 1, sizeof(pBuffer), ldrFile);
+          short iBuffer[] = {iter->intensity};
+          fwrite(iBuffer, 1, sizeof(iBuffer), ldrFile);
+      }
+      fclose(ldrFile);
+    }
+
     boost::shared_ptr<PCLVisualizer> cloud_viewer_;
     boost::shared_ptr<ImageViewer> image_viewer_;
 
@@ -206,14 +226,16 @@ class SimpleHDLViewer
     boost::mutex image_mutex_;
 
     CloudConstPtr cloud_;
-    PointCloudColorHandler<PointType> &handler_;
+    PointCloudColorHandler<PointXYZI> &handler_;
 };
+
+
 
 void
 usage(char ** argv)
 {
   cout << "usage: " << argv[0]
-      << " [-hdlCalibration <path-to-calibration-file>] [-pcapFile <path-to-pcap-file>] [-ip <ip-address>] [-h | --help] [-format XYZ(default)|XYZI|XYZRGB]"
+      << " [-hdlCalibration <path-to-calibration-file>] [-pcapFile <path-to-pcap-file>] [-ip <ip-address>] [-h | --help]"
       << endl;
   cout << argv[0] << " -h | --help : shows this help" << endl;
   return;
@@ -222,7 +244,7 @@ usage(char ** argv)
 int 
 main(int argc, char ** argv)
 {
-  string hdlCalibration, pcapFile, format("XYZ"), ip("127.0.0.1");
+  string hdlCalibration, pcapFile, format("XYZI"), ip("127.0.0.1");
 
   if(find_switch(argc, argv, "-h") || 
       find_switch(argc, argv, "--help"))
@@ -233,7 +255,6 @@ main(int argc, char ** argv)
 
   parse_argument(argc, argv, "-calibrationFile", hdlCalibration);
   parse_argument(argc, argv, "-pcapFile", pcapFile);
-  parse_argument(argc, argv, "-format", format);
   parse_argument(argc, argv, "-ip", ip);
 
   HDLGrabber *grabber = NULL;
@@ -244,33 +265,17 @@ main(int argc, char ** argv)
     grabber = new HDLGrabber(ipAddress, port, hdlCalibration);
     cout << "ip address: " << ipAddress << endl;
   } else {
-     grabber = new HDLGrabber(hdlCalibration, pcapFile);
+    grabber = new HDLGrabber(hdlCalibration, pcapFile);
     cout << "pcap file: " << pcapFile << endl;
   }
-  cout << "viewer format:" << format << endl;
-  if(boost::iequals(format, std::string("XYZ")))
-  {
-    std::vector<double> fcolor(3); fcolor[0] = fcolor[1] = fcolor[2] = 255.0;
-    pcl::console::parse_3x_arguments(argc, argv, "-fc", fcolor[0], fcolor[1], fcolor[2]);
-    PointCloudColorHandlerCustom<PointXYZ> color_handler(fcolor[0], fcolor[1], fcolor[2]);
+  float minDistance = 0.00001f;
+  grabber->setMinimumDistanceThreshold(minDistance);
 
-    SimpleHDLViewer<PointXYZ> v(*grabber, color_handler);
-    v.run();
-  }
-  else if(boost::iequals(format, std::string("XYZI")))
-  {
-    PointCloudColorHandlerGenericField<PointXYZI> color_handler("intensity");
+  PointCloudColorHandlerGenericField<PointXYZI> color_handler("intensity");
 
-    SimpleHDLViewer<PointXYZI> v(*grabber, color_handler);
-    v.run();
-  }
-  else if(boost::iequals(format, std::string("XYZRGB")))
-  {
-    PointCloudColorHandlerRGBField<PointXYZRGBA> color_handler;
+  SimpleHDLViewer v(*grabber, color_handler);
+  v.run();
 
-    SimpleHDLViewer<PointXYZRGBA> v(*grabber, color_handler);
-    v.run();
-  }
   return(0);
 }
 
