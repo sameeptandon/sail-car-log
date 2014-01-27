@@ -6,9 +6,13 @@ from GPSReader import GPSReader
 def numseconds(datafile):
     f = GPSReader(datafile)
     d = f.getData()
-    first =  d[0]['seconds']
-    last = d[-1]['seconds']
-    return last - first
+    try:
+        first =  d[0]['seconds']
+        last = d[-1]['seconds']
+        return last - first
+    except: 
+        return 0
+
 
 
 def main(rootdir): 
