@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 project(PCL_PCAP)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMakeScripts)
+set(CMAKE_BUILD_TYPE Release)
 
 find_package(PCL 1.7 REQUIRED COMPONENTS common io visualization)
 include_directories(${PCL_INCLUDE_DIRS})

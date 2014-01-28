@@ -44,9 +44,7 @@
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
 #include <boost/math/special_functions.hpp>
-#ifdef HAVE_PCAP
 #include <pcap.h>
-#endif // #ifdef HAVE_PCAP
 
 #include "gps_hdl_grabber.h"
 
@@ -374,7 +372,13 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
       xyz.y = xyzrgb.y = xyzi.y;
       xyz.z = xyzrgb.z = xyzi.z;
 
-      xyzrgb.rgba = laser_rgb_mapping_[j + offset].rgba;
+      //xyzrgb.rgba = laser_rgb_mapping_[j + offset].rgba;
+      
+      short intensity = (short) xyzi.intensity;
+      short laser_num = j + offset;
+      xyzrgb.rgba = ((intensity << 16) | ((laser_num) & 0xffff));
+
+
       if ((boost::math::isnan)(xyz.x) ||
           (boost::math::isnan)(xyz.y) ||
           (boost::math::isnan)(xyz.z)) {
@@ -514,9 +518,7 @@ pcl::GPSHDLGrabber::start ()
   }
   else
   {
-#ifdef HAVE_PCAP
     hdl_read_packet_thread_ = new boost::thread(boost::bind(&GPSHDLGrabber::readPacketsFromPcap, this));
-#endif // #ifdef HAVE_PCAP
   }
 }
 
@@ -648,7 +650,6 @@ pcl::GPSHDLGrabber::readPacketsFromSocket ()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-#ifdef HAVE_PCAP
 void
 pcl::GPSHDLGrabber::readPacketsFromPcap ()
 {
@@ -710,5 +711,4 @@ pcl::GPSHDLGrabber::readPacketsFromPcap ()
     returnValue = pcap_next_ex(pcap, &header, &data);
   }
 }
-#endif //#ifdef HAVE_PCAP
 

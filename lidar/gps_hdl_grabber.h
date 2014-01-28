@@ -252,9 +252,7 @@ namespace pcl
       void loadCorrectionsFile (const std::string& correctionsFile);
       void loadHDL32Corrections ();
       void readPacketsFromSocket ();
-#ifdef HAVE_PCAP
       void readPacketsFromPcap();
-#endif //#ifdef HAVE_PCAP
       void toPointClouds (HDLDataPacket *dataPacket);
       void fireCurrentSweep ();
       void fireCurrentScan (const unsigned short startAngle,
