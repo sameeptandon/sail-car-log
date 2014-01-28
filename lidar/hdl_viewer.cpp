@@ -87,7 +87,7 @@ class SimpleHDLViewer
     typedef PointCloud<PointXYZRGBA> Cloud;
     typedef typename Cloud::ConstPtr CloudConstPtr;
     typedef PointCloud<PointXYZI> VisualCloud;
-    typedef typename VisualCloud::ConstPtr VisualCloudConstPtr; 
+    typedef typename VisualCloud::ConstPtr VisualCloudConstPtr;
 
     SimpleHDLViewer(Grabber& grabber,
                      PointCloudColorHandler<PointXYZI> &handler)
@@ -110,7 +110,7 @@ class SimpleHDLViewer
     {
       FPS_CALC("visual cloud callback");
       boost::mutex::scoped_lock lock(visual_cloud_mutex_);
-      visual_cloud_ = cloud; 
+      visual_cloud_ = cloud;
     }
 
     void 
@@ -143,7 +143,7 @@ class SimpleHDLViewer
       while(!cloud_viewer_->wasStopped())
       {
         CloudConstPtr cloud;
-        VisualCloudConstPtr visual_cloud; 
+        VisualCloudConstPtr visual_cloud;
 
         // See if we can get a data cloud
         if(cloud_mutex_.try_lock())
@@ -162,10 +162,10 @@ class SimpleHDLViewer
         if(visual_cloud_mutex_.try_lock())
         {
             visual_cloud_.swap(visual_cloud);
-            visual_cloud_mutex_.unlock(); 
+            visual_cloud_mutex_.unlock();
         }
         if (visual_cloud) {
-            //draw it 
+            //draw it
             FPS_CALC("drawing cloud");
             handler_.setInputCloud(visual_cloud);
             if(!cloud_viewer_->updatePointCloud(visual_cloud, handler_, "HDL")) {
