@@ -165,6 +165,10 @@ namespace pcl
        */
       float getMaximumDistanceThreshold();
 
+      std::string current_gps_utc_time;
+      std::string current_gps_status;
+      std::string current_gps_utc_date;
+
     protected:
       static const int HDL_DATA_PORT = 2368;
       static const int HDL_NUM_ROT_ANGLES = 36001;
@@ -200,7 +204,32 @@ namespace pcl
           unsigned char blank1;
           unsigned char blank2;
       };
+#pragma pack(push, 1)
+      struct HDLPosPacket
+      {
+          unsigned char not_used1[14];
 
+          unsigned short gyro1;
+          unsigned short temp1;
+          unsigned short accel1_x;
+          unsigned short accel1_y;
+          unsigned short gyro2;
+          unsigned short temp2;
+          unsigned short accel2_x;
+          unsigned short accel2_y;
+          unsigned short gyro3;
+          unsigned short temp3;
+          unsigned short accel3_x;
+          unsigned short accel3_y;
+
+          unsigned char not_used2[160];
+
+          unsigned int gpsTimestamp;
+          unsigned int not_used3;
+          unsigned char nmea[72];
+          unsigned char not_used4[234];
+      };
+#pragma pack(pop)
       struct HDLLaserCorrection
       {
           double azimuthCorrection;
@@ -254,6 +283,7 @@ namespace pcl
       void readPacketsFromSocket ();
       void readPacketsFromPcap();
       void toPointClouds (HDLDataPacket *dataPacket);
+      void setPosInfo (HDLPosPacket *dataPacket);
       void fireCurrentSweep ();
       void fireCurrentScan (const unsigned short startAngle,
           const unsigned short endAngle);
