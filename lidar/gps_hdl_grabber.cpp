@@ -44,10 +44,14 @@
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
 #include <boost/math/special_functions.hpp>
+#include <sstream>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <pcap.h>
 
 #include "gps_hdl_grabber.h"
 
+#define LASER_PACKET 'l'
+#define POSITION_PACKET 'p'
 
 const boost::asio::ip::address pcl::GPSHDLGrabber::HDL_DEFAULT_NETWORK_ADDRESS = boost::asio::ip::address::from_string ("192.168.3.255");
 double *pcl::GPSHDLGrabber::cos_lookup_table_ = NULL;
@@ -82,6 +86,9 @@ pcl::GPSHDLGrabber::GPSHDLGrabber (const std::string& correctionsFile,
   , scan_xyzi_signal_ ()
   , min_distance_threshold_(0.0)
   , max_distance_threshold_(10000.0)
+  , current_gps_utc_time ("INIT")
+  , current_gps_status ("INIT")
+  , current_gps_utc_date ("INIT")
 {
   initialize (correctionsFile);
 }
@@ -114,6 +121,9 @@ pcl::GPSHDLGrabber::GPSHDLGrabber (const boost::asio::ip::address& ipAddress,
   , scan_xyzi_signal_ ()
   , min_distance_threshold_(0.0)
   , max_distance_threshold_(10000.0)
+  , current_gps_utc_time ("INIT")
+  , current_gps_status ("INIT")
+  , current_gps_utc_date ("INIT")
 {
   initialize (correctionsFile);
 }
@@ -303,12 +313,27 @@ pcl::GPSHDLGrabber::processVelodynePackets ()
     if (!hdl_data_.dequeue (data))
       return;
 
-    toPointClouds (reinterpret_cast<HDLDataPacket *> (data));
+    if (*data == POSITION_PACKET)
+    {
+      setPosInfo (reinterpret_cast<HDLPosPacket *> (data+1));
+    } else
+    {
+      toPointClouds (reinterpret_cast<HDLDataPacket *> (data+1));
+    }
 
     free (data);
   }
 }
 
+void
+pcl::GPSHDLGrabber::setPosInfo (HDLPosPacket *dataPacket)
+{
+  std::vector<std::string> tokens;
+  boost::split(tokens, dataPacket->nmea, boost::is_any_of(",*"));
+  current_gps_utc_time = tokens[1];
+  current_gps_status = tokens[2];
+  current_gps_utc_date = tokens[9];
+}
 /////////////////////////////////////////////////////////////////////////////
 void
 pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
@@ -322,9 +347,32 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
   current_scan_xyzrgb_.reset (new pcl::PointCloud<pcl::PointXYZRGBA> ());
   current_scan_xyzi_.reset (new pcl::PointCloud<pcl::PointXYZI> ());
 
-  time_t  time_;
-  time(&time_);
-  time_t velodyneTime = (time_ & 0x00000000ffffffffl) << 32 | dataPacket->gpsTimestamp;
+  time_t velodyneTime = dataPacket->gpsTimestamp;
+  if (!boost::iequals(current_gps_status, "INIT"))
+  {
+    //Parse the gps timestamps for day, month, year, and hour
+    boost::posix_time::time_input_facet* facet =
+        new boost::posix_time::time_input_facet("%d%m%y%H");
+    std::stringstream ss;
+    ss.imbue(std::locale(std::locale(), facet));
+    // Append the time to the end of the date
+    // The format is now ddmmyyhhmmss, but we ignore mmss
+    ss << current_gps_utc_date << current_gps_utc_time;
+
+    // Output to a ptime
+    boost::posix_time::ptime pt;
+    ss >> pt;
+
+    if (pt != boost::posix_time::not_a_date_time) {
+      // Calculate time since epoch
+      boost::posix_time::ptime timet_start(boost::gregorian::date(1970,1,1));
+      boost::posix_time::time_duration diff = pt - timet_start;
+      // Convert this time to microseconds
+      std::time_t epoch_time = diff.total_milliseconds()*1000;
+      // Add time since epoch to time since top of the hour
+      velodyneTime += epoch_time;
+    }
+  }
 
   current_scan_xyz_->header.stamp = velodyneTime;
   current_scan_xyzrgb_->header.stamp = velodyneTime;
@@ -373,7 +421,7 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
       xyz.z = xyzrgb.z = xyzi.z;
 
       //xyzrgb.rgba = laser_rgb_mapping_[j + offset].rgba;
-      
+
       short intensity = (short) xyzi.intensity;
       short laser_num = j + offset;
       xyzrgb.rgba = ((intensity << 16) | ((laser_num) & 0xffff));
@@ -476,10 +524,12 @@ void
 pcl::GPSHDLGrabber::enqueueHDLPacket (const unsigned char *data,
     std::size_t bytesReceived)
 {
-  if (bytesReceived == 1206)
+  if (bytesReceived == 1206 || bytesReceived == 512)
   {
-    unsigned char *dup = static_cast<unsigned char *> (malloc (bytesReceived * sizeof(unsigned char)));
-    memcpy (dup, data, bytesReceived * sizeof(unsigned char));
+    // Add an extra spot so we know which type of packet this is
+    unsigned char *dup = static_cast<unsigned char *> (malloc ((1 + bytesReceived) * sizeof(unsigned char)));
+    dup[0] = bytesReceived == 1206 ? LASER_PACKET : POSITION_PACKET;
+    memcpy (dup+1, data, bytesReceived * sizeof(unsigned char));
 
     hdl_data_.enqueue (dup);
   }
@@ -707,7 +757,6 @@ pcl::GPSHDLGrabber::readPacketsFromPcap ()
 
     // The ETHERNET header is 42 bytes long; unnecessary
     enqueueHDLPacket(data + 42, header->len - 42);
-
     returnValue = pcap_next_ex(pcap, &header, &data);
   }
 }
