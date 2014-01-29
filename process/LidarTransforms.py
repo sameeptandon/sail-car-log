@@ -1,5 +1,23 @@
 import numpy as np
 
+
+def loadLDR(ldrfile):
+    dt = [  ('x', np.float32),
+                ('y', np.float32),
+                ('z', np.float32),
+                ('l', np.int16), #intensity
+                ('i', np.int16)]; # laser num
+
+    z = np.fromfile(ldrfile, dtype=dt) 
+    dat = np.zeros((z.shape[0], 5))
+    dat[:,0] = z[:]['x']
+    dat[:,1] = z[:]['y']
+    dat[:,2] = z[:]['z']
+    dat[:,3] = z[:]['i'] 
+    dat[:,4] = z[:]['l'] 
+
+    return dat
+
 def loadPCD(pcdfile): 
     f = open(pcdfile, 'r')
     count = 0
@@ -31,7 +49,8 @@ def R_to_c_from_l(cam):
 
 if __name__ == '__main__':
     import sys
-    pts = loadPCD(sys.argv[1])
+    #pts = loadPCD(sys.argv[1])
+    pts = loadLDR(sys.argv[1])
     from mpl_toolkits.mplot3d import Axes3D
     import matplotlib.pyplot as plt
     fig = plt.figure()
