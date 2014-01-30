@@ -6,20 +6,56 @@ import cv2
 from cv2 import imshow, waitKey
 from numpy.linalg import norm
 from ColorMap import *
-from numpy import exp
+from numpy import exp, log
 from transformations import euler_matrix
 from scipy.ndimage.morphology import distance_transform_cdt
 
 global counter
 counter = 0
 
+def computeDistanceTransform(D, gamma, alpha):
+    logD = np.log(D);
+    logD = computeLogDistanceTransform(logD, gamma)
+    F = np.exp(logD)
+
+    return alpha*D + (1-alpha)*F
+
+def computeLogDistanceTransform(D, gamma): 
+    # assume that D is logarithmic in the edges
+    width = D.shape[0]
+    height = D.shape[1]
+    lg = log(gamma)
+
+    for x in range(1,width):
+        D[x,:] = np.maximum(D[x,:], D[x-1,:]+lg)
+    for y in range(1,height):
+        D[:,y] = np.maximum(D[:,y], D[:,y-1]+lg)
+
+    for x in reversed(range(width-1)):
+        D[x,:] = np.maximum(D[x,:], D[x+1,:]+lg)
+    for y in reversed(range(height-1)):
+        D[:,y] = np.maximum(D[:,y], D[:,y+1]+lg)
+
+    """
+    for x in range(1,width):
+        for y in range(1,height):
+            D[x,y] = max(D[x,y], D[x-1,y]+lg, D[x,y-1]+lg, D[x-1,y-1]+lg)
+
+    for x in reversed(range(width-1)):
+        for y in reversed(range(height-1)):
+            D[x,y] = max(D[x,y], D[x+1,y]+lg, D[x,y+1]+lg, D[x+1,y+1]+lg)
+    """
+
+    return D
+
+
 def generateEdgeFilterKernels(): 
     kernels = []
     for x in range(3):
         for y in range(3):
             K = np.zeros((3,3))
-            K[1,1] = 9.0
-            K[x,y] = -9.0
+            K[1,1] = 3.0
+            K[x,y] = -3.0
             if (x != 1 and y != 1):
                 kernels.append(K)
     return kernels
@@ -73,7 +109,7 @@ def computeReprojectionScore(C, pts, I, cam):
 
     px = pix[1,mask]
     py = pix[0,mask]
-    return np.sum(I[px,py])
+    return -np.sum(I[px,py])
 
 def drawReprojection(C, pts, I, cam, colorMap=False):
     (pix, pts_wrt_cam) = computeReprojection(C, pts, cam)
@@ -129,17 +165,13 @@ if __name__ == '__main__':
     for k in kernels: 
         edges = np.maximum(edges, np.abs(cv2.filter2D(E, cv2.CV_8U, k)))
 
-    #edges [ edges < 20  ] = 0
-    #edges [ edges >= 20 ] = 1
-    # run distance transform
-    #edges = cv2.distanceTransform(1-edges, cv.CV_DIST_L1, maskSize=3)
-    #print edges[0]
-    E = cv2.blur(edges, (30,30))
+    #edges = cv2.blur(edges, (30,30))
+    edges = computeDistanceTransform(edges+1, 0.98, 1.0/3)
 
     from scipy.optimize import brute
-    step_size = 0.01
+    step_size = 0.001
     ranges = [(x-step_size, x+step_size) for x in C_init]
-    out = brute(computeReprojectionScore, ranges, args=(pts, 255-E, cam), full_output=True, Ns=3) 
+    out = brute(computeReprojectionScore, ranges, args=(pts, edges, cam), full_output=True, Ns=3) 
     print out[0]
     print out[1]
     print counter
