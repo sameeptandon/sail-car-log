@@ -8,35 +8,25 @@ from numpy.linalg import norm
 from ColorMap import *
 from numpy import exp, log
 from transformations import euler_matrix
-from scipy.ndimage.morphology import distance_transform_cdt
+import scipy.weave 
 
 global counter
 counter = 0
 
 def computeDistanceTransform(D, gamma, alpha):
     logD = np.log(D);
+    logD = logD.astype(np.float32)
     logD = computeLogDistanceTransform(logD, gamma)
     F = np.exp(logD)
 
     return alpha*D + (1-alpha)*F
 
-def computeLogDistanceTransform(D, gamma): 
+def computeLogDistanceTransformSlow(D, gamma): 
     # assume that D is logarithmic in the edges
     width = D.shape[0]
     height = D.shape[1]
     lg = log(gamma)
 
-    for x in range(1,width):
-        D[x,:] = np.maximum(D[x,:], D[x-1,:]+lg)
-    for y in range(1,height):
-        D[:,y] = np.maximum(D[:,y], D[:,y-1]+lg)
-
-    for x in reversed(range(width-1)):
-        D[x,:] = np.maximum(D[x,:], D[x+1,:]+lg)
-    for y in reversed(range(height-1)):
-        D[:,y] = np.maximum(D[:,y], D[:,y+1]+lg)
-
-    """
     for x in range(1,width):
         for y in range(1,height):
             D[x,y] = max(D[x,y], D[x-1,y]+lg, D[x,y-1]+lg, D[x-1,y-1]+lg)
@@ -44,7 +34,42 @@ def computeLogDistanceTransform(D, gamma):
     for x in reversed(range(width-1)):
         for y in reversed(range(height-1)):
             D[x,y] = max(D[x,y], D[x+1,y]+lg, D[x,y+1]+lg, D[x+1,y+1]+lg)
+    
+    print D
+    return D
+
+def computeLogDistanceTransform(D, gamma): 
+    # assume that D is logarithmic in the edges
+    width = D.shape[0]
+    height = D.shape[1]
+    lg = log(gamma)
+    code = \
     """
+    using namespace std;
+    for (int x = 1; x < width; x++) { 
+        for (int y = 1; y < height; y++) {
+            float l = lg; 
+            float p1 = D(x,y);
+            float p2 = D(x-1,y) + l;
+            float p3 = D(x,y-1) + l;
+            float p4 = D(x-1,y-1) + l;
+            D(x,y) = max(p1,max(p2,max(p3,p4)));
+        }
+    }   
+
+    for (int x = width-2; x >= 0 ; x--) { 
+        for (int y = height-2; y >= 0; y--) {
+            float l = lg; 
+            float p1 = D(x,y);
+            float p2 = D(x+1,y) + l;
+            float p3 = D(x,y+1) + l;
+            float p4 = D(x+1,y+1) + l;
+            D(x,y) = max(p1,max(p2,max(p3,p4)));
+        }
+    }   
+    """
+    scipy.weave.inline(code, ['D', 'width', 'height', 'lg'], headers=['<algorithm>'], 
+            type_converters=scipy.weave.converters.blitz)
 
     return D
 
@@ -167,6 +192,8 @@ if __name__ == '__main__':
 
     #edges = cv2.blur(edges, (30,30))
     edges = computeDistanceTransform(edges+1, 0.98, 1.0/3)
+    imshow('display', edges/255.0)
+    waitKey()
 
     from scipy.optimize import brute
     step_size = 0.001
