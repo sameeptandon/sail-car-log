@@ -10,7 +10,7 @@ class GPSReader():
     self.data = [ ]
     self.token_order = ['seconds', 'lat', 'long', 'height',
         'v_north', 'v_east', 'v_up', 'rot_y', 'rot_x', 
-        'azimuth'];
+        'azimuth', 'week'];
     f = open(filename);
     for line in f:
       l = line.rstrip()
@@ -19,6 +19,8 @@ class GPSReader():
         record = { }
         for idx in range(10):
           record[self.token_order[idx]] = float(tokens[idx+10])
+        # Parse out the gps week
+        record[self.token_order[10]] = long((tokens[9].split(';'))[1])
         self.data.append(record)
 
   def getData(self):
