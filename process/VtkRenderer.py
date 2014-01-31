@@ -44,6 +44,8 @@ def get_vtk_cloud(xyz, intensity, zMin=-10.0,zMax=10.0):
 
   return vtkActor
 
+
+############# sample callback setup ###############
 class vtkTimerCallback():
    def __init__(self):
      pass
@@ -59,32 +61,33 @@ class vtkTimerCallback():
      self.actor = pointCloud
      print time.time() - t
 
+if __name__ == '__main__': 
 
-data = 40*(random.random((600,3))-0.5)
-pointCloud = get_vtk_cloud(data, data[:,2])
+  data = 40*(random.random((600,3))-0.5)
+  pointCloud = get_vtk_cloud(data, data[:,2])
 
-# Renderer
-renderer = vtk.vtkRenderer()
-renderer.AddActor(pointCloud)
-renderer.SetBackground(0.0, 0.0, 0.)
-renderer.ResetCamera()
-
-# Render Window
-renderWindow = vtk.vtkRenderWindow()
-renderWindow.SetSize(600,600)
-renderWindow.AddRenderer(renderer)
-
-# Interactor
-renderWindowInteractor = vtk.vtkRenderWindowInteractor()
-renderWindowInteractor.SetRenderWindow(renderWindow)
-
-# Begin Interaction
-renderWindow.Render()
-renderWindowInteractor.Initialize()
-
-cb = vtkTimerCallback()
-cb.actor = pointCloud
-renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
-timerId = renderWindowInteractor.CreateRepeatingTimer(50)
-
-renderWindowInteractor.Start()
+  # Renderer
+  renderer = vtk.vtkRenderer()
+  renderer.AddActor(pointCloud)
+  renderer.SetBackground(0.0, 0.0, 0.)
+  renderer.ResetCamera()
+  
+  # Render Window
+  renderWindow = vtk.vtkRenderWindow()
+  renderWindow.SetSize(600,600)
+  renderWindow.AddRenderer(renderer)
+  
+  # Interactor
+  renderWindowInteractor = vtk.vtkRenderWindowInteractor()
+  renderWindowInteractor.SetRenderWindow(renderWindow)
+  
+  # Begin Interaction
+  renderWindow.Render()
+  renderWindowInteractor.Initialize()
+  
+  cb = vtkTimerCallback()
+  cb.actor = pointCloud
+  renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
+  timerId = renderWindowInteractor.CreateRepeatingTimer(50)
+  
+  renderWindowInteractor.Start()
