@@ -59,6 +59,6 @@ if __name__ == '__main__':
     cb = LDRGrabberCallback()
     cb.actor = actor 
     renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
-    timerId = renderWindowInteractor.CreateRepeatingTimer(100)
+    timerId = renderWindowInteractor.CreateRepeatingTimer(10)
     renderWindowInteractor.Start()
 
