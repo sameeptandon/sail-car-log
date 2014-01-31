@@ -145,6 +145,8 @@ pcl::GPSHDLGrabber::~GPSHDLGrabber () throw ()
 void
 pcl::GPSHDLGrabber::initialize (const std::string& correctionsFile)
 {
+  facet = new boost::posix_time::time_input_facet("%d%m%y%H");
+  loc = std::locale(std::locale(), facet);
   if (cos_lookup_table_ == NULL && sin_lookup_table_ == NULL)
   {
     cos_lookup_table_ = static_cast<double *> (malloc (HDL_NUM_ROT_ANGLES * sizeof (*cos_lookup_table_)));
@@ -351,10 +353,8 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
   if (!boost::iequals(current_gps_status, "INIT"))
   {
     //Parse the gps timestamps for day, month, year, and hour
-    boost::posix_time::time_input_facet* facet =
-        new boost::posix_time::time_input_facet("%d%m%y%H");
     std::stringstream ss;
-    ss.imbue(std::locale(std::locale(), facet));
+    ss.imbue(loc);
     // Append the time to the end of the date
     // The format is now ddmmyyhhmmss, but we ignore mmss
     ss << current_gps_utc_date << current_gps_utc_time;
@@ -372,6 +372,7 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
       // Add time since epoch to time since top of the hour
       velodyneTime += epoch_time;
     }
+
   }
 
   current_scan_xyz_->header.stamp = velodyneTime;
@@ -750,7 +751,7 @@ pcl::GPSHDLGrabber::readPacketsFromPcap ()
     uSecDelay = ((header->ts.tv_sec - lasttime.tv_sec) * 1000000) +
                 (header->ts.tv_usec - lasttime.tv_usec);
 
-    boost::this_thread::sleep(boost::posix_time::microseconds(uSecDelay));
+    boost::this_thread::sleep(boost::posix_time::microseconds(uSecDelay/10));
 
     lasttime.tv_sec = header->ts.tv_sec;
     lasttime.tv_usec = header->ts.tv_usec;

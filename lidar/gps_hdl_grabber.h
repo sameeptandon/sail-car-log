@@ -273,6 +273,8 @@ namespace pcl
       pcl::RGB laser_rgb_mapping_[HDL_MAX_NUM_LASERS];
       float min_distance_threshold_;
       float max_distance_threshold_;
+      boost::posix_time::time_input_facet* facet;
+      std::locale loc;
 
       void processVelodynePackets ();
       void enqueueHDLPacket (const unsigned char *data,

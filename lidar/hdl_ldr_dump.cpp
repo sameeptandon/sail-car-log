@@ -38,7 +38,7 @@
 #include <pcl/point_types.h>
 #include <pcl/common/time.h> //fps calculations
 #include <pcl/io/pcd_io.h>
-#include <pcl/console/parse.h>
+#include <boost/program_options.hpp>
 #include <vector>
 #include <string>
 #include <boost/algorithm/string.hpp>
@@ -79,7 +79,7 @@ class LDRConverter
 {
   public:
     typedef PointCloud<PointXYZRGBA> Cloud;
-    typedef typename Cloud::ConstPtr CloudConstPtr;
+    typedef Cloud::ConstPtr CloudConstPtr;
 
     LDRConverter(Grabber& grabber) 
       : grabber_(grabber) 
@@ -168,18 +168,45 @@ usage(char ** argv)
 int 
 main(int argc, char ** argv)
 {
-  string hdlCalibration, pcapFile, ip("127.0.0.1");
+  string hdlCalibration, pcapFile;
+  namespace po = boost::program_options; 
 
+  po::options_description desc("Allowed options");
+  desc.add_options()
+    ("help", "produce help message")
+    ("hdlcalibration", po::value<string>(), "<path-to-calibration-file")
+    ("p", po::value<string>(), "<path-to-pcap-file>")
+  ;
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm); 
+
+  if (vm.count("help")) {
+    cout << desc << endl;
+    return 0;
+  }
+
+  if (vm.count("hdlcalibration")) {
+    hdlCalibration = vm["hdlcalibration"].as<string>();
+  }
+
+  if (vm.count("p")) {
+    pcapFile = vm["p"].as<string>();
+    cout << "Pcap File: " << pcapFile << endl;
+  }
+
+
+  /*
   if(find_switch(argc, argv, "-h") || 
       find_switch(argc, argv, "--help"))
   {
     usage(argv);
     return(0);
   }
+  */
 
-  parse_argument(argc, argv, "-calibrationFile", hdlCalibration);
-  parse_argument(argc, argv, "-pcapFile", pcapFile);
-  parse_argument(argc, argv, "-ip", ip);
+  //parse_argument(argc, argv, "-calibrationFile", hdlCalibration);
+  //parse_argument(argc, argv, "-pcapFile", pcapFile);
 
   GPSHDLGrabber *grabber = new GPSHDLGrabber(hdlCalibration, pcapFile);
   cout << "pcap file: " << pcapFile << endl;
