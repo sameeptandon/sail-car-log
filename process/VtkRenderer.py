@@ -9,6 +9,14 @@ class VtkPointCloud:
         self.xyz = xyz.copy()
         self.intensity = intensity.copy() 
 
+        num_points = self.xyz.shape[0]
+
+        np_cells_A = np.ones(num_points,dtype=np.int64)
+        np_cells_B = np.arange(0,num_points,dtype=np.int64)
+        self.np_cells = np.empty(2*num_points,dtype=np.int64)
+        self.np_cells[::2] = np_cells_A
+        self.np_cells[1::2] = np_cells_B
+
     def get_vtk_cloud(self, zMin=-10.0,zMax=10.0):
 
         vtkPolyData = vtk.vtkPolyData()
@@ -27,14 +35,7 @@ class VtkPointCloud:
         vtkPoints.SetNumberOfPoints(num_points)
         vtkPoints.SetData(vtk_data)
       
-        np_cells_A = np.ones(num_points,dtype=np.int64)
-        np_cells_B = np.arange(0,num_points,dtype=np.int64)
-        np_cells = np.empty(2*num_points,dtype=np.int64)
-        np_cells[::2] = np_cells_A
-        np_cells[1::2] = np_cells_B
-      
-        vtkCells.SetCells(num_points, converter.numpy_to_vtkIdTypeArray(np_cells, deep=1))
-      
+        vtkCells.SetCells(num_points, converter.numpy_to_vtkIdTypeArray(self.np_cells, deep=1))
         vtkDepth.SetVoidArray(self.intensity, num_points, 1)
       
         mapper = vtk.vtkPolyDataMapper()
