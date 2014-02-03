@@ -1,7 +1,7 @@
 #define DISPLAY
-#define NOGPS
-#define NUM_CAMS 1
-#define NOSYNC
+//#define NOGPS
+#define NUM_CAMS 2
+//#define NOSYNC
 //#define DEBUG_NO_SENSORS
 
 #include <fstream>
