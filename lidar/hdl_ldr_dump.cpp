@@ -96,7 +96,7 @@ class LDRConverter
     }
 
     void 
-    run()
+    run(const string& folder_name)
     {
       boost::function<void(const CloudConstPtr&)> cloud_cb = boost::bind(
               &LDRConverter::cloud_callback, this, _1);
@@ -104,9 +104,8 @@ class LDRConverter
               cloud_cb);
       grabber_.start();
 
-      boost::posix_time::ptime ptime = boost::posix_time::second_clock::local_time();
       stringstream folder_stream;
-      folder_stream << "frames/" << boost::posix_time::to_simple_string(ptime) << "/";
+      folder_stream << "frames/" << folder_name << "/";
       std::string dir = folder_stream.str();
       boost::filesystem::create_directories(dir);
       _dir = dir; 
@@ -214,7 +213,8 @@ main(int argc, char ** argv)
   grabber->setMinimumDistanceThreshold(minDistance);
   
   LDRConverter v(*grabber);
-  v.run();
+  boost::filesystem::path const p(pcapFile);
+  v.run(p.stem().string());
 
   return(0);
 }
