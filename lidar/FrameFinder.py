@@ -95,7 +95,7 @@ def utc_from_gps(gps_week, seconds, leap_seconds=16):
     secs_gps_to_utc = 315964800
 
     return long((gps_week * secs_in_week + seconds + secs_gps_to_utc
-                - leap_seconds) * 1000)
+                - leap_seconds) * 1000000)
 
 
 def main():
