@@ -11,36 +11,51 @@ from GPSReader import GPSReader
 
 class FrameFinder:
 
-    """ Creates a mapping from cloud to frames
+    """ Creates a mapping from cloud to frames. If the file
+    "gps_file_name_to_frame_folder_name.map" exists, it will read from that
+    file. It is about 2x faster to read from this file"
     """
 
     frame_to_cloud_map = {}
     cloud_to_frame_map = {}
+    map_file_name = ""
 
-    def __init__(self, gps_file_name, frames_folder):
-        reader = GPSReader(gps_file_name)
+    def __init__(self, gps_file_path, frames_folder, write_to_file):
+        gps_file_name = os.path.basename(gps_file_path).split('.')[0]
+        if frames_folder[-1] == '/':
+            frames_folder = frames_folder[0:-1]
+        frames_folder_name = os.path.basename(frames_folder)
+        self.map_file_name = gps_file_name + "_to_" + frames_folder_name + ".map"
 
-        # Camera time should already be sorted because frame # always increases
-        camera_times = [utc_from_gps(data['week'], data['seconds'])
-                        for data in reader.getData()]
+        if os.path.isfile(self.map_file_name):
+           self.__read_frame_map()
+        else:
+            reader = GPSReader(gps_file_path)
 
-        ldr_times = \
-            [long(os.path.splitext(os.path.basename(ldr_file))[0])
-             for ldr_file in os.listdir(frames_folder)
-             if ldr_file.endswith('.ldr')]
+            # Camera time should already be sorted because frame # always increases
+            camera_times = [utc_from_gps(data['week'], data['seconds'])
+                            for data in reader.getData()]
 
-        # Need to sort the ldr_times because listdir returns undefined ordering
-        ldr_times.sort()
+            ldr_times = \
+                [long(os.path.splitext(os.path.basename(ldr_file))[0])
+                 for ldr_file in os.listdir(frames_folder)
+                 if ldr_file.endswith('.ldr')]
 
-        for frame_number, camera_time in enumerate(camera_times):
-            # Find the closest time in ldr times
-            nearest_index = bisect.bisect(ldr_times, camera_time)
-            if nearest_index >= 1:
-                lidr_file = str(ldr_times[nearest_index - 1]) + '.ldr'
-                # Frames are indexed by 1, not
-                real_frame = frame_number + 1
-                self.frame_to_cloud_map[real_frame] = lidr_file
-                self.cloud_to_frame_map[lidr_file] = real_frame
+            # Need to sort the ldr_times because listdir returns undefined ordering
+            ldr_times.sort()
+
+            for frame_number, camera_time in enumerate(camera_times):
+                # Find the closest time in ldr times
+                nearest_index = bisect.bisect(ldr_times, camera_time)
+                if nearest_index >= 1:
+                    lidr_file = str(ldr_times[nearest_index - 1]) + '.ldr'
+                    # Frames are indexed by 1, not
+                    real_frame = frame_number + 1
+                    self.frame_to_cloud_map[real_frame] = lidr_file
+                    self.cloud_to_frame_map[lidr_file] = real_frame
+            
+            if write_to_file == True:
+                self.__write_frame_map()
 
 
     def get_map(self):
@@ -51,13 +66,20 @@ class FrameFinder:
         """ Returns a mapping from cloud to frame """
         return self.cloud_to_frame_map
 
-    def write_output(self, file_name):
+    def __write_frame_map(self):
         """ Writes the camera frame to ldr file mapping to a file """
-        out_file = open(file_name, 'w')
+        out_file = open(self.map_file_name, 'w')
         for frame, cloud in self.get_map().iteritems():
             out_file.write(str(frame) + " " + str(cloud) + "\n")
         out_file.close()
 
+    def __read_frame_map(self):
+         for line in open(self.map_file_name, 'r'):
+                tokens = line.split(" ")
+                frame = tokens[0]
+                cloud = tokens[1]
+                self.frame_to_cloud_map[frame] = cloud
+                self.cloud_to_frame_map[cloud] = frame
 
 def utc_from_gps(gps_week, seconds, leap_seconds=16):
     """ Converts from gps week time to UTC time. UTC time starts from JAN 1,
@@ -86,11 +108,10 @@ def main():
         """
         sys.exit()
 
-    gps_file_name = sys.argv[1]
+    gps_file_path = sys.argv[1]
     frames_folder = sys.argv[2]
 
-    finder = FrameFinder(gps_file_name, frames_folder)
-    finder.write_output("tmp.out")
+    finder = FrameFinder(gps_file_path, frames_folder, True)
 
 if __name__ == '__main__':
     main()
