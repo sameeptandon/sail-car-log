@@ -52,6 +52,7 @@ if __name__ == '__main__':
     writer = None
     saveImageDest = None
     if len(sys.argv) > 5:
+      crashcrash
 			#saveImageDest = sys.argv[5]
       writer = cv2.VideoWriter(sys.argv[5], cv.CV_FOURCC('F','M','P','4'), 10.0, (640,480))
 
@@ -120,6 +121,9 @@ if __name__ == '__main__':
     pfOutput = np.zeros(gps_Pos.shape)
     #crashcrash
 
+    laneLabelPix = np.zeros((gps_Pos.shape[0],3,num_imgs_fwd-1))
+    pfPix = np.zeros((gps_Pos.shape[0],2,num_imgs_fwd-1))
+
     #Generate kdtree for map match queries
     searchTree = spatial.KDTree(left_Pos_Map)
 
@@ -164,6 +168,7 @@ if __name__ == '__main__':
         lpts = lpts[lp[start:end,0] > 0, :] 
         lPos2 = np.linalg.solve(tr[count, :, :], lpts.transpose())
         lpix = np.around(np.dot(cam['KK'], np.divide(lPos2[0:3,:], lPos2[2, :])))
+        laneLabelPix[count,:] = lpix.copy()
         if lpix.shape[1] > 0:
           lpix = lpix.astype(np.int32)
           lpix = lpix[:,lpix[0,:] > 0 + width/2]
@@ -205,8 +210,8 @@ if __name__ == '__main__':
         
         pf.propogate((gps_dat[count,[4,5]]*dT*10,yaw[count],yawRate[count]*10))
         pf.gpsMeasurement((gps_Pos[count,[0,2]],yaw[count]))
-        visionInput = pf2.getMapPts((gps_Pos[count,0],gps_Pos[count,2],yaw[count]))
-        pf.visionMeasurement(visionInput)
+        #visionInput = pf2.getMapPts((gps_Pos[count,0],gps_Pos[count,2],yaw[count]))
+        #pf.visionMeasurement(visionInput)
         pfOutput[count,0:3] = pf.state()
         #print pf.state()
         #print (gps_Pos[count,[0,2]],yaw[count])
@@ -269,6 +274,7 @@ if __name__ == '__main__':
         #lPos2Map = mapPts.copy()
         #lpix = np.around(np.dot(cam['KK'], np.divide(lPos2Map[0:3,:], lPos2Map[2, :])))
         lpix = pf.getMapPts(pf.state(),np.zeros(1))
+        pfPix[count,:] = lpix.copy()
         if lpix.shape[1] > 0:
           lpix = lpix.astype(np.int32)
           lpix = lpix[:,lpix[0,:] > 0 + width/2]
@@ -327,5 +333,7 @@ if __name__ == '__main__':
           print 'framenum = ', count
           lastTime = time.time()
 
-        if count==10000:
+        if count==30000:
           savemat('pfOutput',dict(pfOut = pfOutput))
+          savemat('pfPix2',dict(pfPixel = pfPix))
+          savemat('laneLabelPix2',dict(lanePixel = laneLabelPix))

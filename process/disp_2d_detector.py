@@ -41,7 +41,9 @@ if __name__ == '__main__':
     dT = np.median(np.diff(gps_dat[:,0]))
 
     detectorPixels = pickle.load(open(sys.argv[3],'rb'))
- 
+    print(detectorPixels.shape)
+    print(detectorPixels[:,0,:,0])
+
     map = pickle.load(open(sys.argv[4],'rb'))
     mapENU = WGS84toENU(map[0,:],map).transpose()
     gpsENU = WGS84toENU(map[0,:],gps_dat[:,1:4]).transpose()
@@ -49,8 +51,8 @@ if __name__ == '__main__':
     writer = None
     saveImageDest = None
     if len(sys.argv) > 5:
-			#saveImageDest = sys.argv[5]
-      writer = cv2.VideoWriter(sys.argv[5], cv.CV_FOURCC('F','M','P','4'), 10.0, (640,480))
+			saveImageDest = sys.argv[5]
+      #writer = cv2.VideoWriter(sys.argv[5], cv.CV_FOURCC('F','M','P','4'), 10.0, (640,480))
 
     cam = getCameraParams()[cam_num - 1] 
     ## Get GPS transforms of both data sets relative to one dataset
@@ -101,12 +103,15 @@ if __name__ == '__main__':
     for i in np.where(np.abs(yawRate)>1.9*np.pi)[0]:
       yaw[(i+1):] = yaw[(i+1):]-2*np.pi*np.sign(yawRate[i])
     yawRate = np.diff(yaw)
-    #pf = ParticleFilterDriving((gps_Pos[0,0],gps_Pos[0,2],yaw[0]),(5,5,5*pi/180),200,left_Pos,tr,cam_num)
-    pf = ParticleFilterDriving((gpsENU[0,0],gpsENU[0,1],yaw[0]),(5,5,5*pi/180),200,mapENU,tr,cam_num)
+    err = np.array((-1,0,0))*0
+    ##pf = ParticleFilterDriving((gps_Pos[0,0],gps_Pos[0,2],yaw[0])+err,(5,5,5*pi/180),200,left_Pos,tr,cam_num)
+    pf = ParticleFilterDriving((gpsENU[0,0],gpsENU[0,1],yaw[0],0),(5,5,5*pi/180,0.2),200,mapENU,tr,cam_num)
     #print pf.particles
     #print pf.map
     pfOutput = np.zeros(gps_Pos.shape)
 
+    laneLabelPix = np.zeros((gps_Pos.shape[0],3,num_imgs_fwd-1))
+    pfPix = np.zeros((gps_Pos.shape[0],2,250))
 
     count = 0
     start = 0
@@ -150,6 +155,7 @@ if __name__ == '__main__':
         lPos2 = np.linalg.solve(tr[count, :, :], lpts.transpose())
         #print lPos2
         lpix = np.around(np.dot(cam['KK'], np.divide(lPos2[0:3,:], lPos2[2, :])))
+        laneLabelPix[count,:] = lpix.copy()
         if lpix.shape[1] > 0:
           lpix = lpix.astype(np.int32)
           lpix = lpix[:,lpix[0,:] > 0 + width/2]
@@ -167,7 +173,7 @@ if __name__ == '__main__':
               I[lpix[1,:], lpix[0,:]-p, :] = [0, 255, 255]
 
         
-        """ code to compute the right lane reprojection"""  
+        """ code to compute the right lane reprojection  
         rpts = right_Pos[start:end,:];
         rpts = rpts[rp[start:end,0] > 0, :]
         rPos2 = np.linalg.solve(tr[count, :, :], rpts.transpose())
@@ -187,18 +193,43 @@ if __name__ == '__main__':
               I[rpix[1,:]+p, rpix[0,:], :] = [0, 255, 255]
               I[rpix[1,:], rpix[0,:]+p, :] = [0, 255, 255]
               I[rpix[1,:]-p, rpix[0,:], :] = [0, 255, 255]
-              I[rpix[1,:], rpix[0,:]-p, :] = [0, 255, 255]
+              I[rpix[1,:], rpix[0,:]-p, :] = [0, 255, 255]"""
         
         pf.propogate((gps_dat[count,[4,5]]*dT*10,yaw[count],yawRate[count]*10))
-        #pf.gpsMeasurement((gps_Pos[count,[0,2]],yaw[count]))
-        pf.gpsMeasurement((gpsENU[count,0:2],yaw[count]))
-        visionInput = detectorPixels[:,0,:,count].transpose()
-        #pf.visionMeasurement(visionInput)
-        pfOutput[count,0:3] = pf.state()
+        #pf.gpsMeasurement((gps_Pos[count,0],gps_Pos[count,2],yaw[count])+err)
+        pf.gpsMeasurement((gpsENU[count,0],gpsENU[count,1],yaw[count])+err)
+        visionInput = detectorPixels[:,0,:,count]
+        pf.visionMeasurement(visionInput)
+        pfOutput[count,:] = pf.state()
         #print pf.state()
         #print (gps_Pos[count,[0,2]],yaw[count])
         #print (gpsENU[count,0:2],yaw[count])
+        print(visionInput)
+        print(pf.getMapPts3D(pf.state()))
 
+        lpts = np.ones((8,4))
+        lpts[:,0:3] = detectorPixels[:,0,:,count]
+        lPos2 = lpts.transpose()
+        #print lPos2
+        lpix = np.around(np.dot(cam['KK'], np.divide(lPos2[0:3,:], lPos2[2, :])))
+        if lpix.shape[1] > 0:
+          lpix = lpix.astype(np.int32)
+          lpix = lpix[:,lpix[0,:] > 0 + width/2]
+          if lpix.size > 0:
+            lpix = lpix[:,lpix[1,:] > 0 + width/2]
+          if lpix.size > 0:
+            lpix = lpix[:,lpix[0,:] < 1279 - width/2]
+          if lpix.size > 0:
+            lpix = lpix[:,lpix[1,:] < 959 - width/2]
+
+            for p in range(-width/2,width/2):
+              I[lpix[1,:]+p, lpix[0,:], :] = [0, 255, 0]
+              I[lpix[1,:], lpix[0,:]+p, :] = [0, 255, 0]
+              I[lpix[1,:]-p, lpix[0,:], :] = [0, 255, 0]
+              I[lpix[1,:], lpix[0,:]-p, :] = [0, 255, 0]
+
+
+        """
         lpix = detectorPixels[:,0,:,count].transpose()
         if lpix.shape[1] > 0:
           lpix = lpix.astype(np.int32)
@@ -216,8 +247,9 @@ if __name__ == '__main__':
               I[lpix[1,:]-p, lpix[0,:], :] = [0, 255, 0]
               I[lpix[1,:], lpix[0,:]-p, :] = [0, 255, 0]
 
-        
+        """
         lpix = pf.getMapPts(pf.state(),np.zeros(1))
+        #pfPix[count,:] = lpix.copy()
         if lpix.shape[1] > 0:
           lpix = lpix.astype(np.int32)
           lpix = lpix[:,lpix[0,:] > 0 + width/2]
@@ -239,7 +271,7 @@ if __name__ == '__main__':
         I = cv2.resize(I, (640, 480))
         if writer:
           writer.write(I) 
-        if saveImageDest is not None and count==1000:
+        if saveImageDest is not None and count==100:
           imwrite(saveImageDest,I)
         imshow('video', I)
         key = waitKey(10)
@@ -251,3 +283,5 @@ if __name__ == '__main__':
 
         if count==10000:
           savemat('pfOutput',dict(pfOut = pfOutput))
+          savemat('pfPix3',dict(pfPixel = pfPix))
+          savemat('laneLabelPix3',dict(lanePixel = laneLabelPix))
