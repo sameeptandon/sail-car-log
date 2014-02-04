@@ -104,12 +104,9 @@ class LDRConverter
               cloud_cb);
       grabber_.start();
 
-      stringstream folder_stream;
-      folder_stream << "frames/" << folder_name << "/";
-      std::string dir = folder_stream.str();
-      boost::filesystem::create_directories(dir);
-      _dir = dir; 
-      cout << dir << " was created" << endl;
+      boost::filesystem::create_directories(folder_name);
+      _dir = folder_name;
+      cout << folder_name << " was created" << endl;
 
       uint64_t last_stamp = 0;
       while(grabber_.isRunning())
@@ -208,13 +205,13 @@ main(int argc, char ** argv)
   //parse_argument(argc, argv, "-pcapFile", pcapFile);
 
   GPSHDLGrabber *grabber = new GPSHDLGrabber(hdlCalibration, pcapFile);
-  cout << "pcap file: " << pcapFile << endl;
   float minDistance = 0.00001f;
   grabber->setMinimumDistanceThreshold(minDistance);
   
   LDRConverter v(*grabber);
   boost::filesystem::path const p(pcapFile);
-  v.run(p.stem().string());
+  string output_folder(p.branch_path().string() + "/" + p.stem().string() + "_frames/");
+  v.run(output_folder);
 
   return(0);
 }
