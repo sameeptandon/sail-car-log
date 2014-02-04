@@ -18,6 +18,7 @@ class FrameFinder:
 
     frame_to_cloud_map = {}
     cloud_to_frame_map = {}
+    map_file_path = ""
     map_file_name = ""
 
     def __init__(self, gps_file_path, frames_folder, write_to_file):
@@ -25,7 +26,7 @@ class FrameFinder:
         if frames_folder[-1] == '/':
             frames_folder = frames_folder[0:-1]
         frames_folder_name = os.path.basename(frames_folder)
-        self.map_file_name = gps_file_name + "_to_" + frames_folder_name + ".map"
+        self.map_file_name = os.path.dirname(gps_file_path) + "/" + gps_file_name + "_to_" + frames_folder_name + ".map"
 
         if os.path.isfile(self.map_file_name):
            self.__read_frame_map()
