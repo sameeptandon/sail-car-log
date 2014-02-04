@@ -425,6 +425,7 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
 
       short intensity = (short) xyzi.intensity;
       short laser_num = j + offset;
+      xyzrgb.rgba = 0; 
       xyzrgb.rgba = ((intensity << 16) | ((laser_num) & 0xffff));
 
 

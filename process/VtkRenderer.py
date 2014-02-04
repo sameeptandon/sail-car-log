@@ -6,8 +6,8 @@ import time
 
 class VtkPointCloud:
     def __init__(self, xyz, intensity):
-        self.xyz = xyz.copy()
-        self.intensity = intensity.copy() 
+        self.xyz = np.ascontiguousarray(xyz)
+        self.intensity = intensity.ravel()
 
         num_points = self.xyz.shape[0]
 
@@ -22,7 +22,7 @@ class VtkPointCloud:
         vtkPolyData = vtk.vtkPolyData()
         vtkPoints = vtk.vtkPoints()
         vtkCells = vtk.vtkCellArray()
-        vtkDepth = vtk.vtkDoubleArray()
+        vtkDepth = vtk.vtkFloatArray()
         vtkDepth.SetName('DepthArray')
         vtkPolyData.SetPoints(vtkPoints)
         vtkPolyData.SetVerts(vtkCells)

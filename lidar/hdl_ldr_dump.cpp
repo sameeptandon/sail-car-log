@@ -133,10 +133,12 @@ class LDRConverter
       for(PointCloud<PointXYZRGBA>::iterator iter = dataCloud.begin(); iter != dataCloud.end(); ++iter)
       {
           //File format is little endian, 3 floats, 1 short, 1 short (16 bytes) per entry
-          float pBuffer[] = {iter->x, iter->y, iter->z};
+          float intensity = (float) ( (iter->rgba & 0xffff0000) >> 16);
+          float laser_num = (float) ( (iter->rgba & 0x0000ffff) );
+          float pBuffer[] = {iter->x, iter->y, iter->z, intensity, laser_num};
           fwrite(pBuffer, 1, sizeof(pBuffer), ldrFile);
-          uint32_t iBuffer[] = {iter->rgba};
-          fwrite(iBuffer, 1, sizeof(iBuffer), ldrFile);
+          //uint32_t iBuffer[] = {iter->rgba};
+          //fwrite(iBuffer, 1, sizeof(iBuffer), ldrFile);
       }
       fclose(ldrFile);
     }
