@@ -1,89 +1,119 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from VtkRenderer import *
-from LidarTransforms import *
-import numpy as np
-import sys
-import os
-from VideoReader import VideoReader
 import cv2
-import cv
+import numpy as np
+import os
+import Queue
+import sys
+import threading
+from LidarTransforms import *
+from VideoReader import VideoReader
+from VtkRenderer import *
 
 global count
 
+
 class LDRGrabberCallback:
 
-    def __init__(self):
-        pass
+    def __init__(self, queue_manager):
+        self.queue = queue_manager.queue
+        self.manager = queue_manager
+        bg_thread = threading.Thread(target=queue_manager.loadNext)
+        bg_thread.daemon = True
+        bg_thread.start()
 
     def execute(self, iren, event):
-        global count
-        t = time.time()
+        try:
 
-        (success, img) = reader.getNextFrame()
-        if success == False:
-            return
+            frame_cloud = self.queue.get()
+            pts = frame_cloud['pts']
+            img = frame_cloud['img']
 
-        (frame, ldr_file) = map_file.readline().rstrip().split(' ')
-        if count % 3 == 0:
+            global count
             count += 1
-            return
-        ldr_file = sys.argv[3] + '/' + ldr_file
 
-        renderer = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
+            self.pointCloud = VtkPointCloud(pts[:, 0:3], pts[:, 3])
 
-        pts = loadLDR(ldr_file)
-        
-        count += 1
-        self.pointCloud = VtkPointCloud(pts[:, 0:3], pts[:, 3])
+            t = time.time()
+            if count > 2:
+                renderer.RemoveActor(self.actor)
+            self.actor = self.pointCloud.get_vtk_cloud(zMin=0, zMax=255)
+            renderer.AddActor(self.actor)
 
-        if count > 2:
-            renderer.RemoveActor(self.actor)
-        
+            # Initially set the camera frame
 
-        self.actor = self.pointCloud.get_vtk_cloud(zMin=0, zMax=255)
-        renderer.AddActor(self.actor)
+            if count == 2:
+                renderer.ResetCamera()
+            iren.GetRenderWindow().Render()
 
-        if count == 2:
-            renderer.ResetCamera()
+            cv2.imshow('display', img)
+            cv2.waitKey(1)
 
-        iren.GetRenderWindow().Render()
+            print "Display:",  time.time() - t
+        except Queue.Empty:
+            if self.manager.finished == True:
+                return
 
-        img = cv2.resize(img, (640, 480))
-        cv2.imshow('display', img)
-        cv2.waitKey(1)
 
-        print time.time() - t
+class FrameCloudManager:
+
+    def __init__(self, video_file, frame_folder, map_file):
+        self.reader = VideoReader(video_file)
+        self.map_file = open(map_file, 'r')
+        self.frame_folder = frame_folder
+        self.queue = Queue.Queue()
+        self.finished = False
+
+    def loadNext(self):
+        while self.finished == False:
+            t = time.time()
+            (success, img) = self.reader.getNextFrame()
+            if success == False:
+                self.finished = True
+                return
+
+            img = cv2.resize(img, (640, 480))
+
+            (frame, ldr_file) = \
+                self.map_file.readline().rstrip().split(' ')
+            ldr_file = self.frame_folder + '/' + ldr_file
+            pts = loadLDR(ldr_file)
+
+            self.queue.put({'img': img, 'pts': pts})
+            print "Load:", time.time() - t
 
 
 if __name__ == '__main__':
-    reader = VideoReader(sys.argv[1])
-    count = 1
-    map_file = open(sys.argv[2], 'r')
+    if len(sys.argv) < 4:
+        print """
+        Usage:
+            testPointCloudFrameCompare.py <video file>.avi <frame folder>/ <map_file>.out
+        """
+    else: 
 
-    renderer = vtk.vtkRenderer()
-    renderer.SetBackground(0., 0., 0.)
-    renderer.ResetCamera()
+        frame_cloud_manager = FrameCloudManager(sys.argv[1], sys.argv[2],
+                sys.argv[3])
+        global count
+        count = 1
 
-    # Render Window
-    renderWindow = vtk.vtkRenderWindow()
-    renderWindow.AddRenderer(renderer)
-    renderWindow.SetSize(640, 480)
+        renderer = vtk.vtkRenderer()
+        renderer.SetBackground(0., 0., 0.)
+        renderer.ResetCamera()
 
-    # Interactor
-    renderWindowInteractor = vtk.vtkRenderWindowInteractor()
-    renderWindowInteractor.SetRenderWindow(renderWindow)
-    mouseInteractor = vtk.vtkInteractorStyleTrackballCamera()
-    renderWindowInteractor.SetInteractorStyle(mouseInteractor)
-    renderWindow.Render()
+        # Render Window
+        renderWindow = vtk.vtkRenderWindow()
+        renderWindow.AddRenderer(renderer)
+        renderWindow.SetSize(640, 480)
 
+        # Interactor
+        renderWindowInteractor = vtk.vtkRenderWindowInteractor()
+        renderWindowInteractor.SetRenderWindow(renderWindow)
+        mouseInteractor = vtk.vtkInteractorStyleTrackballCamera()
+        renderWindowInteractor.SetInteractorStyle(mouseInteractor)
+        renderWindow.Render()
 
-    cb = LDRGrabberCallback()
-    renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
-    timerId = renderWindowInteractor.CreateRepeatingTimer(10)
-    renderWindowInteractor.Start()
-
-
-
-
+        cb = LDRGrabberCallback(frame_cloud_manager)
+        renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
+        timerId = renderWindowInteractor.CreateRepeatingTimer(10)
+        renderWindowInteractor.Start()
