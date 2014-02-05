@@ -12,6 +12,7 @@ from VideoReader import VideoReader
 from VtkRenderer import *
 
 global count
+global lastTime
 
 
 class LDRGrabberCallback:
@@ -35,7 +36,6 @@ class LDRGrabberCallback:
 
             self.pointCloud = VtkPointCloud(pts[:, 0:3], pts[:, 3])
 
-            t = time.time()
             if count > 2:
                 renderer.RemoveActor(self.actor)
             self.actor = self.pointCloud.get_vtk_cloud(zMin=0, zMax=255)
@@ -49,8 +49,10 @@ class LDRGrabberCallback:
 
             cv2.imshow('display', img)
             cv2.waitKey(1)
+            global lastTime
+            print time.time() - lastTime
+            lastTime = time.time()
 
-            print "Display:",  time.time() - t
         except Queue.Empty:
             if self.manager.finished == True:
                 return
@@ -67,13 +69,13 @@ class FrameCloudManager:
 
     def loadNext(self):
         while self.finished == False:
-            t = time.time()
             (success, img) = self.reader.getNextFrame()
             if success == False:
                 self.finished = True
                 return
 
-            img = cv2.resize(img, (640, 480))
+            #img = cv2.resize(img, (640, 480))
+            img = cv2.pyrDown(img)
 
             (frame, ldr_file) = \
                 self.map_file.readline().rstrip().split(' ')
@@ -81,7 +83,6 @@ class FrameCloudManager:
             pts = loadLDR(ldr_file)
 
             self.queue.put({'img': img, 'pts': pts})
-            print "Load:", time.time() - t
 
 
 if __name__ == '__main__':
@@ -96,6 +97,8 @@ if __name__ == '__main__':
                 sys.argv[3])
         global count
         count = 1
+        global lastTime
+        lastTime = 0
 
         renderer = vtk.vtkRenderer()
         renderer.SetBackground(0., 0., 0.)
@@ -104,7 +107,7 @@ if __name__ == '__main__':
         # Render Window
         renderWindow = vtk.vtkRenderWindow()
         renderWindow.AddRenderer(renderer)
-        renderWindow.SetSize(640, 480)
+        renderWindow.SetSize(600, 600)
 
         # Interactor
         renderWindowInteractor = vtk.vtkRenderWindowInteractor()
@@ -115,5 +118,5 @@ if __name__ == '__main__':
 
         cb = LDRGrabberCallback(frame_cloud_manager)
         renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
-        timerId = renderWindowInteractor.CreateRepeatingTimer(10)
+        timerId = renderWindowInteractor.CreateRepeatingTimer(1)
         renderWindowInteractor.Start()

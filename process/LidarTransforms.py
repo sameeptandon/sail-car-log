@@ -3,7 +3,6 @@ import numpy as np
 
 def loadLDR(ldrfile):
     z = np.fromfile(ldrfile, dtype=np.float32)
-    print z.shape
     z = z.reshape((z.shape[0] / 5, 5))
     return z
 
