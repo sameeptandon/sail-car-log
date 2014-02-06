@@ -117,6 +117,7 @@ if __name__ == '__main__':
         image_r = vtk.vtkRenderer()
         image_r.SetBackground(0., 0., 0.)
         image_r.SetViewport(0.5,0,1.0,1.0)
+        image_r.SetInteractive(False)
 
         # Render Window
         renderWindow = vtk.vtkRenderWindow()
