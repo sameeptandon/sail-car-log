@@ -2,21 +2,9 @@ import numpy as np
 
 
 def loadLDR(ldrfile):
-    dt = [  ('x', np.float32),
-                ('y', np.float32),
-                ('z', np.float32),
-                ('l', np.int16), #intensity
-                ('i', np.int16)]; # laser num
-
-    z = np.fromfile(ldrfile, dtype=dt) 
-    dat = np.zeros((z.shape[0], 5))
-    dat[:,0] = z[:]['x']
-    dat[:,1] = z[:]['y']
-    dat[:,2] = z[:]['z']
-    dat[:,3] = z[:]['i'] 
-    dat[:,4] = z[:]['l'] 
-
-    return dat
+    z = np.fromfile(ldrfile, dtype=np.float32)
+    z = z.reshape((z.shape[0] / 5, 5))
+    return z
 
 def loadPCD(pcdfile): 
     f = open(pcdfile, 'r')

@@ -3,11 +3,38 @@ from numpy import random
 import numpy as np
 import vtk.util.numpy_support as converter
 import time
+import cv2
+
+
+class VtkImage:
+    def __init__(self, im):
+        self.im =  cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    def get_vtk_image(self):
+        importer = vtk.vtkImageImport()
+        importer.SetDataSpacing(1,1,1)
+        importer.SetDataOrigin(0,0,0)
+        importer.SetWholeExtent(0, self.im.shape[1] - 1, 
+                0, self.im.shape[0] - 1, 0, 0)
+        importer.SetDataExtentToWholeExtent()
+        importer.SetDataScalarTypeToUnsignedChar()
+        importer.SetNumberOfScalarComponents(self.im.shape[2])
+        importer.SetImportVoidPointer(self.im)
+        importer.Update()
+        flipY = vtk.vtkImageFlip()
+        flipY.SetFilteredAxis(1)
+        flipY.SetInputConnection(importer.GetOutputPort())
+        flipY.Update()
+        yActor = vtk.vtkImageActor()
+        yActor.SetInput(flipY.GetOutput())
+
+        return yActor
+
+
 
 class VtkPointCloud:
     def __init__(self, xyz, intensity):
-        self.xyz = xyz.copy()
-        self.intensity = intensity.copy() 
+        self.xyz = np.ascontiguousarray(xyz)
+        self.intensity = intensity.ravel()
 
         num_points = self.xyz.shape[0]
 
@@ -22,7 +49,7 @@ class VtkPointCloud:
         vtkPolyData = vtk.vtkPolyData()
         vtkPoints = vtk.vtkPoints()
         vtkCells = vtk.vtkCellArray()
-        vtkDepth = vtk.vtkDoubleArray()
+        vtkDepth = vtk.vtkFloatArray()
         vtkDepth.SetName('DepthArray')
         vtkPolyData.SetPoints(vtkPoints)
         vtkPolyData.SetVerts(vtkCells)

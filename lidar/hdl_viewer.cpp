@@ -132,13 +132,6 @@ class SimpleHDLViewer
           grabber_.registerCallback(visual_cloud_cb);
       grabber_.start();
 
-      boost::posix_time::ptime ptime = boost::posix_time::second_clock::local_time();
-      stringstream folder_stream;
-      folder_stream << "frames/" << boost::posix_time::to_simple_string(ptime) << "/";
-      std::string dir = folder_stream.str();
-      boost::filesystem::create_directories(dir);
-      cout << dir << " was created" << endl;
-
       uint64_t last_stamp = 0;
       while(!cloud_viewer_->wasStopped())
       {
@@ -150,13 +143,6 @@ class SimpleHDLViewer
         {
           cloud_.swap(cloud);
           cloud_mutex_.unlock();
-        }
-
-        if(cloud)
-        {
-
-          //Save the ldr files to disk
-          writeLDRFile(dir, cloud);
         }
 
         if(visual_cloud_mutex_.try_lock())
@@ -185,28 +171,6 @@ class SimpleHDLViewer
 
       cloud_connection.disconnect();
       visual_cloud_connection.disconnect();
-    }
-
-    void
-    writeLDRFile(const std::string& dir, const CloudConstPtr& cloud)
-    {
-      PointCloud<PointXYZRGBA> dataCloud = *cloud.get();
-      uint64_t timeStamp = dataCloud.header.stamp;
-
-      // The timestamp is in microseconds since Jan 1, 1970 (epoch time)
-      stringstream ss;
-      ss << dir << timeStamp << ".ldr";
-
-      FILE *ldrFile = fopen(ss.str().c_str(), "wb");
-      for(PointCloud<PointXYZRGBA>::iterator iter = dataCloud.begin(); iter != dataCloud.end(); ++iter)
-      {
-          //File format is little endian, 3 floats, 1 short, 1 short (16 bytes) per entry
-          float pBuffer[] = {iter->x, iter->y, iter->z};
-          fwrite(pBuffer, 1, sizeof(pBuffer), ldrFile);
-          uint32_t iBuffer[] = {iter->rgba};
-          fwrite(iBuffer, 1, sizeof(iBuffer), ldrFile);
-      }
-      fclose(ldrFile);
     }
 
     boost::shared_ptr<PCLVisualizer> cloud_viewer_;

@@ -96,7 +96,7 @@ class LDRConverter
     }
 
     void 
-    run()
+    run(const string& folder_name)
     {
       boost::function<void(const CloudConstPtr&)> cloud_cb = boost::bind(
               &LDRConverter::cloud_callback, this, _1);
@@ -104,13 +104,9 @@ class LDRConverter
               cloud_cb);
       grabber_.start();
 
-      boost::posix_time::ptime ptime = boost::posix_time::second_clock::local_time();
-      stringstream folder_stream;
-      folder_stream << "frames/" << boost::posix_time::to_simple_string(ptime) << "/";
-      std::string dir = folder_stream.str();
-      boost::filesystem::create_directories(dir);
-      _dir = dir; 
-      cout << dir << " was created" << endl;
+      boost::filesystem::create_directories(folder_name);
+      _dir = folder_name;
+      cout << folder_name << " was created" << endl;
 
       uint64_t last_stamp = 0;
       while(grabber_.isRunning())
@@ -137,10 +133,12 @@ class LDRConverter
       for(PointCloud<PointXYZRGBA>::iterator iter = dataCloud.begin(); iter != dataCloud.end(); ++iter)
       {
           //File format is little endian, 3 floats, 1 short, 1 short (16 bytes) per entry
-          float pBuffer[] = {iter->x, iter->y, iter->z};
+          float intensity = (float) ( (iter->rgba & 0xffff0000) >> 16);
+          float laser_num = (float) ( (iter->rgba & 0x0000ffff) );
+          float pBuffer[] = {iter->x, iter->y, iter->z, intensity, laser_num};
           fwrite(pBuffer, 1, sizeof(pBuffer), ldrFile);
-          uint32_t iBuffer[] = {iter->rgba};
-          fwrite(iBuffer, 1, sizeof(iBuffer), ldrFile);
+          //uint32_t iBuffer[] = {iter->rgba};
+          //fwrite(iBuffer, 1, sizeof(iBuffer), ldrFile);
       }
       fclose(ldrFile);
     }
@@ -209,12 +207,13 @@ main(int argc, char ** argv)
   //parse_argument(argc, argv, "-pcapFile", pcapFile);
 
   GPSHDLGrabber *grabber = new GPSHDLGrabber(hdlCalibration, pcapFile);
-  cout << "pcap file: " << pcapFile << endl;
   float minDistance = 0.00001f;
   grabber->setMinimumDistanceThreshold(minDistance);
   
   LDRConverter v(*grabber);
-  v.run();
+  boost::filesystem::path const p(pcapFile);
+  string output_folder(p.branch_path().string() + "/" + p.stem().string() + "_frames/");
+  v.run(output_folder);
 
   return(0);
 }
