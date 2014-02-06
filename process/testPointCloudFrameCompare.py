@@ -25,6 +25,7 @@ class LDRGrabberCallback:
         bg_thread.start()
 
     def execute(self, iren, event):
+
         try:
 
             frame_cloud = self.queue.get()
@@ -35,20 +36,27 @@ class LDRGrabberCallback:
             count += 1
 
             self.pointCloud = VtkPointCloud(pts[:, 0:3], pts[:, 3])
+            self.vtkImage = VtkImage(img)
 
             if count > 2:
-                renderer.RemoveActor(self.actor)
-            self.actor = self.pointCloud.get_vtk_cloud(zMin=0, zMax=255)
-            renderer.AddActor(self.actor)
+                cloud_r.RemoveActor(self.cloud_actor)
+                image_r.RemoveActor(self.image_actor)
+            self.cloud_actor = self.pointCloud.get_vtk_cloud(zMin=0, zMax=255)
+            self.image_actor = self.vtkImage.get_vtk_image()
+
+            cloud_r.AddActor(self.cloud_actor)
+            image_r.AddActor(self.image_actor)
 
             # Initially set the camera frame
-
             if count == 2:
-                renderer.ResetCamera()
+                cloud_r.ResetCamera()
+                image_r.ResetCamera()
+                image_r.GetActiveCamera().Zoom(1.25)
+
             iren.GetRenderWindow().Render()
 
-            cv2.imshow('display', img)
-            cv2.waitKey(1)
+            #cv2.imshow('display', img)
+            #cv2.waitKey(1)
             global lastTime
             print time.time() - lastTime
             lastTime = time.time()
@@ -84,6 +92,9 @@ class FrameCloudManager:
 
             self.queue.put({'img': img, 'pts': pts})
 
+            while self.queue.qsize() > 5:
+                time.sleep(0.1)
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
@@ -100,14 +111,18 @@ if __name__ == '__main__':
         global lastTime
         lastTime = 0
 
-        renderer = vtk.vtkRenderer()
-        renderer.SetBackground(0., 0., 0.)
-        renderer.ResetCamera()
+        cloud_r = vtk.vtkRenderer()
+        cloud_r.SetBackground(0., 0., 0.)
+        cloud_r.SetViewport(0,0,0.5,1.0)
+        image_r = vtk.vtkRenderer()
+        image_r.SetBackground(0., 0., 0.)
+        image_r.SetViewport(0.5,0,1.0,1.0)
 
         # Render Window
         renderWindow = vtk.vtkRenderWindow()
-        renderWindow.AddRenderer(renderer)
-        renderWindow.SetSize(600, 600)
+        renderWindow.AddRenderer(cloud_r)
+        renderWindow.AddRenderer(image_r)
+        renderWindow.SetSize(1200, 600)
 
         # Interactor
         renderWindowInteractor = vtk.vtkRenderWindowInteractor()
