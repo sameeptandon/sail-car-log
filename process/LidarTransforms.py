@@ -26,6 +26,15 @@ def loadPCD(pcdfile):
 
     return pts
 
+def loadLDRCamMap(self, frame_cloud_map):
+    map_file = open(frame_cloud_map, 'r')
+    clouds = []
+    for line in map_file:
+        (frame, ldr_file) = line.rstrip().split(' ')
+        clouds.append(self.frame_folder + '/' + ldr_file)
+    map_file.close()
+    return clouds
+
 def R_to_c_from_l(cam):
     # hard coded calibration parameters for now
     R_to_c_from_l = np.array([[0.0, -1.0, 0.0],
