@@ -31,6 +31,7 @@ def loadLDRCamMap(frame_cloud_map):
     map_file = open(frame_cloud_map, 'r')
     clouds = []
     frame_folder, map_name = os.path.split(frame_cloud_map)
+    frame_folder = frame_folder + '/' + map_name.split('.')[0] + '_frames'
 
     for line in map_file:
         (frame, ldr_file) = line.rstrip().split(' ')
