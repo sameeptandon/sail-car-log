@@ -25,8 +25,9 @@ class FrameFinder:
         gps_file_name = os.path.basename(gps_file_path).split('.')[0]
         if frames_folder[-1] == '/':
             frames_folder = frames_folder[0:-1]
+        basename = frames_folder.replace('_frames', '')
         frames_folder_name = os.path.basename(frames_folder)
-        self.map_file_name = os.path.dirname(gps_file_path) + "/" + gps_file_name + "_to_" + frames_folder_name + ".map"
+        self.map_file_name = basename + ".map"
 
         if os.path.isfile(self.map_file_name):
            self.__read_frame_map()
