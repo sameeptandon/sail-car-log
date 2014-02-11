@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 
 def loadLDR(ldrfile):
@@ -26,13 +27,16 @@ def loadPCD(pcdfile):
 
     return pts
 
-def loadLDRCamMap(self, frame_cloud_map):
+def loadLDRCamMap(frame_cloud_map):
     map_file = open(frame_cloud_map, 'r')
     clouds = []
+    frame_folder, map_name = os.path.split(frame_cloud_map)
+
     for line in map_file:
         (frame, ldr_file) = line.rstrip().split(' ')
-        clouds.append(self.frame_folder + '/' + ldr_file)
+        clouds.append(frame_folder + '/' + ldr_file)
     map_file.close()
+
     return clouds
 
 def R_to_c_from_l(cam):
@@ -46,14 +50,6 @@ def R_to_c_from_l(cam):
 
 if __name__ == '__main__':
     import sys
-    #pts = loadPCD(sys.argv[1])
-    pts = loadLDR(sys.argv[1])
-    from mpl_toolkits.mplot3d import Axes3D
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(pts[:,0], pts[:,1], pts[:,2])
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('Z Label')
-    plt.show()
+    z = loadLDRCamMap(sys.argv[1])
+    for x in z:
+        print x
