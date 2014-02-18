@@ -1,0 +1,19 @@
+<package>
+  <description brief="radar">
+
+     radar
+
+  </description>
+  <author></author>
+  <license></license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/radar</url>
+  <depend package="tf"/>
+  <depend package="lltransform"/>
+  <depend package="applanix"/>
+  <depend package="localize"/>
+  <depend package="dgcglobal"/>
+  <depend package="driving_common"/>
+</package>
+
+
