@@ -3,6 +3,7 @@ import sys, os
 from VideoReader import *
 from CameraParams import * 
 from cv2 import imshow, waitKey
+import cv2
 from numpy.linalg import norm
 from ColorMap import *
 from numpy import exp
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     #(-0.20000000000000007, 0.4, 0.32999999999999985, -0.09800000000000006, 0.014999999999999986, -0.02400000000000002)
     #(-0.10000000000000007, 0.5, 0.4299999999999998, -0.09800000000000006, 0.019999999999999987, 0.000999999999999982)
     (tx, ty, tz, rx, ry, rz) = \
-            [-0.30493086,  0.41796525,  0.49775339, -0.1036506,   0.01598486,  0.00963721]
+            [-0.30493086,  0.41796525,  0.39775339, -0.0986506,   0.01598486,  0.00963721]
 
             #(-0.30000000000000004, 0.5, 0.4299999999999998, -0.09800000000000006, 0.019999999999999987, 0.010999999999999982)
     video_reader = VideoReader(video_filename)
@@ -45,6 +46,8 @@ if __name__ == '__main__':
         count += 1
     orig = I.copy()
     """
+    import cv
+    writer = cv2.VideoWriter(sys.argv[3], cv.CV_FOURCC('F','M','P','4'), 10.0, (1280,960))
 
     while True:
         (success, I, pts) = getNextData(video_reader, ldr_frame_map)
@@ -52,7 +55,9 @@ if __name__ == '__main__':
             break
         orig = I.copy()
         I = orig.copy()
-        #pts = pts[pts[:,3] > 45,:]
+        #pts = pts[pts[:,3] > 40]
+        #pts = pts[pts[:,0] > 0,:]
+        #pts = pts[pts[:,2] < -0.7,:]
         raw_pts = array(pts[:, 0:3])
         raw_pts[:, 0] += tx
         raw_pts[:, 1] += ty
@@ -85,7 +90,8 @@ if __name__ == '__main__':
             I[px,py+p, :] = colors[0,:,:]
             I[px-p,py, :] = colors[0,:,:]
             I[px,py-p, :] = colors[0,:,:]
-        imshow('display', I)
+        writer.write(I)
+        #imshow('display', I)
         key = chr((waitKey(1) & 255))
         if key == '+':
             tx += 0.05
