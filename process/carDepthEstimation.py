@@ -46,33 +46,16 @@ def get_frame(name):
   split = int(name.split('_')[-4])
   return (frame_in_split - 1) * num_splits + split
 
-def get_orthogonal_vec(larger, smaller, default_len = 1.0):
-  # Compute the orthogonal vector given a 2D vector with length normalized to default_len.
-  # The larger component is the first argument, this is to avoid numerical issue when dividing
-  # by 0.
-  a = -smaller / larger
-  length = a * a + 1
-  a = a / length * default_len
-  b = 1 / length * default_len
-  return a, b
-
-def get_orthogonal_pair_points(v_north, v_east):
-  # Given a 2D vector, return two points s.t. their joint line segment is orthogonal to it.
-  if abs(v_north) > abs(v_east):
-    o_north, o_east = get_orthogonal_vec(v_north, v_east)
-  else:
-    o_east, o_north = get_orthogonal_vec(v_east, v_north)
-  return o_north, o_east, -o_north, -o_east
-
 def get_orthogonal_velocity(data):
   # Given the GPS data, for each frame, compute two GPS points such that their line segment is
   # orthogonal to the vecolcity vector at that frame using flat ground assumption.
   points1 = np.zeros((data.shape[0], 4))
   points2 = np.zeros((data.shape[0], 4))
+  orthogonals = np.cross(data[:, 4:7], np.array([0,0,1]), axisa=1)
+  orthogonals /= np.sqrt((orthogonals** 2).sum(-1))[..., np.newaxis]
   for i in xrange(data.shape[0]):
-    on1, oe1, on2, oe2 = get_orthogonal_pair_points(data[i, 4], data[i, 5])
-    points1[i, 1:4] = ENUtoWGS84(data[i, 1:4], np.array([[on1, oe1, data[i, 6]]])).transpose()
-    points2[i, 1:4] = ENUtoWGS84(data[i, 1:4], np.array([[on2, oe2, data[i, 6]]])).transpose()
+    points1[i, 1:4] = ENUtoWGS84(data[i, 1:4], np.array([orthogonals[i, :]])).transpose()
+    points2[i, 1:4] = ENUtoWGS84(data[i, 1:4], np.array([-orthogonals[i, :]])).transpose()
   return points1, points2
 
 def preprocess_all_gps_data():
@@ -98,6 +81,7 @@ def preprocess_all_gps_data():
       print 'Skipped:', id
       continue
     gps_data[id] = {'gps_data' : gps_reader.getNumericData()}
+    gps_data[id]['gps_data'][:, [4, 5]] = gps_data[id]['gps_data'][:, [5, 4]]
     ov1, ov2 = get_orthogonal_velocity(gps_data[id]['gps_data'])
 
     for camIdx in xrange(1, 3):
@@ -199,11 +183,11 @@ def display_bb(name, name2bb, lpix, rpix, ov1pix, ov2pix):
   plt.pause(1.5)
 
 def gen_name2bb_with_depths(display = True, useVelocity = True):
-  gps_data = pickle.load(open(preprocessed_gps_data_dir + 'preprocessed_gps_data_using_velocity.pkl'))
+  gps_data = pickle.load(open(preprocessed_gps_data_dir + 'small_preprocessed_gps_data_using_velocity.pkl'))
   name2bb = pickle.load(open('/scail/group/deeplearning/sail-deep-gpu/imagenet_dicts/driving_name2bb.pkl'))
 
   skipped = 0
-  for name, bb_info in name2bb.iteritems():
+  for name, bb_info in sorted(name2bb.iteritems()):
     id = get_id(name)
 
     try:
@@ -277,10 +261,10 @@ def gen_name2bb_with_depths(display = True, useVelocity = True):
         # searching thorugh all vectors, we perform a bidirectional search starting at the location
         # as appriximated by the lane labels, and stop the search when the distance begins to
         # increase consecutively.
-        for l in xrange(lpix.shape[1] - 1):
+        for l in xrange(lpix.shape[1] - 2, 0, -1):
           if lpix[1, l] >= bottom and lpix[1, l + 1] <= bottom:
             break
-        for r in xrange(rpix.shape[1] - 1):
+        for r in xrange(rpix.shape[1] - 2, 0, -1):
           if rpix[1, r] >= bottom and rpix[1, r + 1] <= bottom:
             break
 
@@ -291,6 +275,22 @@ def gen_name2bb_with_depths(display = True, useVelocity = True):
         num_getting_further = 0
         num_getting_further_thresh = 3
         depth = 300
+        for i in xrange(min(m, ov1pix.shape[1] - 1), ov1pix.shape[1]):
+          try:
+            d = perp_distance_from_point_to_line(center, bottom, ov1pix[0, i], ov1pix[1, i], ov2pix[0, i], ov2pix[1, i])
+          except:
+            continue
+          if d < closest_distance:
+            num_getting_further = 0
+            closest_distance = d
+            depth = ov1Pos2[2, i]
+          else:
+            num_getting_further += 1
+            if num_getting_further > num_getting_further_thresh:
+              break
+
+        num_getting_further = 0
+
         for i in xrange(min(m, ov1pix.shape[1] - 1), 2, -1):
           try:
             # Get the distance from the bottom center of the bounding box to the line vector
@@ -305,27 +305,15 @@ def gen_name2bb_with_depths(display = True, useVelocity = True):
             num_getting_further += 1
             if num_getting_further > num_getting_further_thresh:
               break
-        num_getting_further = 0
-        for i in xrange(min(m, ov1pix.shape[1] - 1), ov1pix.shape[1]):
-          try:
-            d = perp_distance_from_point_to_line(center, bottom, ov1pix[0, i], ov1pix[1, i], ov2pix[0, i], ov2pix[1, i])
-          except:
-            continue
-          if d < closest_distance:
-            num_getting_further = 0
-            closest_distance = d
-            depth = ov1Pos2[2, i]
-          else:
-            num_getting_further += 1
-            if num_getting_further > num_getting_further_thresh:
-              break
+
         b['depth'] = depth
 
     if display:
       display_bb(name, name2bb, lpix, rpix, ov1pix, ov2pix)
 
   print skipped, 'entriese were skipped'
-  pickle.dump(name2bb, open('all_depth_using_velocity.pkl', 'w'))
+  if not display:
+    pickle.dump(name2bb, open('all_depth_using_velocity.pkl', 'w'))
 
 def main():
   if sys.argv[1] == '-p':
