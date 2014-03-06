@@ -12,20 +12,6 @@ from trackingFunctions import NextRect
 from AnnotationLib import *
 from optparse import OptionParser
 
-
-
-def ImageNames(ImgName,n):
-	ImgNames = [];
-	p = ImgName.split(".");
-	p0 = ".".join(p[:-1]);
-	p00 = '_'.join(p0.split("_")[:-1]);
-	ImgNum = int(p[-2].split("_")[-1]);
-	for i in range(n):
-		IN = p00 + "_" + "%04d"%(ImgNum+i+1) + ".jpeg";
-		ImgNames.append(IN);
-	return ImgNames;
-
-
 def inc_image_name(s, n):
     pos1 = s.rfind('_');
     pos2 = s.rfind('.');
@@ -50,7 +36,6 @@ if __name__ == "__main__":
     # convert to full path
     for a in annolist:
         a.imageName = annolist_basedir + "/" + a.imageName
-        #print a.imageName
         assert(os.path.isfile(a.imageName))
 
     #annolist = annolist[2:];
@@ -60,7 +45,6 @@ if __name__ == "__main__":
     annolist_track = [];
     
     trackMaxFrames = 50;
-    #trackMaxFrames = 4;
 
     for idx, a in enumerate(annolist):
         
@@ -94,8 +78,6 @@ if __name__ == "__main__":
             img_width = len(Img2[0]);
 
             assert(img_height > 0 and img_width > 0);
-            #print str(img_height) + "," + str(img_width)
-
             next_windows = [];
 
             for idx2 in range(len(windows)): 
@@ -104,8 +86,6 @@ if __name__ == "__main__":
                 if win[2] <= 30 or win[3] <= 30:
                     num_skip_small += 1;
                     continue;
-
-                #print "current window: " + str(win)
 
                 nextWinInfo = NextRect(Img1, Img2, win);
                 
@@ -133,7 +113,6 @@ if __name__ == "__main__":
                 
             if framesTracked >= trackMaxFrames: 
                 break;
-                #assert(False);
 
             curImageName = nextImageName;
             windows = next_windows;
