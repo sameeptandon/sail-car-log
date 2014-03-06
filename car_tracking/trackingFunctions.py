@@ -54,8 +54,12 @@ def SIFT(qImg, tImg):
 def RectSIFT(qImg, qRect, tImg, tRect):
 	qx, qy, qw, qh = qRect;
 	tx, ty, tw, th = tRect;
+
 	qImgTemp = qImg[int(qy):int(qy+qh), int(qx):int(qx+qw)];
 	tImgTemp = tImg[int(ty):int(ty+th), int(tx):int(tx+tw)];
+
+	if qImgTemp.shape[0] == 0 or qImgTemp.shape[0] == 0 or tImgTemp.shape[0] == 0 or tImgTemp.shape[0] == 0:
+		assert(False);
 	
 	return SIFT(qImgTemp, tImgTemp);
 
@@ -113,7 +117,9 @@ def R2Mapping(X1, Y1, X2, Y2):
 	if (len(X1)<2):
 		return False, Mu, alpha;
         n = len(X1);
-        print n
+
+        #print n
+
 	A_io = sum([float(X1[i])*X2[i] + Y1[i]*Y2[i] for i in range(n)])
 	A_ii = sum([float(X1[i])*X1[i] + Y1[i]*Y1[i] for i in range(n)])
 	A_i = [sum(X1), sum(Y1)];
@@ -135,6 +141,7 @@ def ShowImg(WinName, Img, Rect):
 
 def NextRect(Img1, Img2, Rect1):
 	dx = 0; dy = 0;
+
 	X_max = len(Img2[0])-1; Y_max = len(Img2)-1;
 	x1, y1, w1, h1 = Rect1;
 	x2 = max(x1-dx,0);
@@ -142,6 +149,10 @@ def NextRect(Img1, Img2, Rect1):
         w2 = min(X_max, x1+w1+dx) - x2;
         h2 = min(Y_max, y1+h1+dy) - y2;
 	Rect2 = (x2, y2, w2, h2);
+
+	if w2 == 0 or h2 == 0:
+		assert(False);
+
 	kp1, kp2, matches = RectSIFT(Img1, Rect1, Img2, Rect2);
 	X1 = []; X2 = []; Y1=[]; Y2 = [];
         for i in range(len(matches)):

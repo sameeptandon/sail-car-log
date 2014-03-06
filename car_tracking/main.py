@@ -2,9 +2,16 @@ import sys
 import numpy as np
 import cv2
 import cv
-from trakingFunctions import *
-from trakingFunctions import NextRect
+import os.path
+
+# debuging 
+import pdb;
+
+from trackingFunctions import *
+from trackingFunctions import NextRect
 from AnnotationLib import *
+from optparse import OptionParser
+
 
 
 def ImageNames(ImgName,n):
@@ -18,71 +25,129 @@ def ImageNames(ImgName,n):
 		ImgNames.append(IN);
 	return ImgNames;
 
+
+def inc_image_name(s, n):
+    pos1 = s.rfind('_');
+    pos2 = s.rfind('.');
+
+    num = int(s[pos1+1:pos2]) + n
+    numlen = pos2 - pos1 - 1;
+    res = s[:pos1+1] + str(num).zfill(numlen) + s[pos2:];
+    return res;
+
 if __name__ == "__main__":
-	if (len(sys.argv) < 2):
-		print "Please Enter The Frame#"
-		sys.exit();
-	index = int(sys.argv[1]);
-	annotations = parseXML('../Data/7-16-sacramento.al');
-	annotation = annotations[index];
-	ImgName = "../Data/" + annotation.filename();
-	
 
-	Img1 = cv2.imread(ImgName,0);
-	cv2.imshow('img1',Img1);
-	cv2.waitKey(0);
+    parser = OptionParser();
 
-	rects = annotation.rects;
-	tempImg1 = cv2.imread(ImgName,0);
-	for rect in rects:
-		tempImgg1 = cv2.rectangle(tempImg1, (int(rect.x1),int(rect.y1)), (int(rect.x2), int(rect.y2)), 255,2);
+    parser.add_option('-a', '--annolist', dest='annolist_name', help='annotation list (*.al or *.idl) used to inialize the tracking', default=None)
+    parser.add_option('-o', '--output_dir', dest='output_dir', help='directory for saving tracking results', default='./')
+    
+    (opts, args) = parser.parse_args()
+    
+    annolist_basedir = os.path.dirname(opts.annolist_name)
+    annolist = parseXML(opts.annolist_name);
 
-		
-	cv2.imshow('img1',tempImg1);
-	cv2.waitKey(0);
-	winFlags = [True for i in range(len(rects))];
-	
-	ImgNames = ImageNames(ImgName,50);
-	flag = 1;
-	i = 0;
-	
-#	rect = rects[0];
-	windows = [(rect.x1, rect.y1, rect.x2-rect.x1, rect.y2-rect.y1) for rect in rects];
-	newWindows = windows;
-	n_win = len(windows)
-	while(1):
-		print i
-		Img2 = cv2.imread(ImgNames[i],0);
-		for j in range(n_win):
-			if winFlags[j]:
-				win = windows[j];
-				try:
-					NextWinInfo = NextRect(Img1, Img2, win);
-					print NextWinInfo
-					if not NextWinInfo[0]:
-						winFlags[j] = False;
-					else:
-						newWindows[j] = NextWinInfo[1];
-				except:
-					winFlags[j] = False;
+    # convert to full path
+    for a in annolist:
+        a.imageName = annolist_basedir + "/" + a.imageName
+        #print a.imageName
+        assert(os.path.isfile(a.imageName))
 
-		print winFlags;
-		tempImg2 = Img2;
-		t = False;
-		for j in range(n_win):
-			if winFlags[j]:
-				newWin = newWindows[j];
-				t = True;
-				tempImgg2 = cv2.rectangle(tempImg2, 
-						(int(newWin[0]),int(newWin[1])), 
-						(int(newWin[0] + newWin[2]), 
-						int(newWin[1]+newWin[3])), 255,2);	
-				
-		Img1 = cv2.imread(ImgNames[i],0);
-		windows = newWindows;		
-		i +=1;
-		if i > 49 or not t:
-			break;
-		cv2.imshow('img1',tempImg2);
-		cv2.waitKey(60); 
-		
+    #annolist = annolist[2:];
+    #annolist = annolist[:10];
+    annolist = annolist[:100];
+
+    annolist_track = [];
+    
+    trackMaxFrames = 50;
+    #trackMaxFrames = 4;
+
+    for idx, a in enumerate(annolist):
+        
+        framesTracked = 0;
+        num_missed_tracks = 0;
+        num_skip_small = 0;
+
+        curImageName = a.imageName;
+	windows = [(rect.x1, rect.y1, rect.x2-rect.x1, rect.y2-rect.y1) for rect in a.rects];
+        Img1 = cv2.imread(curImageName, 0);
+
+        if not isinstance(Img1, np.ndarray):
+            assert(False);
+
+        print "frame: " + str(idx) + ", curImageName: " + curImageName
+
+        while idx == len(annolist) - 1 or curImageName != annolist[idx+1].imageName:
+            
+            if not os.path.isfile(curImageName):
+                print "image does not exist: " + curImageName
+                assert(False);
+
+            nextImageName = inc_image_name(curImageName, 1);
+            print "\tnextImageName: " + nextImageName
+            Img2 = cv2.imread(nextImageName, 0);
+
+            if not isinstance(Img2, np.ndarray):
+                assert(False);
+
+            img_height = len(Img2)
+            img_width = len(Img2[0]);
+
+            assert(img_height > 0 and img_width > 0);
+            #print str(img_height) + "," + str(img_width)
+
+            next_windows = [];
+
+            for idx2 in range(len(windows)): 
+                win = windows[idx2];
+
+                if win[2] <= 30 or win[3] <= 30:
+                    num_skip_small += 1;
+                    continue;
+
+                #print "current window: " + str(win)
+
+                nextWinInfo = NextRect(Img1, Img2, win);
+                
+                if nextWinInfo[0]:
+                    next_windows.append(nextWinInfo[1]);
+                else:
+                    num_missed_tracks += 1;
+
+            print "\tnum_active_tracks: " + str(len(next_windows)) + ", num_missed_tracks: " + str(num_missed_tracks) + ", num_skip_small: " + str(num_skip_small);
+
+            a = Annotation();
+            a.imageName = curImageName;
+
+            for idx2 in range(len(windows)):
+                r = AnnoRect();
+                r.x1 = windows[idx2][0];
+                r.y1 = windows[idx2][1];
+                r.x2 = r.x1 + windows[idx2][2];
+                r.y2 = r.y1 + windows[idx2][3];
+                a.rects.append(r);
+
+            annolist_track.append(a);
+
+            framesTracked += 1;
+                
+            if framesTracked >= trackMaxFrames: 
+                break;
+                #assert(False);
+
+            curImageName = nextImageName;
+            windows = next_windows;
+            Img1 = Img2;
+
+
+                
+    annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
+    annolist_base, annolist_ext = os.path.splitext(annolist_base_ext);
+    
+    save_filename = opts.output_dir + "/" + annolist_base + "-track" + annolist_ext;
+
+    print "saving " + save_filename;
+    saveXML(save_filename, annolist_track);
+    
+    
+            
