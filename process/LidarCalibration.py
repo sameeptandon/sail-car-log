@@ -8,7 +8,8 @@ from numpy.linalg import norm
 from ColorMap import *
 from numpy import exp, log
 from transformations import euler_matrix
-import scipy.weave 
+import scipy.weave
+import itertools
 
 global counter
 counter = 0
@@ -144,24 +145,30 @@ def gridsearch(C, batch, cam):
 
     best_score = float("inf")
     best_d = None
+    scores = np.zeros((729,1))
+    idx = 0
 
-    for dtx in m:
-        for dty in m:
-            for dtz in m:
-                for drx in m:
-                    for dry in m:
-                        for drz in m:
-                            d = np.array([step_t*dtx, step_t*dty, step_t*dtz, step_r*drx, step_r*dry, step_r*drz])
-                            C_new = C + d
-                            score = 0
-                            for p in batch:
-                                E = p[2]
-                                proc_pts = p[3]
-                                score = score + computeReprojectionScore(C_new, proc_pts, E, cam)
-                            if score < best_score:
-                                best_score = score
-                                best_d = d
-    return (C+best_d, best_score)
+    for delta in itertools.product(m, repeat=6):
+        (dtx, dty, dtz, drx, dry, drz) = delta
+        d = np.array([step_t*dtx, step_t*dty, step_t*dtz, step_r*drx, step_r*dry, step_r*drz])
+        C_new = C + d
+        score = 0
+        for p in batch:
+            E = p[2]
+            proc_pts = p[3]
+            score = score + computeReprojectionScore(C_new, proc_pts, E, cam)
+        scores[idx] = score
+        if score < best_score:
+            best_score = score
+            best_d = d
+        if np.all(np.array(delta)) == 0:
+            current_score = score 
+        idx = idx + 1
+
+    if np.sum( scores < current_score ) > 729/2:
+        return (C+best_d, best_score)
+    else:
+        return (C, current_score)
 
 
 
@@ -224,7 +231,7 @@ def processImage(I):
     for k in kernels: 
         edges = np.maximum(edges, np.abs(cv2.filter2D(E, cv2.CV_8U, k)))
 
-    edges = computeDistanceTransform(edges+1, 0.95, 1.0/3)
+    edges = computeDistanceTransform(edges+1, 0.98, 1.0/3)
     return edges
  
 if __name__ == '__main__': 
@@ -238,7 +245,7 @@ if __name__ == '__main__':
     (tx,ty,tz,rx,ry,rz) = (-0.30000000000000004, 0.5, 0.4299999999999998, -0.09800000000000006, 0.019999999999999987, 0.010999999999999982)
     (tx,ty,tz,rx,ry,rz) = (-0.35493086,  0.49796525,  0.43775339, -0.0986506, 0.01898486,  0.01463721)
     C_current = array([tx,ty,tz,rx,ry,rz])
-    BATCH_SIZE = 50
+    BATCH_SIZE = 5
 
     from multiprocessing import Pool
     pool = Pool(8)
@@ -256,7 +263,7 @@ if __name__ == '__main__':
         #batch_data = processBatch(batch_data)
        
         count = 0
-        while count < 10:
+        while count < 1:
             count +=1
 
 
