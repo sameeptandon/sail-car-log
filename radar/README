@@ -1,0 +1,13 @@
+The new driver is in the 'driver' folder. The driver from Stanford's Racing team is elsewhere. It's kept in here as a reference implementation. 
+
+##INSTALLATION##
+
+You need to get and install the ECI Driver for Linux from here http://www.ixxat.com/download_eci_en.html
+
+If you can run the demos in the ECI Driver folder (in the ECI Driver for Linux archive), you're good to go! (make sure the radar isn't connected when running those demos). 
+
+Afterwards, compile sail-car-log/radar/driver using "make" and run ./UsbCanDemo with the radar attached. You should see packets being printed if you point the radar at something metallic.
+
+The interesting radar packet decoding code is currently in UsbCanDemo.c and the interesting CAN interface code is in usbcan.h and usbcan.cpp. 
+
+
