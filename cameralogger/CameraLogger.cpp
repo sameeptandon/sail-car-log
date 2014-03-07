@@ -103,7 +103,7 @@ int main(int argc, char** argv)
   int lidar_pid = 0; 
   
   if (vm.count("lidar_capture")) {
-    string outputPcap = "/home/smart/sail-car-log/cameralogger/build/" + fname + ".pcap";
+    string outputPcap = fname + ".pcap";
     useLIDAR = true;
     int pid = fork();
     if (pid == 0) {
