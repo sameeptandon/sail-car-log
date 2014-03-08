@@ -76,10 +76,9 @@ class LDRGrabberCallback:
 
 class FrameCloudManager:
 
-    def __init__(self, video_file, frame_folder, map_file):
+    def __init__(self, video_file, map_file):
         self.reader = VideoReader(video_file)
         self.ldr_map = loadLDRCamMap(map_file)
-        self.frame_folder = frame_folder
         self.queue = Queue.Queue()
         self.finished = False
         
@@ -131,15 +130,14 @@ def Keypress(obj, event):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 3:
         print """
         Usage:
-            testPointCloudFrameCompare.py <video file>.avi <frame folder>/ <map_file>.out
+            testPointCloudFrameCompare.py <video file>.avi <map_file>.out
         """
     else: 
 
-        frame_cloud_manager = FrameCloudManager(sys.argv[1], sys.argv[2],
-                sys.argv[3])
+        frame_cloud_manager = FrameCloudManager(sys.argv[1], sys.argv[2])
 
 
         global count
