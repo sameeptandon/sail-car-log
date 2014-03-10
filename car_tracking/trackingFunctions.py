@@ -258,13 +258,11 @@ def NextRect(Img1, Img2, Rect1):
 		Y2.append(kp2[matches[i].trainIdx, 1]);
        
 	if len(X1)<2:
-		#return (False, Rect1);
 		return (False, []);
 	else: 
 		flag, Mu, alpha = R2Mapping(X1, Y1, X2, Y2);
 
 		if not flag:
-			#return (False, Rect1);
 			return (False, []);
 
 		x_cur, y_cur, w_cur, h_cur = (clipped_rect.x1, clipped_rect.y1, clipped_rect.width(), clipped_rect.height());
