@@ -1,3 +1,5 @@
+#!/usr/bin/python 
+
 import sys
 import numpy as np
 import cv2
@@ -25,18 +27,19 @@ if __name__ == "__main__":
 
     parser = OptionParser();
 
-    parser.add_option('-a', '--annolist', dest='annolist_name', help='annotation list (*.al or *.idl) used to inialize the tracking', default=None)
-    parser.add_option('-o', '--output_dir', dest='output_dir', help='directory for saving tracking results', default='./')
-    parser.add_option('-f', '--first', dest='firstidx', help='first image to start tracking (0-based)', default=0)
-    parser.add_option('-n', '--numimgs', dest='numimgs', help='number of images to process in the original image list', default=-1)
+    parser.add_option('-a', '--annolist', dest='annolist_name', type="string", help='annotation list (*.al or *.idl) used to inialize the tracking', default=None)
+    parser.add_option('-o', '--output_dir', dest='output_dir', type="string", help='directory for saving tracking results', default='./')
+    parser.add_option('-f', '--first', dest='firstidx', type="int", help='first image to start tracking (0-based)', default=0)
+    parser.add_option('-n', '--numimgs', dest='numimgs', type="int", help='number of images to process in the original image list', default=-1)
+    parser.add_option('--track_frames', dest='track_frames', type="int", help='number of frames to track', default=50)
     
     (opts, args) = parser.parse_args()
     
     annolist_basedir = os.path.dirname(opts.annolist_name)
     annolist = parseXML(opts.annolist_name);
 
-    opts.firstidx = int(opts.firstidx);
-    opts.numimgs = int(opts.numimgs);
+    # opts.firstidx = int(opts.firstidx);
+    # opts.numimgs = int(opts.numimgs);
 
     if opts.numimgs == -1:
         numimgs = len(annolist);
@@ -57,7 +60,10 @@ if __name__ == "__main__":
 
     annolist_track = [];
     
-    trackMaxFrames = 50;
+    #trackMaxFrames = int(opts.track_frames);
+    trackMaxFrames = opts.track_frames;
+
+
 
     for idx, a in enumerate(annolist):
         
@@ -66,7 +72,8 @@ if __name__ == "__main__":
         num_skip_small = 0;
 
         curImageName = a.imageName;
-	windows = [(rect.x1, rect.y1, rect.x2-rect.x1, rect.y2-rect.y1) for rect in a.rects];
+        tracked_rects = a.rects;
+
         Img1 = cv2.imread(curImageName, 0);
 
         if not isinstance(Img1, np.ndarray):
@@ -75,22 +82,14 @@ if __name__ == "__main__":
         print "frame: " + str(idx) + ", curImageName: " + curImageName
 
         while idx == len(annolist) - 1 or curImageName != annolist[idx+1].imageName:
-            
+
             if not os.path.isfile(curImageName):
                 print "image does not exist: " + curImageName
                 assert(False);
 
-            # add current image 
             a = Annotation();
             a.imageName = curImageName;
-
-            for idx2 in range(len(windows)):
-                r = AnnoRect();
-                r.x1 = windows[idx2][0];
-                r.y1 = windows[idx2][1];
-                r.x2 = r.x1 + windows[idx2][2];
-                r.y2 = r.y1 + windows[idx2][3];
-                a.rects.append(r);
+            a.rects = tracked_rects;
 
             annolist_track.append(a);
 
@@ -98,9 +97,6 @@ if __name__ == "__main__":
             nextImageName = inc_image_name(curImageName, 1);
             print "\tnextImageName: " + nextImageName
 
-            #
-            # MA: it is possible that sequences ends at this point (e.g. if the input list contains multiple contactenated sequences)
-            #
             if os.path.isfile(nextImageName):
                 Img2 = cv2.imread(nextImageName, 0);
                 assert(isinstance(Img2, np.ndarray))
@@ -108,23 +104,23 @@ if __name__ == "__main__":
                 img_width = len(Img2[0]);
 
                 assert(img_height > 0 and img_width > 0);
-                next_windows = [];
+                new_tracked_rects = [];
 
-                for idx2 in range(len(windows)): 
-                    win = windows[idx2];
-
-                    if win[2] <= 30 or win[3] <= 30:
+                # tracking 
+                for rect in tracked_rects:
+                    if rect.width() <= 30 or rect.height() <= 30:
                         num_skip_small += 1;
                         continue;
-                    
-                    nextWinInfo = NextRect(Img1, Img2, win);
-                
-                    if nextWinInfo[0]:
-                        next_windows.append(nextWinInfo[1]);
+
+                    track_ok, new_rect = NextRect(Img1, Img2, rect);
+
+                    if track_ok:
+                        new_tracked_rects.append(new_rect);
                     else:
                         num_missed_tracks += 1;
 
-                print "\tnum_active_tracks: " + str(len(next_windows)) + ", num_missed_tracks: " + str(num_missed_tracks) + ", num_skip_small: " + str(num_skip_small);
+
+                print "\tnum_active_tracks: " + str(len(new_tracked_rects)) + ", num_missed_tracks: " + str(num_missed_tracks) + ", num_skip_small: " + str(num_skip_small);
 
                 framesTracked += 1;
             
@@ -132,7 +128,7 @@ if __name__ == "__main__":
                     break;
 
                 curImageName = nextImageName;
-                windows = next_windows;
+                tracked_rects = new_tracked_rects;
                 Img1 = Img2;
 
             else:
@@ -140,7 +136,7 @@ if __name__ == "__main__":
                 break;
 
 
-                
+
     annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
     annolist_base, annolist_ext = os.path.splitext(annolist_base_ext);
     

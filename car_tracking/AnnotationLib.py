@@ -23,7 +23,7 @@ except ImportError:
 ################################################
 
 
-def cmpAnnoRectsByScore(r1, r2):
+def cmpAnnRectsByScore(r1, r2):
 	return cmp(r1.score, r2.score)
 
 def cmpAnnoRectsByScoreDescending(r1, r2):
@@ -46,11 +46,13 @@ def suffixMatch(fn1, fn2):
 	return False		
 
 class AnnoRect(object):
-	def __init__(self):
-		self.x1 = -1
-		self.y1 = -1
-		self.x2 = -1
-		self.y2 = -1
+	def __init__(self, x1=-1, y1=-1, x2=-1, y2=-1):
+
+		self.x1 = x1
+		self.y1 = y1
+		self.x2 = x2
+		self.y2 = y2
+
 		self.score = -1.0
 		self.scale = -1.0
 		self.articulations =[]
