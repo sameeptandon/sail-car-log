@@ -53,7 +53,9 @@ if __name__ == "__main__":
 
     # convert to full path
     for a in annolist:
-        a.imageName = annolist_basedir + "/" + a.imageName
+        if not os.path.isabs(a.imageName):
+            a.imageName = annolist_basedir + "/" + a.imageName
+
         assert(os.path.isfile(a.imageName))
 
     annolist = annolist[firstidx:lastidx+1];
