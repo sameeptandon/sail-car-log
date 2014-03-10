@@ -143,7 +143,7 @@ if __name__ == "__main__":
     save_filename = opts.output_dir + "/" + annolist_base + "-track";
 
     if opts.firstidx != 0 or opts.numimgs != -1:
-        save_filename += "-firstidx" + str(firstidx) + "-lastidx" + str(lastidx)
+        save_filename += "-firstidx" + str(firstidx) + "-lastidx" + str(lastidx) + "-numtrack" + str(trackMaxFrames)
 
     save_filename += annolist_ext;
 

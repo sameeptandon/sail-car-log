@@ -4,6 +4,8 @@ from matplotlib import pyplot as plt
 import math
 import sys
 
+import vlfeat;
+
 from AnnotationLib import AnnoRect;
 
 import pdb;
@@ -19,33 +21,68 @@ import pdb;
 #		 algorithm between kp1 	 #
 #		 and kp2		 #
 ##########################################
+
+def convert_keypoints_opencv_vlfeat(list_kp):
+	n = len(list_kp)
+	
+	kp = np.ndarray(shape=(n, 4), dtype=np.float32);
+
+	for idx, k in enumerate(list_kp):
+		kp[idx, 0] = k.pt[0];
+		kp[idx, 1] = k.pt[1];
+		kp[idx, 2] = k.size;
+		kp[idx, 3] = k.angle;
+
+	return kp;
+
 def SIFT(qImg, tImg, rect):
 
-        # Initiate SIFT detector
-        sift = cv2.SIFT()
-
-        # find the keypoints and descriptors with SIFT
-        kp1, des1 = sift.detectAndCompute(qImg,None)
-        kp2, des2 = sift.detectAndCompute(tImg,None)
-
-	
 	# MA: test that keypoints are inside the region of interest rect
 	x1 = rect[0];
 	y1 = rect[1];
 	x2 = x1 + rect[2];
 	y2 = y1 + rect[3];
 
-	X1 = [(idx1, k) for idx1, k in enumerate(kp1) if k.pt[0] >= x1 and k.pt[0] <= x2 and k.pt[1] >= y1 and k.pt[1] <= y2];
-	new_kp1_idx, new_kp1 = zip(*X1);
+	use_opencv_sift = False;
 
-	#X2 = [(idx1, k) for idx1, k in enumerate(kp2) if k.pt[0] >= x1 and k.pt[0] <= x2 and k.pt[1] >= y1 and k.pt[1] <= y2];
-	#new_kp2_idx, new_kp2 = zip(*X2);
+	if use_opencv_sift: 
+		# Initiate SIFT detector
+		sift = cv2.SIFT()
+
+		# find the keypoints and descriptors with SIFT
+		list_kp1, des1 = sift.detectAndCompute(qImg,None)
+		list_kp2, des2 = sift.detectAndCompute(tImg,None)
 	
-	des1 = des1[list(new_kp1_idx)];
-	#des2 = des2[list(new_kp2_idx)];
+		kp1 = convert_keypoints_opencv_vlfeat(list_kp1);
+		kp2 = convert_keypoints_opencv_vlfeat(list_kp2);
 
-	kp1 = list(new_kp1);
-	#kp2 = list(new_kp2);
+		# X1 = [(idx1, k) for idx1, k in enumerate(kp1) if k.pt[0] >= x1 and k.pt[0] <= x2 and k.pt[1] >= y1 and k.pt[1] <= y2];
+		# new_kp1_idx, new_kp1 = zip(*X1);
+
+		# des1 = des1[list(new_kp1_idx)];
+                # #des2 = des2[list(new_kp2_idx)];
+
+		# kp1 = list(new_kp1);
+		# #kp2 = list(new_kp2);
+
+	else:
+		# use vlfeat
+		I = np.array(qImg, dtype=np.float32);
+		_kp1, _des1 = vlfeat.vl_sift(data=I);
+		des1 = np.transpose(np.array(_des1, copy=True));
+		kp1 = np.transpose(np.array(_kp1, copy=True));
+
+		I = np.array(tImg, dtype=np.float32);
+		_kp2, _des2 = vlfeat.vl_sift(data=I);
+		des2 = np.transpose(np.array(_des2, copy=True));
+		kp2 = np.transpose(np.array(_kp2, copy=True));
+
+	boolidx1 = np.logical_and(kp1[:, 0] >= x1, kp1[:, 0] <= x2);
+	boolidx2 = np.logical_and(kp1[:, 1] >= y1, kp1[:, 1] <= y2);
+	boolidx = np.logical_and(boolidx1, boolidx2);
+
+	des1 = des1[boolidx, :];
+	kp1 = kp1[boolidx, :]
 
 	print "points in rect 1: " + str(len(kp1))
 	print "points in rect 2: " + str(len(kp2)) + "\n"
@@ -53,6 +90,8 @@ def SIFT(qImg, tImg, rect):
         # BFMatcher with default params
         bf = cv2.BFMatcher()
         matches = bf.knnMatch(des1,des2, k=2)
+	
+	#pdb.set_trace();
 
         # Apply ratio test
         good = []
@@ -128,13 +167,21 @@ def RectSIFT(qImg, qRect, tImg, tRect):
 	#return SIFT(qImgTemp, tImgTemp);
 	kp1, kp2, matches = SIFT(qImgTemp, tImgTemp, (qx1, qy1, qw1, qh1));
 
-	for k in kp1:
-		x, y = k.pt;
-		k.pt = (x + qx2, y + qy2);
+	for kidx in range(kp1.shape[0]):
+		kp1[kidx, 0] += qx2
+		kp1[kidx, 1] += qy2;
 		
-	for k in kp2:
-		x, y = k.pt;
-		k.pt = (x + tx2, y + ty2);
+	for kidx in range(kp2.shape[0]):
+		kp2[kidx, 0] += tx2;
+		kp2[kidx, 1] += ty2;
+
+	# for k in kp1:
+	# 	x, y = k.pt;
+	# 	k.pt = (x + qx2, y + qy2);
+		
+	# for k in kp2:
+	# 	x, y = k.pt;
+	# 	k.pt = (x + tx2, y + ty2);
 
 
 	# MA: output is exepected to be in the reference frame of the input rectangle
@@ -282,12 +329,18 @@ def NextRect(Img1, Img2, Rect1):
 
 	X1 = []; X2 = []; Y1=[]; Y2 = [];
         for i in range(len(matches)):
-                keypoint1 = kp1[matches[i].queryIdx];
-                keypoint2 = kp2[matches[i].trainIdx];
-                X1.append(keypoint1.pt[0]);
-                Y1.append(keypoint1.pt[1]);
-                X2.append(keypoint2.pt[0]);
-                Y2.append(keypoint2.pt[1]);
+		X1.append(kp1[matches[i].queryIdx, 0]);
+		Y1.append(kp1[matches[i].queryIdx, 1]);
+
+		X2.append(kp2[matches[i].trainIdx, 0]);
+		Y2.append(kp2[matches[i].trainIdx, 1]);
+
+                # keypoint1 = kp1[matches[i].queryIdx];
+                # keypoint2 = kp2[matches[i].trainIdx];
+                # X1.append(keypoint1.pt[0]);
+                # Y1.append(keypoint1.pt[1]);
+                # X2.append(keypoint2.pt[0]);
+                # Y2.append(keypoint2.pt[1]);
        
 	if len(X1)<2:
 		#return (False, Rect1);
