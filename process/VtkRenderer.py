@@ -91,14 +91,19 @@ class VtkPointCloud:
     def get_vtk_cloud(self, zMin=-10.0,zMax=10.0):
         assert( len(self.intensity.shape) == 1)
         (vtkPolyData, vtkPoints, vtkCells) = self.build_vtk_polydata()
+
+        self.intensity == self.intensity.astype(np.float32)
+        vtk_intensity_data = converter.numpy_to_vtk(self.intensity)
+        vtk_intensity_data.SetName('DepthArray')
+        vtkPolyData.GetPointData().SetScalars(vtk_intensity_data)
         
         num_points = self.xyz.shape[0]
-        vtkDepth = vtk.vtkFloatArray()
-        vtkDepth.SetName('DepthArray')
-        vtkPolyData.GetPointData().SetScalars(vtkDepth)
+        #vtkDepth = vtk.vtkFloatArray()
+        #vtkDepth.SetName('DepthArray')
+        #vtkPolyData.GetPointData().SetScalars(vtkDepth)
+        #vtkDepth.SetVoidArray(self.intensity, num_points, 1)
         vtkPolyData.GetPointData().SetActiveScalars('DepthArray')
 
-        vtkDepth.SetVoidArray(self.intensity, num_points, 1)
         
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInput(vtkPolyData)
