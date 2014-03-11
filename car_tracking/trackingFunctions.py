@@ -4,8 +4,6 @@ from matplotlib import pyplot as plt
 import math
 import sys
 
-import vlfeat;
-
 from AnnotationLib import AnnoRect;
 
 import pdb;
@@ -58,6 +56,9 @@ def SIFT(qImg, tImg, rect):
 
 	else:
 		# use vlfeat
+
+		import vlfeat;
+
 		I = np.array(qImg, dtype=np.float32);
 		_kp1, _des1 = vlfeat.vl_sift(data=I);
 		des1 = np.transpose(np.array(_des1, copy=True));
