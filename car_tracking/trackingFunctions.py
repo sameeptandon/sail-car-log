@@ -122,8 +122,13 @@ def RectSIFT(qImg, qRect, tImg, tRect):
 	qx, qy, qw, qh = (qRect.x1, qRect.y1, qRect.width(), qRect.height());
 	tx, ty, tw, th = (tRect.x1, tRect.y1, tRect.width(), tRect.height());
 
+	if qRect.width() > 180:
+		roi_scale = 0.65;
+	else: 
+		roi_scale = 0.85;
 
-	roi_scale = 0.85;
+ 	#roi_scale = 0.85;
+		
 	qx1, qy1, qw1, qh1 = rescale_rect(qx, qy, qw, qh, roi_scale);
 
 	npad = 100;
@@ -137,7 +142,7 @@ def RectSIFT(qImg, qRect, tImg, tRect):
 	qImgTemp = qImg[int(qy2):int(qy2+qh2), int(qx2):int(qx2+qw2)];
 	tImgTemp = tImg[int(ty2):int(ty2+th2), int(tx2):int(tx2+tw2)];
 
-	if qImgTemp.shape[0] == 0 or qImgTemp.shape[0] == 0 or tImgTemp.shape[0] == 0 or tImgTemp.shape[0] == 0:
+	if qImgTemp.shape[0] == 0 or qImgTemp.shape[1] == 0 or tImgTemp.shape[0] == 0 or tImgTemp.shape[1] == 0:
 		return [], [], []
                 #assert(False);
 	
@@ -194,20 +199,22 @@ def outlierFiltering(X1, Y1, X2, Y2, d):
 	return X1t, Y1t, X2t, Y2t, ratio;
 	
 def R2Mapping(X1, Y1, X2, Y2):
-	flag = True;
-	Mu = [0,0];
-	alpha = 1;
 	if (len(X1)<2):
-		return False, Mu, alpha;
+		return False, None, None, None
+
 	X1, Y1, X2, Y2, r = outlierFiltering(X1, Y1, X2, Y2, 0);
+
 	if (len(X1)<2):
-		return False, Mu, alpha;
+		return False, None, None, None
+
 	X1t, Y1t, X2t, Y2t, r = outlierFiltering(X1, Y1, X2, Y2, 1);
+
 	if (r>.8):
 		X1, Y1, X2, Y2 = X1t, Y1t, X2t, Y2t;
 
 	if (len(X1)<2):
-		return False, Mu, alpha;
+		return False, None, None, None;
+
         n = len(X1);
 
         #print n
@@ -226,7 +233,7 @@ def R2Mapping(X1, Y1, X2, Y2):
 	res = np.linalg.lstsq(A, b);
 	x = res[0];
 
-	return (True, x[1:], x[0])
+	return (True, float(x[1]), float(x[2]), float(x[0]))
 
 
 def ShowImg(WinName, Img, Rect):
@@ -260,22 +267,12 @@ def NextRect(Img1, Img2, Rect1):
 	if len(X1)<2:
 		return (False, []);
 	else: 
-		flag, Mu, alpha = R2Mapping(X1, Y1, X2, Y2);
+		flag, dx, dy, alpha = R2Mapping(X1, Y1, X2, Y2);
 
 		if not flag:
 			return (False, []);
-
-		x_cur, y_cur, w_cur, h_cur = (clipped_rect.x1, clipped_rect.y1, clipped_rect.width(), clipped_rect.height());
-
-		# MA: convert to float, otherwise x_new is an array -> problems later
-		x_new = float(Mu[0] + alpha*x_cur);
-		y_new = float(Mu[1] + alpha*y_cur);
-
-		w_new = float(alpha*w_cur);
-		h_new = float(alpha*h_cur);
-
-		new_rect = AnnoRect(x_new, y_new, x_new + w_new, y_new + h_new);
 		
+		new_rect = AnnoRect(dx + alpha*clipped_rect.x1, dy + alpha*clipped_rect.y1, dx + alpha*clipped_rect.x2, dy + alpha*clipped_rect.y2);
 		new_rect.clipToImage(0.0, X_max, 0.0, Y_max);
 
 		return (True, new_rect);

@@ -38,9 +38,6 @@ if __name__ == "__main__":
     annolist_basedir = os.path.dirname(opts.annolist_name)
     annolist = parseXML(opts.annolist_name);
 
-    # opts.firstidx = int(opts.firstidx);
-    # opts.numimgs = int(opts.numimgs);
-
     if opts.numimgs == -1:
         numimgs = len(annolist);
     else:
@@ -75,6 +72,10 @@ if __name__ == "__main__":
 
         curImageName = a.imageName;
         tracked_rects = a.rects;
+
+        # MA: init track id's
+        for tidx, r in enumerate(tracked_rects):
+            r.classID = tidx;
 
         Img1 = cv2.imread(curImageName, 0);
 
@@ -117,6 +118,9 @@ if __name__ == "__main__":
                     track_ok, new_rect = NextRect(Img1, Img2, rect);
 
                     if track_ok:
+                        # preserve classID
+                        new_rect.classID = rect.classID;
+
                         new_tracked_rects.append(new_rect);
                     else:
                         num_missed_tracks += 1;
@@ -136,7 +140,11 @@ if __name__ == "__main__":
             else:
                 print "End of sequence, could not find: " + nextImageName
                 break;
-
+        
+        
+        # TODO: validate tracks
+        # 1) tracks that were initalized at boundary must stay at this boundary (otherwise we don't know the extent)
+        # 2) check that all track rectangles are simialar to the inialization (e.g. SIFT keypoints match)
 
 
     annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
