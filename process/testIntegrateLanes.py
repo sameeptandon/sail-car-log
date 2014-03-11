@@ -78,7 +78,7 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
     gps_filename = args['gps']
-    
+
     cam = getCameraParams()[cam_num - 1] 
     video_reader = VideoReader(args['video'])
     gps_reader = GPSReader(gps_filename)
@@ -90,13 +90,15 @@ if __name__ == '__main__':
     all_data = np.load(sys.argv[3])
     data = all_data['data']
     
-    delta = 15
-    
+    delta = 25
+
     count = 0
-    while count < 400:
+    while count < 600:
         video_reader.getNextFrame()
         stepVideo(video_reader, step)
         count += 1
+    
+    writer = cv2.VideoWriter('out3.avi', cv.CV_FOURCC('F','M','P','4'), 10.0, (1280,960))
 
     while True:
         pts = data[data[:, 4] < (video_reader.framenum + step * delta)]
@@ -105,7 +107,7 @@ if __name__ == '__main__':
 
         (success, I) = video_reader.getNextFrame()
         stepVideo(video_reader, step)
-        
+
         all_pix = None
 
         frame_num = video_reader.framenum - step
@@ -135,22 +137,36 @@ if __name__ == '__main__':
                 
                 pix = pix[:2, mask]
                 intensity = cur_pts[mask, 3].astype(np.int32)
-                # intensity = int(((i + 1) * 100 / delta)) * np.ones((1, pix.shape[1]))
+                
                 pix = np.vstack((pix, intensity)).astype(np.int32)
                 all_pix = pix if all_pix == None else np.hstack((all_pix, pix))
 
-        horiz_groups = hierarchical_clustering(all_pix[:2, :].transpose(), 25)
-        
+        horiz_groups = hierarchical_clustering(all_pix[:2, :].transpose(), 30)
+
         all_pix_grouped = np.array([np.median(all_pix[:, group], axis=1) for group in horiz_groups if len(group) > 0] ,dtype=np.int32)
         all_pix_grouped = all_pix_grouped.transpose()
+
+        vert_groups = hierarchical_clustering(all_pix_grouped[:2, :].transpose(), 100)
+
+        for i in xrange(2):
+            lane = np.array(all_pix_grouped[:, vert_groups[i]], dtype=np.int32)
+            z = np.polyfit(lane[0, :].transpose(), lane[1, :].transpose(), 1)
+            f = np.poly1d(z)
+            x = np.linspace(0, 1280, 200)
+            lane_pts = np.vstack((x, f(x))).transpose()
+            lane_pts = lane_pts[lane_pts[:,1] > 0]
+            lane_pts = lane_pts[lane_pts[:,1] > 480]
+            if np.mean(lane[0, :]) < 640:
+                color = (0, 0, 255)
+            else:
+                color = (0, 255, 0)
+            cv2.polylines(I, np.int32([lane_pts]), False, color, thickness=2)
 
         px = all_pix_grouped[1, :]
         py = all_pix_grouped[0, :]
         intensties = all_pix_grouped[2, :]
 
         colors = heatColorMapFast(intensties, 0, 100).astype(np.int32)[0, :, :]
-        # color = colorsys.hsv_to_rgb(random.random(), 1, 1)
-        # color = [int(c*255) for c in color]
 
         if px.shape > (0, 0):
             I[px, py, :] = colors
@@ -160,7 +176,9 @@ if __name__ == '__main__':
                 I[px-i,py, :] = colors
                 I[px,py-i, :] = colors
 
-        cv2.imshow('display', I)
+        # cv2.imshow('display', I)
+        writer.write(I)
+        print 'frame'
         key = chr((waitKey(1) & 255))
-        while key != ' ':
-            key = chr((waitKey(10000) & 255))
+        # while key != ' ':
+        #     key = chr((waitKey(10000) & 255))
