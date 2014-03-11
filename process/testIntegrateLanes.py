@@ -5,53 +5,30 @@ from GPSReprojection import *
 from GPSTransforms import *
 from VideoReader import *
 from LidarTransforms import *
-from VtkRenderer import *
 from transformations import euler_matrix
 import numpy as np
 from ColorMap import *
-import vtk
 import copy
 from CameraParams import * 
 from ArgParser import *
 import colorsys
 from cv2 import imshow, waitKey
 import cv2
+from scipy.cluster.hierarchy import single
+from scipy.spatial.distance import pdist
 
 #CAMERA 2
 
-
-##################################
 (rx,ry,rz) = (0,-0.015,-0.045)
 R = euler_matrix(rx,ry,rz)[0:3,0:3]
 T_from_l_to_i = np.eye(4)
 T_from_l_to_i[0:3,0:3] = R.transpose()
 T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
 
-# data = loadLDR(ldr_map[fnum])
-# # filter out lanes
-# #data = data[ data[:,3] > 60 ] 
-# #data = data[ data[:,0] > 0 ]
-# #data = data[ np.abs(data[:,1]) < 5]
-# #data = data[ data[:,2] < -1.5]
-# #data = data[ data[:,2] > -2.5]
-
-
-# ###################################
 (ctx, cty, ctz, crx, cry, crz) = \
         (-0.0, 0.31, 0.15, 0.049, 0.016, 0.014)
 cR = euler_matrix(crx, cry, crz)[0:3,0:3]
 
-
-# ###################################
-# (success, I) = video_reader.getNextFrame()
-# stepVideo(video_reader, step)
-
-# pts_wrt_cam = array(data[:, 0:3])
-# pts_wrt_cam[:, 0] += ctx
-# pts_wrt_cam[:, 1] += cty
-# pts_wrt_cam[:, 2] += ctz
-# pts_wrt_cam = dot(cR, dot(R_to_c_from_l(cam), pts_wrt_cam.transpose()))
-# (pix, mask) = cloudToPixels(cam, pts_wrt_cam)
 start_fn = 0
 num_fn = 10
 step = 9
@@ -78,6 +55,25 @@ def cloudToPixels(cam, pts_wrt_cam):
 
     return (pix, mask)
 
+def hierarchical_clustering(pts, threshold):
+    distances = pdist(pts)
+    if distances.shape[0] > 0:
+        links = single(distances)
+        numLeafs = pts.shape[0]
+        clusters = {i: [i] for i in xrange(numLeafs)}
+        for i in xrange(numLeafs - 1):
+            if links[i, 2] > threshold:
+                break
+            idx1 = int(links[i, 0] + 0.0001)
+            idx2 = int(links[i, 1] + 0.0001)
+            newIdx = i + numLeafs
+            clusters[newIdx] = clusters[idx1] + clusters[idx2]
+            clusters[idx1] = []
+            clusters[idx2] = []
+        return sorted(clusters.values(),lambda x,y: cmp(len(y), len(x)))
+    else:
+        return [[]]
+
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
@@ -88,7 +84,8 @@ if __name__ == '__main__':
     gps_reader = GPSReader(gps_filename)
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
-    inv_imu_transforms = [np.linalg.inv(xform) for xform in imu_transforms]
+    # inv_imu_transforms = [np.linalg.inv(xform) for xform in imu_transforms]
+    T_from_gps_to_l = [dot(T_from_i_to_l, np.linalg.inv(xform)) for xform in imu_transforms]
 
     all_data = np.load(sys.argv[3])
     data = all_data['data']
@@ -120,14 +117,13 @@ if __name__ == '__main__':
             # Convert to homogenous coordinates
             cur_pts_h = np.vstack((cur_pts.transpose()[:3, :], np.ones((1, cur_pts.shape[0]))))
 
-            T_from_gps_to_l = dot(T_from_i_to_l, inv_imu_transforms[cur_frame_num])
             # Convert from point cloud to relative position of points from velodyne view        
-            rel_cur_pts = dot(T_from_gps_to_l, cur_pts_h)
+            rel_cur_pts = dot(T_from_gps_to_l[cur_frame_num], cur_pts_h)
             rel_cur_pts = rel_cur_pts[:, (cur_pts[:, 3] > 60) &
                                          (rel_cur_pts[0, :] > 0) &
-                                         (rel_cur_pts[2, :] < -1) &
+                                         (rel_cur_pts[2, :] < -1.2) &
                                          (abs(rel_cur_pts[1, :]) < 4)]
-            # rel_cur_pts = rel_cur_pts[:, (cur_pts[:, 3] > 60)]
+
             if rel_cur_pts.shape[1] > 0:
                 # Project the point cloud into the camera view
                 pts_wrt_cam = rel_cur_pts[:3, :]
@@ -143,9 +139,14 @@ if __name__ == '__main__':
                 pix = np.vstack((pix, intensity)).astype(np.int32)
                 all_pix = pix if all_pix == None else np.hstack((all_pix, pix))
 
-        px = all_pix[1, :]
-        py = all_pix[0, :]
-        intensties = all_pix[2, :]
+        horiz_groups = hierarchical_clustering(all_pix[:2, :].transpose(), 25)
+        
+        all_pix_grouped = np.array([np.median(all_pix[:, group], axis=1) for group in horiz_groups if len(group) > 0] ,dtype=np.int32)
+        all_pix_grouped = all_pix_grouped.transpose()
+
+        px = all_pix_grouped[1, :]
+        py = all_pix_grouped[0, :]
+        intensties = all_pix_grouped[2, :]
 
         colors = heatColorMapFast(intensties, 0, 100).astype(np.int32)[0, :, :]
         # color = colorsys.hsv_to_rgb(random.random(), 1, 1)
@@ -161,26 +162,5 @@ if __name__ == '__main__':
 
         cv2.imshow('display', I)
         key = chr((waitKey(1) & 255))
-        # while key != ' ':
-        #     key = chr((waitKey(10000) & 255))
-
-    # cloud = VtkPointCloud(data[:,0:3], data[:,3])
-    # cloud_r = vtk.vtkRenderer()
-    # cloud_r.SetBackground(0., 0., 0.)
-    # cloud_r.SetViewport(0,0,1.0,1.0)
-    # actor = cloud.get_vtk_cloud(zMin=0, zMax=255);
-    # cloud_r.AddActor(actor)
-
-    # # Render Window
-    # renderWindow = vtk.vtkRenderWindow()
-    # renderWindow.AddRenderer(cloud_r)
-    # renderWindow.SetSize(1200, 600)
-
-    # # Interactor
-    # renderWindowInteractor = vtk.vtkRenderWindowInteractor()
-    # renderWindowInteractor.SetRenderWindow(renderWindow)
-    # mouseInteractor = vtk.vtkInteractorStyleTrackballCamera()
-    # renderWindowInteractor.SetInteractorStyle(mouseInteractor)
-    # renderWindow.Render()
-
-    # renderWindowInteractor.Start()
+        while key != ' ':
+            key = chr((waitKey(10000) & 255))
