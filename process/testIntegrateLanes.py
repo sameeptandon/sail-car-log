@@ -1,3 +1,5 @@
+# python testIntegrateLanes.py npz_data/ 280S_a2.avi npz_data/output_map_reflective.npz
+
 from Q50_config import *
 import sys, os
 from GPSReader import *
