@@ -14,14 +14,6 @@ from trackingFunctions import NextRect
 from AnnotationLib import *
 from optparse import OptionParser
 
-def inc_image_name(s, n):
-    pos1 = s.rfind('_');
-    pos2 = s.rfind('.');
-
-    num = int(s[pos1+1:pos2]) + n
-    numlen = pos2 - pos1 - 1;
-    res = s[:pos1+1] + str(num).zfill(numlen) + s[pos2:];
-    return res;
 
 if __name__ == "__main__":
 
@@ -62,90 +54,55 @@ if __name__ == "__main__":
     #trackMaxFrames = int(opts.track_frames);
     trackMaxFrames = opts.track_frames;
 
+    for idx in range(len(annolist)):
+        print "idx: " + str(idx)
+
+        # track forward
+        if idx < len(annolist) - 1:
+            stop_imgname = annolist[idx+1].imageName;
+        else:
+            stop_imgname = inc_image_name(annolist[idx].imageName, trackMaxFrames);
+
+        annolist_track_fwd = track_frame(annolist[idx], stop_imgname, trackMaxFrames, 1);
+
+        # track backward
+        if idx < len(annolist) - 1:
+            stop_imgname = annolist[idx].imageName;
+            annolist_track_back = track_frame(annolist[idx+1], stop_imgname, trackMaxFrames, -1);
+
+            # merge two lists
+            assert(len(annolist_track_fwd) == len(annolist_track_back));
+
+            annolist_track_back.reverse();
+
+            for idx in range(1, len(annolist_track_fwd)):
+                print annolist_track_fwd[idx].imageName
+                print annolist_track_back[idx-1].imageName
+
+                assert(annolist_track_fwd[idx].imageName == annolist_track_back[idx-1].imageName);
+                
+                #annolist_track_fwd[idx].rects += annolist_track_back[idx-1].rects;
+
+                r_new = [];
+
+                #MA: don't include duplicate rects 
+                for r_back in annolist_track_back[idx-1].rects:
+                    
+                    found_similar = False;
+                    for r_front in annolist_track_fwd[idx].rects:
+                        min_iou = 0.65;
+                        if r_back.overlap_pascal(r_front) > min_iou:
+                            found_similar = True;
+                            break;
+
+                    if not found_similar:
+                        r_new.append(r_back);
+
+                annolist_track_fwd[idx].rects += r_new;
 
 
-    for idx, a in enumerate(annolist):
-        
-        framesTracked = 0;
-        num_missed_tracks = 0;
-        num_skip_small = 0;
-
-        curImageName = a.imageName;
-        tracked_rects = a.rects;
-
-        # MA: init track id's
-        for tidx, r in enumerate(tracked_rects):
-            r.classID = tidx;
-
-        Img1 = cv2.imread(curImageName, 0);
-
-        if not isinstance(Img1, np.ndarray):
-            assert(False);
-
-        print "frame: " + str(idx) + ", curImageName: " + curImageName
-
-        while idx == len(annolist) - 1 or curImageName != annolist[idx+1].imageName:
-
-            if not os.path.isfile(curImageName):
-                print "image does not exist: " + curImageName
-                assert(False);
-
-            a = Annotation();
-            a.imageName = curImageName;
-            a.rects = tracked_rects;
-
-            annolist_track.append(a);
-
-            # track to next image
-            nextImageName = inc_image_name(curImageName, 1);
-            print "\tnextImageName: " + nextImageName
-
-            if os.path.isfile(nextImageName):
-                Img2 = cv2.imread(nextImageName, 0);
-                assert(isinstance(Img2, np.ndarray))
-                img_height = len(Img2)
-                img_width = len(Img2[0]);
-
-                assert(img_height > 0 and img_width > 0);
-                new_tracked_rects = [];
-
-                # tracking 
-                for rect in tracked_rects:
-                    if rect.width() <= 30 or rect.height() <= 30:
-                        num_skip_small += 1;
-                        continue;
-
-                    track_ok, new_rect = NextRect(Img1, Img2, rect);
-
-                    if track_ok:
-                        # preserve classID
-                        new_rect.classID = rect.classID;
-
-                        new_tracked_rects.append(new_rect);
-                    else:
-                        num_missed_tracks += 1;
-
-
-                print "\tnum_active_tracks: " + str(len(new_tracked_rects)) + ", num_missed_tracks: " + str(num_missed_tracks) + ", num_skip_small: " + str(num_skip_small);
-
-                framesTracked += 1;
+        annolist_track += annolist_track_fwd;
             
-                if framesTracked >= trackMaxFrames: 
-                    break;
-
-                curImageName = nextImageName;
-                tracked_rects = new_tracked_rects;
-                Img1 = Img2;
-
-            else:
-                print "End of sequence, could not find: " + nextImageName
-                break;
-        
-        
-        # TODO: validate tracks
-        # 1) tracks that were initalized at boundary must stay at this boundary (otherwise we don't know the extent)
-        # 2) check that all track rectangles are simialar to the inialization (e.g. SIFT keypoints match)
-
 
     annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
     annolist_base, annolist_ext = os.path.splitext(annolist_base_ext);

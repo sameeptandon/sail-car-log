@@ -3,22 +3,21 @@ import cv2
 from matplotlib import pyplot as plt
 import math
 import sys
+import copy
+import os.path
 
-from AnnotationLib import AnnoRect;
+from AnnotationLib import *
 
 import pdb;
 
-##########################################
-# Inputs:  			       	 #
-#	qImg: Query Image		 #
-#	tImg: Training Image		 #
-# Outputs: 				 #
-#	kp1: Keypoints of query image	 #
-#	kp2: Keypoints of training image #
-#	matches: Matches found by SIFT	 #
-#		 algorithm between kp1 	 #
-#		 and kp2		 #
-##########################################
+def inc_image_name(s, n):
+    pos1 = s.rfind('_');
+    pos2 = s.rfind('.');
+
+    num = int(s[pos1+1:pos2]) + n
+    numlen = pos2 - pos1 - 1;
+    res = s[:pos1+1] + str(num).zfill(numlen) + s[pos2:];
+    return res;
 
 def convert_keypoints_opencv_vlfeat(list_kp):
 	n = len(list_kp)
@@ -33,6 +32,32 @@ def convert_keypoints_opencv_vlfeat(list_kp):
 
 	return kp;
 
+def match_and_ratio_test(des1, des2): 
+	# # BFMatcher with default params
+        # bf = cv2.BFMatcher()
+        # matches = bf.knnMatch(des1,des2, k=2)
+
+	# if len(matches)<2:
+	# 	return [];
+
+        # # Apply ratio test
+	# good = [m for m, n in matches if m.distance < 0.75*n.distance];
+
+	# BFMatcher with default params
+	bf = cv2.BFMatcher()
+	matches = bf.knnMatch(des1, des2, k=2)
+
+	if len(matches)<2:
+	 	return [];
+
+	# Apply ratio test
+	good = []
+	for m,n in matches:
+	    if m.distance < 0.75*n.distance:
+		good.append(m)
+
+	return good;
+
 def SIFT(qImg, tImg, rect):
 
 	# MA: test that keypoints are inside the region of interest rect
@@ -44,7 +69,7 @@ def SIFT(qImg, tImg, rect):
 	use_opencv_sift = True;
 
 	if use_opencv_sift: 
-		# Initiate SIFT detector
+		# compute SIFT with OpenCV
 		sift = cv2.SIFT()
 
 		# find the keypoints and descriptors with SIFT
@@ -55,8 +80,7 @@ def SIFT(qImg, tImg, rect):
 		kp2 = convert_keypoints_opencv_vlfeat(list_kp2);
 
 	else:
-		# use vlfeat
-
+		# compute SIFT with vlfeat
 		import vlfeat;
 
 		I = np.array(qImg, dtype=np.float32);
@@ -69,34 +93,21 @@ def SIFT(qImg, tImg, rect):
 		des2 = np.transpose(np.array(_des2, copy=True));
 		kp2 = np.transpose(np.array(_kp2, copy=True));
 
-	boolidx1 = np.logical_and(kp1[:, 0] >= x1, kp1[:, 0] <= x2);
-	boolidx2 = np.logical_and(kp1[:, 1] >= y1, kp1[:, 1] <= y2);
-	boolidx = np.logical_and(boolidx1, boolidx2);
+	if kp1.shape[0] > 0 and kp2.shape[0] > 0:
+		boolidx1 = np.logical_and(kp1[:, 0] >= x1, kp1[:, 0] <= x2);
+		boolidx2 = np.logical_and(kp1[:, 1] >= y1, kp1[:, 1] <= y2);
+		boolidx = np.logical_and(boolidx1, boolidx2);
 
-	des1 = des1[boolidx, :];
-	kp1 = kp1[boolidx, :]
+		des1 = des1[boolidx, :];
+		kp1 = kp1[boolidx, :]
 
-	print "points in rect 1: " + str(len(kp1))
-	print "points in rect 2: " + str(len(kp2)) + "\n"
+		matches = match_and_ratio_test(des1, des2);
 
-        # BFMatcher with default params
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(des1,des2, k=2)
+	else:
+		matches = [];
 
-        # Apply ratio test
-        good = []
-	if len(matches)<2:
-		return kp1, kp2, [];
-	try:
-		for m,n in matches:
-		    if m.distance < 0.75*n.distance:
-			good.append([m])
+	return kp1, kp2, matches, des1, des2;
 
-		matches = [good[i][0] for i in range(len(good))]		
-		
-		return kp1, kp2, matches;
-	except:
-		return kp1, kp2, [];
 
 def rescale_rect(left, top, width, height, scale):
 	ox = left+0.5*width;
@@ -144,11 +155,11 @@ def RectSIFT(qImg, qRect, tImg, tRect):
 	tImgTemp = tImg[int(ty2):int(ty2+th2), int(tx2):int(tx2+tw2)];
 
 	if qImgTemp.shape[0] == 0 or qImgTemp.shape[1] == 0 or tImgTemp.shape[0] == 0 or tImgTemp.shape[1] == 0:
-		return [], [], []
+		return [], [], [], [], []
                 #assert(False);
 	
 	#return SIFT(qImgTemp, tImgTemp);
-	kp1, kp2, matches = SIFT(qImgTemp, tImgTemp, (qx1, qy1, qw1, qh1));
+	kp1, kp2, matches, des1, des2 = SIFT(qImgTemp, tImgTemp, (qx1, qy1, qw1, qh1));
 
 	for kidx in range(kp1.shape[0]):
 		kp1[kidx, 0] += qx2
@@ -158,7 +169,7 @@ def RectSIFT(qImg, qRect, tImg, tRect):
 		kp2[kidx, 0] += tx2;
 		kp2[kidx, 1] += ty2;
 
-	return kp1, kp2, matches;
+	return kp1, kp2, matches, des1, des2;
 
 
 def outlierFiltering(X1, Y1, X2, Y2, d):
@@ -238,11 +249,11 @@ def R2Mapping(X1, Y1, X2, Y2):
 
 
 def ShowImg(WinName, Img, Rect):
-	ImgTemp = Img;
-	x,y,w,h = Rect;
-	ImgTemp2 = cv2.rectangle(Img, (int(x),int(y)), (int(x+w), int(y+h)), 255, 2);
-	cv2.imshow(WinName, Img);
+	tmpImg = copy.deepcopy(Img)
+	cv2.rectangle(tmpImg, (int(Rect.x1),int(Rect.y1)), (int(Rect.x2), int(Rect.y2)), 255, 2)
+	cv2.imshow(WinName, tmpImg)
 	cv2.waitKey(0)
+
 
 
 def NextRect(Img1, Img2, Rect1):
@@ -255,7 +266,7 @@ def NextRect(Img1, Img2, Rect1):
 	if clipped_rect.width() == 0 or clipped_rect.height() == 0:
 		assert(False);
 
-	kp1, kp2, matches = RectSIFT(Img1, clipped_rect, Img2, clipped_rect);
+	kp1, kp2, matches, des1, des2 = RectSIFT(Img1, clipped_rect, Img2, clipped_rect);
 
 	X1 = []; X2 = []; Y1=[]; Y2 = [];
         for i in range(len(matches)):
@@ -266,15 +277,125 @@ def NextRect(Img1, Img2, Rect1):
 		Y2.append(kp2[matches[i].trainIdx, 1]);
        
 	if len(X1)<2:
-		return (False, []);
+		return (False, [], [], [], []);
 	else: 
 		flag, dx, dy, alpha = R2Mapping(X1, Y1, X2, Y2);
 
 		if not flag:
-			return (False, []);
+			return (False, [], [], [], []);
 		
 		new_rect = AnnoRect(dx + alpha*clipped_rect.x1, dy + alpha*clipped_rect.y1, dx + alpha*clipped_rect.x2, dy + alpha*clipped_rect.y2);
 		new_rect.clipToImage(0.0, X_max, 0.0, Y_max);
 
-		return (True, new_rect);
+		return (True, new_rect, matches, des1, des2);
 
+def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
+	print "track_frame"
+
+	annolist_track = [];
+
+        framesTracked = 0;
+        num_missed_tracks = 0;
+        num_init_matching_failed = 0;
+        num_skip_small = 0;
+
+        curImageName = a.imageName;
+        tracked_rects = a.rects;
+
+        # MA: store descriptors and number of matches for track verification
+        tracks_init_des = []
+        tracks_init_num_matches = [];
+
+        # MA: init track id's
+        for tidx, r in enumerate(tracked_rects):
+            r.classID = tidx;
+
+            tracks_init_des.append([]);
+            tracks_init_num_matches.append(-1);
+
+        Img1 = cv2.imread(curImageName, 0);
+
+        if not isinstance(Img1, np.ndarray):
+            assert(False);
+
+        print "curImageName: " + curImageName
+
+        while curImageName != stop_imgname:
+
+            if not os.path.isfile(curImageName):
+                print "image does not exist: " + curImageName
+                assert(False);
+
+            a = Annotation();
+            a.imageName = curImageName;
+            a.rects = tracked_rects;
+
+            annolist_track.append(a);
+
+            # track to next image
+            nextImageName = inc_image_name(curImageName, frame_inc);
+            print "\tnextImageName: " + nextImageName
+
+            if os.path.isfile(nextImageName):
+                Img2 = cv2.imread(nextImageName, 0);
+                assert(isinstance(Img2, np.ndarray))
+                img_height = len(Img2)
+                img_width = len(Img2[0]);
+
+                assert(img_height > 0 and img_width > 0);
+                new_tracked_rects = [];
+
+                # tracking 
+                for rect in tracked_rects:
+                    if rect.width() <= 30 or rect.height() <= 30:
+                        num_skip_small += 1;
+                        continue;
+
+                    track_ok, new_rect, matches, des1, des2 = NextRect(Img1, Img2, rect);
+
+                    if track_ok:
+                        # preserve classID
+                        new_rect.classID = rect.classID;
+
+                        cur_num_matches = 0;
+                        #min_match_percentage = 0.25;
+                        #min_match_percentage = 0.05;
+			min_match_percentage = 0;
+
+                        if framesTracked == 0:
+                            tracks_init_des[rect.classID] = des1;
+                            tracks_init_num_matches[rect.classID] = len(matches);
+                            cur_num_matches = tracks_init_num_matches[rect.classID];
+                        else:
+                            bf = cv2.BFMatcher();
+                            cur_num_matches = len(match_and_ratio_test(tracks_init_des[rect.classID], des2));
+                        
+                        print "\ttrack %d, init_num_matches %d, cur_num_matches: %d" % (rect.classID, tracks_init_num_matches[rect.classID], cur_num_matches)
+
+                        if cur_num_matches < min_match_percentage*tracks_init_num_matches[rect.classID]:
+                                num_init_matching_failed += 1;
+                             
+                        if framesTracked == 0 or cur_num_matches >= min_match_percentage*tracks_init_num_matches[rect.classID]:
+                            new_tracked_rects.append(new_rect);
+
+                    else:
+                        num_missed_tracks += 1;
+
+                print "\tnum_active_tracks: %d, num_missed_tracks: %d, num_skip_small: %d, num_init_matching_failed: %d\n" \
+                    % (len(new_tracked_rects), num_missed_tracks, num_skip_small, num_init_matching_failed)
+
+                framesTracked += 1;
+            
+                if framesTracked >= trackMaxFrames: 
+                    break;
+
+                curImageName = nextImageName;
+                tracked_rects = new_tracked_rects;
+                Img1 = Img2;
+
+            else:
+                print "End of sequence, could not find: " + nextImageName
+                break;
+        
+        
+	return annolist_track;
