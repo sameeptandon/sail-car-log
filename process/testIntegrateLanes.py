@@ -55,8 +55,8 @@ def cloudToPixels(cam, pts_wrt_cam):
 
     return (pix, mask)
 
-def hierarchical_clustering(pts, threshold):
-    distances = pdist(pts)
+def hierarchical_clustering(pts, threshold, weights):
+    distances = pdist(pts, w = weights)
     if distances.shape[0] > 0:
         links = single(distances)
         numLeafs = pts.shape[0]
@@ -70,7 +70,12 @@ def hierarchical_clustering(pts, threshold):
             clusters[newIdx] = clusters[idx1] + clusters[idx2]
             clusters[idx1] = []
             clusters[idx2] = []
-        return sorted(clusters.values(),lambda x,y: cmp(len(y), len(x)))
+
+        # Remove empty lists
+        clusters = filter(None, clusters.values())
+        # Inplace sort is slightly faster
+        clusters.sort(key = lambda x: len(x), reverse = True)
+        return clusters
     else:
         return [[]]
 
@@ -94,7 +99,9 @@ if __name__ == '__main__':
     # np.savez_compressed('npz_data/output_map_reflective.npz', data=data)
     # print data
 
-    delta = 40
+    delta = 15
+
+    should_cluster = True
 
     count = 0
     while count < 300:
@@ -123,9 +130,11 @@ if __name__ == '__main__':
             if pts_t2.shape[0] > 0:
                 pts_t2_h = np.vstack((pts_t2.transpose()[:3, :], np.ones((1, pts_t2.shape[0]))))
                 pts_t1 = dot(T_from_gps_to_l[t2], pts_t2_h)
+
+                # Filter points by their distance in the t1 reference frame
                 pts_t2 = pts_t2[(pts_t1[2, :] < -1.5) & 
                                 (pts_t1[2, :] > -2.5) &       # Z between -1.5 and -2.5
-                                (abs(pts_t1[1, :]) < 2.2) &   # Y between -2.2 and 2.2
+                                (abs(pts_t1[1, :]) < 2.2) &   # Y between -2.2 and 2.2 (use 10 for all lanes)
                                 (abs(pts_t1[1, :]) > 1.2)     # Y outside -1.2 and 1.2
                                 ]
 
@@ -134,6 +143,13 @@ if __name__ == '__main__':
 
         # Convert to homogenous coordinates
         all_pts_h = np.vstack((filtered_pts.transpose()[:3, :], np.ones((1, filtered_pts.shape[0]))))
+
+        clusters = hierarchical_clustering(all_pts_h.transpose(), 3, np.array([1, 10, 1, 0]))
+
+        if should_cluster:
+            cluster_list = [np.median(np.array(all_pts_h[:, cluster]) , axis=1) for cluster in clusters]
+            all_pts_h = np.array(cluster_list).transpose()
+
         # Convert from point cloud to relative position of points from velodyne view        
         rel_all_pts = dot(T_from_gps_to_l[frame_num], all_pts_h)
 
@@ -152,25 +168,6 @@ if __name__ == '__main__':
             pix = np.vstack((pix, intensity)).astype(np.int32)
             all_pix = pix if all_pix == None else np.hstack((all_pix, pix))
 
-        # horiz_groups = hierarchical_clustering(all_pix[:2, :].transpose(), 5)
-
-        # all_pix_grouped = np.array([np.median(all_pix[:, group], axis=1) for group in horiz_groups if len(group) > 0] ,dtype=np.int32)
-        # all_pix_grouped = all_pix_grouped.transpose()
-
-        # vert_groups = hierarchical_clustering(all_pix_grouped[:2, :].transpose(), 100)
-        # for i in xrange(2):
-        #     lane = np.array(all_pix_grouped[:, vert_groups[i]], dtype=np.int32)
-        #     z = np.polyfit(lane[0, :].transpose(), lane[1, :].transpose(), 1)
-        #     f = np.poly1d(z)
-        #     x = np.linspace(0, 1280, 200)
-        #     lane_pts = np.vstack((x, f(x))).transpose()
-        #     lane_pts = lane_pts[lane_pts[:,1] > 0]
-        #     lane_pts = lane_pts[lane_pts[:,1] > 480]
-        #     if np.mean(lane[0, :]) < 640:
-        #         color = (0, 0, 255)
-        #     else:
-        #         color = (0, 255, 0)
-        #     cv2.polylines(I, np.int32([lane_pts]), False, color, thickness=2)
 
         px = all_pix[1, :]
         py = all_pix[0, :]
@@ -192,4 +189,4 @@ if __name__ == '__main__':
         print 'frame'
         key = chr((waitKey(1) & 255))
         # while key != ' ':
-        #     key = chr((waitKey(10000) & 255))
+        #     key = chr((waitKey(2000000000) & 255))
