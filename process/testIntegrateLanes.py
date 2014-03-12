@@ -31,7 +31,7 @@ cR = euler_matrix(crx, cry, crz)[0:3,0:3]
 
 start_fn = 0
 num_fn = 10
-step = 9
+step = 9*2
 
 def stepVideo(video_reader, step):
     if step == 1: 
@@ -84,24 +84,25 @@ if __name__ == '__main__':
     gps_reader = GPSReader(gps_filename)
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
-    # inv_imu_transforms = [np.linalg.inv(xform) for xform in imu_transforms]
+
     T_from_gps_to_l = [dot(T_from_i_to_l, np.linalg.inv(xform)) for xform in imu_transforms]
+    T_from_l_to_gps = [np.linalg.inv(xform) for xform in T_from_gps_to_l]
 
     all_data = np.load(sys.argv[3])
     data = all_data['data']
     # data = data[data[:, 3] > 60]
     # np.savez_compressed('npz_data/output_map_reflective.npz', data=data)
-    print data
+    # print data
 
-    delta = 25
+    delta = 40
 
     count = 0
-    while count < 400:
+    while count < 300:
         video_reader.getNextFrame()
         stepVideo(video_reader, step)
         count += 1
     
-    # writer = cv2.VideoWriter('out-raw2.avi', cv.CV_FOURCC('F','M','P','4'), 10.0, (1280,960))
+    # writer = cv2.VideoWriter('out-alllanes.avi', cv.CV_FOURCC('F','M','P','4'), 10.0, (1280,960))
 
     while True:
         (success, I) = video_reader.getNextFrame()
@@ -110,41 +111,53 @@ if __name__ == '__main__':
         all_pix = None
 
         frame_num = video_reader.framenum - step
-        # initial_rel_gps_inv = np.linalg.inv(imu_transforms[frame_num])
 
-        cur_frame_num = delta*step + frame_num
-        cur_pts = data[data[:, 4] >= frame_num]
-        cur_pts = cur_pts[cur_pts[:, 4] < cur_frame_num]
+        last_frame_num = delta*step + frame_num
+        all_pts = data[data[:, 4] >= frame_num]
+        all_pts = all_pts[all_pts[:, 4] < last_frame_num]
+        filtered_pts = None
+        for i in xrange(delta):
+            t2 = i*step + frame_num
+            pts_t2 = all_pts[all_pts[:, 4] == t2]
+
+            if pts_t2.shape[0] > 0:
+                pts_t2_h = np.vstack((pts_t2.transpose()[:3, :], np.ones((1, pts_t2.shape[0]))))
+                pts_t1 = dot(T_from_gps_to_l[t2], pts_t2_h)
+                pts_t2 = pts_t2[(pts_t1[2, :] < -1.5) & 
+                                (pts_t1[2, :] > -2.5) &       # Z between -1.5 and -2.5
+                                (abs(pts_t1[1, :]) < 2.2) &   # Y between -2.2 and 2.2
+                                (abs(pts_t1[1, :]) > 1.2)     # Y outside -1.2 and 1.2
+                                ]
+
+                if pts_t2.shape[1] > 0:
+                    filtered_pts = pts_t2 if filtered_pts == None else np.vstack((filtered_pts, pts_t2))
 
         # Convert to homogenous coordinates
-        cur_pts_h = np.vstack((cur_pts.transpose()[:3, :], np.ones((1, cur_pts.shape[0]))))
-
+        all_pts_h = np.vstack((filtered_pts.transpose()[:3, :], np.ones((1, filtered_pts.shape[0]))))
         # Convert from point cloud to relative position of points from velodyne view        
-        rel_cur_pts = dot(T_from_gps_to_l[frame_num], cur_pts_h)
-        # rel_cur_pts = rel_cur_pts[:, (cur_pts[:, 3] > 60)]
+        rel_all_pts = dot(T_from_gps_to_l[frame_num], all_pts_h)
 
-        if rel_cur_pts.shape[1] > 0:
+        if rel_all_pts.shape[1] > 0:
             # Project the point cloud into the camera view
-            pts_wrt_cam = rel_cur_pts[:3, :]
+            pts_wrt_cam = rel_all_pts[:3, :]
             pts_wrt_cam[0, :] += ctx
             pts_wrt_cam[1, :] += cty
             pts_wrt_cam[2, :] += ctz
             pts_wrt_cam = dot(cR, dot(R_to_c_from_l(cam), pts_wrt_cam))
             (pix, mask) = cloudToPixels(cam, pts_wrt_cam)
-            
+
             pix = pix[:2, mask]
-            intensity = cur_pts[mask, 3].astype(np.int32)
-            
+            intensity = all_pts[mask, 3].astype(np.int32)
+
             pix = np.vstack((pix, intensity)).astype(np.int32)
             all_pix = pix if all_pix == None else np.hstack((all_pix, pix))
 
-        # horiz_groups = hierarchical_clustering(all_pix[:2, :].transpose(), 30)
+        # horiz_groups = hierarchical_clustering(all_pix[:2, :].transpose(), 5)
 
         # all_pix_grouped = np.array([np.median(all_pix[:, group], axis=1) for group in horiz_groups if len(group) > 0] ,dtype=np.int32)
         # all_pix_grouped = all_pix_grouped.transpose()
 
         # vert_groups = hierarchical_clustering(all_pix_grouped[:2, :].transpose(), 100)
-
         # for i in xrange(2):
         #     lane = np.array(all_pix_grouped[:, vert_groups[i]], dtype=np.int32)
         #     z = np.polyfit(lane[0, :].transpose(), lane[1, :].transpose(), 1)
@@ -175,6 +188,7 @@ if __name__ == '__main__':
 
         cv2.imshow('display', I)
         # writer.write(I)
+
         print 'frame'
         key = chr((waitKey(1) & 255))
         # while key != ' ':
