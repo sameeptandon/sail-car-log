@@ -106,18 +106,23 @@ include_directories(
 # )
 
 ## Declare a cpp executable
- add_executable(pointgrey_image_viewer_node pointgrey_image_viewer_node.cpp)
+ add_executable(pointgrey_image_viewer pointgrey_image_viewer_node.cpp)
+ add_executable(pointgrey_image_writer pointgrey_image_writer_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(pointgrey_image_viewer_node pointgrey_image_viewer_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(pointgrey_image_viewer_node
+ target_link_libraries(pointgrey_image_viewer
    ${catkin_LIBRARIES}
    ${POINTGREY_LIB}
  )
 
+ target_link_libraries(pointgrey_image_writer
+   ${catkin_LIBRARIES}
+   ${POINTGREY_LIB}
+ )
 #############
 ## Install ##
 #############
@@ -134,7 +139,7 @@ include_directories(
 
 ## Mark executables and/or libraries for installation
 # install(TARGETS pointgrey_image_viewer pointgrey_image_viewer_node
- install(TARGETS pointgrey_image_viewer_node
+ install(TARGETS pointgrey_image_viewer pointgrey_image_writer
    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

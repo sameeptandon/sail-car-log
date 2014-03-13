@@ -13,12 +13,12 @@
       <param name="canonical_name" value="fwd_left" />
   </node>
   
-  <!--node pkg="pointgrey_camera_driver" type="pointgrey_camera_node" name="pg_node" output="screen">
+  <!--node pkg="pointgrey_camera_driver" type="pointgrey_camera_node" name="pg_node_fwd_right" output="screen">
     <param name="serial" value="13041026" />
     <param name="canonical_name" value="fwd_right" />
   </node-->
   
-  <node pkg="nodelet" type="nodelet" name="pg_nodelet" output="screen" args="standalone pointgrey_camera_driver/PointGreyCameraNodelet" >
+  <node pkg="nodelet" type="nodelet" name="pg_nodelet_fwd_right" output="screen" args="standalone pointgrey_camera_driver/PointGreyCameraNodelet" >
       <param name="serial" value="13041026" />
       <param name="canonical_name" value="fwd_right" />
   </node>
