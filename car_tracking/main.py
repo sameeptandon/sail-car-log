@@ -17,6 +17,8 @@ from optparse import OptionParser
 
 if __name__ == "__main__":
 
+    min_remove_iou = 0.65;
+
     parser = OptionParser();
 
     parser.add_option('-a', '--annolist', dest='annolist_name', type="string", help='annotation list (*.al or *.idl) used to inialize the tracking', default=None)
@@ -54,6 +56,20 @@ if __name__ == "__main__":
     #trackMaxFrames = int(opts.track_frames);
     trackMaxFrames = opts.track_frames;
 
+    # construct output filename
+    annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
+    annolist_base, annolist_ext = os.path.splitext(annolist_base_ext);
+    save_filename = opts.output_dir + "/" + annolist_base + "-track";
+
+    if opts.firstidx != 0 or opts.numimgs != -1:
+        save_filename += "-firstidx" + str(firstidx) + "-lastidx" + str(lastidx) + "-numtrack" + str(trackMaxFrames)
+
+    save_filename_partiall = save_filename + "-partial" + annolist_ext;
+    save_filename += annolist_ext;
+
+
+    # do the tracking 
+
     for idx in range(len(annolist)):
         print "\n*** tracking starting at frame: " + str(idx)
 
@@ -77,44 +93,38 @@ if __name__ == "__main__":
 
                 annolist_track_back.reverse();
 
-                for idx in range(1, len(annolist_track_fwd)):
-                    # print annolist_track_fwd[idx].imageName
-                    # print annolist_track_back[idx-1].imageName
+                for idx2 in range(1, len(annolist_track_fwd)):
+                    # print annolist_track_fwd[idx2].imageName
+                    # print annolist_track_back[idx2-1].imageName
 
-                    assert(annolist_track_fwd[idx].imageName == annolist_track_back[idx-1].imageName);
+                    assert(annolist_track_fwd[idx2].imageName == annolist_track_back[idx2-1].imageName);
 
-                    #annolist_track_fwd[idx].rects += annolist_track_back[idx-1].rects;
+                    #annolist_track_fwd[idx2].rects += annolist_track_back[idx2-1].rects;
 
                     r_new = [];
 
                     #MA: don't include duplicate rects 
-                    for r_back in annolist_track_back[idx-1].rects:
+                    for r_back in annolist_track_back[idx2-1].rects:
 
                         found_similar = False;
-                        for r_front in annolist_track_fwd[idx].rects:
-                            min_iou = 0.65;
-                            if r_back.overlap_pascal(r_front) > min_iou:
+                        for r_front in annolist_track_fwd[idx2].rects:
+                            if r_back.overlap_pascal(r_front) > min_remove_iou:
                                 found_similar = True;
                                 break;
 
                         if not found_similar:
                             r_new.append(r_back);
 
-                    annolist_track_fwd[idx].rects += r_new;
+                    annolist_track_fwd[idx2].rects += r_new;
 
 
         annolist_track += annolist_track_fwd;
-            
+        
+        # save results ones in a while 
+        if idx % 10 == 0:
+            print "saving " + save_filename_partiall;
+            saveXML(save_filename_partiall, annolist_track);
 
-    annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
-    annolist_base, annolist_ext = os.path.splitext(annolist_base_ext);
-    
-    save_filename = opts.output_dir + "/" + annolist_base + "-track";
-
-    if opts.firstidx != 0 or opts.numimgs != -1:
-        save_filename += "-firstidx" + str(firstidx) + "-lastidx" + str(lastidx) + "-numtrack" + str(trackMaxFrames)
-
-    save_filename += annolist_ext;
 
     print "saving " + save_filename;
     saveXML(save_filename, annolist_track);

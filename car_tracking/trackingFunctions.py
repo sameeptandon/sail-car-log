@@ -352,6 +352,11 @@ def NextRect(Img1, Img2, Rect1):
 
 def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
+	#min_match_percentage = 0.25;
+	#min_match_percentage = 0.05;
+	max_color_dist = 1.7;
+	min_match_percentage = 0;
+
 	annolist_track = [];
 
         framesTracked = 0;
@@ -432,10 +437,6 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
                         new_rect.classID = rect.classID;
 
                         cur_num_matches = 0;
-                        #min_match_percentage = 0.25;
-                        #min_match_percentage = 0.05;
-			max_color_dist = 1.7;
-			min_match_percentage = 0;
 
                         if framesTracked == 0:
                             tracks_init_des[rect.classID] = des1;
