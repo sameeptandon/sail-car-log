@@ -70,35 +70,37 @@ if __name__ == "__main__":
             stop_imgname = annolist[idx].imageName;
             annolist_track_back = track_frame(annolist[idx+1], stop_imgname, trackMaxFrames, -1);
 
-            # merge two lists
-            assert(len(annolist_track_fwd) == len(annolist_track_back));
+            # merge two lists            
+            #assert(len(annolist_track_fwd) == len(annolist_track_back));
+            # MA: might happen that we can track forward but not backwards (e.g. when multiple sequences are concatenated in one file)
+            if len(annolist_track_fwd) == len(annolist_track_back):
 
-            annolist_track_back.reverse();
+                annolist_track_back.reverse();
 
-            for idx in range(1, len(annolist_track_fwd)):
-                print annolist_track_fwd[idx].imageName
-                print annolist_track_back[idx-1].imageName
+                for idx in range(1, len(annolist_track_fwd)):
+                    print annolist_track_fwd[idx].imageName
+                    print annolist_track_back[idx-1].imageName
 
-                assert(annolist_track_fwd[idx].imageName == annolist_track_back[idx-1].imageName);
-                
-                #annolist_track_fwd[idx].rects += annolist_track_back[idx-1].rects;
+                    assert(annolist_track_fwd[idx].imageName == annolist_track_back[idx-1].imageName);
 
-                r_new = [];
+                    #annolist_track_fwd[idx].rects += annolist_track_back[idx-1].rects;
 
-                #MA: don't include duplicate rects 
-                for r_back in annolist_track_back[idx-1].rects:
-                    
-                    found_similar = False;
-                    for r_front in annolist_track_fwd[idx].rects:
-                        min_iou = 0.65;
-                        if r_back.overlap_pascal(r_front) > min_iou:
-                            found_similar = True;
-                            break;
+                    r_new = [];
 
-                    if not found_similar:
-                        r_new.append(r_back);
+                    #MA: don't include duplicate rects 
+                    for r_back in annolist_track_back[idx-1].rects:
 
-                annolist_track_fwd[idx].rects += r_new;
+                        found_similar = False;
+                        for r_front in annolist_track_fwd[idx].rects:
+                            min_iou = 0.65;
+                            if r_back.overlap_pascal(r_front) > min_iou:
+                                found_similar = True;
+                                break;
+
+                        if not found_similar:
+                            r_new.append(r_back);
+
+                    annolist_track_fwd[idx].rects += r_new;
 
 
         annolist_track += annolist_track_fwd;

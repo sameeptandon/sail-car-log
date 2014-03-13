@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+import cv;
+
 from matplotlib import pyplot as plt
 import math
 import sys
@@ -9,6 +11,64 @@ import os.path
 from AnnotationLib import *
 
 import pdb;
+
+
+
+def dist_chi2(h1, h2):
+    res = 0; 
+
+    for idx1 in range(h1.shape[0]): 
+        for idx2 in range(h1.shape[1]): 
+            d = h1[idx1, idx2] + h2[idx1, idx2]; 
+
+            if d > 0:
+                res += ((h1[idx1, idx2] - h2[idx1, idx2])**2) / d;
+
+    return res;
+
+def dist_chi2_opencv(h1, h2):
+    res = 0; 
+
+    for idx1 in range(h1.shape[0]): 
+        for idx2 in range(h1.shape[1]): 
+            # MA: hmm... why is this different
+            d = h1[idx1, idx2]
+
+            if d > 0:
+                res += ((h1[idx1, idx2] - h2[idx1, idx2])**2) / d;
+
+    return res;
+
+def comp_rect_hist(I, _rect):
+
+    rect = copy.deepcopy(_rect);
+    rect.resize(0.9);
+
+    roi_img = I[rect.y1:rect.y2, rect.x1:rect.x2, :];
+    hsv_img = cv2.cvtColor(roi_img, cv2.COLOR_BGR2HSV);
+
+    #dark = hsv_img[...,2] < 30
+    dark = hsv_img[...,2] < 20
+
+    hsv_img[dark] = 0
+
+    # hbins = 30;
+    # sbins = 32;
+
+    hbins = 15;
+    sbins = 15;
+
+    roi_hist = cv2.calcHist( [hsv_img], [0, 1], None, [hbins, sbins], [0, 180, 0, 256])
+    roi_hist[0, 0] = 0;
+
+    # mask = cv2.inRange(hsv_img, np.array((0., 60.,32.)), np.array((180.,255.,255.)) )
+    # roi_hist = cv2.calcHist([hsv_img],[0],mask,[180],[0,180])
+
+    #cv2.normalize(roi_hist, roi_hist, 0, 1, cv2.NORM_MINMAX)
+    #cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
+    cv2.normalize(roi_hist, roi_hist, 1, 0, cv2.NORM_L2)
+
+    return roi_hist;
 
 def inc_image_name(s, n):
     pos1 = s.rfind('_');
@@ -248,13 +308,14 @@ def R2Mapping(X1, Y1, X2, Y2):
 	return (True, float(x[1]), float(x[2]), float(x[0]))
 
 
-def ShowImg(WinName, Img, Rect):
+def ShowImg(WinName, Img, Rect = []):
 	tmpImg = copy.deepcopy(Img)
-	cv2.rectangle(tmpImg, (int(Rect.x1),int(Rect.y1)), (int(Rect.x2), int(Rect.y2)), 255, 2)
+
+	if Rect != []:
+		cv2.rectangle(tmpImg, (int(Rect.x1),int(Rect.y1)), (int(Rect.x2), int(Rect.y2)), 255, 2)
+
 	cv2.imshow(WinName, tmpImg)
 	cv2.waitKey(0)
-
-
 
 def NextRect(Img1, Img2, Rect1):
 
@@ -296,7 +357,10 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
         framesTracked = 0;
         num_missed_tracks = 0;
-        num_init_matching_failed = 0;
+
+        num_init_matching_failed_color = 0;
+        num_init_matching_failed_sift = 0;
+
         num_skip_small = 0;
 
         curImageName = a.imageName;
@@ -305,6 +369,10 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
         # MA: store descriptors and number of matches for track verification
         tracks_init_des = []
         tracks_init_num_matches = [];
+	tracks_init_colorhist = [];
+
+        Img1 = cv2.imread(curImageName, 0);
+	Img1_color = cv2.imread(curImageName);
 
         # MA: init track id's
         for tidx, r in enumerate(tracked_rects):
@@ -312,8 +380,10 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
             tracks_init_des.append([]);
             tracks_init_num_matches.append(-1);
+	    tracks_init_colorhist.append(comp_rect_hist(Img1_color, r));
 
-        Img1 = cv2.imread(curImageName, 0);
+	    # if tidx == 3:
+	    # 	    pdb.set_trace();
 
         if not isinstance(Img1, np.ndarray):
             assert(False);
@@ -337,7 +407,10 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
             print "\tnextImageName: " + nextImageName
 
             if os.path.isfile(nextImageName):
+
                 Img2 = cv2.imread(nextImageName, 0);
+                Img2_color = cv2.imread(nextImageName);
+
                 assert(isinstance(Img2, np.ndarray))
                 img_height = len(Img2)
                 img_width = len(Img2[0]);
@@ -353,36 +426,65 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
                     track_ok, new_rect, matches, des1, des2 = NextRect(Img1, Img2, rect);
 
-                    if track_ok:
+                    if track_ok and new_rect.width() > 1 and new_rect.height() > 1:
                         # preserve classID
                         new_rect.classID = rect.classID;
 
                         cur_num_matches = 0;
                         #min_match_percentage = 0.25;
                         #min_match_percentage = 0.05;
+			max_color_dist = 1.7;
 			min_match_percentage = 0;
 
                         if framesTracked == 0:
                             tracks_init_des[rect.classID] = des1;
                             tracks_init_num_matches[rect.classID] = len(matches);
+
                             cur_num_matches = tracks_init_num_matches[rect.classID];
                         else:
                             bf = cv2.BFMatcher();
                             cur_num_matches = len(match_and_ratio_test(tracks_init_des[rect.classID], des2));
+
                         
                         print "\ttrack %d, init_num_matches %d, cur_num_matches: %d" % (rect.classID, tracks_init_num_matches[rect.classID], cur_num_matches)
 
+			verification_ok = True;
+
+			# MA: color-based verification
+		        hist_cur = comp_rect_hist(Img2_color, new_rect);
+			
+			#cur_color_dist = cv2.compareHist(tracks_init_colorhist[rect.classID], hist_cur, cv.CV_COMP_CHISQR)
+			cur_color_dist = dist_chi2(tracks_init_colorhist[rect.classID], hist_cur);
+
+			print "\n\t cur_color_dist: " + str(cur_color_dist);
+
+			if  cur_color_dist > max_color_dist:
+				verification_ok = False;
+				num_init_matching_failed_color += 1;
+
+			if cur_color_dist > 3:
+				print "\n\n\n"
+				
+				print "classID: %d, new_rect: (%.2f, %.2f, %.2f, %.2f)"  % (new_rect.classID, new_rect.x1, new_rect.y1, new_rect.x2, new_rect.y2)
+				pdb.set_trace()
+
+				print "\n\n\n"
+
+
+			# MA: SIFT-based verification (seems to be too conservative)
                         if cur_num_matches < min_match_percentage*tracks_init_num_matches[rect.classID]:
-                                num_init_matching_failed += 1;
+				verification_ok = False;
+                                num_init_matching_failed_sift += 1;
                              
-                        if framesTracked == 0 or cur_num_matches >= min_match_percentage*tracks_init_num_matches[rect.classID]:
+			# MA: accept first frame (use it as baseline number of matches for SIFT)
+                        if framesTracked == 0 or verification_ok:
                             new_tracked_rects.append(new_rect);
 
                     else:
                         num_missed_tracks += 1;
 
-                print "\tnum_active_tracks: %d, num_missed_tracks: %d, num_skip_small: %d, num_init_matching_failed: %d\n" \
-                    % (len(new_tracked_rects), num_missed_tracks, num_skip_small, num_init_matching_failed)
+                print "\tnum_active_tracks: %d, num_missed_tracks: %d, num_skip_small: %d, num_init_matching_failed_sift: %d, num_init_matching_failed_color: %d\n" \
+                    % (len(new_tracked_rects), num_missed_tracks, num_skip_small, num_init_matching_failed_sift, num_init_matching_failed_color)
 
                 framesTracked += 1;
             
