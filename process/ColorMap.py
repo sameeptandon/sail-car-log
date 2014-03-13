@@ -1,11 +1,9 @@
-import math
 import numpy 
 import colorsys
 from matplotlib.colors import hsv_to_rgb
 
 
 def heatColorMapFast(vals, minc, maxc):
-    print vals.shape
     rv = 1.0/(maxc - minc) * vals;
     H = rv*0.4
     S = 0*rv + 1
