@@ -55,7 +55,7 @@ if __name__ == "__main__":
     trackMaxFrames = opts.track_frames;
 
     for idx in range(len(annolist)):
-        print "idx: " + str(idx)
+        print "\n*** tracking starting at frame: " + str(idx)
 
         # track forward
         if idx < len(annolist) - 1:
@@ -78,8 +78,8 @@ if __name__ == "__main__":
                 annolist_track_back.reverse();
 
                 for idx in range(1, len(annolist_track_fwd)):
-                    print annolist_track_fwd[idx].imageName
-                    print annolist_track_back[idx-1].imageName
+                    # print annolist_track_fwd[idx].imageName
+                    # print annolist_track_back[idx-1].imageName
 
                     assert(annolist_track_fwd[idx].imageName == annolist_track_back[idx-1].imageName);
 

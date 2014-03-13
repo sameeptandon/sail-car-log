@@ -351,7 +351,6 @@ def NextRect(Img1, Img2, Rect1):
 		return (True, new_rect, matches, des1, des2);
 
 def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
-	print "track_frame"
 
 	annolist_track = [];
 
@@ -380,6 +379,8 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
             tracks_init_des.append([]);
             tracks_init_num_matches.append(-1);
+
+	    assert(r.width > 0 and r.height() > 0);
 	    tracks_init_colorhist.append(comp_rect_hist(Img1_color, r));
 
 	    # if tidx == 3:
