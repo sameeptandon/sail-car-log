@@ -462,15 +462,6 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 				verification_ok = False;
 				num_init_matching_failed_color += 1;
 
-			if cur_color_dist > 3:
-				print "\n\n\n"
-				
-				print "classID: %d, new_rect: (%.2f, %.2f, %.2f, %.2f)"  % (new_rect.classID, new_rect.x1, new_rect.y1, new_rect.x2, new_rect.y2)
-				pdb.set_trace()
-
-				print "\n\n\n"
-
-
 			# MA: SIFT-based verification (seems to be too conservative)
                         if cur_num_matches < min_match_percentage*tracks_init_num_matches[rect.classID]:
 				verification_ok = False;
