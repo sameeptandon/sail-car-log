@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ros/ros.h>
+#include <std_msgs/String.h>
 #include "synchronized_buffer.h"
 #include <boost/bind.hpp>
 #include <boost/thread.hpp>
@@ -19,13 +21,12 @@ class Consumer
 {
     private:
         void writeToDisk (const T* obj) {
-            cout << obj->size().width << endl; 
-            cout << obj->size().height << endl; 
-            cout << framesConsumed << endl; 
-            Mat imgMat(*obj);
-            _writer << imgMat; 
+            _writer << *obj;
             delete obj; 
-            framesConsumed++; 
+            framesConsumed++;
+            std_msgs::String msg;
+            msg.data = "done with frame";
+            _writer_ack_pub.publish(msg);
             /*
             //FPS_CALC (_aviFileName, _buf);
             _img = cvCreateImage(cvSize(obj->GetCols(), obj->GetRows()), IPL_DEPTH_8U, 3);
@@ -67,7 +68,7 @@ class Consumer
     public:
         Consumer (SynchronizedBuffer<T> *buf, std::string aviFileName,
                 boost::mutex* io_mutex, float frameRate, int imWidth, int
-                imHeight)
+                imHeight, ros::NodeHandle nh)
             : _buf (buf), _aviFileName(aviFileName), _io_mutex(io_mutex),
             _frameRate(frameRate)
         {
@@ -86,6 +87,8 @@ class Consumer
             if (!_writer.isOpened()) {
                 cout << "File not opened!" << endl; 
             }
+
+            _writer_ack_pub = nh.advertise<std_msgs::String>("writer_ack",1000); 
 
             _thread.reset (new boost::thread (boost::bind (&Consumer::receiveAndProcess, this)));
         }
@@ -110,6 +113,7 @@ class Consumer
         float _frameRate;
         VideoWriter _writer;
         bool _is_done;
-        uint64_t framesConsumed; 
+        uint64_t framesConsumed;
+        ros::Publisher _writer_ack_pub; 
 };
 
