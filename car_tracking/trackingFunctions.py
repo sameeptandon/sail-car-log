@@ -13,7 +13,6 @@ from AnnotationLib import *
 import pdb;
 
 
-
 def dist_chi2(h1, h2):
     res = 0; 
 
@@ -26,34 +25,19 @@ def dist_chi2(h1, h2):
 
     return res;
 
-def dist_chi2_opencv(h1, h2):
-    res = 0; 
-
-    for idx1 in range(h1.shape[0]): 
-        for idx2 in range(h1.shape[1]): 
-            # MA: hmm... why is this different
-            d = h1[idx1, idx2]
-
-            if d > 0:
-                res += ((h1[idx1, idx2] - h2[idx1, idx2])**2) / d;
-
-    return res;
-
-def comp_rect_hist(I, _rect):
+def comp_rect_hist(I, _rect, normtype=1):
 
     rect = copy.deepcopy(_rect);
     rect.resize(0.9);
 
     roi_img = I[rect.y1:rect.y2, rect.x1:rect.x2, :];
-    hsv_img = cv2.cvtColor(roi_img, cv2.COLOR_BGR2HSV);
 
-    #dark = hsv_img[...,2] < 30
+    assert(roi_img.shape[0] > 0 and roi_img.shape[1] > 0);
+
+    hsv_img = cv2.cvtColor(roi_img, cv2.COLOR_BGR2HSV);
     dark = hsv_img[...,2] < 20
 
     hsv_img[dark] = 0
-
-    # hbins = 30;
-    # sbins = 32;
 
     hbins = 15;
     sbins = 15;
@@ -61,12 +45,15 @@ def comp_rect_hist(I, _rect):
     roi_hist = cv2.calcHist( [hsv_img], [0, 1], None, [hbins, sbins], [0, 180, 0, 256])
     roi_hist[0, 0] = 0;
 
-    # mask = cv2.inRange(hsv_img, np.array((0., 60.,32.)), np.array((180.,255.,255.)) )
-    # roi_hist = cv2.calcHist([hsv_img],[0],mask,[180],[0,180])
-
-    #cv2.normalize(roi_hist, roi_hist, 0, 1, cv2.NORM_MINMAX)
-    #cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
-    cv2.normalize(roi_hist, roi_hist, 1, 0, cv2.NORM_L2)
+    # normalize 
+    if normtype == 1:
+        s = np.sum(roi_hist);
+        if s > 0: 
+            roi_hist /= s;
+    else:
+        assert(False);
+        assert(normtype == 2);
+        cv2.normalize(roi_hist, roi_hist, 1, 0, cv2.NORM_L2)
 
     return roi_hist;
 
@@ -352,9 +339,14 @@ def NextRect(Img1, Img2, Rect1):
 
 def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
+	MIN_TRACK_RECT_SIZE = 30;
+
 	#min_match_percentage = 0.25;
 	#min_match_percentage = 0.05;
-	max_color_dist = 1.7;
+	#max_color_dist = 1.7;
+        #max_color_dist = 0.25;
+        max_color_dist = 0.3;
+
 	min_match_percentage = 0;
 
 	annolist_track = [];
@@ -368,7 +360,10 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
         num_skip_small = 0;
 
         curImageName = a.imageName;
-        tracked_rects = a.rects;
+
+	# filter initial set of rectangles 
+	# TODO: dont' include heavily occluded 
+	tracked_rects = [r for r in a.rects if r.width > MIN_TRACK_RECT_SIZE and r.height > MIN_TRACK_RECT_SIZE];
 
         # MA: store descriptors and number of matches for track verification
         tracks_init_des = []
@@ -426,7 +421,7 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
                 # tracking 
                 for rect in tracked_rects:
-                    if rect.width() <= 30 or rect.height() <= 30:
+                    if rect.width() <= MIN_TRACK_RECT_SIZE or rect.height() <= MIN_TRACK_RECT_SIZE:
                         num_skip_small += 1;
                         continue;
 
