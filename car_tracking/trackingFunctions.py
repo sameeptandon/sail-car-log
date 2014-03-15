@@ -12,6 +12,35 @@ from AnnotationLib import *
 
 import pdb;
 
+def filter_occluded(_rects):
+
+    OCCLUSION_THRESHOLD = 0.4;
+
+    rects = copy.deepcopy(_rects);
+    rects.sort(key=lambda r: r.width())
+
+    rects_filtered = [];
+    num_rects = len(rects);
+
+    for ridx1, r in enumerate(rects):
+        myarea = float(r.width() * r.height());
+        do_filter = False;
+
+        for ridx2 in range(ridx1+1, num_rects):
+            intw, inth = r.intersection(rects[ridx2]);
+            intarea = intw*inth;
+            intratio = intw*inth / myarea;
+
+            if intratio > OCCLUSION_THRESHOLD:
+                do_filter = True;
+                break;
+
+        if not do_filter:
+            rects_filtered.append(r);
+        
+    return rects_filtered;
+    
+
 
 def dist_chi2(h1, h2):
     res = 0; 
@@ -299,7 +328,8 @@ def ShowImg(WinName, Img, Rect = []):
 	tmpImg = copy.deepcopy(Img)
 
 	if Rect != []:
-		cv2.rectangle(tmpImg, (int(Rect.x1),int(Rect.y1)), (int(Rect.x2), int(Rect.y2)), 255, 2)
+            for r in Rect:
+		cv2.rectangle(tmpImg, (int(r.x1),int(r.y1)), (int(r.x2), int(r.y2)), 255, 2)
 
 	cv2.imshow(WinName, tmpImg)
 	cv2.waitKey(0)
@@ -362,8 +392,10 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
         curImageName = a.imageName;
 
 	# filter initial set of rectangles 
-	# TODO: dont' include heavily occluded 
 	tracked_rects = [r for r in a.rects if r.width > MIN_TRACK_RECT_SIZE and r.height > MIN_TRACK_RECT_SIZE];
+
+	# don't include heavily occluded 
+        tracked_rects = filter_occluded(tracked_rects);
 
         # MA: store descriptors and number of matches for track verification
         tracks_init_des = []
@@ -382,9 +414,6 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
 	    assert(r.width > 0 and r.height() > 0);
 	    tracks_init_colorhist.append(comp_rect_hist(Img1_color, r));
-
-	    # if tidx == 3:
-	    # 	    pdb.set_trace();
 
         if not isinstance(Img1, np.ndarray):
             assert(False);
