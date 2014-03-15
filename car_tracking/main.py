@@ -90,7 +90,6 @@ if __name__ == "__main__":
             #assert(len(annolist_track_fwd) == len(annolist_track_back));
             # MA: might happen that we can track forward but not backwards (e.g. when multiple sequences are concatenated in one file)
             if len(annolist_track_fwd) == len(annolist_track_back):
-
                 annolist_track_back.reverse();
 
                 for idx2 in range(1, len(annolist_track_fwd)):

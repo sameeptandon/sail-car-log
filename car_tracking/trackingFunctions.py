@@ -137,10 +137,15 @@ def match_and_ratio_test(des1, des2):
 def SIFT(qImg, tImg, rect):
 
 	# MA: test that keypoints are inside the region of interest rect
-	x1 = rect[0];
-	y1 = rect[1];
-	x2 = x1 + rect[2];
-	y2 = y1 + rect[3];
+	# x1 = rect[0];
+	# y1 = rect[1];
+	# x2 = x1 + rect[2];
+	# y2 = y1 + rect[3];
+
+	x1 = rect.x1;
+	y1 = rect.y1;
+	x2 = rect.x2;
+	y2 = rect.y2;
 
 	use_opencv_sift = True;
 
@@ -185,68 +190,76 @@ def SIFT(qImg, tImg, rect):
 	return kp1, kp2, matches, des1, des2;
 
 
-def rescale_rect(left, top, width, height, scale):
-	ox = left+0.5*width;
-	oy = top+0.5*height;
-	width *= scale;
-	height *= scale;
+# def rescale_rect(left, top, width, height, scale):
+# 	ox = left+0.5*width;
+# 	oy = top+0.5*height;
+# 	width *= scale;
+# 	height *= scale;
 
-	left = ox - 0.5*width;
-	top = oy - 0.5*height;
+# 	left = ox - 0.5*width;
+# 	top = oy - 0.5*height;
 
-	return (left, top, width, height);
+# 	return (left, top, width, height);
 
-def pad_rect(left, top, width, height, npad):
-	left -= npad;
-	top -= npad;
-	width += 2*npad
-	height += 2*npad;
+# def pad_rect(left, top, width, height, npad):
+# 	left -= npad;
+# 	top -= npad;
+# 	width += 2*npad
+# 	height += 2*npad;
 
-	return (left, top, width, height);
+# 	return (left, top, width, height);
+
+def pad_annorect(r, npad):
+	r.x1 -= npad;
+	r.y1 -= npad;
+	r.x2 += npad
+	r.y2 += npad;
 
 
-def RectSIFT(qImg, qRect, tImg, tRect):
-	
-	qx, qy, qw, qh = (qRect.x1, qRect.y1, qRect.width(), qRect.height());
-	tx, ty, tw, th = (tRect.x1, tRect.y1, tRect.width(), tRect.height());
+def RectSIFT(qImg, _qRect, tImg, _tRect):
 
+        qRect = copy.deepcopy(_qRect);
+        tRect = copy.deepcopy(_tRect);
+
+	# MA: make smaller rect relative to the second 
 	if qRect.width() > 180:
 		roi_scale = 0.65;
 	else: 
 		roi_scale = 0.85;
 
- 	#roi_scale = 0.85;
-		
-	qx1, qy1, qw1, qh1 = rescale_rect(qx, qy, qw, qh, roi_scale);
+        qRectSmall = copy.deepcopy(qRect);
+        qRectSmall.resize(roi_scale);
 
+        # MA: pad since SIFT features seem to depend on the size of the cropped image
 	npad = 100;
-	qx2, qy2, qw2, qh2 = pad_rect(qx, qy, qw, qh, npad);
-	tx2, ty2, tw2, th2 = pad_rect(tx, ty, tw, th, npad);
+        pad_annorect(qRect, npad);
+        pad_annorect(tRect, npad);
 
-	# MA: make smaller rect relative to the second 
-	qx1 -= qx2;
-	qy1 -= qy2;
+        qRect.clipToImage(0, qImg.shape[1] - 1, 0, qImg.shape[0] - 1);
+        tRect.clipToImage(0, tImg.shape[1] - 1, 0, tImg.shape[0] - 1);
 
-	qImgTemp = qImg[int(qy2):int(qy2+qh2), int(qx2):int(qx2+qw2)];
-	tImgTemp = tImg[int(ty2):int(ty2+th2), int(tx2):int(tx2+tw2)];
+        # make small rect relative to the cropped image
+        qRectSmall.x1 -= qRect.x1;
+        qRectSmall.y1 -= qRect.y1;
+        qRectSmall.x2 -= qRect.x1;
+        qRectSmall.y2 -= qRect.y1;
 
-	if qImgTemp.shape[0] == 0 or qImgTemp.shape[1] == 0 or tImgTemp.shape[0] == 0 or tImgTemp.shape[1] == 0:
-		return [], [], [], [], []
-                #assert(False);
-	
-	#return SIFT(qImgTemp, tImgTemp);
-	kp1, kp2, matches, des1, des2 = SIFT(qImgTemp, tImgTemp, (qx1, qy1, qw1, qh1));
+	qImgTemp = qImg[int(qRect.y1):int(qRect.y2)+1, int(qRect.x1):int(qRect.x2)+1];
+	tImgTemp = tImg[int(tRect.y1):int(tRect.y2)+1, int(tRect.x1):int(tRect.x2)+1];
+
+	assert(qImgTemp.shape[0] != 0 and qImgTemp.shape[1] != 0 and tImgTemp.shape[0] != 0 and tImgTemp.shape[1] != 0);
+
+	kp1, kp2, matches, des1, des2 = SIFT(qImgTemp, tImgTemp, qRectSmall);
 
 	for kidx in range(kp1.shape[0]):
-		kp1[kidx, 0] += qx2
-		kp1[kidx, 1] += qy2;
+		kp1[kidx, 0] += qRect.x1
+		kp1[kidx, 1] += qRect.y1;
 		
 	for kidx in range(kp2.shape[0]):
-		kp2[kidx, 0] += tx2;
-		kp2[kidx, 1] += ty2;
+		kp2[kidx, 0] += tRect.x1;
+		kp2[kidx, 1] += tRect.y1;
 
 	return kp1, kp2, matches, des1, des2;
-
 
 def outlierFiltering(X1, Y1, X2, Y2, d):
 	xDis = [X2[i]-X1[i] for i in range(len(X1))];
@@ -289,7 +302,7 @@ def outlierFiltering(X1, Y1, X2, Y2, d):
 def R2Mapping(X1, Y1, X2, Y2):
 	if (len(X1)<2):
 		return False, None, None, None
-
+        
 	X1, Y1, X2, Y2, r = outlierFiltering(X1, Y1, X2, Y2, 0);
 
 	if (len(X1)<2):
@@ -386,13 +399,14 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
         num_init_matching_failed_color = 0;
         num_init_matching_failed_sift = 0;
+        num_ignore_border = 0;
 
         num_skip_small = 0;
 
         curImageName = a.imageName;
 
 	# filter initial set of rectangles 
-	tracked_rects = [r for r in a.rects if r.width > MIN_TRACK_RECT_SIZE and r.height > MIN_TRACK_RECT_SIZE];
+	tracked_rects = [r for r in a.rects if r.width() > MIN_TRACK_RECT_SIZE and r.height() > MIN_TRACK_RECT_SIZE];
 
 	# don't include heavily occluded 
         tracked_rects = filter_occluded(tracked_rects);
@@ -470,7 +484,6 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
                         else:
                             bf = cv2.BFMatcher();
                             cur_num_matches = len(match_and_ratio_test(tracks_init_des[rect.classID], des2));
-
                         
                         print "\ttrack %d, init_num_matches %d, cur_num_matches: %d" % (rect.classID, tracks_init_num_matches[rect.classID], cur_num_matches)
 
@@ -485,23 +498,29 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 			print "\n\t cur_color_dist: " + str(cur_color_dist);
 
 			if  cur_color_dist > max_color_dist:
-				verification_ok = False;
-				num_init_matching_failed_color += 1;
+                            verification_ok = False;
+                            num_init_matching_failed_color += 1;
 
-			# MA: SIFT-based verification (seems to be too conservative)
-                        if cur_num_matches < min_match_percentage*tracks_init_num_matches[rect.classID]:
-				verification_ok = False;
-                                num_init_matching_failed_sift += 1;
+			# MA: SIFT-based verification (seems to be too conservative) 
+                        # if cur_num_matches < min_match_percentage*tracks_init_num_matches[rect.classID]:
+			# 	verification_ok = False;
+                        #         num_init_matching_failed_sift += 1;
+
+                        # MA: for now tracks that start on the boundary should remain on the boundary (otherwise we don't know t he correct extent)
+                        BORDER_THRESHOLD = 10;
+                        if (rect.x1 < BORDER_THRESHOLD and new_rect.x1 > rect.x1) or (rect.x2 > Img2.shape[1] - BORDER_THRESHOLD and new_rect.x2 < rect.x2):
+                            verification_ok = False;
+                            num_ignore_border += 1;
                              
 			# MA: accept first frame (use it as baseline number of matches for SIFT)
-                        if framesTracked == 0 or verification_ok:
+                        if verification_ok:
                             new_tracked_rects.append(new_rect);
 
                     else:
                         num_missed_tracks += 1;
 
-                print "\tnum_active_tracks: %d, num_missed_tracks: %d, num_skip_small: %d, num_init_matching_failed_sift: %d, num_init_matching_failed_color: %d\n" \
-                    % (len(new_tracked_rects), num_missed_tracks, num_skip_small, num_init_matching_failed_sift, num_init_matching_failed_color)
+                print "\tnum_active_tracks: %d, num_missed_tracks: %d, num_skip_small: %d, num_init_matching_failed_sift: %d, num_init_matching_failed_color: %d, num_ignore_border: %d\n" \
+                    % (len(new_tracked_rects), num_missed_tracks, num_skip_small, num_init_matching_failed_sift, num_init_matching_failed_color, num_ignore_border)
 
                 framesTracked += 1;
             
