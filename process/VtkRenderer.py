@@ -29,13 +29,25 @@ class VtkImage:
 
         return yActor
 
+"""
+Uses VTK to render a point cloud based on intensities, which might be floating point numbers or RGB values. 
 
+Disclaimer: This function passes points to vtk, so make sure that your data does not get deallocated by python. Somethings are copied too. It's not really an efficient function and it's a slight miracle that it even works. 
+
+For internal VTK debugging, here's the layout of things: 
+    - vtkPoints consist of the x,y,z coordinates. Pass in an array of size m x 3 (where m is the number of points) 
+    - vtkCells tells vtk how to render the points. It is formatted as "1 1 1 2 1 3 ... 1 m' where the 1 tells how many points it should consider in a surface and the even element says which point id to use.
+
+The function build_vtk_polydata will do the assembling magic.
+
+Then you can call get_vtk_color_cloud or get_vtk_cloud based on how you want to color map each point. 
+"""
 
 class VtkPointCloud:
     def __init__(self, xyz, intensity):
         self.xyz = np.ascontiguousarray(xyz)
-        self.intensity = intensity.ravel()
-
+        self.intensity = np.ascontiguousarray(intensity)
+        
         num_points = self.xyz.shape[0]
 
         np_cells_A = np.ones(num_points,dtype=np.int64)
@@ -44,18 +56,12 @@ class VtkPointCloud:
         self.np_cells[::2] = np_cells_A
         self.np_cells[1::2] = np_cells_B
 
-    def get_vtk_cloud(self, zMin=-10.0,zMax=10.0):
-
+    def build_vtk_polydata(self):
         vtkPolyData = vtk.vtkPolyData()
         vtkPoints = vtk.vtkPoints()
         vtkCells = vtk.vtkCellArray()
-        vtkDepth = vtk.vtkFloatArray()
-        vtkDepth.SetName('DepthArray')
         vtkPolyData.SetPoints(vtkPoints)
         vtkPolyData.SetVerts(vtkCells)
-        vtkPolyData.GetPointData().SetScalars(vtkDepth)
-        vtkPolyData.GetPointData().SetActiveScalars('DepthArray')
-      
         num_points = self.xyz.shape[0]
         
         vtk_data = converter.numpy_to_vtk(self.xyz)
@@ -63,8 +69,42 @@ class VtkPointCloud:
         vtkPoints.SetData(vtk_data)
       
         vtkCells.SetCells(num_points, converter.numpy_to_vtkIdTypeArray(self.np_cells, deep=1))
-        vtkDepth.SetVoidArray(self.intensity, num_points, 1)
+
+        return (vtkPolyData, vtkPoints, vtkCells)
+
+    def get_vtk_color_cloud(self):
+        assert(self.intensity.shape[1] == 3)
+        (vtkPolyData, vtkPoints, vtkCells) = self.build_vtk_polydata()
+        self.intensity = self.intensity.astype(np.uint8)
+        vtk_color_data = converter.numpy_to_vtk(self.intensity)
+        vtk_color_data.SetName('ColorArray')
+        vtkPolyData.GetPointData().SetScalars(vtk_color_data)
+        vtkPolyData.GetPointData().SetActiveScalars('ColorArray')
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInput(vtkPolyData)
+        vtkActor = vtk.vtkActor()
+        vtkActor.SetMapper(mapper)
       
+        return vtkActor
+
+
+    def get_vtk_cloud(self, zMin=-10.0,zMax=10.0):
+        assert( len(self.intensity.shape) == 1)
+        (vtkPolyData, vtkPoints, vtkCells) = self.build_vtk_polydata()
+
+        self.intensity == self.intensity.astype(np.float32)
+        vtk_intensity_data = converter.numpy_to_vtk(self.intensity)
+        vtk_intensity_data.SetName('DepthArray')
+        vtkPolyData.GetPointData().SetScalars(vtk_intensity_data)
+        
+        num_points = self.xyz.shape[0]
+        #vtkDepth = vtk.vtkFloatArray()
+        #vtkDepth.SetName('DepthArray')
+        #vtkPolyData.GetPointData().SetScalars(vtkDepth)
+        #vtkDepth.SetVoidArray(self.intensity, num_points, 1)
+        vtkPolyData.GetPointData().SetActiveScalars('DepthArray')
+
+        
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInput(vtkPolyData)
         mapper.SetColorModeToDefault()

@@ -11,7 +11,7 @@ module.exports = {
   },
 
   getCaptureCommand: function(name, maxFrames) {
-    var cmd = 'sudo /home/smart/sail-car-log/cameralogger/build/CameraLogger -s /dev/serial/by-id/usb-09d7_0210-if00 -o ' + name;
+    var cmd = 'sudo /home/smart/sail-car-log/cameralogger/build/CameraLogger -s /dev/serial/by-id/usb-09d7_0210-if00 -l -o ' + name;
     if (maxFrames) {
       cmd = cmd + ' -m ' + maxFrames
     }

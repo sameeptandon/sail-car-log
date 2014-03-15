@@ -1,0 +1,5 @@
+<library path="lib/libPointGreyCameraNodelet">
+  <class name="pointgrey_camera_driver/PointGreyCameraNodelet" type="pointgrey_camera_driver::PointGreyCameraNodelet" base_class_type="nodelet::Nodelet">
+    <description>This is the nodelet for the Point Grey Camera Driver.</description>
+  </class>
+</library>
