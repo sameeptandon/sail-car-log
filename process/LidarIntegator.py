@@ -44,13 +44,13 @@ renderWindow = vtk.vtkRenderWindow()
 #step = 5
 
 # settings for parking
-start_fn = 0
-num_fn = 200
-step = 2
+#start_fn = 0
+#num_fn = 200
+#step = 2
 
-#start_fn = 7500
-#num_fn = 300
-#step = 3
+start_fn = 0
+num_fn = 250
+step = 10
 
 color_mode = 'INTENSITY'
 
@@ -114,48 +114,50 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
         # filter out the roof rack
         dist = np.sqrt(np.sum( data[:, 0:3] ** 2, axis = 1))
         data = data[ dist > 3, :]
-        #data = data[ data[:,3] > 60 ] 
+        data = data[ data[:,3] > 60 ] 
         #data = data[ data[:,0] > 0 ]
-        #data = data[ np.abs(data[:,1]) < 5]
+        #data = data[ np.abs(data[:,1]) < 2.2]
         #data = data[ data[:,2] < -1.5]
         #data = data[ data[:,2] > -2.5]
+
+        if color_mode == 'CAMERA':
         
-        (success, I1) = video_reader1.getNextFrame()
-        (success, I2) = video_reader2.getNextFrame()
-        stepVideo(video_reader1, step)
-        stepVideo(video_reader2, step)
+            (success, I1) = video_reader1.getNextFrame()
+            (success, I2) = video_reader2.getNextFrame()
+            stepVideo(video_reader1, step)
+            stepVideo(video_reader2, step)
         
-        pts_wrt_cam1 = array(data[:, 0:3])
-        pts_wrt_cam1[:, 0:3] += cam1['displacement_from_l_to_c_in_lidar_frame'];
-        pts_wrt_cam1 = dot(R_to_c_from_l(cam1), pts_wrt_cam1.transpose())
-        (pix1, mask1) = cloudToPixels(cam1, pts_wrt_cam1)
+            pts_wrt_cam1 = array(data[:, 0:3])
+            pts_wrt_cam1[:, 0:3] += cam1['displacement_from_l_to_c_in_lidar_frame'];
+            pts_wrt_cam1 = dot(R_to_c_from_l(cam1), pts_wrt_cam1.transpose())
+            (pix1, mask1) = cloudToPixels(cam1, pts_wrt_cam1)
 
         
-        colors = 0*pts_wrt_cam1.transpose() + 0
-        print I1[pix1[1,mask1], pix1[0,mask1], :].shape
-        print colors[mask1, :].shape
+            colors = 0*pts_wrt_cam1.transpose() + 0
+            print I1[pix1[1,mask1], pix1[0,mask1], :].shape
+            print colors[mask1, :].shape
         
-        # BGR -> RGB
-        colors[ mask1, 0] = I1[pix1[1,mask1], pix1[0,mask1], 2] 
-        colors[ mask1, 1] = I1[pix1[1,mask1], pix1[0,mask1], 1] 
-        colors[ mask1, 2] = I1[pix1[1,mask1], pix1[0,mask1], 0] 
+            # BGR -> RGB
+            colors[ mask1, 0] = I1[pix1[1,mask1], pix1[0,mask1], 2] 
+            colors[ mask1, 1] = I1[pix1[1,mask1], pix1[0,mask1], 1] 
+            colors[ mask1, 2] = I1[pix1[1,mask1], pix1[0,mask1], 0] 
 
-        pts_wrt_cam2 = array(data[:, 0:3])
-        pts_wrt_cam2[:, 0:3] += cam2['displacement_from_l_to_c_in_lidar_frame'];
-        pts_wrt_cam2 = dot(R_to_c_from_l(cam2), pts_wrt_cam2.transpose())
-        (pix2, mask2) = cloudToPixels(cam2, pts_wrt_cam2)
+            pts_wrt_cam2 = array(data[:, 0:3])
+            pts_wrt_cam2[:, 0:3] += cam2['displacement_from_l_to_c_in_lidar_frame'];
+            pts_wrt_cam2 = dot(R_to_c_from_l(cam2), pts_wrt_cam2.transpose())
+            (pix2, mask2) = cloudToPixels(cam2, pts_wrt_cam2)
 
-        # BGR -> RGB
-        colors[ mask2, 0] = I2[pix2[1,mask2], pix2[0,mask2], 2] 
-        colors[ mask2, 1] = I2[pix2[1,mask2], pix2[0,mask2], 1] 
-        colors[ mask2, 2] = I2[pix2[1,mask2], pix2[0,mask2], 0] 
+            # BGR -> RGB
+            colors[ mask2, 0] = I2[pix2[1,mask2], pix2[0,mask2], 2] 
+            colors[ mask2, 1] = I2[pix2[1,mask2], pix2[0,mask2], 1] 
+            colors[ mask2, 2] = I2[pix2[1,mask2], pix2[0,mask2], 0] 
         
-        #intensity = data[mask2, 3]
-        #heat_colors = heatColorMapFast(intensity, 0, 100)
-        #I2[pix2[1,mask2], pix2[0,mask2], :] = heat_colors[0,:,:]
+            #intensity = data[mask2, 3]
+            #heat_colors = heatColorMapFast(intensity, 0, 100)
+            #I2[pix2[1,mask2], pix2[0,mask2], :] = heat_colors[0,:,:]
 
-        cv2.imshow('vid', I2)
-        cv2.waitKey(5)
+            #cv2.imshow('vid', I2)
+            #cv2.waitKey(5)
 
         # transform data into IMU frame
         pts = data[:,0:3].transpose()
@@ -216,7 +218,7 @@ def keypress(obj, event):
         export_data = np.row_stack(all_data)
         print export_data
         print export_data.shape
-        np.savez_compressed('output_map2.npz', data=export_data)
+        np.savez_compressed(sys.argv[3], data=export_data)
 
     else:
         rerender = False
