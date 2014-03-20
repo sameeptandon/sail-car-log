@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 from ArgParser import *
 
-WINDOW = 50*5
+WINDOW = 50*10
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # each entry in map_data is (x,y,z,intensity,framenum). 
 
     while True:
-        for count in range(10):
+        for count in range(5):
             (success, I) = video_reader.getNextFrame()
         t = video_reader.framenum - 1
         mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t - WINDOW);
@@ -68,9 +68,13 @@ if __name__ == '__main__':
 
         intensity = map_data_copy[mask, 3]
         heat_colors = heatColorMapFast(intensity, 0, 100)
-        I[pix[1,mask], pix[0,mask], :] = heat_colors[0,:,:]
+        for p in range(4):
+            I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
+            I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
+            I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
+            I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
 
-        cv2.imshow('vid', I)
-        cv2.waitKey(5)
+        cv2.imshow('vid', cv2.pyrDown(I))
+        cv2.waitKey(1)
 
 
