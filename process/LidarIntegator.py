@@ -1,4 +1,5 @@
 from Q50_config import *
+from ArgParser import *
 import sys, os
 from GPSReader import *
 from GPSReprojection import *
@@ -234,22 +235,22 @@ def keypress(obj, event):
     print key
 
 if __name__ == '__main__': 
-    video_filename1 = sys.argv[1] 
-    path, vfname = os.path.split(video_filename1)
+    vfname = sys.argv[2]
     vidname = vfname.split('.')[0]
     vidname2 = vidname[:-1] + '2'
-    video_filename2 = path + '/' + vidname2 + '.avi'
-    cam_num = int(vidname[-1])
-    gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
+    video_filename2 = sys.argv[1] + '/' + vidname2 + '.avi'
     
+    args = parse_args(sys.argv[1], sys.argv[2])
+
+    gps_reader = GPSReader(args['gps'])
     cam1 = GetQ50CameraParams()[0] 
     cam2 = GetQ50CameraParams()[1] 
-    video_reader1 = VideoReader(video_filename1)
+    video_reader1 = VideoReader(args['video'])
     video_reader2 = VideoReader(video_filename2)
-    gps_reader = GPSReader(gps_filename)
+    gps_reader = GPSReader(args['gps'])
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
-    ldr_map = loadLDRCamMap(sys.argv[2])
+    ldr_map = loadLDRCamMap(args['map'])
 
     # this has been flipped for the q50
     
