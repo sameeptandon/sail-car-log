@@ -14,7 +14,6 @@ from ArgParser import *
 WINDOW = 50*10
 
 def cloudToPixels(cam, pts_wrt_cam): 
-
     width = 4
     pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3,:], pts_wrt_cam[2, :])))
     pix = pix.astype(np.int32)
@@ -40,8 +39,6 @@ if __name__ == '__main__':
     imu_transforms = IMUTransforms(GPSData)
     
     T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
-    #T_from_gps_to_l = [dot(T_from_i_to_l, np.linalg.inv(xform)) for xform in imu_transforms]
-    #T_from_l_to_gps = [np.linalg.inv(xform) for xform in T_from_gps_to_l]
 
     all_data = np.load(sys.argv[3])
     map_data = all_data['data']
@@ -55,17 +52,23 @@ if __name__ == '__main__':
         t = video_reader.framenum - 1
         mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t - WINDOW);
         map_data_copy = array(map_data[mask_window, :]);
-        
+
+        # load nearby map frames
         pts_wrt_imu_0 = array(map_data_copy[:,0:3]).transpose()
         pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0, 
             np.ones((1,pts_wrt_imu_0.shape[1]))))
+        # transform points from imu_0 to imu_t
         pts_wrt_imu_t = np.dot( np.linalg.inv(imu_transforms[t,:,:]), pts_wrt_imu_0)
+        # transform points from imu_t to lidar_t
         pts_wrt_lidar_t = np.dot(T_from_i_to_l, pts_wrt_imu_t);
+        # transform points from lidar_t to camera_t
         pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
         pts_wrt_camera_t = dot(R_to_c_from_l(cam), 
                 pts_wrt_camera_t.transpose())
+        # reproject camera_t points in camera frame
         (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
 
+        # draw them
         intensity = map_data_copy[mask, 3]
         heat_colors = heatColorMapFast(intensity, 0, 100)
         for p in range(4):
