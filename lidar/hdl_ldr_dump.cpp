@@ -98,15 +98,17 @@ class LDRConverter
     void 
     run(const string& folder_name)
     {
+      boost::filesystem::create_directories(folder_name);
+      _dir = folder_name;
+      cout << folder_name << " was created" << endl;
+
+
       boost::function<void(const CloudConstPtr&)> cloud_cb = boost::bind(
               &LDRConverter::cloud_callback, this, _1);
       boost::signals2::connection cloud_connection = grabber_.registerCallback(
               cloud_cb);
       grabber_.start();
 
-      boost::filesystem::create_directories(folder_name);
-      _dir = folder_name;
-      cout << folder_name << " was created" << endl;
 
       uint64_t last_stamp = 0;
       while(grabber_.isRunning())
