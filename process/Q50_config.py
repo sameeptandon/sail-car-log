@@ -14,7 +14,8 @@ from transformations import euler_matrix
 ##### LIDAR to IMU calibration parameters #####
 
 # Note: the translation vector is currently unknown
-R_from_i_to_l = euler_matrix(0,-0.015,-0.045)[0:3,0:3]
+#R_from_i_to_l = euler_matrix(0,0.0001,-0.044)[0:3,0:3]
+R_from_i_to_l = euler_matrix(-0.03,-0.0121,-0.042)[0:3,0:3]
 T_from_l_to_i = np.eye(4)
 T_from_l_to_i[0:3,0:3] = R_from_i_to_l.transpose()
 
@@ -33,7 +34,7 @@ def GetQ50CameraParams():
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([0.0, -0.33, 0.265]);
 
         elif i == 1:
-            R_to_c_from_l_in_camera_frame = euler_matrix(0.0375, 0.00859, 0.0165)[0:3,0:3] 
+            R_to_c_from_l_in_camera_frame = euler_matrix(0.0425,0.0146,0.01150)[0:3,0:3] 
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.07, 0.325, 0.16]);
 

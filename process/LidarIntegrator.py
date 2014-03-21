@@ -34,6 +34,9 @@ all_data = [ ]
 cloud_r = vtk.vtkRenderer()
 renderWindow = vtk.vtkRenderWindow()
 
+#(rx,ry,rz) = (-0.1)
+#R_from_i_to_l = euler_matrix(rx,ry,rz)[0:3,0:3]
+
 # settings for 280N_e 
 #start_fn = 1200 
 #num_fn = 1000 
@@ -99,8 +102,8 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
     start = offset
     end = offset + num_steps*step
 
-    video_reader1.setFrame(start)
-    video_reader2.setFrame(start)
+    #video_reader1.setFrame(start)
+    #video_reader2.setFrame(start)
 
     trans_wrt_imu = IMUTransforms[start:end,0:3,3]
     gpsPointCloud = VtkPointCloud(trans_wrt_imu[:,0:3], 0*trans_wrt_imu[:,0])
@@ -163,6 +166,8 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
         # transform data into IMU frame
         pts = data[:,0:3].transpose()
         pts = np.vstack((pts,np.ones((1,pts.shape[1]))))
+        #R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
+        #T_from_l_to_i[0:3,0:3] = R
         pts = np.dot(T_from_l_to_i, pts)
         pts = np.dot(IMUTransforms[fnum,:,:], pts);
         pts = pts.transpose()
@@ -199,17 +204,17 @@ def keypress(obj, event):
     key = obj.GetKeySym()
     rerender = True
     if key == 'i':
-        ry += 0.005
+        ry += 0.0005
     elif key == 'k':
-        ry -= 0.005
+        ry -= 0.0005
     elif key == 'l':
-        rx += 0.05
+        rx += 0.005
     elif key == 'j':
-        rx -= 0.05
+        rx -= 0.005
     elif key == 'o':
-        rz += 0.005
+        rz += 0.0005
     elif key == 'u':
-        rz -= 0.005
+        rz -= 0.0005
     elif key == 'c':
         color_mode = 'CAMERA'
     elif key == 'v':
@@ -233,6 +238,7 @@ def keypress(obj, event):
         integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step)
         renderWindow.Render()
     print key
+    #print (rx,ry,rz)
 
 if __name__ == '__main__': 
     vfname = sys.argv[2]
@@ -262,6 +268,14 @@ if __name__ == '__main__':
     renderWindow = vtk.vtkRenderWindow()
     renderWindow.AddRenderer(cloud_r)
     renderWindow.SetSize(1200, 600)
+
+    axisActor = vtk.vtkAxisActor()
+    axisActor.SetGridlineXLength(5)
+    axisActor.SetGridlineYLength(5)
+    axisActor.SetGridlineZLength(5)
+    axisActor.DrawGridpolysOn()
+    axisActor.DrawInnerGridlinesOn()
+    cloud_r.AddActor(axisActor)
 
     # Interactor
     renderWindowInteractor = vtk.vtkRenderWindowInteractor()
