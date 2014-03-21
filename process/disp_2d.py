@@ -17,12 +17,12 @@ if __name__ == '__main__':
     vidname = vfname.split('.')[0]
     cam_num = int(vidname[-1])
     gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
-    num_imgs_fwd = 125
+    num_imgs_fwd = 150
     base_interp_length = 10
     polynomial_fit = 1
     thickness = 2
     width = 10
-    video_reader = VideoReader(video_filename,num_splits=1)
+    video_reader = VideoReader(video_filename,num_splits=10)
     gps_reader = GPSReader(gps_filename)
     gps_dat = gps_reader.getNumericData()
     lastTime = time.time()
@@ -68,6 +68,7 @@ if __name__ == '__main__':
     count = 0
     start = 0
     while True:
+        video_reader.setFrame(count)
         (success, I) = video_reader.getNextFrame()
 
         if not success:
@@ -77,7 +78,6 @@ if __name__ == '__main__':
             count += 1
             continue
         """
-
         if count > lp.shape[0] or count > rp.shape[0]:
             break
 
@@ -179,12 +179,12 @@ if __name__ == '__main__':
               I[r_y_output-p, r_x_output, :] = [255, 0, 0]
               I[r_y_output, r_x_output-p, :] = [255, 0, 0]
 
-        count += 10
+        count += 1
         I = cv2.resize(I, (640, 480))
         if writer:
           writer.write(I) 
         imshow('video', I)
-        key = waitKey(10)
+        key = waitKey(2)
         if key == ord('q'):
             break
         if time.time() - lastTime > 1:
