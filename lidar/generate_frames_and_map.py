@@ -21,8 +21,8 @@ target_dir = sys.argv[1]
 files = os.listdir(target_dir)
 pcap_files = filter(lambda x: '.pcap' in x,  files)
 
-pool = multiprocessing.Pool(processes=12)
+pool = multiprocessing.Pool(processes=6)
 pool.map(run_command, 
-        zip(pcap_files, 
-            [target_dir]*len(pcap_files))) 
+    zip(pcap_files, 
+      [target_dir]*len(pcap_files))) 
 
