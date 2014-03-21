@@ -59,7 +59,7 @@ renderWindow = vtk.vtkRenderWindow()
 #step = 2
 
 start_fn = 0 # offset in frame numbers to start exporting data
-num_fn = 250 # number of frames to export. this is changed if --full is enabled
+num_fn = 25 # number of frames to export. this is changed if --full is enabled
 step = 10 # step between frames
 
 color_mode = 'INTENSITY'
@@ -69,7 +69,7 @@ def exportData():
         export_data = np.row_stack(all_data)
         print export_data
         print export_data.shape
-        np.savez_compressed(sys.argv[3], data=export_data)
+        np.savez(sys.argv[3], data=export_data)
         print 'export complete'
 
 def cloudToPixels(cam, pts_wrt_cam): 
@@ -87,30 +87,12 @@ def cloudToPixels(cam, pts_wrt_cam):
 
     return (pix, mask)
 
-def loadClouds(ldr_map, offset, step, num_steps):
-    all_data  = [ ]
-    for t in range(num_steps):
-        data = loadLDR(ldr_map[offset + t*step])
-        
-        # filter out the roof rack
-        dist = np.sqrt(np.sum( data[:, 0:3] ** 2, axis = 1))
-        data = data[ dist > 3, :]
-
-        all_data.append(data)
-    return all_data
-
-
 def stepVideo(video_reader, step):
     if step == 1: 
         return None
     for t in range(step-1):
         (success, I) = video_reader.getNextFrame()
     return success
-
-def loadImage(video_reader, framenum):
-    video_reader.setFrame(framenum)
-    (success, I) = video_reader.getNextFrame()
-    return (success, I)
 
 def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
     start = offset
@@ -126,6 +108,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
     renderer.AddActor(actors[-1])
     for t in range(num_steps):
         fnum = offset+t*step
+        print fnum
 
         
         data = loadLDR(ldr_map[fnum])
