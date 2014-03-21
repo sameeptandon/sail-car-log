@@ -34,6 +34,7 @@ class Consumer
             Mat imgMat(_img);
             _writer << imgMat;
             delete obj;
+            framesConsumed++; 
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -53,11 +54,12 @@ class Consumer
                 }
 
                 boost::mutex::scoped_lock io_lock (*_io_mutex);
-                printf("Writing remaning %d images in the buffer to disk...\n", _buf->getSize ());
+                //printf("Writing remaning %d images in the buffer to disk...\n", _buf->getSize ());
                 while (!_buf->isEmpty ()) { 
                     writeToDisk (_buf->getFront ());
                 }
         }
+        
 
 
         void toOpenCv(Image* fly_img, IplImage* cv_img) {
@@ -80,7 +82,8 @@ class Consumer
         {
 
             Error error;
-            _is_done = false; 
+            _is_done = false;
+            framesConsumed = 0; 
 
             _writer = VideoWriter(_aviFileName.c_str(),
                     //CV_FOURCC('X','V','I','D'),
@@ -99,11 +102,15 @@ class Consumer
 
         ///////////////////////////////////////////////////////////////////////////////////////
         void stop ()  {
-            printf("stop called\n");
+            //printf("stop called\n");
             _is_done = true; 
             _thread->join ();
             boost::mutex::scoped_lock io_lock (*_io_mutex);
-            printf("Consumer done.\n");
+            //printf("Consumer done.\n");
+        }
+        
+        uint64_t getNumFramesConsumed() { 
+            return framesConsumed;
         }
 
     private:
@@ -116,5 +123,6 @@ class Consumer
         bool _is_done;
         IplImage* _img;
         Image* _tmp;
+        uint64_t framesConsumed; 
 };
 

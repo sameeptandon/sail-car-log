@@ -2,8 +2,8 @@ var path = require('path');
 var fs = require('fs');
 
 module.exports = {
-  getNextSuffix: function(prefix) {
-    files = fs.readdirSync(process.cwd());
+  getNextSuffix: function(dir, prefix) {
+    files = fs.readdirSync(dir);
     gps_logs = files.filter(function(elem) {
       return elem.indexOf('.out') != -1 && elem.indexOf(prefix) != -1;
     });
@@ -11,7 +11,7 @@ module.exports = {
   },
 
   getCaptureCommand: function(name, maxFrames) {
-    var cmd = 'sudo /home/smart/sail-car-log/cameralogger/build/CameraLogger -s /dev/serial/by-id/usb-09d7_0210-if00 -o ' + name;
+    var cmd = 'sudo /home/smart/sail-car-log/cameralogger/build/CameraLogger -s /dev/serial/by-id/usb-09d7_0210-if00 -l -o ' + name;
     if (maxFrames) {
       cmd = cmd + ' -m ' + maxFrames
     }

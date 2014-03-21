@@ -103,17 +103,19 @@ process.on('SIGINT', function() {
   }
 });
 
+var outdir = "/home/smart/sail-car-log/cameralogger/build/";
+
 var spawnThread = function(prefix, maxFrames) {
-  var name = prefix + '_' + util.getNextSuffix(prefix);
+  var name = prefix + '_' + util.getNextSuffix(outdir, prefix);
   var command = util.getCaptureCommand(name, maxFrames).split(' ');
   //console.log(command);
   var head = command.splice(0, 1)[0];
 
   io.sockets.emit('subprocess_running', true);
 
-  subprocess = spawn(head, command, {cwd: process.cwd(), env: process.env});
+  subprocess = spawn(head, command, {cwd: outdir, env: process.env});
   subprocess.stdout.on('data', function(data) {
-    //console.log(data.toString());
+    console.log(data.toString());
   });
   subprocess.stderr.on('data', function(data) {
     //console.log('error: ' + data.toString());
@@ -122,9 +124,13 @@ var spawnThread = function(prefix, maxFrames) {
     //console.log(code);
     subprocess = null;
     if (code == 0 && !requested_terminate) {
-      spawnThread(prefix, maxFrames);
+        setTimeout(function() { 
+            spawnThread(prefix, maxFrames);
+        }, 1000);
     } else {
-      io.sockets.emit('subprocess_running', false);
+        setTimeout(function() { 
+            io.sockets.emit('subprocess_running', false);
+        }, 1000); 
     }
 
   });

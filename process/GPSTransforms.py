@@ -3,7 +3,7 @@ import numpy as np
 from WGS84toENU import *
 from numpy import array, dot, zeros, around, divide, ones
 
-def R_to_c_from_w(roll, pitch, yaw, cam):
+def R_to_i_from_w(roll, pitch, yaw): 
     cp = cos(pitch)
     sp = sin(pitch)
     ct = cos(roll)
@@ -16,12 +16,47 @@ def R_to_c_from_w(roll, pitch, yaw, cam):
                   [sg*cp+cg*st*sp, cg*ct, sg*sp-cg*st*cp],
                   [-ct*sp, st, ct*cp]]).transpose()
 
+    return R_to_i_from_w; 
+
+def R_to_c_from_i(cam): 
     R_to_c_from_i = cam['R_to_c_from_i']
     R_camera_pitch = euler_matrix(cam['rot_x'], cam['rot_y'], cam['rot_z'], 'sxyz')[0:3,0:3]
     R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i)
 
-    return dot(R_to_c_from_i, R_to_i_from_w)
+    return R_to_c_from_i
 
+def R_to_c_from_w(roll, pitch, yaw, cam):
+    return dot(R_to_c_from_i(cam), R_to_i_from_w(roll, pitch, yaw) )
+
+
+"""
+returns the relative transformations of the IMU from time 0 to the end of the GPS log. 
+""" 
+
+def IMUTransforms(GPSData): 
+    tr = np.array([np.eye(4),]*GPSData.shape[0])
+
+    roll_start = deg2rad(GPSData[0,8])
+    pitch_start = deg2rad(GPSData[0,7])
+    yaw_start = -deg2rad(GPSData[0,9])
+    base_R_to_i_from_w = R_to_i_from_w(roll_start, pitch_start, yaw_start) 
+
+    ENU_coords = WGS84toENU(GPSData[0,1:4], GPSData[:,1:4])
+    pos_wrt_imu = np.dot(base_R_to_i_from_w, ENU_coords)
+
+    tr[:,0,3] = pos_wrt_imu[0,:]
+    tr[:,1,3] = pos_wrt_imu[1,:]
+    tr[:,2,3] = pos_wrt_imu[2,:]
+
+    for i in xrange(GPSData.shape[0]):
+        roll = deg2rad(GPSData[i,8])
+        pitch = deg2rad(GPSData[i,7])
+        yaw = -deg2rad(GPSData[i,9])
+
+        rot = R_to_i_from_w(roll, pitch, yaw).transpose()
+        tr[i, 0:3,0:3] = dot(base_R_to_i_from_w, rot)
+
+    return tr
 
 def GPSTransforms(GPSData, Camera, width=2): 
 

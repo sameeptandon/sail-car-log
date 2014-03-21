@@ -4,7 +4,8 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#define SHUTTER_PARAM (190)
+#define SHUTTER_PARAM (190) // 3 MS
+//#define SHUTTER_PARAM (1590)
 
 using namespace FlyCapture2;
 using namespace std; 
@@ -92,7 +93,7 @@ void setProperty(Camera* cam, PropertyType p, float val) {
     prop.type = p;
     prop.absControl = true;
     prop.present = true; 
-    prop.onOff = false;
+    prop.onOff = true;
     prop.autoManualMode = false; 
     prop.absValue = val;
     error = cam->SetProperty( &prop );
@@ -156,6 +157,8 @@ int RunCamera(Camera* cam) {
     bytes = bytes & (-1 << 12);
     bytes = bytes | (SHUTTER_PARAM);
     writeRegister(cam, 0x1098, bytes);
+    //setProperty(cam, GAIN, 0.0);
+    //setProperty(cam, SHUTTER, 3.0);
 
     setWhiteBalance(cam, 511, 815);
 
@@ -182,7 +185,7 @@ int RunCamera(Camera* cam) {
         return -1;
     }
 #endif
-    
+
     // Start capturing images
     printf( "Starting capture... \n" );
     error = cam->StartCapture();

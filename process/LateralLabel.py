@@ -43,11 +43,12 @@ if __name__ == '__main__':
   lastTime = time.time()
   video_reader.setFrame(framenum)
 
-  skip_frame = 10
+  skip_frame = 5
+  seconds_back = 4
   default_offset = 60
 
-  left_present = True
-  right_present = True
+  left_present = -1
+  right_present = -1
 
   while True:
     framenum = framenum + 1;
@@ -57,7 +58,6 @@ if __name__ == '__main__':
       break
 
     if framenum % skip_frame != 0:
-      existing_lanes.append([left_present, right_present])
       continue
 
     if framenum % 150 == 0 and False:
@@ -69,6 +69,7 @@ if __name__ == '__main__':
         savemat(out_name, dict(left=left_data,right=export_data))
 
     I = resize(I, (320, 240))
+    cv2.putText(I, 'L: ' + str(left_present) + ', R: ' + str(right_present), (100, 10), cv2.FONT_HERSHEY_PLAIN, 0.8, (255, 255, 255))
     key = ''
     if display:
         imshow('video',I)
@@ -78,20 +79,54 @@ if __name__ == '__main__':
     if key == ord('q'):
       break;
 
-    if key == ord('a'):
-        left_present = True
-        right_present = False
-    if key == ord('s'):
-        left_present = True
-        right_present = True
-    if key == ord('d'):
-        left_present = False
-        right_present = True
-    if key == ord('w'):
-        left_present = False
-        right_present = False
-    
-    existing_lanes.append([left_present, right_present])
+    switched_left = True
+    if key == ord('s') and left_present != 2:
+        left_present = 2
+    elif key == ord('d') and left_present != 1:
+        left_present = 1
+    elif key == ord('f') and left_present != 0:
+        left_present = 0
+    else:
+        switched_left = False
+
+    switched_right = True
+    if key == ord('l') and right_present != 2:
+        right_present = 2
+    elif key == ord('k') and right_present != 1:
+        right_present = 1
+    elif key == ord('j') and right_present != 0:
+        right_present = 0
+    else:
+        switched_right = False
+
+    if switched_left and switched_right:
+        for i in xrange(len(existing_lanes) - 1, max(-1, len(existing_lanes) - 1 - 10 * skip_frame * seconds_back), -1):
+            existing_lanes[i] = [-1, -1]
+        for i in xrange(10 * skip_frame - 1):
+            existing_lanes.append([-1, -1])
+
+        existing_lanes.append([left_present, right_present])
+    elif switched_left:
+        print 'left', framenum
+        for i in xrange(len(existing_lanes) - 1, max(-1, len(existing_lanes) - 1 - 10 * skip_frame * seconds_back), -1):
+            prev_lane = existing_lanes[i]
+            existing_lanes[i] = [-1, prev_lane[1]]
+        for i in xrange(10 * skip_frame - 1):
+            existing_lanes.append([-1, right_present])
+
+        existing_lanes.append([left_present, right_present])
+    elif switched_right:
+        print 'right', framenum
+        for i in xrange(len(existing_lanes) - 1, max(-1, len(existing_lanes) - 1 - 10 * skip_frame * seconds_back), -1):
+            prev_lane = existing_lanes[i]
+            existing_lanes[i] = [prev_lane[0], -1]
+        for i in xrange(10 * skip_frame - 1):
+            existing_lanes.append([left_present, -1])
+
+        existing_lanes.append([left_present, right_present])
+    else:
+        for i in xrange(10 * skip_frame):
+            existing_lanes.append([left_present, right_present])
 
     currentTime = time.time();
     if (currentTime - lastTime > 10):
