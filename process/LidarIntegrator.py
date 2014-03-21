@@ -132,6 +132,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
         # filter out the roof rack
         dist = np.sqrt(np.sum( data[:, 0:3] ** 2, axis = 1))
 
+        # check out the commented out section below to figure out how this is filtering.
         data_filter_mask = (dist > 3)                  & \
                            (data[:,3] > 40)            & \
                            (data[:,0] > 0)             & \
