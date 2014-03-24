@@ -1,88 +1,132 @@
+#!/usr/bin/python 
+
 import sys
 import numpy as np
 import cv2
 import cv
-from trakingFunctions import *
-from trakingFunctions import NextRect
+import os.path
+
+# debuging 
+import pdb;
+
+from trackingFunctions import *
+from trackingFunctions import NextRect
 from AnnotationLib import *
+from optparse import OptionParser
 
-
-def ImageNames(ImgName,n):
-	ImgNames = [];
-	p = ImgName.split(".");
-	p0 = ".".join(p[:-1]);
-	p00 = '_'.join(p0.split("_")[:-1]);
-	ImgNum = int(p[-2].split("_")[-1]);
-	for i in range(n):
-		IN = p00 + "_" + "%04d"%(ImgNum+i+1) + ".jpeg";
-		ImgNames.append(IN);
-	return ImgNames;
 
 if __name__ == "__main__":
-	if (len(sys.argv) < 2):
-		print "Please Enter The Frame#"
-		sys.exit();
-	index = int(sys.argv[1]);
-	annotations = parseXML('../Data/7-16-sacramento.al');
-	annotation = annotations[index];
-	ImgName = "../Data/" + annotation.filename();
-	
 
-	Img1 = cv2.imread(ImgName,0);
-	cv2.imshow('img1',Img1);
-	cv2.waitKey(0);
+    min_remove_iou = 0.65;
 
-	rects = annotation.rects;
-	tempImg1 = cv2.imread(ImgName,0);
-	for rect in rects:
-		tempImgg1 = cv2.rectangle(tempImg1, (int(rect.x1),int(rect.y1)), (int(rect.x2), int(rect.y2)), 255,2);
+    parser = OptionParser();
 
-		
-	cv2.imshow('img1',tempImg1);
-	cv2.waitKey(0);
-	winFlags = [True for i in range(len(rects))];
-	
-	ImgNames = ImageNames(ImgName,50);
-	flag = 1;
-	i = 0;
-	
-#	rect = rects[0];
-	windows = [(rect.x1, rect.y1, rect.x2-rect.x1, rect.y2-rect.y1) for rect in rects];
-	newWindows = windows;
-	n_win = len(windows)
-	while(1):
-		print i
-		Img2 = cv2.imread(ImgNames[i],0);
-		for j in range(n_win):
-			if winFlags[j]:
-				win = windows[j];
-				try:
-					NextWinInfo = NextRect(Img1, Img2, win);
-					print NextWinInfo
-					if not NextWinInfo[0]:
-						winFlags[j] = False;
-					else:
-						newWindows[j] = NextWinInfo[1];
-				except:
-					winFlags[j] = False;
+    parser.add_option('-a', '--annolist', dest='annolist_name', type="string", help='annotation list (*.al or *.idl) used to inialize the tracking', default=None)
+    parser.add_option('-o', '--output_dir', dest='output_dir', type="string", help='directory for saving tracking results', default='./')
+    parser.add_option('-f', '--first', dest='firstidx', type="int", help='first image to start tracking (0-based)', default=0)
+    parser.add_option('-n', '--numimgs', dest='numimgs', type="int", help='number of images to process in the original image list', default=-1)
+    parser.add_option('--track_frames', dest='track_frames', type="int", help='number of frames to track', default=50)
+    
+    (opts, args) = parser.parse_args()
+    
+    annolist_basedir = os.path.dirname(opts.annolist_name)
+    annolist = parseXML(opts.annolist_name);
 
-		print winFlags;
-		tempImg2 = Img2;
-		t = False;
-		for j in range(n_win):
-			if winFlags[j]:
-				newWin = newWindows[j];
-				t = True;
-				tempImgg2 = cv2.rectangle(tempImg2, 
-						(int(newWin[0]),int(newWin[1])), 
-						(int(newWin[0] + newWin[2]), 
-						int(newWin[1]+newWin[3])), 255,2);	
-				
-		Img1 = cv2.imread(ImgNames[i],0);
-		windows = newWindows;		
-		i +=1;
-		if i > 49 or not t:
-			break;
-		cv2.imshow('img1',tempImg2);
-		cv2.waitKey(60); 
-		
+    if opts.numimgs == -1:
+        numimgs = len(annolist);
+    else:
+        numimgs = opts.numimgs;
+
+    firstidx = opts.firstidx;
+    lastidx = opts.firstidx + numimgs - 1;
+
+    print "tracking images " + str(firstidx) + " to " + str(lastidx)
+
+    # convert to full path
+    for a in annolist:
+        if not os.path.isabs(a.imageName):
+            a.imageName = annolist_basedir + "/" + a.imageName
+
+        assert(os.path.isfile(a.imageName))
+
+    annolist = annolist[firstidx:lastidx+1];
+
+    annolist_track = [];
+    
+    #trackMaxFrames = int(opts.track_frames);
+    trackMaxFrames = opts.track_frames;
+
+    # construct output filename
+    annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
+    annolist_base, annolist_ext = os.path.splitext(annolist_base_ext);
+    save_filename = opts.output_dir + "/" + annolist_base + "-track";
+
+    if opts.firstidx != 0 or opts.numimgs != -1:
+        save_filename += "-firstidx" + str(firstidx) + "-lastidx" + str(lastidx) + "-numtrack" + str(trackMaxFrames)
+
+    save_filename_partiall = save_filename + "-partial" + annolist_ext;
+    save_filename += annolist_ext;
+
+
+    # do the tracking 
+
+    for idx in range(len(annolist)):
+        print "\n*** tracking starting at frame: " + str(idx)
+
+        # track forward
+        if idx < len(annolist) - 1:
+            stop_imgname = annolist[idx+1].imageName;
+        else:
+            stop_imgname = inc_image_name(annolist[idx].imageName, trackMaxFrames);
+
+        annolist_track_fwd = track_frame(annolist[idx], stop_imgname, trackMaxFrames, 1);
+
+        # track backward
+        if idx < len(annolist) - 1:
+            stop_imgname = annolist[idx].imageName;
+            annolist_track_back = track_frame(annolist[idx+1], stop_imgname, trackMaxFrames, -1);
+
+            # merge two lists            
+            #assert(len(annolist_track_fwd) == len(annolist_track_back));
+            # MA: might happen that we can track forward but not backwards (e.g. when multiple sequences are concatenated in one file)
+            if len(annolist_track_fwd) == len(annolist_track_back):
+                annolist_track_back.reverse();
+
+                for idx2 in range(1, len(annolist_track_fwd)):
+                    # print annolist_track_fwd[idx2].imageName
+                    # print annolist_track_back[idx2-1].imageName
+
+                    assert(annolist_track_fwd[idx2].imageName == annolist_track_back[idx2-1].imageName);
+
+                    #annolist_track_fwd[idx2].rects += annolist_track_back[idx2-1].rects;
+
+                    r_new = [];
+
+                    #MA: don't include duplicate rects 
+                    for r_back in annolist_track_back[idx2-1].rects:
+
+                        found_similar = False;
+                        for r_front in annolist_track_fwd[idx2].rects:
+                            if r_back.overlap_pascal(r_front) > min_remove_iou:
+                                found_similar = True;
+                                break;
+
+                        if not found_similar:
+                            r_new.append(r_back);
+
+                    annolist_track_fwd[idx2].rects += r_new;
+
+
+        annolist_track += annolist_track_fwd;
+        
+        # save results ones in a while 
+        if idx % 10 == 0:
+            print "saving " + save_filename_partiall;
+            saveXML(save_filename_partiall, annolist_track);
+
+
+    print "saving " + save_filename;
+    saveXML(save_filename, annolist_track);
+    
+    
+            
