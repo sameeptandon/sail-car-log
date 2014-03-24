@@ -32,9 +32,9 @@ class GPSReader():
       for j in range(10):
         arr[t,j] = self.data[t][self.token_order[j]]
 
-    arr[:, 1] = smoothData(arr[:, 1])
-    arr[:, 2] = smoothData(arr[:, 2])
-    arr[:, 3] = smoothData(arr[:, 3])
+    #arr[:, 1] = smoothData(arr[:, 1])
+    #arr[:, 2] = smoothData(arr[:, 2])
+    #arr[:, 3] = smoothData(arr[:, 3])
     #arr[:, 7] = smoothData(arr[:, 7])
     #arr[:, 8] = smoothData(arr[:, 8])
     #arr[:, 9] = smoothData(arr[:, 9])
