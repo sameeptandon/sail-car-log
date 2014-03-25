@@ -22,7 +22,6 @@ void serial_comm::Connect(string port) {
     cout << "port = " << port << endl; 
     _port = new Serial(port, baudrate, my_timeout);
 
-    /*
     // reset stuff
     safeWrite("unlogall\r\n");
     safeWrite("fix none\r\n");
@@ -33,7 +32,6 @@ void serial_comm::Connect(string port) {
     //safeWrite("log mark1time onnew\r\n");
     safeWrite("log mark1pvaa onnew\r\n");
     //safeWrite(port, "log usb1 bestposa ontime 0.5 0 nohold\r\n");
-    */
 }
 
 /*
@@ -44,11 +42,9 @@ void serial_comm::Run() {
 
 */
 void serial_comm::Close() {
-    /*
     safeWrite("eventoutcontrol mark2 disable\r\n");
     safeWrite("unlogall\r\n");
     cout << "flushing GPS buffers" << endl;
-    */
     _port->flush();
     sleep(1);
     // hack since flush doesn't do it:

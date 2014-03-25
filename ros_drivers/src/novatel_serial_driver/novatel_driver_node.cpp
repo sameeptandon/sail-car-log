@@ -15,9 +15,9 @@ class RosToSerialBridge {
             comm_port = new serial_comm();
             comm_port->Connect(port);
 
-            ros::Publisher port_out_pub = nh.advertise<std_msgs::String>("novatel_port_out", 1000);
-            ros::Publisher port_in_pub = nh.advertise<std_msgs::String>("novatel_port_in", 1000);
-            ros::Subscriber port_sub = nh.subscribe("novatel_port_in", 1000, &RosToSerialBridge::portWrite, this); 
+            ros::Publisher port_out_pub = nh.advertise<std_msgs::String>("/novatel_port_out", 1000);
+            ros::Publisher port_in_pub = nh.advertise<std_msgs::String>("/novatel_port_in", 1000);
+            ros::Subscriber port_sub = nh.subscribe("/novatel_port_in", 1000, &RosToSerialBridge::portWrite, this); 
 
             ros::Rate poll_rate(100); 
 

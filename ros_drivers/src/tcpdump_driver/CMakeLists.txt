@@ -1,17 +1,20 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(novatel_serial_driver)
+project(tcpdump_driver)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  std_msgs
-  roscpp
-)
+    roscpp)
 
 ## System dependencies are found with CMake's conventions
-find_package(serial REQUIRED)
+# find_package(Boost REQUIRED COMPONENTS system)
 
+
+## Uncomment this if the package has a setup.py. This macro ensures
+## modules and global scripts declared therein get installed
+## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
+# catkin_python_setup()
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -75,7 +78,7 @@ find_package(serial REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES novatel_serial_driver
+#  LIBRARIES tcpdump_driver
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
@@ -86,35 +89,24 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(${serial_INCLUDE_DIRS})
-
-add_library(serial_comm serial_comm.cpp)
-target_link_libraries(serial_comm 
-    ${catkin_LIBRARIES}
-    ${serial_LIBRARIES})
-
-add_executable(novatel_driver_node novatel_driver_node.cpp)
-target_link_libraries(novatel_driver_node 
-    serial_comm
-    ${catkin_LIBRARIES})
-
+# include_directories(include)
 
 ## Declare a cpp library
-# add_library(novatel_serial_driver
-#   src/${PROJECT_NAME}/novatel_serial_driver.cpp
+# add_library(tcpdump_driver
+#   src/${PROJECT_NAME}/tcpdump_driver.cpp
 # )
 
 ## Declare a cpp executable
-# add_executable(novatel_serial_driver_node src/novatel_serial_driver_node.cpp)
+add_executable(tcpdump_driver_node tcpdump_driver_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(novatel_serial_driver_node novatel_serial_driver_generate_messages_cpp)
+# add_dependencies(tcpdump_driver_node tcpdump_driver_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(novatel_serial_driver_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(tcpdump_driver_node
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
@@ -131,20 +123,34 @@ target_link_libraries(novatel_driver_node
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS novatel_driver_node serial_comm 
-   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(TARGETS tcpdump_driver_node
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
+## Mark cpp header files for installation
+# install(DIRECTORY include/${PROJECT_NAME}/
+#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+#   FILES_MATCHING PATTERN "*.h"
+#   PATTERN ".svn" EXCLUDE
+# )
+
+## Mark other files for installation (e.g. launch and bag files, etc.)
+# install(FILES
+#   # myfile1
+#   # myfile2
+#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+# )
 
 #############
 ## Testing ##
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_novatel_serial_driver.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_tcpdump_driver.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

@@ -110,8 +110,6 @@ private:
     init_ = false;
 	NODELET_DEBUG("Stopping camera capture.");
 	pg_.stop();
-	/*NODELET_DEBUG("Disconnecting from camera.");
-	pg_.disconnect();*/
       } catch(std::runtime_error& e){
 	NODELET_ERROR("%s", e.what());
       }
@@ -177,10 +175,6 @@ private:
     pnh.param<int>("serial", serial, 0);
     pg_.setDesiredCamera((uint32_t)serial);
 
-    // Get the canonical name of the camera
-    std::string cam_name;
-    pnh.param<std::string>("canonical_name", cam_name, "left"); 
-    
     // Get the location of our camera config yaml
     std::string camera_info_url;
     pnh.param<std::string>("camera_info_url", camera_info_url, "");
@@ -232,7 +226,7 @@ private:
     // Publish topics using ImageTransport through camera_info_manager (gives cool things like compression)
     it_.reset(new image_transport::ImageTransport(nh));
     image_transport::SubscriberStatusCallback cb = boost::bind(&PointGreyCameraNodelet::connectCb, this);
-    it_pub_ = it_->advertiseCamera(cam_name + "/image_raw", 1000, cb, cb);
+    it_pub_ = it_->advertiseCamera("image_raw", 1000, cb, cb);
   }
   
   /*!

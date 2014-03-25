@@ -585,6 +585,7 @@ void PointGreyCamera::grabImage(sensor_msgs::Image &image, const std::string &fr
     if(cInfo.isColorCamera && rawImage.GetBayerTileFormat() != NONE){
 	    imageEncoding = sensor_msgs::image_encodings::BAYER_BGGR8;
     }
+	imageEncoding = sensor_msgs::image_encodings::YUV422;
 
     fillImage(image, imageEncoding, rawImage.GetRows(), rawImage.GetCols(), rawImage.GetStride(), rawImage.GetData());
     image.header.frame_id = frame_id;

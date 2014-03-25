@@ -41,7 +41,7 @@ public:
         consumer[thread_num] = new Consumer<cv::Mat>(
                 buffer[thread_num].getBuffer(),
                 thread_fname, buffer[thread_num].getMutex(),
-                60.0f, 1280, 1024, nh); 
+                60.0f, 1280, 960, nh); 
     }
     numframes = 0; 
     ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
