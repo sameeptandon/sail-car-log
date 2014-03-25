@@ -1,5 +1,5 @@
 # usage: 
-# python LidarIntegrator.py <dir> <basename><camnum>.avi <export name>.npz <optional additional flags such as --export or --full>
+# python LidarIntegratorLeftRight.py <dir> <basename><camnum>.avi <export name>.pickle <optional additional flags such as --export or --full>
 
 # to change the type of data exported, see the function integrateClouds 
 
@@ -72,28 +72,6 @@ def exportData():
         np.savez(sys.argv[3], data=export_data)
         print 'export complete'
 
-def cloudToPixels(cam, pts_wrt_cam): 
-
-    width = 4
-    pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3,:], pts_wrt_cam[2, :])))
-    pix = pix.astype(np.int32)
-    mask = np.logical_and(True, pix[0,:] > 0 + width/2)
-    mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
-    mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
-    mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
-    mask = np.logical_and(mask, pts_wrt_cam[2,:] > 0)
-    dist_sqr = np.sum( pts_wrt_cam[0:3, :] ** 2, axis = 0)
-    mask = np.logical_and(mask, dist_sqr > 3)
-
-    return (pix, mask)
-
-def stepVideo(video_reader, step):
-    if step == 1: 
-        return None
-    for t in range(step-1):
-        (success, I) = video_reader.getNextFrame()
-    return success
-
 def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
     start = offset
     end = offset + num_steps*step
@@ -117,15 +95,16 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
 
         # check out the commented out section below to figure out how this is filtering.
         data_filter_mask = (dist > 3)                  & \
-                           (dist < 10)                  & \
                            (data[:,3] > 40)            & \
                            (data[:,0] > 0)             & \
-                           ((data[:,1]) > -2.9)   & \
-                           ((data[:,1]) < -1.2)   & \
                            (data[:,2] < -1.8)          & \
                            (data[:,2] > -1.9)          
+        
+        left_filter_mask = data_filter_mask & (data[:,1] < 2.9) & (data[:,1]>1.2)
+        right_filter_mask = data_filter_mask & (data[:,1] >- 2.9) & (data[:,1]<-1.2)
 
-        data = data[data_filter_mask, :]
+        left_data = data[left_filter_mask, :]
+        right_data = data[right_filter_mask, :]
         """
         data = data[ dist > 3, :]
         # filter out on intensity
@@ -209,67 +188,10 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
         renderer.AddActor(actors[-1])
 
 
-def keypress(obj, event):
-    global actors
-    global clouds 
-    global cloud_r
-    global all_data
-    global renderWindow
-    global rx
-    global ry
-    global rz
-    global R
-    global start_fn
-    global color_mode
-    key = obj.GetKeySym()
-    rerender = True
-    if key == 'i':
-        ry += 0.0005
-    elif key == 'k':
-        ry -= 0.0005
-    elif key == 'l':
-        rx += 0.005
-    elif key == 'j':
-        rx -= 0.005
-    elif key == 'o':
-        rz += 0.0005
-    elif key == 'u':
-        rz -= 0.0005
-    elif key == 'c':
-        color_mode = 'CAMERA'
-    elif key == 'v':
-        color_mode = 'INTENSITY'
-    elif key == 'x':
-        exportData()
-
-    else:
-        rerender = False
-    if rerender:
-        for a in actors:
-            cloud_r.RemoveActor(a)
-        actors = [ ]
-        clouds = [ ]
-        all_data = [ ]
-        #start_fn = start_fn + 5
-        integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step)
-        renderWindow.Render()
-    print key
-    #print (rx,ry,rz)
-
 if __name__ == '__main__': 
-    vfname = sys.argv[2]
-    vidname = vfname.split('.')[0]
-    vidname2 = vidname[:-1] + '2'
-    video_filename2 = sys.argv[1] + '/' + vidname2 + '.avi'
-    
-    args = parse_args(sys.argv[1], sys.argv[2])
-
     gps_reader = GPSReader(args['gps'])
     cam1 = GetQ50CameraParams()[0] 
     cam2 = GetQ50CameraParams()[1] 
-    video_reader1 = VideoReader(args['video'])
-    video_reader2 = VideoReader(video_filename2)
-    gps_reader = GPSReader(args['gps'])
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
     ldr_map = loadLDRCamMap(args['map'])

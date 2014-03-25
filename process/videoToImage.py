@@ -12,7 +12,9 @@ import cv
 import cv2
 import time
 from generate_lane_labels import * 
-
+import matplotlib.pylab as pp
+import pickle
+from scipy.io import savemat
 def on_mouse(event, x, y, flags, params):
     if event == cv.CV_EVENT_LBUTTONDOWN:
         print 'click: ', (x,y)
@@ -36,13 +38,12 @@ if __name__ == '__main__':
   print gps_dat.shape
 
   cam = pickle.load(open('cam_params.pickle'))[cam_num - 1]
-
-  framenum = 5000
+  framenum = 5999
   lastTime = time.time()
   lastCols = [None, None]
   lastLine = [None, None, None, None]
   video_reader.setFrame(framenum)
-  while True:
+  while framenum<7500:
     framenum = framenum + 1;
     (success, I) = video_reader.getNextFrame()
     if success == False:
@@ -51,16 +52,27 @@ if __name__ == '__main__':
     #  continue
     if framenum % 100 == 0:
         print framenum
-    M = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, width=1); 
+    M = GPSMask(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, width=1);
+    if framenum==6000:
+      #Coord = GPSColumns(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, gps_dat[framenum])
+      Coord3d = GPSPos(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, gps_dat[framenum])
+    else:
+      #Coord = np.concatenate((Coord,GPSColumns(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, gps_dat[framenum])), axis=0)
+      Coord3d = np.concatenate((Coord3d,GPSPos(gps_dat[framenum:framenum+num_imgs_fwd,:], cam, gps_dat[framenum])), axis=0)
     I = np.minimum(M,I)
-    #I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
-    I = resize(I, (320, 240))
-    imshow('video', I )
-    key = (waitKey(2) & 255)
-    if key == ord('q'):
-      break;
-    currentTime = time.time();
-    if (currentTime - lastTime > 1):
-        
-        lastTime = currentTime
 
+    #I = warpPerspective(I, P, imsize, flags=cv.CV_WARP_INVERSE_MAP)
+    #I = resize(I, (640, 480))
+    #origname = '/afs/cs/group/brain/scailsave/driving_backup/tempVideo/%d.png'%(int(framenum-6000))
+    #pp.imsave(origname, I)
+    #imshow('video', I )
+    #key = (waitKey(2) & 255)
+    #if key == ord('q'):
+    #  break;
+    #currentTime = time.time();
+    #if (currentTime - lastTime > 1):
+    #    
+    #    lastTime = currentTime
+  #print Coord.shape
+
+  savemat('/afs/cs/group/brain/scailsave/driving_backup/tempVideo/coord3d.mat', {'coord3d': Coord3d})

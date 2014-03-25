@@ -12,6 +12,7 @@ import cv2
 from ArgParser import *
 from matplotlib import pyplot as plt
 import pylab as pl
+import pickle
 WINDOW = 50*5
 
 def cloudToPixels(cam, pts_wrt_cam): 
@@ -60,42 +61,49 @@ if __name__ == '__main__':
     T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
 
     all_data = np.load(sys.argv[3])
-    map_data = all_data['data']
-    map_data = map_data[map_data[:,3] > 60, :] # intensity filter
+    all_data = pickle.load(open(sys.argv[3],'r'))
+    left_data = all_data['left']
+    right_data = all_data['right']
     # map points are defined w.r.t the IMU position at time 0
     # each entry in map_data is (x,y,z,intensity,framenum). 
-    cnt=1
+
+    blue = [255,0,0] 
+    green = [0,255,0] 
+    red = [0,0,255]
+    cnt=1 
     while True:
         #while video_reader.framenum<2000:
         #  (success, I) = video_reader.getNextFrame()
         for count in range(5):
             (success, I) = video_reader.getNextFrame()
         t = video_reader.framenum - 1
-        mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t );
-        map_data_copy = array(map_data[mask_window, :]);
-
+        left_data_copy = array(left_data[t+1:t+WINDOW+1, :]);
+        right_data_copy = array(right_data[t+1:t+WINDOW+1, :]);
         # reproject
-        (pix, mask) = localMapToPixels(map_data_copy, imu_transforms[t,:,:], T_from_i_to_l, cam); 
-
-        # draw 
-        intensity = map_data_copy[mask, 3]
-        heat_colors = heatColorMapFast(intensity, 0, 100)
+        (pix, mask) = localMapToPixels(left_data_copy, imu_transforms[t,:,:], T_from_i_to_l, cam); 
+        # draw
         for p in range(4):
-            I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
-            I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
-            I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
-            I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
+            I[pix[1,mask]+p, pix[0,mask], :] = green
+            I[pix[1,mask], pix[0,mask]+p, :] = green
+            I[pix[1,mask]+p, pix[0,mask], :] = green
+            I[pix[1,mask], pix[0,mask]+p, :] = green
+        # reproject
+        (pix, mask) = localMapToPixels(right_data_copy, imu_transforms[t,:,:], T_from_i_to_l, cam); 
+        # draw
+        for p in range(4):
+            I[pix[1,mask]+p, pix[0,mask], :] = green
+            I[pix[1,mask], pix[0,mask]+p, :] = green
+            I[pix[1,mask]+p, pix[0,mask], :] = green
+            I[pix[1,mask], pix[0,mask]+p, :] = green
         I = cv2.resize(I, (640, 480))
         #cv2.imshow('vid', cv2.pyrDown(I))
         #cv2.waitKey(1)
-        cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/280N_New_vis/'+str(cnt)+'.png',I)
-        cnt +=1
-        #cv2.imshow('vid', cv2.pyrDown(I))
-        #cv2.waitKey(1)
-        #I = I[:,:,[2,1,0]]
-        #pl.ion()
-        #pl.imshow(I)
-        ##pl.pause(.1)
-        #pl.draw()
-        #pl.clf()
-        #pl.ioff()
+        #cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/280N_New_vis/'+str(cnt)+'.png',I)
+        #cnt +=1
+        I = I[:,:,[2,1,0]]
+        pl.ion()
+        pl.imshow(I)
+        #pl.pause(.1)
+        pl.draw()
+        pl.clf()
+        pl.ioff()

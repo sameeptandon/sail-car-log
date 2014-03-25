@@ -19,7 +19,8 @@ pause_labeler = False
 mouse_position = None
 left_frames = []
 frame_data = []
-mouse_click = None
+mouse_left = None
+mouse_right = None
 last_click_time = 0
 frameWaitTime = 100
 
@@ -27,12 +28,17 @@ def on_mouse(event, x, y, flags, params):
     
     global pause_labeler
     global mouse_position
-    global mouse_click
+    global mouse_left
+    global mouse_right
     global last_click_time
     if event == cv.CV_EVENT_LBUTTONDOWN:
-        mouse_click = (x, y)
+        mouse_left = (x, y)
         last_click_time = time.time() 
-        print mouse_click
+        print mouse_left
+    if event == cv.CV_EVENT_RBUTTONDOWN:
+        mouse_right = (x, y)
+        last_click_time = time.time() 
+        print mouse_right
 
 
 if __name__ == '__main__':
@@ -113,17 +119,23 @@ if __name__ == '__main__':
         lastCols[0] = col_avg - default_offset
         lastCols[1] = col_avg + default_offset
 
-    if mouse_click is not None:
-        col_avg = mouse_click[0] / 2
-        dist = min(0.95 * (lastCols[1] - lastCols[0]) / 2, col_avg)
+    if mouse_left is not None:
+        #col_avg = mouse_left[0] / 2
+        #dist = min(0.95 * (lastCols[1] - lastCols[0]) / 2, col_avg)
         delta_time = last_click_time - lastClickProcessed
         print 'delta time: ', delta_time
-        dist *= min(delta_time,1)
-        lastCols[0] = col_avg - dist
-        lastCols[1] = col_avg + dist
-        print dist
+        #dist *= min(delta_time,1)
+        lastCols[0] = mouse_left[0]/2
         print lastCols
-        mouse_click = None
+        mouse_left = None
+        lastClickProcessed = last_click_time
+        frameWaitTime = min(500, frameWaitTime*10)
+    if mouse_right is not None:
+        delta_time = last_click_time - lastClickProcessed
+        print 'delta time: ', delta_time
+        lastCols[1] = mouse_right[0]/2
+        print lastCols
+        mouse_right = None
         lastClickProcessed = last_click_time
         frameWaitTime = min(500, frameWaitTime*10)
     
@@ -165,11 +177,11 @@ if __name__ == '__main__':
     if display:
         imshow('video', resize(I_WARP, (640,480)))
         key = (waitKey(frameWaitTime) & 255)
-    frameWaitTime = max(int(frameWaitTime / 1.5), 5)
+    frameWaitTime = max(int(frameWaitTime / 1.5), 50)
 
     if left_candidates[0].size > 0:
         chosen_idx = np.argmax(left_candidates[0])
-        point = (left_candidates[1][chosen_idx], left_candidates[0][chosen_idx])
+        point = (left_candidates[1][chosen_idx], left_candidates[0][chosen_idx]+5)
         point_img = np.zeros((imsize[1], imsize[0]), dtype=np.uint8)
         point_img[point[1]-3:point[1]+3, point[0]-3:point[0]+3] = 255
         I_WARP[point_img > 0] = [255, 255, 0]

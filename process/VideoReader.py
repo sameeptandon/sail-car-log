@@ -34,19 +34,26 @@ class VideoReader():
     success, img = self.captures[self.framenum % self.num_splits].read()
     return (success, img) 
 
+
+  def getFrame(self, framenum):
+    capture_framenum = (framenum/10 + 1) if framenum < framenum % 10 else framenum/10
+    self.captures[(framenum+1) % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
+    success, img = self.captures[(framenum+1) % self.num_splits].read()
+    return (success, img) 
+
   def setFrame(self, framenum):
       self.framenum = framenum;
       for j in range(1,self.num_splits+1, self.jump):
           capture_framenum = (framenum/10 + 1) if j-1 < framenum % 10 else framenum/10
           self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
-          self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
-          self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
-          print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_FPS)
+          #self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
+          #self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
+          #print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_FPS)
           #self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_MSEC, float(capture_framenum)/0.05)
           #a,b = self.captures[j % self.num_splits].read()
-          print j, capture_framenum
-          print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_POS_MSEC)
-          print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_FRAME_COUNT)
+          #print j, capture_framenum
+          #print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_POS_MSEC)
+          #print self.captures[j % self.num_splits].get(cv.CV_CAP_PROP_FRAME_COUNT)
 
   def playVideo(self):
     self.framenum = 0;
@@ -54,10 +61,10 @@ class VideoReader():
       (success, img) = self.getNextFrame()
       if success == False:
         break;
-      savename = '/scail/group/deeplearning/driving_data/stillimgs/280N_right_%d.png'%(self.framenum)
-      img = img[:,:,::-1]
-      print savename
-      pp.imsave(savename, img)
-
-#      cv2.imshow("video", img)
-#      key = cv2.waitKey(5);
+      #savename = '/scail/group/deeplearning/driving_data/stillimgs/280N_right_%d.png'%(self.framenum)
+      #img = img[:,:,::-1]
+      #print savename
+      #pp.imsave(savename, img)
+      img = cv2.resize(img, (640,480))
+      cv2.imshow("video", img)
+      key = cv2.waitKey(2);
