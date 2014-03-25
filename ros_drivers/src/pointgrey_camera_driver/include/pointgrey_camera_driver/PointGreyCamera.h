@@ -1,34 +1,3 @@
-/*
-This code was developed by the National Robotics Engineering Center (NREC), part of the Robotics Institute at Carnegie Mellon University. 
-Its development was funded by DARPA under the LS3 program and submitted for public release on June 7th, 2012. 
-Release was granted on August, 21st 2012 with Distribution Statement "A" (Approved for Public Release, Distribution Unlimited).
-
-This software is released under a BSD license:
-
-Copyright (c) 2012, Carnegie Mellon University. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-Neither the name of the Carnegie Mellon University nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/ 
-
-
-
-/*-*-C++-*-*/
-/**
-   @file PointGreyCamera.h
-   @author Chad Rockey
-   @date July 11, 2011
-   @brief Interface to Point Grey cameras
-   
-   @attention Copyright (C) 2011
-   @attention National Robotics Engineering Center
-   @attention Carnegie Mellon University
-*/
-
 #ifndef _POINTGREYCAMERA_H_
 #define _POINTGREYCAMERA_H_
 
@@ -52,21 +21,6 @@ class PointGreyCamera {
   public:
     PointGreyCamera();
     ~PointGreyCamera();
-    
-    /*!
-    * \brief Function that allows reconfiguration of the camera.
-    *
-    * This function handles a reference of a camera_library::CameraConfig object and 
-    * configures the camera as close to the given values as possible.  As a function for
-    * dynamic_reconfigure, values that are not valid are changed by the driver and can 
-    * be inspected after this function ends.
-    * This function will stop and restart the camera when called on a SensorLevels::RECONFIGURE_STOP level.
-    * \param config  camera_library::CameraConfig object passed by reference.  Values will be changed to those the driver is currently using.
-    * \param level driver_base reconfiguration level.  See driver_base/SensorLevels.h for more information.
-    *
-    * \return Returns true when the configuration could be applied without modification.
-    */
-    bool setNewConfiguration(pointgrey_camera_driver::PointGreyConfig &config, const uint32_t &level);
     
     /*!
     * \brief Function that connects to a specified camera.
@@ -109,8 +63,6 @@ class PointGreyCamera {
     */
     void grabImage(sensor_msgs::Image &image, const std::string &frame_id);
     
-    void grabStereoImage(sensor_msgs::Image &image, const std::string &frame_id, sensor_msgs::Image &second_image, const std::string &second_frame_id);
-    
     /*!
     * \brief Will set grabImage timeout for the camera.
     *
@@ -140,10 +92,6 @@ class PointGreyCamera {
     */
     float getCameraTemperature();
     
-    void setGain(double &gain);
-    
-    void setBRWhiteBalance(uint16_t &blue, uint16_t &red);
-    
     uint getGain();
     
     uint getShutter();
@@ -155,6 +103,10 @@ class PointGreyCamera {
     uint getWhiteBalance();
     
     uint getROIPosition();
+
+    uint32_t readRegister(uint32_t address);
+    void writeRegister(uint32_t address, uint32_t value);
+    void setWhiteBalance(int red, int blue); 
     
   private:
     
@@ -166,104 +118,7 @@ class PointGreyCamera {
     boost::mutex mutex_; ///< A mutex to make sure that we don't try to grabImages while reconfiguring or vice versa.  Implemented with boost::mutex::scoped_lock.
     volatile bool captureRunning_; ///< A status boolean that checks if the camera has been started and is loading images into its buffer.
 
-    /*!
-    * \brief Changes the video mode of the connected camera.
-    *
-    * This function will change the camera to the desired videomode and allow up the maximum framerate for that mode.
-    * \param videoMode string of desired video mode, will be changed if unsupported.
-    */
-    void setVideoMode(FlyCapture2::VideoMode &videoMode);
-    
-    /*!
-    * \brief Changes the camera into Format7 mode with the associated parameters.
-    *
-    * This function will stop the camera, change the video mode into Format 7, and then restart the camera.
-    * \param fmt7Mode Flycapture2::Mode, desired Format 7 mode.
-    * \param fmt7PixFmt FlyCapture2::PixelFormat, desired Format 7 pixel format.
-    * \param roi_width width of the region of interest for Format 7 in pixels, will be changed if unsupported.  '0' is full width.
-    * \param roi_height height of the region of interest for Format 7 in pixels, will be changed if unsupported. '0' is full height
-    * \param roi_offset_x offset in pixels from the left side of the image for the region of interest for Format 7, will be changed if unsupported.
-    * \param roi_offset_y offset in pixels from the top of the image for the region of interest for Format 7, will be changed if unsupported.
-    *
-    * \return Returns true when the configuration could be applied without modification.
-    */
-    bool setFormat7(FlyCapture2::Mode &fmt7Mode, FlyCapture2::PixelFormat &fmt7PixFmt, uint16_t &roi_width, uint16_t &roi_height, uint16_t &roi_offset_x, uint16_t &roi_offset_y);
-    
-    /*!
-    * \brief Converts the dynamic_reconfigure string type into a FlyCapture2::VideoMode.
-    *
-    * This function will convert the string input from dynamic_reconfigure into the proper datatype for use with FlyCapture enum.
-    * \param vmode input video mode, will be changed if unsupported.
-    * \param vmode_out FlyCapture2::VideoMode, will be changed to either the corresponding type as vmode, or to the most compatible type.
-    * \param fmt7Mode will be set to the appropriate FlyCapture2::Mode if vmode is a format 7 mode.upacket, upacket, 
-    *
-    * \return Returns true when the configuration could be applied without modification.
-    */
-    bool getVideoModeFromString(std::string &vmode, FlyCapture2::VideoMode &vmode_out, FlyCapture2::Mode &fmt7Mode);
-    
-    /*!
-    * \brief Converts the dynamic_reconfigure string type into a FlyCapture2::PixelFormat
-    *
-    * This function will convert the string input from dynamic_reconfigure into the proper datatype for use with FlyCapture enum.
-    * \param fmt7Mode input video mode, needed to know which PixelFormats are valid.
-    * \param sformat dynamic_reconfigure Format 7 color coding, will be changed if unsupported.
-    * \param fmt7PixFmt FlyCapture2::PixelFormat, will be set to the appropriate output type.
-    *
-    * \return Returns true when the configuration could be applied without modification.
-    */
-    bool getFormat7PixelFormatFromString(FlyCapture2::Mode &fmt7Mode, std::string &sformat, FlyCapture2::PixelFormat &fmt7PixFmt);
-    
-    bool setProperty(const FlyCapture2::PropertyType &type, const bool &autoSet,  unsigned int &valueA,  unsigned int &valueB);
-    
-    /*!
-    * \brief Generic wrapper for setting properties in FlyCapture2
-    *
-    * This function will set the appropriate type and if desired, will allow the camera to change its own value.  If value is outside the range of min and max,
-    * it will be set to either extreme.
-    * \param type FlyCapture2::PropertyType to set.  Examples: FlyCapture2::GAIN FlyCapture2::SHUTTER FlyCapture2::BRIGHTNESS
-    * \param autoSet whether or not to allow the camera to automatically adjust values.  Ex: auto exposure, auto shutter.  Not supported for all types.
-    * \param value Desired absolute value to be set in appropriate units.  Will be changed if this value is not supported.
-    * \param min Absolute mininum value that this type can be set to.
-    * \param max Absolute maximum value that this type can be set to.
-    *
-    * \return Returns true when the configuration could be applied without modification.
-    */
-    bool setProperty(const FlyCapture2::PropertyType &type, const bool &autoSet, double &value);
-    
-    /*!
-    * \brief Sets the white balance property
-    *
-    * This function will set the white balance for the camera..  If value is outside the range of min and max,
-    * it will be set to either extreme.
-    * \param blue Value for the blue white balance setting.
-    * \param red Value for the red white balance setting.
-    *
-    * \return Returns true when the configuration could be applied without modification.
-    */
-    bool setWhiteBalance(uint16_t &blue, uint16_t &red);
-    
-    /*!
-    * \brief Gets the current frame rate.
-    *
-    * Gets the camera's current reported frame rate.
-    *
-    * \return The reported frame rate.
-    */
     float getCameraFrameRate();
-    
-    /*!
-    * \brief Will set the external triggering of the camera.
-    *
-    * This function will enable external triggering of the camera and set the desired source, parameter, and delay.
-    * \param enable Whether or not to use external triggering.
-    * \param mode The desired external triggering mode.
-    * \param source The desired external triggering source.
-    * \param parameter The parameter currently only used by trigger mode 3 (skip N frames, where parameter is N).
-    * \param delay The delay in seconds to wait after being triggered.
-    *
-    * \return Returns true when the configuration could be applied without modification.
-    */
-    bool setExternalTrigger(bool &enable, std::string &mode, std::string &source, int32_t &parameter, double &delay);
     
     /*!
     * \brief Handles errors returned by FlyCapture2.
