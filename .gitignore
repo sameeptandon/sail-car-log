@@ -8,3 +8,4 @@ bin
 build
 cameralogger/build
 gps_test/build/
+ros_drivers/src/q50_canbus
