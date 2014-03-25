@@ -97,9 +97,10 @@ def stepVideo(video_reader, step):
 def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
     start = offset
     end = offset + num_steps*step
-
-    #video_reader1.setFrame(start)
-    #video_reader2.setFrame(start)
+    
+    if color_mode == 'CAMERA':  
+        video_reader1.setFrame(start)
+        video_reader2.setFrame(start)
 
     trans_wrt_imu = IMUTransforms[start:end,0:3,3]
     gpsPointCloud = VtkPointCloud(trans_wrt_imu[:,0:3], 0*trans_wrt_imu[:,0])
@@ -126,7 +127,6 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
 
         data = data[data_filter_mask, :]
         """
-        data = data[ dist > 3, :]
         # filter out on intensity
         data = data[ data[:,3] > 60 , :]
         # only points ahead of the car
@@ -148,7 +148,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
             (success, I2) = video_reader2.getNextFrame()
             stepVideo(video_reader1, step)
             stepVideo(video_reader2, step)
-        
+            """
             pts_wrt_cam1 = array(data[:, 0:3])
             pts_wrt_cam1[:, 0:3] += cam1['displacement_from_l_to_c_in_lidar_frame'];
             pts_wrt_cam1 = dot(R_to_c_from_l(cam1), pts_wrt_cam1.transpose())
@@ -162,21 +162,22 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
             # BGR -> RGB
             colors[ mask1, 0] = I1[pix1[1,mask1], pix1[0,mask1], 2] 
             colors[ mask1, 1] = I1[pix1[1,mask1], pix1[0,mask1], 1] 
-            colors[ mask1, 2] = I1[pix1[1,mask1], pix1[0,mask1], 0] 
+            colors[ mask1, 2] = I1[pix1[1,mask1], pix1[0,mask1], 0]            """ 
 
             pts_wrt_cam2 = array(data[:, 0:3])
             pts_wrt_cam2[:, 0:3] += cam2['displacement_from_l_to_c_in_lidar_frame'];
             pts_wrt_cam2 = dot(R_to_c_from_l(cam2), pts_wrt_cam2.transpose())
             (pix2, mask2) = cloudToPixels(cam2, pts_wrt_cam2)
 
+            colors = 0*pts_wrt_cam2.transpose() + 0
             # BGR -> RGB
             colors[ mask2, 0] = I2[pix2[1,mask2], pix2[0,mask2], 2] 
             colors[ mask2, 1] = I2[pix2[1,mask2], pix2[0,mask2], 1] 
-            colors[ mask2, 2] = I2[pix2[1,mask2], pix2[0,mask2], 0] 
+            colors[ mask2, 2] = I2[pix2[1,mask2], pix2[0,mask2], 0]              
         
-            #intensity = data[mask2, 3]
-            #heat_colors = heatColorMapFast(intensity, 0, 100)
-            #I2[pix2[1,mask2], pix2[0,mask2], :] = heat_colors[0,:,:]
+            intensity = data[mask2, 3]
+            heat_colors = heatColorMapFast(intensity, 0, 100)
+            I2[pix2[1,mask2], pix2[0,mask2], :] = heat_colors[0,:,:]
 
             #cv2.imshow('vid', I2)
             #cv2.waitKey(5)
@@ -199,7 +200,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
 
 
         if color_mode == 'CAMERA':
-            lidarCloud = VtkPointCloud(pts[ (mask1 | mask2) ,0:3], colors[ (mask1 | mask2),:])
+            lidarCloud = VtkPointCloud(pts[ mask2 ,0:3], colors[ mask2,:])
             actors.append(lidarCloud.get_vtk_color_cloud())
         elif color_mode == 'INTENSITY': 
             lidarCloud = VtkPointCloud(pts[:,0:3], data[:,3])
