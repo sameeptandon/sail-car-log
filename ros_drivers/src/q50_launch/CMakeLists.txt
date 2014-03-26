@@ -118,6 +118,7 @@ catkin_package(
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
   start_data_collection.sh stop_data_collection.sh
+  start_drivers.sh stop_drivers.sh
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
