@@ -1,4 +1,3 @@
-
 // ROS and associated nodelet interface and PLUGINLIB declaration header
 #include "ros/ros.h"
 #include <pluginlib/class_list_macros.h>
@@ -168,7 +167,6 @@ private:
 
         // Publish the message using standard image transport
         if(it_pub_.getNumSubscribers() > 0){
-            //sensor_msgs::ImagePtr image(new sensor_msgs::Image(wfov_image->image));
             it_pub_.publish(image_, ci_);
         }
 
