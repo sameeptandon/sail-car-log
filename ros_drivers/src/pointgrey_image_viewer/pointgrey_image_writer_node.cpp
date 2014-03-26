@@ -51,6 +51,9 @@ public:
 
   ~ThreadedImageWriter()
   {
+  }
+
+  void stop() {
       for (int thread_num = 0; thread_num < NUM_SPLITS; thread_num++) { 
           consumer[thread_num]->stop();
           delete consumer[thread_num];
@@ -87,5 +90,6 @@ int main(int argc, char** argv)
   ros::NodeHandle nh("~");
   ThreadedImageWriter ic(nh);
   ros::spin();
+  ic.stop();
   return 0;
 }

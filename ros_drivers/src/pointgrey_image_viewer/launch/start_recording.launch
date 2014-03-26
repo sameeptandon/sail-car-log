@@ -1,0 +1,14 @@
+<launch>
+
+<arg name="writer_node_name" />
+<arg name="basename" />
+<arg name="cameranum" />
+<arg name="image_topic" />
+
+<node pkg="pointgrey_image_viewer" type="pointgrey_image_writer" name="$(arg writer_node_name)" output="screen">
+    <param name="image" value="$(arg image_topic)" />
+    <param name="basename" value="$(arg basename)" />
+    <param name="cameranum" value="$(arg cameranum)" />
+</node>
+
+</launch>
