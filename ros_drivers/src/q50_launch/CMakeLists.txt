@@ -117,7 +117,7 @@ catkin_package(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
-  start_data_collection.sh
+  start_data_collection.sh stop_data_collection.sh
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
