@@ -8,7 +8,8 @@ void serial_comm::safeWrite(string cmd) {
     cout << "Command: " << cmd; 
     _port->write(cmd);
     _port->flushOutput();
-    sleep(1);
+    //sleep(1);
+    usleep(0.1 * 1000 * 1000);
 }
 
 string serial_comm::safeRead() {
@@ -46,7 +47,8 @@ void serial_comm::Close() {
     safeWrite("unlogall\r\n");
     cout << "flushing GPS buffers" << endl;
     _port->flush();
-    sleep(1);
+    //sleep(1);
+    usleep(0.1 * 1000 * 1000);
     // hack since flush doesn't do it:
     size_t buf_size = _port->available();
     cout << "bytes in buffer after flush: " << buf_size << endl; 
