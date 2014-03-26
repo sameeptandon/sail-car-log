@@ -9,3 +9,6 @@ build
 cameralogger/build
 gps_test/build/
 ros_drivers/src/q50_can
+ros_drivers/install
+ros_drivers/devel
+ros_drivers/src/CMakeLists.txt
