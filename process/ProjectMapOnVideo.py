@@ -74,6 +74,9 @@ if __name__ == '__main__':
         for count in range(20):
             (success, I) = video_reader.getNextFrame()
 
+        if not success:
+            break
+
         t = video_reader.framenum - 1
         print t
         mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t );
