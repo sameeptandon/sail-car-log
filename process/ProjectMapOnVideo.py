@@ -69,6 +69,7 @@ if __name__ == '__main__':
     # map points are defined w.r.t the IMU position at time 0
     # each entry in map_data is (x,y,z,intensity,framenum). 
 
+    print "Hit 'q' to quit"
     while True:
         for count in range(20):
             (success, I) = video_reader.getNextFrame()
@@ -91,6 +92,8 @@ if __name__ == '__main__':
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
 
         cv2.imshow('vid', cv2.pyrDown(I))
-        cv2.waitKey(1)
+        keycode = cv2.waitKey(1)
+        if keycode == 113:
+            break
 
 
