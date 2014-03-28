@@ -50,13 +50,19 @@ def localMapToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
     return (pix, mask)
 
 
+def trackbarOnchange(t, prev_t):
+    if abs(t - prev_t) > 1:
+        video_reader.setFrame(t)
+
+
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
+    video_file = args['video']
 
     params = LoadParameters('q50_4_3_14_params')
     cam = params['cam'][cam_num-1]
-    video_reader = VideoReader(args['video'])
+    video_reader = VideoReader(video_file)
     gps_reader = GPSReader(args['gps'])
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
@@ -70,6 +76,7 @@ if __name__ == '__main__':
     # each entry in map_data is (x,y,z,intensity,framenum). 
 
     print "Hit 'q' to quit"
+    trackbarInit = False
     while True:
         for count in range(20):
             (success, I) = video_reader.getNextFrame()
@@ -94,9 +101,15 @@ if __name__ == '__main__':
             I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
 
-        cv2.imshow('vid', cv2.pyrDown(I))
+        cv2.imshow(video_file, cv2.pyrDown(I))
+        if not trackbarInit:
+            cv2.createTrackbar('trackbar', video_file, 0, int(video_reader.total_frame_count), lambda x: trackbarOnchange(x, t))
+            trackbarInit = True
+        else:
+            cv2.setTrackbarPos('trackbar', video_file, t)
+
         keycode = cv2.waitKey(1)
         if keycode == 113:
             break
 
-
+    print 'Played %d frames' % t
