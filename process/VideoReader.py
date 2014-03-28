@@ -44,8 +44,6 @@ class VideoReader():
       for j in range(1,self.num_splits+1, self.jump):
           capture_framenum = (framenum/10 + 1) if j-1 < framenum % 10 else framenum/10
           self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
-          self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
-          self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_FRAMES, capture_framenum)
           #self.captures[j % self.num_splits].set(cv.CV_CAP_PROP_POS_MSEC, float(capture_framenum)/0.05)
           #a,b = self.captures[j % self.num_splits].read()
           if (verbose):
