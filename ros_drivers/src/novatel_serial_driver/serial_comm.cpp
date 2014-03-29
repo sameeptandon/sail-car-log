@@ -32,6 +32,7 @@ void serial_comm::Connect(string port) {
     ///////// logging /////////////////
     //safeWrite("log mark1time onnew\r\n");
     safeWrite("log mark1pvaa onnew\r\n");
+    safeWrite("log inscov ontime 1 0 nohold\r\n");
     //safeWrite(port, "log usb1 bestposa ontime 0.5 0 nohold\r\n");
 }
 
