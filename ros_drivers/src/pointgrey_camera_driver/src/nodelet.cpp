@@ -46,6 +46,8 @@ private:
   */
   void connectCb(){
     NODELET_DEBUG("Connect callback!");
+    
+    /*
     boost::mutex::scoped_lock scopedLock(connect_mutex_); // Grab the mutex.  Wait until we're done initializing before letting this function through.
     // Check if we should disconnect (there are 0 subscribers to our data)
     if(it_pub_.getNumSubscribers() == 0){
@@ -59,7 +61,7 @@ private:
         } catch(std::runtime_error& e){
             NODELET_ERROR("%s", e.what());
         }
-    } else if(!init_) { // We need to connect
+    } else*/ if(!init_) { // We need to connect
         NODELET_DEBUG("Connecting");
         // Try connecting to the camera
         volatile bool connected = false;
@@ -126,9 +128,10 @@ private:
     pnh.param<std::string>("camera_info_url", camera_info_url, "");
     // Get the desired frame_id, set to 'camera' if not found
     pnh.param<std::string>("frame_id", frame_id_, "camera");
+    num_frames_ = 0; 
         
     // Do not call the connectCb function until after we are done initializing.
-    boost::mutex::scoped_lock scopedLock(connect_mutex_);
+    //boost::mutex::scoped_lock scopedLock(connect_mutex_);
    
     // Start the camera info manager and attempt to load any configurations
     std::stringstream cinfo_name;
@@ -139,6 +142,7 @@ private:
     it_.reset(new image_transport::ImageTransport(nh));
     image_transport::SubscriberStatusCallback cb = boost::bind(&PointGreyCameraNodelet::connectCb, this);
     it_pub_ = it_->advertiseCamera("image_raw", 1000, cb, cb);
+    connectCb();
   }
   
   /*!
@@ -166,9 +170,10 @@ private:
         ci_->header.frame_id = frame_id_;
 
         // Publish the message using standard image transport
-        if(it_pub_.getNumSubscribers() > 0){
+        //if(it_pub_.getNumSubscribers() > 0){
             it_pub_.publish(image_, ci_);
-        }
+            num_frames_+= 1;
+        //}
 
     }
   }
@@ -187,6 +192,8 @@ private:
   sensor_msgs::ImagePtr image_; ///< Camera Info message.
   std::string frame_id_; ///< Frame id for the camera messages, defaults to 'camera'
   boost::shared_ptr<boost::thread> pubThread_; ///< The thread that reads and publishes the images.
+
+  uint64_t num_frames_; 
   
 };
 
