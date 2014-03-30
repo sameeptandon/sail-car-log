@@ -9,6 +9,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import time
 import zmq
+from math import sqrt
 
 global done_working
 done_working = False
@@ -23,6 +24,7 @@ class RosTopicManager:
         self.lastImage = None
         self.writer_ack_left_counter = 0
         self.writer_ack_right_counter = 0
+        self.nextLineInsCov = False
         self.gps_markpvaa_counter = 0 
         (self.tx, self.ty, self.tz, self.rx, self.ry, self.rz) = (0,0,0,0,0,0)
         (self.lat, self.lon) = (0,0)
@@ -42,7 +44,7 @@ class RosTopicManager:
 
     def getGPSUncertainty(self):
         tokens = (self.tx, self.ty, self.tz, self.rx, self.ry, self.rz)
-        return '%.3f,%.3f,%.3f,%.3f,%.3f,%.3f' % tokens
+        return '%.2f,%.2f,%.2f\n%.2f,%.2f,%.2f' % tokens
 
     def writer_ack_left_callback(self, data):
         self.writer_ack_left_counter += 1
@@ -55,21 +57,27 @@ class RosTopicManager:
 
         if 'MARK1PVAA' in header:
             self.gps_markpvaa_counter += 1
-            gps_header, gps_data = msg.data.split(';')
+            header_tokens = msg.data.split(';')
+            gps_data = header_tokens[1]
             tokens = gps_data.split(',')
-            self.lat = tokens[2]
-            self.lon = tokens[3]
+            self.lat = float(tokens[2])
+            self.lon = float(tokens[3])
         if 'INSCOV' in header:
-            gps_header, gps_data = msg.data.split(';')
-            tokens = gps_data.split(',')
-            offset = 2
-            self.tx_cov = tokens[offset + 0]
-            self.ty_cov = tokens[offset + 4]
-            self.tz_cov = tokens[offset + 8]
+            self.nextLineInsCov = True
+            return
+        if self.nextLineInsCov:
+            self.nextLineInsCov = False 
+            tokens = msg.data.split(' ')
+            offset = 7
+            self.tx = sqrt(float(tokens[offset + 0]))
+            self.ty = sqrt(float(tokens[offset + 4]))
+            self.tz = sqrt(float(tokens[offset + 8]))
             offset += 9
-            self.rx_cov = tokens[offset + 0]
-            self.ry_cov = tokens[offset + 4]
-            self.rz_cov = tokens[offset + 8]
+            self.rx = sqrt(float(tokens[offset + 0]))
+            self.ry = sqrt(float(tokens[offset + 4]))
+            self.rz = sqrt(float(tokens[offset + 8]))
+
+
 
     def image_callback(self,data):
 
