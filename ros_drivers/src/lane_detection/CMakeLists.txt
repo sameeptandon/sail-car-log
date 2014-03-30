@@ -24,6 +24,7 @@ add_definitions(-DHAVE_CUDA=1)
 set(CUDA_NVCC_FLAGS "-arch=sm_20")
 
 # add fastcpp config info to cache
+set(fastcpp_DIR "~/fastlab/share/fastcpp")
 find_package(fastcpp REQUIRED CONFIG)
 
 # MPI detection
