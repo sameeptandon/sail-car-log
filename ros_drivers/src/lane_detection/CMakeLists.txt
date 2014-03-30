@@ -18,8 +18,8 @@ find_package(CUDA)
 set(CUDA_GENERATED_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY})
 include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${CUDA_CUT_INCLUDE_DIR})
-set(catkin_LIBRARIES ${catkin_LIBRARIES} ${CUDA_LIBRARIES})
-set(catkin_LIBRARIES ${catkin_LIBRARIES} ${CUDA_CUT_LIBRARIES})
+set(lane_detector_LIBS  ${CUDA_LIBRARIES})
+set(lane_detector_LIBS  ${lane_detector_LIBS} ${CUDA_CUT_LIBRARIES})
 add_definitions(-DHAVE_CUDA=1)
 set(CUDA_NVCC_FLAGS "-arch=sm_20")
 
@@ -35,14 +35,14 @@ if ( MPI_FOUND )
   set(CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS} ${MPI_C_LINK_FLAGS})
   set(CMAKE_C_COMPILE_FLAGS ${CMAKE_C_COMPILE_FLAGS} ${MPI_C_COMPILE_FLAGS})
   include_directories(${MPI_C_INCLUDE_PATH} ${MPI_INCLUDE_PATH})
-  set(catkin_LIBRARIES ${MPI_LIBRARIES} ${catkin_LIBRARIES})
+  set(lane_detector_LIBS ${MPI_LIBRARIES} ${lane_detector_LIBS})
   add_definitions(-DHAVE_MPI=1)
 endif ( MPI_FOUND )
 
 # fastcpp components
 include_directories(${FASTCPP_INCLUDE_DIR}/fastcpp)
 link_directories(${FASTCPP_LIBRARY_DIR})
-set(catkin_LIBRARIES ${catkin_LIBRARIES} ${FASTCPP_LIBRARIES})
+set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -77,11 +77,11 @@ set(catkin_LIBRARIES ${catkin_LIBRARIES} ${FASTCPP_LIBRARIES})
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
+ add_message_files(
+   FILES
+   Delay.msg
 #   Message2.msg
-# )
+ )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -98,10 +98,11 @@ set(catkin_LIBRARIES ${catkin_LIBRARIES} ${FASTCPP_LIBRARIES})
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   sensor_msgs#   std_msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   sensor_msgs
+   std_msgs
+ )
 
 ###################################
 ## catkin specific configuration ##
@@ -115,7 +116,7 @@ set(catkin_LIBRARIES ${catkin_LIBRARIES} ${FASTCPP_LIBRARIES})
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES lane_detection
-#  CATKIN_DEPENDS cv_bridge image_transport message_generation roscpp sensor_msgs std_msgs
+   CATKIN_DEPENDS cv_bridge image_transport message_generation roscpp sensor_msgs std_msgs message_runtime
 #  DEPENDS system_lib
 )
 
@@ -131,11 +132,11 @@ include_directories(
 )
 
 add_executable(VideoProducer src/VideoProducer.cpp)
-target_link_libraries(VideoProducer ${catkin_LIBRARIES})
-add_dependencies(VideoProducer beginner_tutorials_gencpp)
+target_link_libraries(VideoProducer ${lane_detector_LIBS} ${catkin_LIBRARIES})
+add_dependencies(VideoProducer lane_detection_gencpp)
 
 cuda_add_executable(LanePredictionNode src/LanePredictionNode.cpp src/LanePredictor.cu)
-target_link_libraries(LanePredictionNode ${catkin_LIBRARIES})
+target_link_libraries(LanePredictionNode ${lane_detector_LIBS} ${catkin_LIBRARIES})
 
 ## Declare a cpp library
 # add_library(lane_detection

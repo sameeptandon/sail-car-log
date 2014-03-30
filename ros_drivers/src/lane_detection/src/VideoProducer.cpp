@@ -25,14 +25,17 @@ public:
 		//cv::destroyWindow(OPENCV_WINDOW);
 	}
 
-	void readVideo(){
+	bool readVideo(){
 		cv::Mat frame;
 		bool success = cap->read(frame);
-		if(!success)
+		if(!success){
 			ROS_ERROR("Failed to read frame");
+            return false;
+        }
 		cv_bridge::CvImage cvi;
 		cvi.encoding = "bgr8";
 		cvi.image = frame;
+        cvi.header.stamp = ros::Time::now();
 		sensor_msgs::Image im;
 		cvi.toImageMsg(im);
 		image_pub_.publish(im);
@@ -40,15 +43,17 @@ public:
 		//cv_ptr = cv_bridge::toCvCopy(im, sensor_msgs::image_encodings::BGR8);
 		//cv::imshow(OPENCV_WINDOW,cv_ptr->image);
 		//cv::waitKey(3);
+        return true;
 	}
 };
 
 int main(int argc, char** argv){
 	ros::init(argc,argv,"VideoProducer");
 	VideoProducer producer(argv[1]);
-	ros::Rate loop_rate(10);
+	ros::Rate loop_rate(50);
 	while(ros::ok()){
-		producer.readVideo();
+		if(!producer.readVideo())
+            break;
 		ros::spinOnce();
 		loop_rate.sleep();
 	}
