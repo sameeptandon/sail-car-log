@@ -28,7 +28,7 @@ class RosTopicManager:
         self.gps_markpvaa_counter = 0 
         (self.tx, self.ty, self.tz, self.rx, self.ry, self.rz) = (0,0,0,0,0,0)
         (self.lat, self.lon) = (0,0)
-        self.image_sub = rospy.Subscriber("/fwd_left/image_color",Image,self.image_callback)
+        self.image_sub = rospy.Subscriber("/fwd_left/image_raw",Image,self.image_callback)
         self.writer_sub_left = rospy.Subscriber("/fwd_left_writer/writer_ack",String,self.writer_ack_left_callback)
         self.writer_sub_right = rospy.Subscriber("/fwd_right_writer/writer_ack",String,self.writer_ack_right_callback)
         self.gps_sub = rospy.Subscriber("/novatel_port_out",String,self.gps_callback)
@@ -141,10 +141,10 @@ def main(args):
 
     import subprocess
     start_drivers_p = subprocess.Popen(getStartDriversCommand(), shell=True)
-    time.sleep(4)
+    time.sleep(2)
     sendMessage('WARN:Starting Recorders')
     start_collection_p = subprocess.Popen(getStartCollectionCommand(basename), shell=True)
-    time.sleep(4)
+    time.sleep(3)
 
     total_execution_time = maxframes / 50;
     start_time = time.time()
@@ -172,7 +172,7 @@ def main(args):
 
     sendMessage('WARN:Stopping Recorders')
     stop_collection_p = subprocess.Popen(getStopCollectionCommand(), shell=True)
-    time.sleep(4)
+    time.sleep(6)
     sendMessage('WARN:Stopping Drivers')
     stop_drivers_p = subprocess.Popen(getStopDriversCommand(), shell=True)
 

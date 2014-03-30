@@ -6,7 +6,7 @@
 <include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
     <arg name="basename" value="$(arg basename)" />
     <arg name="cameranum" value="1" />
-    <arg name="image_topic" value="/fwd_left/image_color" />
+    <arg name="image_topic" value="/fwd_left/image_raw" />
     <arg name="writer_node_name" value="fwd_left_writer" />
 </include>
 
@@ -14,7 +14,7 @@
 <include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
     <arg name="basename" value="$(arg basename)" />
     <arg name="cameranum" value="2" />
-    <arg name="image_topic" value="/fwd_right/image_color" />
+    <arg name="image_topic" value="/fwd_right/image_raw" />
     <arg name="writer_node_name" value="fwd_right_writer" />
 </include>
 
