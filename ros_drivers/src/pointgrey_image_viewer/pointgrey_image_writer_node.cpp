@@ -91,7 +91,7 @@ int main(int argc, char** argv)
   ros::NodeHandle nh("~");
   ThreadedImageWriter ic(nh);
   ros::spin();
-  ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(1.0));
+  ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(2.0));
   ic.stop();
   return 0;
 }
