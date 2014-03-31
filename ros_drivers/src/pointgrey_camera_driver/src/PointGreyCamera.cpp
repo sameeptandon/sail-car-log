@@ -160,6 +160,7 @@ void PointGreyCamera::grabImage(sensor_msgs::Image &image, const std::string &fr
     image.header.stamp.sec = embeddedTime.seconds;
     image.header.stamp.nsec = 1000*embeddedTime.microSeconds;
     */
+    image.header.stamp = ros::Time::now();
     
     // Get camera info to check if color or black and white chameleon and check the bits per pixel.
     CameraInfo cInfo;
