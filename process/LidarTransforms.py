@@ -34,11 +34,29 @@ def loadLDRCamMap(frame_cloud_map):
     frame_folder = frame_folder + '/' + map_name.split('.')[0] + '_frames'
 
     for line in map_file:
-        (frame, ldr_file) = line.rstrip().split(' ')
+        ldr_file = line.rstrip().split(' ')[1]
         clouds.append(frame_folder + '/' + ldr_file)
     map_file.close()
 
     return clouds
+
+def loadRDRCamMap(frame_cloud_map):
+    map_file = open(frame_cloud_map, 'r')
+    points = []
+    frame_folder, map_name = os.path.split(frame_cloud_map)
+    frame_folder = frame_folder + '/' + map_name.split('.')[0] + '_rdr'
+
+    for line in map_file:
+        tokens = line.rstrip().split(' ')
+        if len(tokens) == 3:
+            rdr_file = line.rstrip().split(' ')[2]
+            points.append(frame_folder + '/' + rdr_file)
+        else:
+            map_file.close()
+            return None
+    
+    map_file.close()
+    return points
 
 def R_to_c_from_l_old(cam):
     # hard coded calibration parameters for now

@@ -20,7 +20,9 @@ def run_command(args):
 
     gps_file = basename + '_gps.out'
     frames_folder = basename + "_frames"
-    cmd = FF_COMMAND + "%s/%s %s/%s" % (target_dir, gps_file, target_dir, frames_folder)
+    rdr_bag = basename + "_radar.bag"
+    cmd = FF_COMMAND + "{t}/{gps} {t}/{frames} {t}/{rdr}".format(
+        t=target_dir, gps=gps_file, frames=frames_folder, rdr=rdr_bag)
     print cmd
     subprocess.call(cmd, shell=True)
 
@@ -28,7 +30,7 @@ target_dir = sys.argv[1]
 files = os.listdir(target_dir)
 pcap_files = filter(lambda x: '.pcap' in x,  files)
 
-pool = multiprocessing.Pool(processes=6)
+pool = multiprocessing.Pool(processes=1)
 pool.map(run_command, 
     zip(pcap_files, 
       [target_dir]*len(pcap_files))) 
