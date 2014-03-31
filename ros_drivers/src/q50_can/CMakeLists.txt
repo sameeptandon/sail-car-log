@@ -1,48 +1,16 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(lane_detection)
+project(q50_can)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  cv_bridge
-  image_transport
-  message_generation
-  roscpp
-  sensor_msgs
-  std_msgs
-)
+roscpp
+message_generation
+std_msgs
+rviz
+rospy)
 
-# cuda detection
-find_package(CUDA)
-set(CUDA_GENERATED_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY})
-include_directories(${CUDA_INCLUDE_DIRS})
-include_directories(${CUDA_CUT_INCLUDE_DIR})
-set(lane_detector_LIBS  ${CUDA_LIBRARIES})
-set(lane_detector_LIBS  ${lane_detector_LIBS} ${CUDA_CUT_LIBRARIES})
-add_definitions(-DHAVE_CUDA=1)
-set(CUDA_NVCC_FLAGS "-arch=sm_20")
-
-# add fastcpp config info to cache
-set(fastcpp_DIR "~/fastlab/share/fastcpp")
-find_package(fastcpp REQUIRED CONFIG)
-
-# MPI detection
-find_package(MPI)
-if ( MPI_FOUND )
-  set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_CXX_COMPILE_FLAGS})
-  set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_CXX_LINK_FLAGS})
-  set(CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS} ${MPI_C_LINK_FLAGS})
-  set(CMAKE_C_COMPILE_FLAGS ${CMAKE_C_COMPILE_FLAGS} ${MPI_C_COMPILE_FLAGS})
-  include_directories(${MPI_C_INCLUDE_PATH} ${MPI_INCLUDE_PATH})
-  set(lane_detector_LIBS ${MPI_LIBRARIES} ${lane_detector_LIBS})
-  add_definitions(-DHAVE_MPI=1)
-endif ( MPI_FOUND )
-
-# fastcpp components
-include_directories(${FASTCPP_INCLUDE_DIR}/fastcpp)
-link_directories(${FASTCPP_LIBRARY_DIR})
-set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -77,11 +45,18 @@ set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
- add_message_files(
-   FILES
-   Delay.msg
-#   Message2.msg
- )
+add_message_files(
+  FILES
+  BrkInfo.msg
+  EngInfo.msg
+  GearPos.msg
+  ObjList.msg
+  STRAngle.msg
+  TgtStatus.msg
+  TurnSignal.msg
+  VehicleSpeed.msg
+  WheelCount.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -98,11 +73,10 @@ set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
 # )
 
 ## Generate added messages and services with any dependencies listed here
- generate_messages(
-   DEPENDENCIES
-   sensor_msgs
-   std_msgs
- )
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -114,44 +88,49 @@ set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include
-#  LIBRARIES lane_detection
-   CATKIN_DEPENDS cv_bridge image_transport message_generation roscpp sensor_msgs std_msgs message_runtime
-#  DEPENDS system_lib
+#  INCLUDE_DIRS include
+#  LIBRARIES q50_canbus
+  CATKIN_DEPENDS message_runtime std_msgs
 )
 
 ###########
 ## Build ##
 ###########
 
+add_executable(can_receive src/RXTX_CANCom.cpp src/can_receive.cpp)
+add_executable(rviz_translator src/rviz_translator.cpp)
+add_executable(dummy_vehicles src/dummy_vehicles_publisher.cpp)
+
+add_dependencies(can_receive q50_can_generate_messages_cpp)
+add_dependencies(rviz_translator q50_can_generate_messages_cpp)
+add_dependencies(dummy_vehicles q50_can_generate_messages_cpp)
+
+target_link_libraries(rviz_translator ${catkin_LIBRARIES})
+target_link_libraries(dummy_vehicles ${catkin_LIBRARIES})
+target_link_libraries(can_receive /usr/include/canlib.h)
+target_link_libraries(can_receive /usr/lib/libcanlib.so)
+target_link_libraries(can_receive ${catkin_LIBRARIES})
+
+
+
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
-include_directories(
-  include ${catkin_INCLUDE_DIRS}
-)
-
-add_executable(VideoProducer src/VideoProducer.cpp)
-target_link_libraries(VideoProducer ${lane_detector_LIBS} ${catkin_LIBRARIES})
-add_dependencies(VideoProducer lane_detection_gencpp)
-
-cuda_add_executable(LanePredictionNode src/LanePredictionNode.cpp src/LanePredictor.cu)
-target_link_libraries(LanePredictionNode ${lane_detector_LIBS} ${catkin_LIBRARIES})
 
 ## Declare a cpp library
-# add_library(lane_detection
-#   src/${PROJECT_NAME}/lane_detection.cpp
+# add_library(q50_canbus
+#   src/${PROJECT_NAME}/q50_canbus.cpp
 # )
 
 ## Declare a cpp executable
-# add_executable(lane_detection_node src/lane_detection_node.cpp)
+# add_executable(q50_canbus_node src/q50_canbus_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(lane_detection_node lane_detection_generate_messages_cpp)
+# add_dependencies(q50_canbus_node q50_canbus_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(lane_detection_node
+# target_link_libraries(q50_canbus_node
 #   ${catkin_LIBRARIES}
 # )
 
@@ -170,11 +149,13 @@ target_link_libraries(LanePredictionNode ${lane_detector_LIBS} ${catkin_LIBRARIE
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS lane_detection lane_detection_node
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(TARGETS can_receive dummy_vehicles rviz_translator
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
@@ -195,7 +176,7 @@ target_link_libraries(LanePredictionNode ${lane_detector_LIBS} ${catkin_LIBRARIE
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_lane_detection.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_q50_canbus.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

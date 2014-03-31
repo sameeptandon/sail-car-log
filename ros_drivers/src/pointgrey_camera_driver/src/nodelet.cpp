@@ -142,7 +142,7 @@ private:
     it_.reset(new image_transport::ImageTransport(nh));
     image_transport::SubscriberStatusCallback cb = boost::bind(&PointGreyCameraNodelet::connectCb, this);
     it_pub_ = it_->advertiseCamera("image_raw", 1000, cb, cb);
-    connectCb();
+    //connectCb();
   }
   
   /*!

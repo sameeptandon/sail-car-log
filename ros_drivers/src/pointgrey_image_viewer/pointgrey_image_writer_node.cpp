@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <ros/callback_queue.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
@@ -43,8 +44,8 @@ public:
     }
     numframes = 0; 
     ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
-    // Subscrive to input video feed and publish output video feed
-    image_sub_ = it_.subscribe(topic, 1000, 
+    // Subscribe to input video feed and publish output video feed
+    image_sub_ = it_.subscribe(topic, 10000, 
       &ThreadedImageWriter::imageCb, this);
 
   }
@@ -90,6 +91,7 @@ int main(int argc, char** argv)
   ros::NodeHandle nh("~");
   ThreadedImageWriter ic(nh);
   ros::spin();
+  ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(2.0));
   ic.stop();
   return 0;
 }

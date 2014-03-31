@@ -39,6 +39,7 @@ void PointGreyCamera::setWhiteBalance(int red, int blue) {
 
 
 void PointGreyCamera::setTimeout(const double &timeout){
+  /*
   FC2Config pConfig;
   Error error = cam_.GetConfiguration(&pConfig);
   PointGreyCamera::handleError("PointGreyCamera::setTimeout Could not get camera configuration", error);
@@ -48,6 +49,7 @@ void PointGreyCamera::setTimeout(const double &timeout){
   }
   error = cam_.SetConfiguration(&pConfig);
   PointGreyCamera::handleError("PointGreyCamera::setTimeout Could not set camera configuration", error);
+  */
 }
 
 void PointGreyCamera::connect(){
@@ -62,6 +64,7 @@ void PointGreyCamera::connect(){
     PointGreyCamera::handleError("PointGreyCamera::connect Failed to connect to camera", error);
     
     // Enable metadata
+    /*
     EmbeddedImageInfo info;
     info.timestamp.onOff = true;
     info.gain.onOff = true;
@@ -73,6 +76,7 @@ void PointGreyCamera::connect(){
     info.ROIPosition.onOff = true;
     error = cam_.SetEmbeddedImageInfo(&info);
     PointGreyCamera::handleError("PointGreyCamera::connect Could not enable metadata", error);
+    */
 
     // set video frame rate and mode
     error = cam_.SetVideoModeAndFrameRate(VIDEOMODE_1280x960YUV422, FRAMERATE_60);
@@ -91,10 +95,11 @@ void PointGreyCamera::connect(){
     FC2Config pConfig;
     cam_.GetConfiguration(&pConfig);
     pConfig.grabMode = BUFFER_FRAMES;
-    pConfig.numBuffers = 100;
-    pConfig.isochBusSpeed = BUSSPEED_S5000;
-    pConfig.asyncBusSpeed = BUSSPEED_S5000;
-    pConfig.highPerformanceRetrieveBuffer = true;
+    //pConfig.numBuffers = 100;
+    //pConfig.isochBusSpeed = BUSSPEED_S5000;
+    //pConfig.asyncBusSpeed = BUSSPEED_S5000;
+    pConfig.grabTimeout = (int)(1000.0); // Needs to be in ms
+    //pConfig.highPerformanceRetrieveBuffer = true;
     cam_.SetConfiguration(&pConfig);
 
     //set external triggering
@@ -147,12 +152,15 @@ void PointGreyCamera::grabImage(sensor_msgs::Image &image, const std::string &fr
     // Retrieve an image
     Error error = cam_.RetrieveBuffer(&rawImage);
     PointGreyCamera::handleError("PointGreyCamera::grabImage Failed to retrieve buffer", error);
-    metadata_ = rawImage.GetMetadata();
+    //metadata_ = rawImage.GetMetadata();
     
     // Set header timestamp as embedded for now
+    /*
     TimeStamp embeddedTime = rawImage.GetTimeStamp();
     image.header.stamp.sec = embeddedTime.seconds;
     image.header.stamp.nsec = 1000*embeddedTime.microSeconds;
+    */
+    image.header.stamp = ros::Time::now();
     
     // Get camera info to check if color or black and white chameleon and check the bits per pixel.
     CameraInfo cInfo;
@@ -161,13 +169,17 @@ void PointGreyCamera::grabImage(sensor_msgs::Image &image, const std::string &fr
     uint8_t bitsPerPixel = rawImage.GetBitsPerPixel();
     
     // Set the image encoding
-    std::string imageEncoding = sensor_msgs::image_encodings::MONO8;
-    if(cInfo.isColorCamera && rawImage.GetBayerTileFormat() != NONE){
-	    imageEncoding = sensor_msgs::image_encodings::BAYER_BGGR8;
-    }
-	imageEncoding = sensor_msgs::image_encodings::YUV422;
+    //std::string imageEncoding = sensor_msgs::image_encodings::MONO8;
+    //if(cInfo.isColorCamera && rawImage.GetBayerTileFormat() != NONE){
+	//    imageEncoding = sensor_msgs::image_encodings::BAYER_BGGR8;
+    //}
 
-    fillImage(image, imageEncoding, rawImage.GetRows(), rawImage.GetCols(), rawImage.GetStride(), rawImage.GetData());
+    //std::string imageEncoding = sensor_msgs::image_encodings::YUV422;
+    //fillImage(image, imageEncoding, rawImage.GetRows(), rawImage.GetCols(), rawImage.GetStride(), rawImage.GetData());
+    std::string imageEncoding = sensor_msgs::image_encodings::BGR8;
+    Image bgrImage;
+    rawImage.Convert(PIXEL_FORMAT_BGR, &bgrImage);
+    fillImage(image, imageEncoding, bgrImage.GetRows(), bgrImage.GetCols(), bgrImage.GetStride(), bgrImage.GetData());
     image.header.frame_id = frame_id;
   } else if(cam_.IsConnected()){
     throw CameraNotRunningException("PointGreyCamera::grabImage: Camera is currently not running.  Please start the capture.");

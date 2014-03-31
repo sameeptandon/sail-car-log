@@ -5,7 +5,7 @@ module.exports = {
   getNextSuffix: function(dir, prefix) {
     files = fs.readdirSync(dir);
     gps_logs = files.filter(function(elem) {
-      return elem.indexOf('.out') != -1 && elem.indexOf(prefix) != -1;
+      return elem.indexOf('gps.bag') != -1 && elem.indexOf(prefix) != -1;
     });
     return String.fromCharCode('a'.charCodeAt(0) + gps_logs.length);
   },
