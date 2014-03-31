@@ -2,8 +2,8 @@
 
 #include "FlyCapture2.h"
 #include "CameraHelper.h"
-#include "../util/synchronized_buffer.h"
-#include "../util/fps_calc.h"
+#include "util/synchronized_buffer.h"
+#include "util/fps_calc.h"
 #include <boost/bind.hpp>
 #include <boost/thread.hpp>
 #include <string>
