@@ -19,6 +19,8 @@ from ColorMap import *
 import vtk
 import copy
 import cv2
+import h5py
+import os
 
 
 global actors
@@ -64,13 +66,22 @@ step = 10 # step between frames
 
 color_mode = 'INTENSITY'
 
-def exportData():
-        print 'exporting data'
-        export_data = np.row_stack(all_data)
-        print export_data
-        print export_data.shape
-        np.savez(sys.argv[3], data=export_data)
-        print 'export complete'
+
+def exportData(h5=False):
+    fname = sys.argv[3]
+    print 'exporting data'
+    export_data = np.row_stack(all_data)
+    print export_data
+    print export_data.shape
+    if h5:
+        f = h5py.File(fname, 'w')
+        dset = f.create_dataset('points', export_data.shape, dtype='f')
+        dset[...] = export_data
+        f.close()
+    else:
+        np.savez(fname, data=export_data)
+    print 'export complete'
+
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -275,10 +286,10 @@ if __name__ == '__main__':
 
     
     if '--full' in sys.argv:
-      total_num_frames = GPSData.shape[0]
-      start_fn = 0
-      step = 10
-      num_fn = int(total_num_frames / step)
+        total_num_frames = GPSData.shape[0]
+        start_fn = 0
+        step = 10
+        num_fn = int(total_num_frames / step)
 
 
     # this has been flipped for the q50
@@ -288,8 +299,11 @@ if __name__ == '__main__':
     integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
 
     if '--export' in sys.argv:
-      exportData()
-      sys.exit(0)
+        if ('--h5' in sys.argv):
+            exportData(h5=True)
+        else:
+            exportData()
+        sys.exit(0)
 
     # Render Window
     renderWindow = vtk.vtkRenderWindow()

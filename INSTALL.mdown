@@ -1,5 +1,16 @@
 # Installation
 
+## Requirements
+
+### python
+
+- numpy
+- scipy
+- vtk (`apt-get install python-vtk`)
+- cv/cv2 (`apt-get install python-opencv`)
+- matplotlib (`pip install matplotlib`)
+- h5py (`apt-get install libhdf5-serial-dev` + `pip install h5py`)
+
 ## OpenCV on gorgon
 
 See the [wiki page](https://github.com/sameeptandon/sail-car-log/wiki/Installing-opencv-on-gorgon).
