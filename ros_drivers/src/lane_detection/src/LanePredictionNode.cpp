@@ -14,6 +14,8 @@ static const std::string OPENCV_WINDOW = "Image window";
 LanePredictor* predictor;
 std::queue<std::vector<float> > mData;
 ros::Publisher delay_pub;
+bool calledOnce = false;
+
 
 void push_data(const std::vector<float>& data){
         mData.push(data);
@@ -23,6 +25,8 @@ void lanePredictorCb(const sensor_msgs::ImageConstPtr& msg){
     lane_detection::Delay delay_msg;
     delay_msg.cam_frame = msg->header.stamp;
     delay_msg.start_proc = ros::Time::now();
+    //delay_pub.publish(delay_msg);
+    //return;
     cv_bridge::CvImagePtr cv_ptr;
 	try
 	{
@@ -36,7 +40,9 @@ void lanePredictorCb(const sensor_msgs::ImageConstPtr& msg){
 
     //ROS_INFO("%u.%u",msg->header.stamp.sec,msg->header.stamp.nsec);
 	cv::Mat frame = cv_ptr->image;
-    
+    if(frame.cols==1280){
+        cv::pyrDown(frame, frame, cv::Size(frame.cols/2, frame.rows/2));
+    }
 	int frameSize = frame.cols*frame.rows*frame.channels();
     std::vector<float> img;
 	img.resize(frameSize);
