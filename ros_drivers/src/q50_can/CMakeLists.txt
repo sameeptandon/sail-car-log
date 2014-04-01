@@ -97,19 +97,19 @@ catkin_package(
 ## Build ##
 ###########
 
-add_executable(can_receive src/RXTX_CANCom.cpp src/can_receive.cpp)
-add_executable(rviz_translator src/rviz_translator.cpp)
-add_executable(dummy_vehicles src/dummy_vehicles_publisher.cpp)
+#add_executable(can_receive src/RXTX_CANCom.cpp src/can_receive.cpp)
+#add_executable(rviz_translator src/rviz_translator.cpp)
+#add_executable(dummy_vehicles src/dummy_vehicles_publisher.cpp)
 
-add_dependencies(can_receive q50_can_generate_messages_cpp)
-add_dependencies(rviz_translator q50_can_generate_messages_cpp)
-add_dependencies(dummy_vehicles q50_can_generate_messages_cpp)
+#add_dependencies(can_receive q50_can_generate_messages_cpp)
+#add_dependencies(rviz_translator q50_can_generate_messages_cpp)
+#add_dependencies(dummy_vehicles q50_can_generate_messages_cpp)
 
-target_link_libraries(rviz_translator ${catkin_LIBRARIES})
-target_link_libraries(dummy_vehicles ${catkin_LIBRARIES})
-target_link_libraries(can_receive /usr/include/canlib.h)
-target_link_libraries(can_receive /usr/lib/libcanlib.so)
-target_link_libraries(can_receive ${catkin_LIBRARIES})
+#target_link_libraries(rviz_translator ${catkin_LIBRARIES})
+#target_link_libraries(dummy_vehicles ${catkin_LIBRARIES})
+#target_link_libraries(can_receive /usr/include/canlib.h)
+#target_link_libraries(can_receive /usr/lib/libcanlib.so)
+#target_link_libraries(can_receive ${catkin_LIBRARIES})
 
 
 
@@ -149,13 +149,13 @@ target_link_libraries(can_receive ${catkin_LIBRARIES})
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS can_receive dummy_vehicles rviz_translator
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+#install(TARGETS can_receive dummy_vehicles rviz_translator
+#  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#)
 
-install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+#install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
