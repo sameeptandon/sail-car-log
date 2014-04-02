@@ -15,7 +15,7 @@ from transformations import euler_matrix
 
 # Note: the translation vector is currently unknown
 #R_from_i_to_l = euler_matrix(0,0.0001,-0.044)[0:3,0:3]
-R_from_i_to_l = euler_matrix(-0.03,-0.0121,-0.042)[0:3,0:3]
+R_from_i_to_l = euler_matrix(0.005,-0.0101,-0.029)[0:3,0:3]
 T_from_l_to_i = np.eye(4)
 T_from_l_to_i[0:3,0:3] = R_from_i_to_l.transpose()
 
@@ -32,17 +32,23 @@ def GetQ50CameraParams():
             R_to_c_from_l_in_camera_frame = euler_matrix(0.042, 0.0065, -0.002)[0:3,0:3] 
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([0.0, -0.33, 0.265]);
+            cam[i]['fx'] = 2221.8 # these parameters for this camera are not updated
+            cam[i]['fy'] = 2233.7
+            cam[i]['cu'] = 623.7
+            cam[i]['cv'] = 445.7
 
         elif i == 1:
-            R_to_c_from_l_in_camera_frame = euler_matrix(0.0425,0.0146,0.01150)[0:3,0:3] 
+            R_to_c_from_l_in_camera_frame = euler_matrix(0.062,0.0116,0.0115)[0:3,0:3] 
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.07, 0.325, 0.16]);
+            cam[i]['fx'] = 2254.762
+            cam[i]['fy'] = 2266.305
+            cam[i]['cu'] = 655.556
+            cam[i]['cv'] = 488.85
+            cam[i]['distort'] = np.array([-0.22146000368016028, 0.7987879799679538, -6.542034918087567e-05, 2.8680581938024014e-05, 0.0])
 
 
-        cam[i]['fx'] = 2221.8
-        cam[i]['fy'] = 2233.7
-        cam[i]['cu'] = 623.7
-        cam[i]['cv'] = 445.7
+
         cam[i]['KK'] = np.array([[cam[i]['fx'], 0.0, cam[i]['cu']],
                               [0.0, cam[i]['fy'], cam[i]['cv']],
                               [0.0, 0.0, 1.0]])

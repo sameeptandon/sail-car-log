@@ -14,8 +14,12 @@ from ArgParser import *
 WINDOW = 50*5
 
 def cloudToPixels(cam, pts_wrt_cam): 
+
     width = 4
-    pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3,:], pts_wrt_cam[2, :])))
+    (pix, J)  = cv2.projectPoints(pts_wrt_cam.transpose(), np.array([0.0,0.0,0.0]), np.array([0.0,0.0,0.0]), cam['KK'], cam['distort'])
+
+    pix = pix.transpose()
+    pix = np.around(pix[:, 0, :])
     pix = pix.astype(np.int32)
     mask = np.logical_and(True, pix[0,:] > 0 + width/2)
     mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
@@ -67,7 +71,9 @@ if __name__ == '__main__':
     while True:
         for count in range(5):
             (success, I) = video_reader.getNextFrame()
+
         t = video_reader.framenum - 1
+        print t
         mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t );
         map_data_copy = array(map_data[mask_window, :]);
 
