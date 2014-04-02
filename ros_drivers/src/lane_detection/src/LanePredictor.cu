@@ -63,11 +63,11 @@ LanePredictor::LanePredictor(int* argc, char* argv[],int stream_num){
 	tmpArray = gpuArrayAllocRM(DataType::FLOAT,indexArray->dim(),stream);
 	labels = gpuArrayAllocRM(DataType::FLOAT,reduce_col->dim(),stream);
 
-	allocScratchArray(data_buf,mean_lcn,filt_LCN,MEAN_STEP1,data_buf_scratch,mean_lcn_scratch,stream,MEAN_LCN_SPLITS);
-	allocScratchArray(mean_lcn_sqr,divide_lcn,filt_LCN,MEAN_STEP1,mean_lcn_sqr_scratch,divide_lcn_scratch,stream,DIVIDE_LCN_SPLITS);
-	allocScratchArray(divide_lcn,filt_1,W_1,FILT1_STEPX,divide_lcn_in_scratch,filt_1_scratch,stream,W1_SPLITS);
-	allocScratchArray(pool_1,filt_2,W_2,FILT2_STEPX,pool_1_scratch,filt_2_scratch,stream,W2_SPLITS);
-	allocScratchArray(pool_2,feat,W_3,FILT3_STEPX,pool_2_scratch,feat_scratch,stream,W3_SPLITS);
+	allocScratchArray(data_buf,mean_lcn,filt_LCN,MEAN_STEP2,data_buf_scratch,mean_lcn_scratch,stream,MEAN_LCN_SPLITS);
+	allocScratchArray(mean_lcn_sqr,divide_lcn,filt_LCN,MEAN_STEP2,mean_lcn_sqr_scratch,divide_lcn_scratch,stream,DIVIDE_LCN_SPLITS);
+	allocScratchArray(divide_lcn,filt_1,W_1,FILT1_STEPY,divide_lcn_in_scratch,filt_1_scratch,stream,W1_SPLITS);
+	allocScratchArray(pool_1,filt_2,W_2,FILT2_STEPY,pool_1_scratch,filt_2_scratch,stream,W2_SPLITS);
+	allocScratchArray(pool_2,feat,W_3,FILT3_STEPY,pool_2_scratch,feat_scratch,stream,W3_SPLITS);
     
     host_output = hostArrayAllocRM(DataType::FLOAT,DDim(1,NUM_CLASSIFIERS),stream);
 
@@ -165,21 +165,20 @@ void LanePredictor::init_filt_LCN(){
 void LanePredictor::allocScratchArray(  const Ptr<ArrayViewHandle>& input,
                                         const Ptr<ArrayViewHandle>& output,
                                         const Ptr<ArrayViewHandle>& filters,
-                                        int stepx,
+                                        int stepy,
                                         Ptr<ArrayViewHandle>& inputScratch,
                                         Ptr<ArrayViewHandle>& outputScratch,
                                         int stream,
                                         int num_splits){
-	if(num_splits==0){
-		num_splits = clp2((output->dim(2)*output->dim(3)-1)/65535+1);
-	}
-	int split_width = output->dim(2)/num_splits;
-	if(split_width*num_splits != output->dim(2)){
-		split_width += 1;
-	}
-	inputScratch =  gpuArrayAllocRM(input->dataType(),DDim(num_splits,input->dim(1),filters->dim(4)+(split_width-1)*stepx,
-		input->dim(3)),stream);
-	outputScratch = gpuArrayAllocRM(output->dataType(),DDim(num_splits,output->dim(1),split_width,output->dim(3)),stream);
+    if(num_splits==0){
+        num_splits = clp2((output->dim(2)*output->dim(3)-1)/65535+1);
+    }
+    int split_width = output->dim(3)/num_splits;
+    if(split_width*num_splits != output->dim(3)){
+        split_width += 1;
+    }
+    inputScratch =  gpuArrayAllocRM(input->dataType(),DDim(num_splits,input->dim(1),input->dim(2),filters->dim(5)+(split_width-1)*stepy),stream);
+    outputScratch = gpuArrayAllocRM(output->dataType(),DDim(num_splits,output->dim(1),output->dim(2),split_width),stream);
 }
 
 void LanePredictor::gpuFilterTimesLarge(  const Ptr<ArrayViewHandle>& filters,
@@ -194,31 +193,31 @@ void LanePredictor::gpuFilterTimesLarge(  const Ptr<ArrayViewHandle>& filters,
 	if(num_splits==0){
 		num_splits = clp2((output->dim(2)*output->dim(3)-1)/65535+1);
 	}
-	int out_split_width = output->dim(2)/num_splits;
-	if(out_split_width*num_splits != output->dim(2)){
+	int out_split_width = output->dim(3)/num_splits;
+	if(out_split_width*num_splits != output->dim(3)){
 		out_split_width += 1;
 	}
-	int in_split_width = filters->dim(4)+(out_split_width-1)*stepx;
+	int in_split_width = filters->dim(5)+(out_split_width-1)*stepy;
 	Ptr<ArrayViewHandle> input_split;
 	for(int i=0;i<num_splits;i++){
-		int in_split_offset = i*out_split_width*stepx;
-	  input_split = input->view(DDim(0,0,in_split_offset,0),DDim(input->dim(0),input->dim(1),in_split_width,input->dim(3)));
+		int in_split_offset = i*out_split_width*stepy;
+	    input_split = input->view(DDim(0,0,0,in_split_offset),DDim(input->dim(0),input->dim(1),input->dim(2),in_split_width));
 		gpuCopy(input_split,inputScratch->view(DDim(i,0,0,0),input_split->dim()),stream);
-		if((in_split_width+in_split_offset) > input->dim(2)){
+		if((in_split_width+in_split_offset) > input->dim(3)){
 			break;
 		}
 	}
 	gpuFilterTimes(filters,transpose,stepz,stepx,stepy,inputScratch,outputScratch,stream);
 	Ptr<ArrayViewHandle> output_split;
 	for(int i=0;i<num_splits;i++){
-		if(out_split_width*(i+1) > output->dim(2)){
-			output_split = output->view(DDim(0,0,i*out_split_width,0),DDim(output->dim(0),output->dim(1),
-				output->dim(2)-i*out_split_width,output->dim(3)));
+		if(out_split_width*(i+1) > output->dim(3)){
+			output_split = output->view(DDim(0,0,0,i*out_split_width),DDim(output->dim(0),output->dim(1),
+				output->dim(2),output->dim(3)-i*out_split_width));
 			gpuCopy(outputScratch->view(DDim(i,0,0,0),output_split->dim()),output_split,stream);
 			break;
 		}else{
-			output_split = output->view(DDim(0,0,i*out_split_width,0),DDim(output->dim(0),output->dim(1),
-				out_split_width,output->dim(3)));
+			output_split = output->view(DDim(0,0,0,i*out_split_width),DDim(output->dim(0),output->dim(1),
+				output->dim(2),out_split_width));
 			gpuCopy(outputScratch->view(DDim(i,0,0,0),output_split->dim()),output_split,stream);
 		}
 	}
