@@ -53,9 +53,8 @@ get_hdf_attribute(H5::H5File &file, std::string dataset_path, std::string attr_n
   attribute.close();
 }
 
-// Untested
 template <typename AttrType> void
-write_hdf_attribute(H5::H5File file, std::string dataset_path, std::string attr_name, const AttrType& attr)
+write_hdf_attribute(H5::H5File &file, std::string dataset_path, std::string attr_name, const AttrType& attr)
 {
   H5::DataSet dataset = file.openDataSet(dataset_path);
   // Currently only scalars
