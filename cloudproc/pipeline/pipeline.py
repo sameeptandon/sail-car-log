@@ -8,11 +8,12 @@ from subprocess import check_call
 from pipeline_config import DATA_DIR, LDR_DIR, POINTS_H5_DIR,\
         PCD_DIR, PCD_DOWNSAMPLED_DIR, NUM_CPUS, DSET_DIR, DSET,\
         SAIL_CAR_LOG_PATH, CLOUDPROC_PATH, DOWNSAMPLE_LEAF_SIZE,\
-        K_NORM_EST, PCD_DOWNSAMPLED_NORMALS_DIR
+        K_NORM_EST, PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR,\
+        ICP_ITERS, ICP_MAX_DIST
 
 
 dirs = [DATA_DIR, LDR_DIR, POINTS_H5_DIR, PCD_DIR,
-        PCD_DOWNSAMPLED_DIR, PCD_DOWNSAMPLED_NORMALS_DIR]
+        PCD_DOWNSAMPLED_DIR, PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR]
 MKDIRS = [mkdir(d) for d in dirs]
 
 # NOTE chdir into dset dir so can just specify relative paths to data
@@ -64,9 +65,27 @@ def estimate_normals(input_file, output_file):
     check_call(cmd, shell=True)
 
 
+def file_num(file_path):
+    return int(os.path.splitext(os.path.basename(file_path))[0])
+
+
 @follows('estimate_normals')
-def register_clouds():
-    pass
+@transform('./pcd_downsampled_normals/*.pcd',
+           regex('./pcd_downsampled_normals/(.*?).pcd'),
+           r'./icp_transforms/\1.h5')
+def register_clouds(input_file, output_file):
+    icp_reg = '%s/bin/register_clouds' % CLOUDPROC_PATH
+    if file_num(input_file) == 0:  # no transform for first pcd, touch empty file
+        check_call('touch %s' % output_file, shell=True)
+        return
+    # cloud to apply transform to
+    src = input_file
+    # cloud to align to (previous index)
+    tgt = os.path.join(os.path.dirname(input_file), str(file_num(input_file) - 1) + '.pcd')
+    cmd = '{icp_reg} --pcd_tgt {tgt} --pcd_src {src} --h5_file {h5f} --icp_iters {iters} --max_dist {dist}'.format(
+            icp_reg=icp_reg, tgt=tgt, src=src, h5f=output_file, iters=ICP_ITERS, dist=ICP_MAX_DIST)
+    print cmd
+    check_call(cmd, shell=True)
 
 
 @follows('register_clouds')

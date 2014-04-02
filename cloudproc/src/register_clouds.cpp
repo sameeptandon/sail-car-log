@@ -24,8 +24,9 @@ namespace fs = boost::filesystem;
 
 struct Options
 {
-    std::string pcd_dir;
-    std::string out_dir;
+    std::string pcd_tgt;
+    std::string pcd_src;
+    std::string h5_file;
     int icp_iters;
     float max_dist;
     po::options_description desc;
@@ -37,8 +38,9 @@ int options(int ac, char ** av, Options& opts)
   po::options_description desc = opts.desc;
   desc.add_options()("help", "Produce help message.");
   desc.add_options()
-    ("pcd_dir", po::value<std::string>(&opts.pcd_dir)->required(), "path containing pcd files")
-    ("out_dir", po::value<std::string>(&opts.out_dir)->default_value(""), "path to output files, defaults to pcd_dir")
+    ("pcd_tgt", po::value<std::string>(&opts.pcd_tgt)->required(), "pcd of cloud to align to")
+    ("pcd_src", po::value<std::string>(&opts.pcd_src)->required(), "pcd of cloud to align")
+    ("h5_file", po::value<std::string>(&opts.h5_file)->required(), "h5 file to alignment information to")
     ("icp_iters", po::value<int>(&opts.icp_iters)->default_value(5), "number of ICP iterations to run")
     ("max_dist", po::value<float>(&opts.max_dist)->default_value(1.0), "maximum ICP correspondence distance")
     ;
@@ -133,86 +135,26 @@ int main(int argc, char** argv)
     if (options(argc, argv, opts))
         return 1;
 
-    // Read in all the PCD files
+    // Read in the PCD files
 
-    fs::path pcd_path(opts.pcd_dir);
-    assert(fs::exists(pcd_path) && fs::is_directory(pcd_path));
+    PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
+    PointCloudWithNormals::Ptr tgt_cloud(new PointCloudWithNormals());
+    load_cloud(opts.pcd_src, src_cloud);
+    load_cloud(opts.pcd_tgt, tgt_cloud);
 
-    fs::directory_iterator end_iter;
-    typedef std::multimap<int, fs::path> int_path_map;
-    int_path_map pcd_paths;
+    PointCloudWithNormals::Ptr aligned_cloud(new PointCloudWithNormals());
+    Eigen::Matrix4f transform;
 
-    boost::smatch match;
-    boost::regex re("(\\d+).pcd");
-    for (fs::directory_iterator dir_iter(pcd_path); dir_iter != end_iter; ++dir_iter)
-    {
-        if (fs::is_regular_file(dir_iter->status()))
-        {
-            fs::path p = *dir_iter;
-            std::string leaf = p.leaf().string();
-            if (boost::regex_match(leaf, match, re))
-            {
-                std::string object_id(match[1].first, match[1].second);
-                int obj_id = st2num<int>(object_id.c_str());
-                pcd_paths.insert(int_path_map::value_type(obj_id, *dir_iter));
-            }
-        }
-    }
+    float score = pair_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist);
 
-    PointCloudWithNormals::Ptr full_cloud(new PointCloudWithNormals());
+    transform.transposeInPlace();  // Since H5 uses row-major
 
-    std::vector<Eigen::VectorXf> transforms;
-    Eigen::VectorXf fitness_scores(pcd_paths.size() - 1);
-
-    int k = 0;
-    for (int_path_map::iterator iter = pcd_paths.begin(); iter != pcd_paths.end(); ++iter)
-    {
-        std::string pcd_file = iter->second.string();
-        std::cout << "reading " << pcd_file << std::endl;
-        if (full_cloud->size() == 0)
-        {
-            // Load the initial cloud
-            load_cloud(pcd_file, full_cloud);
-            continue;
-        }
-
-        PointCloudWithNormals::Ptr cloud(new PointCloudWithNormals());
-        load_cloud(pcd_file, cloud);
-
-        // Align
-
-        Eigen::Matrix4f transform;
-        PointCloudWithNormals::Ptr aligned_cloud(new PointCloudWithNormals());
-        float score = pair_align(cloud, full_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist);
-
-        *full_cloud += *aligned_cloud;
-
-        transforms.push_back(Eigen::Map<Eigen::VectorXf>(transform.data(), transform.size()));
-        fitness_scores(k) = score;
-        k++;
-    }
-
-    Eigen::MatrixXf transforms_mat(transforms.size(), 16);
-    for (int k = 0; k < transforms.size(); k++)
-        transforms_mat.row(k) << transforms.at(k).transpose();
-
-    // Save the transforms and fitness scores in h5 file
-
-    fs::path out_path = pcd_path;
-    if (opts.out_dir != "")
-        out_path = opts.out_dir;
-
-    H5::H5File file((out_path / "icp.h5").string(), H5F_ACC_TRUNC);
-    std::cout << "writing transforms" << std::endl;
-    write_hdf_dataset(file, "/transforms", transforms_mat, H5::PredType::NATIVE_FLOAT);
-    std::cout << "writing fitness_scores" << std::endl;
-    write_hdf_dataset(file, "/fitness_scores", fitness_scores, H5::PredType::NATIVE_FLOAT);
+    H5::H5File file(opts.h5_file, H5F_ACC_TRUNC);
+    write_hdf_dataset(file, "/transform", transform, H5::PredType::NATIVE_FLOAT);
+    write_hdf_attribute(file, "/transform", "fitness_score", &score);
+    write_hdf_attribute(file, "/transform", "pcd_src", opts.pcd_src);
+    write_hdf_attribute(file, "/transform", "pcd_tgt", opts.pcd_tgt);
     file.close();
-
-    // Save the merged point cloud
-
-    std::cout << "saving pcd" << std::endl;
-    pcl::io::savePCDFile((out_path / "merged.pcd").string(), *full_cloud, true);
 
     return 0;
 }

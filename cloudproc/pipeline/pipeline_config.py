@@ -17,9 +17,13 @@ POINTS_H5_DIR = pjoin(DSET_DIR, 'h5')
 PCD_DIR = pjoin(DSET_DIR, 'pcd')
 PCD_DOWNSAMPLED_DIR = pjoin(DSET_DIR, 'pcd_downsampled')
 PCD_DOWNSAMPLED_NORMALS_DIR = pjoin(DSET_DIR, 'pcd_downsampled_normals')
+ICP_TRANSFORMS_DIR = pjoin(DSET_DIR, 'icp_transforms')
 
 DOWNSAMPLE_LEAF_SIZE = 1.0
 K_NORM_EST = 30
+
+ICP_ITERS = 5
+ICP_MAX_DIST = 1.0
 
 '''
 Print out variable values
