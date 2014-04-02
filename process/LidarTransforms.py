@@ -40,6 +40,26 @@ def loadLDRCamMap(frame_cloud_map):
 
     return clouds
 
+def loadRDR(rdrfile):
+    # OBJ_fmt = 'O {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {rcs} {w} {l}'
+    # TGT_fmt = 'T {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {traj} {w} {l} {obst_probab} {exist_probab} {rel_acc} {type} {lost_reason}'
+    pts = {}
+    for line in open(rdrfile):
+        line = line.rstrip()
+        # Assuming that tgt messages happen after obj messages
+        tag = line[0]
+        data = line[2:].rstrip()
+        tokens = [float(e) for e in data.split(' ')]
+        if tag == 'T':
+            (id, dist, lat_dist, rel_spd, dyn_prop, traj, w, l,
+             obst_probab, exist_probab, rel_acc, type, lost_reason) = tokens
+        else:
+            (id, dist, lat_dist, rel_spd, dyn_prop, rcs, w, l) = tokens
+        
+        pts[id] = [dist + 1.5, lat_dist, -1.5, w, l, 10 if tag == 'T' else -10]
+
+    return np.array(pts.values())
+
 def loadRDRCamMap(frame_cloud_map):
     map_file = open(frame_cloud_map, 'r')
     points = []
