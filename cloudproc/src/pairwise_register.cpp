@@ -182,9 +182,17 @@ void loadData (int argc, char **argv, std::vector<PCD, Eigen::aligned_allocator<
       PCD m;
       m.f_name = argv[i];
       pcl::io::loadPCDFile (argv[i], *m.cloud);
+
       //remove NAN points from the cloud
       std::vector<int> indices;
       pcl::removeNaNFromPointCloud(*m.cloud,*m.cloud, indices);
+
+      // Add noise
+      if (i == 2) {
+          Eigen::Matrix4f shift = Eigen::Matrix4f::Identity ();
+          shift(2, 3) = 10;  // translation in z
+          pcl::transformPointCloud(*m.cloud, *m.cloud, shift);
+      }
 
       models.push_back (m);
     }
@@ -253,7 +261,8 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
   reg.setTransformationEpsilon (1e-6);
   // Set the maximum distance between two correspondences (src<->tgt) to 10cm
   // Note: adjust this based on the size of your datasets
-  reg.setMaxCorrespondenceDistance (0.1);  
+  // FIXME PARAM
+  reg.setMaxCorrespondenceDistance (10);  
   // Set the point representation
   reg.setPointRepresentation (boost::make_shared<const MyPointRepresentation> (point_representation));
 
@@ -267,9 +276,10 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
   Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), prev, targetToSource;
   PointCloudWithNormals::Ptr reg_result = points_with_normals_src;
   reg.setMaximumIterations (2);
-  for (int i = 0; i < 30; ++i)
+  float prev_fitness_score = std::numeric_limits<float>::max();
+  for (int i = 0; i < 5; ++i)
   {
-    PCL_INFO ("Iteration Nr. %d.\n", i);
+    PCL_INFO ("iter: %d\n", i);
 
     // save cloud for visualization purpose
     points_with_normals_src = reg_result;
@@ -291,6 +301,11 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
 
     // visualize current state
     showCloudsRight(points_with_normals_tgt, points_with_normals_src);
+
+    PCL_INFO("fitness score: %f\n", reg.getFitnessScore());
+
+    if (reg.getFitnessScore() > prev_fitness_score)
+        break;
   }
 
     //
@@ -364,11 +379,13 @@ int main (int argc, char** argv)
     //update the global transform
     GlobalTransform = pairTransform * GlobalTransform;
 
-        //save aligned pair, transformed into the first cloud's frame
+    //save aligned pair, transformed into the first cloud's frame
     std::stringstream ss;
     ss << i << ".pcd";
     pcl::io::savePCDFile (ss.str (), *result, true);
 
+    std::cout << "final transformation:" << std::endl;
+    std::cout << GlobalTransform << std::endl;
   }
 }
 /* ]--- */

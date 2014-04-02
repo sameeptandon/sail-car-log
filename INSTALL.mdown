@@ -8,8 +8,12 @@
 - scipy
 - vtk (`apt-get install python-vtk`)
 - cv/cv2 (`apt-get install python-opencv`)
-- matplotlib (`pip install matplotlib`)
+- matplotlib (`apt-get install python-matplotlib`)
 - h5py (`apt-get install libhdf5-serial-dev` + `pip install h5py`)
+
+### C++
+
+TODO
 
 ## OpenCV on gorgon
 
@@ -21,3 +25,7 @@ If playing the video using `ProjectMapOnVideo.py` is very slow on OS X,
 you may need to install OpenCV with Qt4:
 
 `port install opencv +qt4 +tbb +eigen +opencl +python27`
+
+## PCL on OS X
+
+TODO

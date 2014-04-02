@@ -4,7 +4,7 @@ project(cloudproc)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-find_package(Boost COMPONENTS program_options system filesystem REQUIRED)
+find_package(Boost COMPONENTS program_options system filesystem regex REQUIRED)
 if (Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIR})
     add_definitions( "-DHAS_BOOST" )
@@ -15,6 +15,19 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
+# Executables
 
 add_executable(h5_to_pcd src/h5_to_pcd.cpp)
 target_link_libraries(h5_to_pcd ${PCL_LIBRARIES} hdf5 hdf5_cpp ${Boost_LIBRARIES})
+
+add_executable(register_clouds src/register_clouds.cpp)
+target_link_libraries(register_clouds ${PCL_LIBRARIES} ${Boost_LIBRARIES} hdf5 hdf5_cpp)
+
+add_executable(pairwise_register src/pairwise_register.cpp)
+target_link_libraries(pairwise_register ${PCL_LIBRARIES})
+
+add_executable(downsample_cloud src/downsample_cloud.cpp)
+target_link_libraries(downsample_cloud ${PCL_LIBRARIES})
+
+add_executable(estimate_normals src/estimate_normals.cpp)
+target_link_libraries(estimate_normals ${PCL_LIBRARIES})
