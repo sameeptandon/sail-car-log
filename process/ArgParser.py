@@ -9,12 +9,14 @@ def parse_args(folder, video_file):
     basename = folder + '/' + video_file[:-5]
 
     map_file = basename + '.map'
-    frames_folder = basename + '_frames/'
+    lidar_folder = basename + '_frames/'
+    radar_folder = basename + '_rdr/'
     gps_file = basename + '_gps.out'
     video_file = folder + '/' + video_file
 
     return {'map': map_file,
-            'frames': frames_folder,
+            'frames': lidar_folder,
+            'radar': radar_folder,
             'gps': gps_file,
             'video': video_file}
 
