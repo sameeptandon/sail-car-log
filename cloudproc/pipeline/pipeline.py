@@ -9,18 +9,31 @@ from pipeline_config import DATA_DIR, LDR_DIR, POINTS_H5_DIR,\
         PCD_DIR, PCD_DOWNSAMPLED_DIR, NUM_CPUS, DSET_DIR, DSET,\
         SAIL_CAR_LOG_PATH, CLOUDPROC_PATH, DOWNSAMPLE_LEAF_SIZE,\
         K_NORM_EST, PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR,\
-        ICP_ITERS, ICP_MAX_DIST
+        ICP_ITERS, ICP_MAX_DIST, REMOTE_DATA_DIR, REMOTE_FILES
+from pipeline_utils import file_num
 
+# TODO Commands to scp stuff over
 
-dirs = [DATA_DIR, LDR_DIR, POINTS_H5_DIR, PCD_DIR,
-        PCD_DOWNSAMPLED_DIR, PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR]
+dirs = [POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
+        PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR]
 MKDIRS = [mkdir(d) for d in dirs]
 
 # NOTE chdir into dset dir so can just specify relative paths to data
 os.chdir(DSET_DIR)
 
+DOWNLOADS = list()
+for f in REMOTE_FILES:
+    DOWNLOADS.append([None, f])
 
 @follows(*MKDIRS)
+@files(DOWNLOADS)
+def download_files(dummy, local_file):
+    cmd = 'rsync -vr --ignore-existing %s/%s .' % (REMOTE_DATA_DIR, local_file)
+    print cmd
+    check_call(cmd, shell=True)
+
+
+@follows("download_files")
 @posttask(touch_file('%s/sentinel' % POINTS_H5_DIR))
 def convert_ldr_to_h5():
     if os.path.exists('%s/sentinel' % POINTS_H5_DIR):
@@ -65,10 +78,6 @@ def estimate_normals(input_file, output_file):
     check_call(cmd, shell=True)
 
 
-def file_num(file_path):
-    return int(os.path.splitext(os.path.basename(file_path))[0])
-
-
 @follows('estimate_normals')
 @transform('./pcd_downsampled_normals/*.pcd',
            regex('./pcd_downsampled_normals/(.*?).pcd'),
@@ -91,6 +100,13 @@ def register_clouds(input_file, output_file):
 @follows('register_clouds')
 def build_static_map():
     pass
+
+
+def clean():
+    for d in dirs:
+        print 'deleting %s' % d
+        if os.path.exists(d):
+            check_call('rm -r %s' % d, shell=True)
 
 
 if __name__ == '__main__':
@@ -123,6 +139,7 @@ if __name__ == '__main__':
                                             [],
                                             forcedtorun_tasks=TORUN,
                                             verbose=2),
+        'clean': clean
     }
 
     for key in tasks:
