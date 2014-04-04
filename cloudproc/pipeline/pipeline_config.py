@@ -9,16 +9,18 @@ NUM_CPUS = multiprocessing.cpu_count() - 1
 
 DATA_DIR = '/media/sdb'
 
-DSET = '280N_a2'
+DSET = '17N_b2'
 DSET_DIR = pjoin(DATA_DIR, DSET)
 
 # Stuff to scp over
-REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/q50_data/3-11-14-280'
+REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/sameep/4-2-14-monterey'
 REMOTE_FILES = [
     'split_\\*_%s.avi' % DSET,
-    '%s_gps.out' % DSET[:-1],
-    '%s_frames' % DSET[:-1],
-    '%s.map' % DSET[:-1],
+    #'%s_gps.out' % DSET[:-1],
+    #'%s_frames' % DSET[:-1],
+    #'%s.map' % DSET[:-1],
+    '%s_*.bag' % DSET[:-1],
+    '%s.pcap' % DSET[:-1]
 ]
 
 LDR_DIR = pjoin(DSET_DIR, '%s_frames' % DSET[:-1])
