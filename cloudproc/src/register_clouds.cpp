@@ -9,9 +9,11 @@
 
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/filters/filter.h>
 
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
+#include <pcl/registration/correspondence_estimation.h>
 
 #include <pcl/visualization/pcl_visualizer.h>
 
@@ -101,32 +103,37 @@ float pair_align (const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
     // Align
 
     ZPointRepresentation point_representation;
-    float alpha[4] = {1.0, 1.0, 5.0, 1.0};   // PARAM
+    float alpha[4] = {1.0, 1.0, 1.0, 1.0};   // PARAM
     point_representation.setRescaleValues (alpha);
 
     pcl::IterativeClosestPointNonLinear<PointNormalT, PointNormalT> reg;
     reg.setTransformationEpsilon (1e-6);  // Change in transformation for (convergence) // PARAM
-      reg.setPointRepresentation (boost::make_shared<const ZPointRepresentation> (point_representation));
     reg.setMaxCorrespondenceDistance (max_dist);
-    reg.setMaximumIterations (2);  // Maximum iterations to run internal optimization // PARAM
-
-    reg.setInputTarget(tgt_cloud);
-
-    Eigen::Matrix4f T_i = Eigen::Matrix4f::Identity();
-    Eigen::Matrix4f prev;
+      reg.setPointRepresentation (boost::make_shared<const ZPointRepresentation> (point_representation));
 
     PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
     pcl::copyPointCloud (*cloud_src, *src_cloud);
+
+    reg.setInputSource(src_cloud);
+    reg.setInputTarget(tgt_cloud);
+
+    reg.setMaximumIterations (2);  // Maximum iterations to run internal optimization // PARAM
+
+    Eigen::Matrix4f T_i = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f prev;
 
     float prev_fitness_score = std::numeric_limits<float>::max();
     for (int i = 0; i < icp_iters; ++i)
     {
         reg.setInputSource(src_cloud);
         reg.align(*aligned_cloud);
+
         src_cloud = aligned_cloud;
 
         // Accumulate transformation
         T_i = reg.getFinalTransformation () * T_i;
+        //std::cout << "T_" << i << std::endl;
+        //std::cout << T_i << std::endl;
 
         // If the difference between this transformation and the previous one
         // is smaller than the threshold, refine the process by reducing
@@ -150,6 +157,71 @@ float pair_align (const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
     return reg.getFitnessScore();
 }
 
+
+float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr tgt_cloud, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist)
+{
+    final_transform = Eigen::Matrix4f::Identity();
+    PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
+    src_cloud = cloud_src;
+    aligned_cloud = src_cloud;
+
+    std::vector<float> normalized_errors;
+
+    for (int k = 0; k < iters; k++)
+    {
+        // Estimate correspondences
+
+        pcl::registration::CorrespondenceEstimation<PointNormalT, PointNormalT> correspondence_est;
+        correspondence_est.setInputSource(src_cloud);
+        correspondence_est.setInputTarget(tgt_cloud);
+
+        pcl::Correspondences all_correspondences;
+        correspondence_est.determineCorrespondences(all_correspondences, max_dist);
+
+        std::vector<float> z_translations;
+        // TODO May want to use these at some point
+        std::vector<Eigen::Vector3f> translations;
+
+        float normalized_error = 0;
+
+        BOOST_FOREACH(pcl::Correspondence c, all_correspondences)
+        {
+            int idx_query = c.index_query;
+            int idx_match = c.index_match;
+
+            PointNormalT p_query = src_cloud->at(idx_query);
+            PointNormalT p_match = tgt_cloud->at(idx_match);
+
+            z_translations.push_back(p_match.z - p_query.z);
+
+            Eigen::Vector3f translation;
+            translation << p_match.x - p_query.x, p_match.y - p_query.y, p_match.z - p_query.z;
+            normalized_error += translation.norm();
+            translations.push_back(translation);
+        }
+
+        normalized_error = normalized_error / all_correspondences.size();
+        normalized_errors.push_back(normalized_error);
+
+        // Shift src_cloud;
+
+        std::sort(z_translations.begin(), z_translations.end());
+        float z_shift = z_translations[z_translations.size() / 2];
+        Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+        transform(2, 3) = z_shift;
+
+        pcl::transformPointCloud(*src_cloud, *aligned_cloud, transform);
+        src_cloud = aligned_cloud;
+
+        final_transform = transform * final_transform;
+
+        PCL_INFO("iter %d, shift %f, error %f\n", k, z_shift, normalized_error);
+    }
+
+    return normalized_errors.back();
+}
+
+
 void load_cloud(std::string pcd_path, PointCloudWithNormals::Ptr cloud)
 {
     if (pcl::io::loadPCDFile(pcd_path, *cloud) < 0)
@@ -157,6 +229,8 @@ void load_cloud(std::string pcd_path, PointCloudWithNormals::Ptr cloud)
         std::cout << "Error loading input point cloud " << pcd_path << std::endl;
         throw;
     }
+    std::vector<int> indices;
+    pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
 }
 
 int main(int argc, char** argv)
@@ -169,13 +243,14 @@ int main(int argc, char** argv)
 
     PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
     PointCloudWithNormals::Ptr tgt_cloud(new PointCloudWithNormals());
-    load_cloud(opts.pcd_src, src_cloud);
-    load_cloud(opts.pcd_tgt, tgt_cloud);
+    load_cloud(opts.pcd_tgt, src_cloud);
+    load_cloud(opts.pcd_src, tgt_cloud);
 
     PointCloudWithNormals::Ptr aligned_cloud(new PointCloudWithNormals());
     Eigen::Matrix4f transform;
 
-    float score = pair_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist);
+    //float score = pair_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist);
+    float score = trans_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist);
 
     if (opts.debug)
     {
@@ -187,8 +262,12 @@ int main(int argc, char** argv)
 
         pcl::visualization::PointCloudColorHandlerCustom<pcl::PointNormal> green(tgt_cloud, 0, 255, 0);
         viz.addPointCloud(tgt_cloud, green, "tgt_cloud");
+        viz.addPointCloudNormals<PointNormalT>(tgt_cloud, 1, 0.5f, "tgt_cloud_normals", 0);
+
         pcl::visualization::PointCloudColorHandlerCustom<pcl::PointNormal> blue(tgt_cloud, 0, 0, 255);
         viz.addPointCloud(src_cloud, blue, "src_cloud");
+        viz.addPointCloudNormals<PointNormalT>(src_cloud, 1, 0.5f, "src_cloud_normals", 0);
+
         pcl::visualization::PointCloudColorHandlerCustom<pcl::PointNormal> red(aligned_cloud, 255, 0, 0);
         viz.addPointCloud(aligned_cloud, red, "aligned_cloud");
 
