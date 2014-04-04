@@ -13,7 +13,7 @@ class ImageGrabberCallback:
 
     def __init__(self, map_file):
         self.map_file = map_file
-        self.radar_params = LoadParameters('q50_4_2_14_params')['radar']
+        self.radar_params = LoadParameters('q50_4_3_14_params')['radar']
 
         self.lidar_actor = None
 
