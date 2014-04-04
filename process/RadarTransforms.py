@@ -1,5 +1,7 @@
 import numpy as np
 import os
+from transformations import euler_matrix
+
 
 def loadRDR(rdrfile):
     # OBJ_fmt = 'O {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {rcs} {w} {l}'
@@ -39,3 +41,14 @@ def loadRDRCamMap(frame_cloud_map):
     
     map_file.close()
     return points
+
+def calibrateRadarPts(pts, Rxyz=(0, 0, -.015), Txyz=(3.17, 0.4, -1.64)):
+    #T_pts[id] = [dist + 3.17, lat_dist + .4, -1.64, l, w]
+    (Tx, Ty, Tz) = Txyz
+    (Rx, Ry, Rz) = Rxyz
+    R = euler_matrix(Rx, Ry, Rz)[0:3,0:3]
+
+    pts[:, 0] += Tx
+    pts[:, 1] += Ty
+    pts[:, 2] += Tz
+    return np.dot(R, pts.transpose()).transpose()

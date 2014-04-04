@@ -38,17 +38,6 @@ def transformLidarPointsToCameraPoints(points, cam):
 
     return pts_wrt_camera_t
 
-def calibrateRadarPts(pts, Rxyz, Txyz=(3.17, 0.4, -1.64)):
-    #T_pts[id] = [dist + 3.17, lat_dist + .4, -1.64, l, w]
-    (Tx, Ty, Tz) = Txyz
-    (Rx, Ry, Rz) = Rxyz
-    R = euler_matrix(Rx, Ry, Rz)[0:3,0:3]
-
-    pts[:, 0] += Tx
-    pts[:, 1] += Ty
-    pts[:, 2] += Tz
-    return np.dot(R, pts.transpose()).transpose()
-
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
