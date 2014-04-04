@@ -54,22 +54,23 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
 
-    cam = GetQ50CameraParams()[cam_num - 1] 
+    params = LoadParameters('q50_3_7_14_params')
+    cam = params['cam'][cam_num-1]
     video_reader = VideoReader(args['video'])
     gps_reader = GPSReader(args['gps'])
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
     
-    T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
+    T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
 
     all_data = np.load(sys.argv[3])
     map_data = all_data['data']
-    map_data = map_data[map_data[:,3] > 60, :]
+    #map_data = map_data[map_data[:,3] > 60, :]
     # map points are defined w.r.t the IMU position at time 0
     # each entry in map_data is (x,y,z,intensity,framenum). 
 
     while True:
-        for count in range(5):
+        for count in range(20):
             (success, I) = video_reader.getNextFrame()
 
         t = video_reader.framenum - 1
