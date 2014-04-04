@@ -13,6 +13,7 @@ DSET = '17N_b2'
 DSET_DIR = pjoin(DATA_DIR, DSET)
 
 # Stuff to scp over
+# TODO Add command for running generate_frames_and_map to pipeline
 REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/sameep/4-2-14-monterey'
 REMOTE_FILES = [
     'split_\\*_%s.avi' % DSET,
