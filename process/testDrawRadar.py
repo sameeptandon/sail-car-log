@@ -4,6 +4,7 @@
 import sys, os
 from VtkRenderer import *
 import numpy as np
+from RadarTransforms import *
 from LidarTransforms import *
 
 
@@ -18,9 +19,11 @@ class ImageGrabberCallback:
         self.clouds = loadLDRCamMap(map_file)
         self.rdr_pts = loadRDRCamMap(map_file)
         self.count = 0
+
     def execute(self, iren, event):
         radar_data = loadRDR(self.rdr_pts[self.count])
-        self.radar_cloud = VtkPointCloud(radar_data[:, :3], radar_data[:,5])
+        radar_data[0][:, :3] = calibrateRadarPts(radar_data[0][:, :3])
+        self.radar_cloud = VtkBoundingBox(radar_data[0][0,:])
         
         lidar_data = loadLDR(self.clouds[self.count])
         self.lidar_cloud = VtkPointCloud(lidar_data[:, :3], lidar_data[:,3])
@@ -28,8 +31,7 @@ class ImageGrabberCallback:
         fren = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
 
         fren.RemoveActor(self.radar_actor)
-        self.radar_actor = self.radar_cloud.get_vtk_cloud()
-        self.radar_actor.GetProperty().SetPointSize(5)
+        self.radar_actor = self.radar_cloud.get_vtk_box()
         fren.AddActor(self.radar_actor)
 
         fren.RemoveActor(self.lidar_actor)
@@ -61,5 +63,5 @@ if __name__ == '__main__':
     cb = ImageGrabberCallback(sys.argv[1])
     
     renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
-    timerId = renderWindowInteractor.CreateRepeatingTimer(10)
+    timerId = renderWindowInteractor.CreateRepeatingTimer(1)
     renderWindowInteractor.Start()
