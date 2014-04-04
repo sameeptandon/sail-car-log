@@ -20,7 +20,7 @@ add_definitions(${PCL_DEFINITIONS})
 add_executable(h5_to_pcd src/h5_to_pcd.cpp)
 target_link_libraries(h5_to_pcd ${PCL_LIBRARIES} hdf5 hdf5_cpp ${Boost_LIBRARIES})
 
-add_executable(register_clouds src/register_clouds.cpp src/utils/hdf_utils.cpp)
+add_executable(register_clouds src/register_clouds.cpp src/utils/hdf_utils.cpp src/utils/cloud_viz.cpp)
 target_link_libraries(register_clouds ${PCL_LIBRARIES} ${Boost_LIBRARIES} hdf5 hdf5_cpp)
 
 add_executable(pairwise_register src/pairwise_register.cpp)

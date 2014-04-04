@@ -15,7 +15,7 @@ if __name__ == '__main__':
     h5_files = glob.glob(pjoin(ICP_TRANSFORMS_DIR, '*.h5'))
     num_frames = len(h5_files)
 
-    coord = 2
+    coord = 1
     coord_name = ['x', 'y', 'z'][coord]
 
     delta_coord_icp = list()
@@ -49,15 +49,14 @@ if __name__ == '__main__':
 
     # Plot and compare
 
-    # Plot of change in z
+    # Plot of change in coord
+
     import matplotlib.pyplot as plt
     p1 = plt.plot(range(1, num_frames), delta_z_gps, label='$\Delta %s_{\mathrm{gps}}$' % coord_name)
-    p2 = plt.plot(range(1, num_frames), -1 * np.array(delta_coord_icp), label='$\delta %s_{\mathrm{icp}}$' % coord_name)
-    p3 = plt.plot(range(1, num_frames), -np.array(delta_coord_icp) + np.array(delta_z_gps), label='$\Delta %s_{\mathrm{gps}} + \delta %s_{\mathrm{icp}}$' % (coord_name, coord_name))
+    p2 = plt.plot(range(1, num_frames), np.array(delta_coord_icp), label='$\delta %s_{\mathrm{icp}}$' % coord_name)
+    p3 = plt.plot(range(1, num_frames), np.array(delta_coord_icp) + np.array(delta_z_gps), label='$\Delta %s_{\mathrm{gps}} + \delta %s_{\mathrm{icp}}$' % (coord_name, coord_name))
 
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend(handles, labels, prop={'size': 20})
 
     plt.show()
-
-    # Plot of z

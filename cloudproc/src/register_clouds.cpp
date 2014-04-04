@@ -15,10 +15,9 @@
 #include <pcl/registration/icp_nl.h>
 #include <pcl/registration/correspondence_estimation.h>
 
-#include <pcl/visualization/pcl_visualizer.h>
-
 #include "point_defs.h"
 #include "utils/hdf_utils.h"
+#include "utils/cloud_viz.h"
 
 
 namespace po = boost::program_options;
@@ -153,12 +152,12 @@ float pair_align (const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
         prev_fitness_score = reg.getFitnessScore();
     }
 
-    transform = T_i.inverse();
+    transform = T_i;
     return reg.getFitnessScore();
 }
 
 
-float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr tgt_cloud, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist)
+float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr tgt_cloud, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist, bool debug=false)
 {
     final_transform = Eigen::Matrix4f::Identity();
     PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
@@ -178,12 +177,20 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
         pcl::Correspondences all_correspondences;
         correspondence_est.determineCorrespondences(all_correspondences, max_dist);
 
-        std::vector<float> z_translations;
+        if (debug)
+        {
+            align_clouds_viz(src_cloud, tgt_cloud, aligned_cloud, all_correspondences);
+        }
+
+        //std::vector<float> x_translations(all_correspondences.size());
+        std::vector<float> y_translations(all_correspondences.size());
+        std::vector<float> z_translations(all_correspondences.size());
         // TODO May want to use these at some point
         std::vector<Eigen::Vector3f> translations;
 
         float normalized_error = 0;
 
+        int k = 0;
         BOOST_FOREACH(pcl::Correspondence c, all_correspondences)
         {
             int idx_query = c.index_query;
@@ -192,7 +199,10 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
             PointNormalT p_query = src_cloud->at(idx_query);
             PointNormalT p_match = tgt_cloud->at(idx_match);
 
-            z_translations.push_back(p_match.z - p_query.z);
+            //x_translations[k] = p_match.x - p_query.x;
+            y_translations[k] = p_match.y - p_query.y;
+            z_translations[k] = p_match.z - p_query.z;
+            k++;
 
             Eigen::Vector3f translation;
             translation << p_match.x - p_query.x, p_match.y - p_query.y, p_match.z - p_query.z;
@@ -205,9 +215,16 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         // Shift src_cloud;
 
+        //std::sort(x_translations.begin(), x_translations.end());
+        std::sort(y_translations.begin(), y_translations.end());
         std::sort(z_translations.begin(), z_translations.end());
+        //float x_shift = x_translations[x_translations.size() / 2];
+        float y_shift = y_translations[y_translations.size() / 2];
         float z_shift = z_translations[z_translations.size() / 2];
+
         Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+        //transform(0, 3) = x_shift;
+        transform(1, 3) = y_shift;
         transform(2, 3) = z_shift;
 
         pcl::transformPointCloud(*src_cloud, *aligned_cloud, transform);
@@ -215,11 +232,13 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         final_transform = transform * final_transform;
 
-        PCL_INFO("iter %d, shift %f, error %f\n", k, z_shift, normalized_error);
+        PCL_INFO("iter %d, shift %f %f %f, error %f\n", k, 0.0f, y_shift,
+                z_shift, normalized_error);
     }
 
     return normalized_errors.back();
 }
+
 
 
 void load_cloud(std::string pcd_path, PointCloudWithNormals::Ptr cloud)
@@ -243,43 +262,28 @@ int main(int argc, char** argv)
 
     PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
     PointCloudWithNormals::Ptr tgt_cloud(new PointCloudWithNormals());
-    load_cloud(opts.pcd_tgt, src_cloud);
-    load_cloud(opts.pcd_src, tgt_cloud);
+    load_cloud(opts.pcd_src, src_cloud);
+    load_cloud(opts.pcd_tgt, tgt_cloud);
 
     PointCloudWithNormals::Ptr aligned_cloud(new PointCloudWithNormals());
     Eigen::Matrix4f transform;
 
     //float score = pair_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist);
-    float score = trans_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist);
+    float score = trans_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist, opts.debug);
 
     if (opts.debug)
     {
         std::cout << "transform:" << std::endl;
         std::cout << transform << std::endl;
 
-        pcl::visualization::PCLVisualizer viz("register_clouds viz");
-        viz.addCoordinateSystem(3.0);
-
-        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointNormal> green(tgt_cloud, 0, 255, 0);
-        viz.addPointCloud(tgt_cloud, green, "tgt_cloud");
-        viz.addPointCloudNormals<PointNormalT>(tgt_cloud, 1, 0.5f, "tgt_cloud_normals", 0);
-
-        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointNormal> blue(tgt_cloud, 0, 0, 255);
-        viz.addPointCloud(src_cloud, blue, "src_cloud");
-        viz.addPointCloudNormals<PointNormalT>(src_cloud, 1, 0.5f, "src_cloud_normals", 0);
-
-        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointNormal> red(aligned_cloud, 255, 0, 0);
-        viz.addPointCloud(aligned_cloud, red, "aligned_cloud");
-
-        while (!viz.wasStopped())
-        {
-            viz.spinOnce(100);
-            boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-        }
+        pcl::Correspondences correspondences;
+        align_clouds_viz<pcl::PointNormal>(src_cloud, tgt_cloud, aligned_cloud, correspondences);
 
         // Don't write outputs
         return 0;
     }
+
+    // TODO Move these into a class that can write to JSON
 
     transform.transposeInPlace();  // Since H5 uses row-major
     H5::H5File file(opts.h5_file, H5F_ACC_TRUNC);
