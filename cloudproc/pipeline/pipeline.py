@@ -82,8 +82,8 @@ def estimate_normals(input_file, output_file):
 @transform('./pcd_downsampled_normals/*.pcd',
            regex('./pcd_downsampled_normals/(.*?).pcd'),
            r'./icp_transforms/\1.h5')
-def register_clouds(input_file, output_file):
-    icp_reg = '%s/bin/register_clouds' % CLOUDPROC_PATH
+def align_clouds(input_file, output_file):
+    icp_reg = '%s/bin/align_clouds' % CLOUDPROC_PATH
     if file_num(input_file) == 0:  # no transform for first pcd, touch empty file
         check_call('touch %s' % output_file, shell=True)
         return
@@ -97,7 +97,7 @@ def register_clouds(input_file, output_file):
     check_call(cmd, shell=True)
 
 
-@follows('register_clouds')
+@follows('align_clouds')
 def build_static_map():
     pass
 
