@@ -4,6 +4,7 @@ from GPSReader import *
 from GPSReprojection import *
 from GPSTransforms import *
 from VideoReader import *
+from RadarTransforms import *
 from LidarTransforms import *
 from ColorMap import *
 from transformations import euler_matrix
@@ -106,7 +107,7 @@ if __name__ == '__main__':
                 cv2.line(I, tuple(pix_right[:,j]), tuple(pix_front_right[:,j]), (255,255,0))
 
         cv2.imshow('display', I)
-        writer.write(I)
+        # writer.write(I)
 
         print (Rx, Ry, Rz)
 

@@ -40,44 +40,6 @@ def loadLDRCamMap(frame_cloud_map):
 
     return clouds
 
-def loadRDR(rdrfile):
-    # OBJ_fmt = 'O {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {rcs} {w} {l}'
-    # TGT_fmt = 'T {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {traj} {w} {l} {obst_probab} {exist_probab} {rel_acc} {type} {lost_reason}'
-    pts = {}
-    for line in open(rdrfile):
-        line = line.rstrip()
-        # Assuming that tgt messages happen after obj messages
-        tag = line[0]
-        data = line[2:].rstrip()
-        tokens = [float(e) for e in data.split(' ')]
-        if tag == 'T':
-            (id, dist, lat_dist, rel_spd, dyn_prop, traj, w, l,
-             obst_probab, exist_probab, rel_acc, type, lost_reason) = tokens
-        else:
-            (id, dist, lat_dist, rel_spd, dyn_prop, rcs, w, l) = tokens
-        
-        pts[id] = [dist + 1.5, lat_dist, -1.5, w, l, 10 if tag == 'T' else -10]
-
-    return np.array(pts.values())
-
-def loadRDRCamMap(frame_cloud_map):
-    map_file = open(frame_cloud_map, 'r')
-    points = []
-    frame_folder, map_name = os.path.split(frame_cloud_map)
-    frame_folder = frame_folder + '/' + map_name.split('.')[0] + '_rdr'
-
-    for line in map_file:
-        tokens = line.rstrip().split(' ')
-        if len(tokens) == 3:
-            rdr_file = line.rstrip().split(' ')[2]
-            points.append(frame_folder + '/' + rdr_file)
-        else:
-            map_file.close()
-            return None
-    
-    map_file.close()
-    return points
-
 def R_to_c_from_l_old(cam):
     # hard coded calibration parameters for now
     R_to_c_from_l = np.array([[0.0, -1.0, 0.0],
