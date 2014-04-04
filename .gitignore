@@ -3,6 +3,7 @@
 *.mp4
 *.swp
 *.pyc
+*.npz
 *~
 bin
 build
