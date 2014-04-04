@@ -61,8 +61,8 @@ renderWindow = vtk.vtkRenderWindow()
 #step = 2
 
 start_fn = 5800 # offset in frame numbers to start exporting data
-num_fn = 1000 # number of frames to export. this is changed if --full is enabled
-step = 1 # step between frames
+num_fn = 200 # number of frames to export. this is changed if --full is enabled
+step = 5 # step between frames
 
 color_mode = 'INTENSITY'
 
