@@ -42,7 +42,9 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
 
-    cam = GetQ50CameraParams()[cam_num - 1] 
+    params = args['params']
+    cam = params['cam'][cam_num - 1]
+
     video_reader = VideoReader(args['video'])
     rdr_map = loadRDRCamMap(args['map'])
     
@@ -60,7 +62,7 @@ if __name__ == '__main__':
         radar_data = loadRDR(rdr_map[frame_num])[0]
 
         if radar_data.shape[0] > 0:
-            radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], (Rx, Ry, Rz))
+            radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], params['radar'])
 
             # print radar_data[:, 0:3]
             back_pts = transformLidarPointsToCameraPoints(radar_data[:,0:3], cam)
