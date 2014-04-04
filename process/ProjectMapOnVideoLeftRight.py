@@ -13,11 +13,15 @@ from ArgParser import *
 from matplotlib import pyplot as plt
 import pylab as pl
 import pickle
+import string
 WINDOW = 50*5
 
 def cloudToPixels(cam, pts_wrt_cam): 
     width = 4
-    pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3,:], pts_wrt_cam[2, :])))
+    (pix, J) = cv2.projectPoints(pts_wrt_cam.transpose(), np.array([0.0,0.0,0.0]), np.array([0.0,0.0,0.0]), cam['KK'], cam['distort'])
+
+    pix = pix.transpose()
+    pix = np.around(pix[:, 0, :])
     pix = pix.astype(np.int32)
     mask = np.logical_and(True, pix[0,:] > 0 + width/2)
     mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
@@ -28,25 +32,40 @@ def cloudToPixels(cam, pts_wrt_cam):
     mask = np.logical_and(mask, dist_sqr > 3)
 
     return (pix, mask)
-
 def localMapToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
     # load nearby map frames
     pts_wrt_imu_0 = array(map_data[:,0:3]).transpose()
-    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0, 
-        np.ones((1,pts_wrt_imu_0.shape[1]))))
+    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0, np.ones((1,pts_wrt_imu_0.shape[1]))))
     # transform points from imu_0 to imu_t
     pts_wrt_imu_t = np.dot( np.linalg.inv(imu_transforms_t), pts_wrt_imu_0)
     # transform points from imu_t to lidar_t
     pts_wrt_lidar_t = np.dot(T_from_i_to_l, pts_wrt_imu_t);
     # transform points from lidar_t to camera_t
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
-    pts_wrt_camera_t = dot(R_to_c_from_l(cam), 
-            pts_wrt_camera_t.transpose())
+    pts_wrt_camera_t = dot(R_to_c_from_l(cam), pts_wrt_camera_t.transpose())
     # reproject camera_t points in camera frame
     (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
 
     return (pix, mask)
 
+def localMapToPixelsTrajectory(imu_data, imu_transforms_t, T_from_i_to_l, cam, height=0):
+    # load nearby map frames
+    height_array = np.zeros([3,3])
+    height_array[2,0]=-height
+    aa = np.dot(imu_data[:,0:3,0:3], height_array)[:,:,0] # shift down in the self frame
+    pts_wrt_imu_0 = (array(imu_data[:,0:3,3])+aa).transpose()
+    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0, np.ones((1,pts_wrt_imu_0.shape[1]))))
+    # transform points from imu_0 to imu_t
+    pts_wrt_imu_t = np.dot( np.linalg.inv(imu_transforms_t), pts_wrt_imu_0)
+    # transform points from imu_t to lidar_t
+    pts_wrt_lidar_t = np.dot(T_from_i_to_l, pts_wrt_imu_t);
+    # transform points from lidar_t to camera_t
+    pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
+    pts_wrt_camera_t = dot(R_to_c_from_l(cam), pts_wrt_camera_t.transpose())
+    # reproject camera_t points in camera frame
+    (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
+
+    return (pix, mask)
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
@@ -55,15 +74,20 @@ if __name__ == '__main__':
     cam = GetQ50CameraParams()[cam_num - 1] 
     video_reader = VideoReader(args['video'])
     gps_reader = GPSReader(args['gps'])
+    print args['gps']
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
-    
-    T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
+   
+    labelname = args['gps'][0:-8]+'_interp_lanes.pickle'
+    labelname = string.replace(labelname, 'q50_data', '640x480_Q50') 
+    labelfid = open(labelname,'r') 
 
-    all_data = np.load(sys.argv[3])
-    all_data = pickle.load(open(sys.argv[3],'r'))
+    all_data = pickle.load(labelfid)
+    labelfid.close()
     left_data = all_data['left']
     right_data = all_data['right']
+    print left_data.shape
+    print right_data.shape
     # map points are defined w.r.t the IMU position at time 0
     # each entry in map_data is (x,y,z,intensity,framenum). 
 
@@ -72,15 +96,27 @@ if __name__ == '__main__':
     red = [0,0,255]
     cnt=1 
     while True:
-        #while video_reader.framenum<2000:
+        #while video_reader.framenum<7000:
         #  (success, I) = video_reader.getNextFrame()
-        for count in range(5):
+        for count in range(80):
             (success, I) = video_reader.getNextFrame()
         t = video_reader.framenum - 1
-        left_data_copy = array(left_data[t+1:t+WINDOW+1, :]);
-        right_data_copy = array(right_data[t+1:t+WINDOW+1, :]);
+        #left_data_copy = array(left_data[t+1:t+WINDOW+1, :]);
+        #right_data_copy = array(right_data[t+1:t+WINDOW+1, :]);
+        #imu_data_copy = array(imu_transforms[t+1:t+WINDOW+1, 0:3, 3])
         # reproject
-        (pix, mask) = localMapToPixels(left_data_copy, imu_transforms[t,:,:], T_from_i_to_l, cam); 
+        (pix, mask) = localMapToPixelsTrajectory(imu_transforms[t+1:t+WINDOW+1, :, :], imu_transforms[t,:,:], T_from_i_to_l, cam, height=lidar_height); 
+        # draw
+        for p in range(4):
+            I[pix[1,mask]+p, pix[0,mask], :] = green
+            I[pix[1,mask], pix[0,mask]+p, :] = green
+            I[pix[1,mask]+p, pix[0,mask], :] = green
+            I[pix[1,mask], pix[0,mask]+p, :] = green
+
+
+
+        # reproject
+        (pix, mask) = localMapToPixels(left_data[t+1:t+WINDOW+1,:], imu_transforms[t,:,:], T_from_i_to_l, cam); 
         # draw
         for p in range(4):
             I[pix[1,mask]+p, pix[0,mask], :] = green
@@ -88,7 +124,7 @@ if __name__ == '__main__':
             I[pix[1,mask]+p, pix[0,mask], :] = green
             I[pix[1,mask], pix[0,mask]+p, :] = green
         # reproject
-        (pix, mask) = localMapToPixels(right_data_copy, imu_transforms[t,:,:], T_from_i_to_l, cam); 
+        (pix, mask) = localMapToPixels(right_data[t+1:t+WINDOW+1,:], imu_transforms[t,:,:], T_from_i_to_l, cam); 
         # draw
         for p in range(4):
             I[pix[1,mask]+p, pix[0,mask], :] = green

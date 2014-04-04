@@ -1,5 +1,5 @@
 # usage: 
-# python LidarToLRLanes.py <dir> <basename><camnum>.avi <map file>.npz <output pickle name>
+# python LidarToLRLanesBatch.py <rootdir> <output pickle name>
 
 
 
@@ -16,21 +16,12 @@ from ColorMap import *
 import copy
 import cv2
 import pickle
-FRAME_WIN = 50*2
-METER_WIN = 60
+FRAME_WIN = 50*4
+METER_WIN = 120
 
 global left_data
 global right_data
-global start_fn
-global num_fn
-global color_mode
 
-actors =  []
-clouds = [ ]
-left_data = [ ] 
-right_data = [ ] 
-
-start_fn = 0 # offset in frame numbers to start exporting data
 
 def integrateClouds(ldr_map, IMUTransforms, offset, num_steps, step):
     start = offset
@@ -40,10 +31,10 @@ def integrateClouds(ldr_map, IMUTransforms, offset, num_steps, step):
     trans_wrt_imu = IMUTransforms[start:end,0:3,3]
     for t in range(num_steps):
         fnum = offset+t*step
-        print fnum
         if fnum>=len(ldr_map):
           break
-
+        if fnum%500==0:
+          print 'integrating pt clouds: '+str(fnum)+'/'+str(step*num_steps)
         
         data = loadLDR(ldr_map[fnum])
         # filter out the roof rack
@@ -56,8 +47,8 @@ def integrateClouds(ldr_map, IMUTransforms, offset, num_steps, step):
                            (data[:,0] > 0)             & \
                            (data[:,2] < -1.8)          & \
                            (data[:,2] > -1.9)          
-        left_mask = data_filter_mask & (data[:,1] < 2.9) & (data[:,1] > 1.2)
-        right_mask = data_filter_mask & (data[:,1] > -2.9) & (data[:,1] < -1.2)
+        left_mask = data_filter_mask & (data[:,1] < 2.2) & (data[:,1] > 1.2)
+        right_mask = data_filter_mask & (data[:,1] > -2.6) & (data[:,1] < -1.6)
         left = data[left_mask, :]
         right = data[right_mask, :]
         """
@@ -123,8 +114,8 @@ def interpolatePoints(left_data, right_data, GPSData):
     leftLaneData = np.zeros([total_num_frames, 3])
     rightLaneData = np.zeros([total_num_frames, 3])
     for frame in xrange(total_num_frames):
-        if frame%100==0:
-          print frame
+        if frame%500==0:
+          print 'interpolating: '+str(frame)+'/'+str(total_num_frames)
         imu_transforms_t = imu_transforms[frame,:,:]
         imu_pos = imu_transforms_t[0,3] # current x position in the 0th imu frame
 
@@ -139,13 +130,14 @@ def interpolatePoints(left_data, right_data, GPSData):
         X = left_data_copy[:,0]
         Y = left_data_copy[:,1]
         Z = left_data_copy[:,2]
-        A = np.vstack([X**3, X**2, X, np.ones(len(X))]).T
+        A = np.vstack([X**2, X, np.ones(len(X))]).T
         if ('kly' not in locals()) and len(X) <= 40:
           continue
-        jly, kly, mly, cly = np.linalg.lstsq(A, Y)[0]
-        jlz, klz, mlz, clz = np.linalg.lstsq(A, Z)[0]
-        lefty = jly*(leftx**3)+kly*(leftx**2)+mly*leftx+cly
-        leftz = jlz*(leftx**3)+klz*(leftx**2)+mlz*leftx+clz
+  
+        kly, mly, cly = np.linalg.lstsq(A, Y)[0]
+        klz, mlz, clz = np.linalg.lstsq(A, Z)[0]
+        lefty = kly*(leftx**2)+mly*leftx+cly
+        leftz = klz*(leftx**2)+mlz*leftx+clz
         leftLaneData[frame,:] = array([leftx, lefty, leftz]) 
 
         # right lane markings
@@ -158,13 +150,13 @@ def interpolatePoints(left_data, right_data, GPSData):
         X = right_data_copy[:,0]
         Y = right_data_copy[:,1]
         Z = right_data_copy[:,2]
-        A = np.vstack([X**3, X**2, X, np.ones(len(X))]).T 
-        if ('kry' not in locals()) and len(X)<=40:
-          continue
-        jry, kry, mry, cry = np.linalg.lstsq(A, Y)[0]
-        jrz, krz, mrz, crz = np.linalg.lstsq(A, Z)[0]
-        righty = jry*(rightx**3)+kry*(rightx**2)+mry*rightx+cry
-        rightz = jrz*(rightx**3)+krz*(rightx**2)+mrz*rightx+crz
+        A = np.vstack([X**2, X, np.ones(len(X))]).T 
+        if ('kry' not in locals()) and len(X) <= 40:
+          continue  
+        kry, mry, cry = np.linalg.lstsq(A, Y)[0]
+        krz, mrz, crz = np.linalg.lstsq(A, Z)[0]
+        righty = kry*(rightx**2)+mry*rightx+cry
+        rightz = krz*(rightx**2)+mrz*rightx+crz
         rightLaneData[frame,:] = array([rightx, righty, rightz]) 
     laneData = dict()
     laneData['left']=leftLaneData
@@ -173,29 +165,44 @@ def interpolatePoints(left_data, right_data, GPSData):
 
 
 if __name__ == '__main__': 
-    vfname = sys.argv[2]
-    vidname = vfname.split('.')[0]
-    vidname2 = vidname[:-1] + '2'
-    video_filename2 = sys.argv[1] + '/' + vidname2 + '.avi'
-    
-    args = parse_args(sys.argv[1], sys.argv[2])
-
-    gps_reader = GPSReader(args['gps'])
-    cam1 = GetQ50CameraParams()[0] 
-    cam2 = GetQ50CameraParams()[1] 
-    gps_reader = GPSReader(args['gps'])
-    GPSData = gps_reader.getNumericData()
-    imu_transforms = IMUTransforms(GPSData)
-    ldr_map = loadLDRCamMap(args['map'])
-    savename = sys.argv[3]
-
-    
-    total_num_frames = GPSData.shape[0]
-    start_fn = 0
     step = 2
-    num_fn = int(total_num_frames / step)
+    rootdir = sys.argv[1]
+    if rootdir[-1]=='/':
+      rootdir = rootdir[0:-1] # remove trailing '/'
+    path, directory = os.path.split(rootdir)
+    targetfolder = '/scail/group/deeplearning/driving_data/640x480_Q50/' + directory + '/'
+
+    for root, subfolders, files in os.walk(rootdir):
+      files1 = filter(lambda z: '_gps.out' in z, files)
+      if len(sys.argv)>2:
+        files = filter(lambda z: sys.argv[2] in z, files1)
+        if len(files1)==len(files):
+          print 'warning: filter '+sys.argv[2]+' not found in files, including all files.'
+      else:
+        files = files1
+      for f in files:
+        gps_name = os.path.join(root,f)
+        print 'gps: '+gps_name
+        gps_reader = GPSReader(gps_name)
+        GPSData = gps_reader.getNumericData()
+        imu_transforms = IMUTransforms(GPSData)
+        map_name = gps_name[0:-8]+'.map'
+        print 'map: '+ map_name
+        ldr_map = loadLDRCamMap(map_name)
+        savename1 = os.path.join(targetfolder, (f[0:-8]+'_lidarmap.pickle')) 
+        savename2 = os.path.join(targetfolder, (f[0:-8]+'_interp_lanes.pickle')) 
+        print 'out: '+ savename1
+        total_num_frames = GPSData.shape[0]
+        num_fn = int(total_num_frames / step)
     
-    integrateClouds(ldr_map, imu_transforms, start_fn, num_fn, step)
-    laneData = interpolatePoints(np.row_stack(left_data), np.row_stack(right_data), GPSData) 
-    pickle.dump(laneData, open(savename,'w'))
-    sys.exit(0)
+        left_data = [ ] 
+        right_data = [ ] 
+        start_fn = 0 # offset in frame numbers to start exporting data
+        integrateClouds(ldr_map, imu_transforms, start_fn, num_fn, step)
+        all_data = dict()
+        all_data['left'] = np.row_stack(left_data)
+        all_data['right'] = np.row_stack(right_data)
+        #laneData = interpolatePoints(all_data['left'], all_data['right'], GPSData) 
+        savefid = open(savename1,'w')
+        pickle.dump(all_data, savefid)
+        savefid.close()

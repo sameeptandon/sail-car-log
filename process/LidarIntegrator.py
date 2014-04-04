@@ -118,10 +118,10 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
         # check out the commented out section below to figure out how this is filtering.
         data_filter_mask = (dist > 3)                  & \
                            (dist < 10)                  & \
-                           (data[:,3] > 40)            & \
+                           (data[:,3] > 30)            & \
                            (data[:,0] > 0)             & \
-                           ((data[:,1]) > -2.9)   & \
-                           ((data[:,1]) < -1.2)   & \
+                           (np.abs(data[:,1]) > 1.2)             & \
+                           (np.abs(data[:,1]) <2.9)             & \
                            (data[:,2] < -1.8)          & \
                            (data[:,2] > -1.9)          
 

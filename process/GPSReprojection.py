@@ -2,6 +2,45 @@ from transformations import euler_matrix
 import numpy as np
 from WGS84toENU import *
 from numpy import array, dot, zeros, around, divide, ones
+from Q50_config import *
+
+# only works for new Q50 data. Maps positions wrt imu_0 to cam_t
+def MapPos(map_pos, imu_transforms_t, cam):
+    # load nearby map frames
+    pts_wrt_imu_0 = array(map_pos).transpose()
+    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0, np.ones((1,pts_wrt_imu_0.shape[1]))))
+    # transform points from imu_0 to imu_t
+    pts_wrt_imu_t = np.dot( np.linalg.inv(imu_transforms_t), pts_wrt_imu_0)
+    # transform points from imu_t to lidar_t
+    pts_wrt_lidar_t = np.dot(T_from_i_to_l, pts_wrt_imu_t);
+    # transform points from lidar_t to camera_t
+    pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
+    pts_wrt_camera_t = dot(R_to_c_from_l(cam), pts_wrt_camera_t.transpose())
+    return pts_wrt_camera_t
+
+def ENU2IMUQ50(world_coordinates, start_frame):
+    roll_start = deg2rad(start_frame[8]);
+    pitch_start = deg2rad(start_frame[7]);
+    yaw_start = -deg2rad(start_frame[9]);
+
+    psi = pitch_start; 
+    cp = cos(psi);
+    sp = sin(psi);
+    theta = roll_start;
+    ct = cos(theta);
+    st = sin(theta);
+    gamma = yaw_start;
+    cg = cos(gamma);
+    sg = sin(gamma);
+
+    R_to_i_from_w = \
+            array([[cg*cp-sg*st*sp, -sg*ct, cg*sp+sg*st*cp],
+                  [sg*cp+cg*st*sp, cg*ct, sg*sp-cg*st*cp],
+                  [-ct*sp, st, ct*cp]]).transpose()
+    pos_wrt_imu = dot(R_to_i_from_w, world_coordinates);
+    return pos_wrt_imu
+
+
 
 def GPSVelocities(GPSData):
    return (np.apply_along_axis(np.linalg.norm, 1, GPSData[:,4:7]))
@@ -138,8 +177,7 @@ def GPSPosIMU(GPSData, Camera, start_frame):
 
 def GPSPosCamera(pos_wrt_imu, Camera):
     R_to_c_from_i = Camera['R_to_c_from_i']
-    R_camera_pitch = euler_matrix(Camera['rot_x'], Camera['rot_y'],\
-            Camera['rot_z'], 'sxyz')[0:3,0:3]
+    R_camera_pitch = euler_matrix(Camera['rot_x'], Camera['rot_y'],Camera['rot_z'], 'sxyz')[0:3,0:3]
     R_to_c_from_i = dot(R_camera_pitch, R_to_c_from_i) 
 
     pos_wrt_camera = dot(R_to_c_from_i, pos_wrt_imu);
