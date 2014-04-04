@@ -263,7 +263,7 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
 
     gps_reader = GPSReader(args['gps'])
-    params = LoadParameters('q50_3_7_14_params')
+    params = LoadParameters('q50_4_3_14_params')
     cam1 = params['cam'][0]
     cam2 = params['cam'][1]
     video_reader1 = VideoReader(args['video'])
