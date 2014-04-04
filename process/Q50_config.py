@@ -6,6 +6,4 @@ def LoadParameters(name):
         from parameters.q50_3_7_14_params import GetQ50Params
         return GetQ50Params()
     else:
-        return 'unknown name'
-
-
+        raise Exception("Parameter file " + name + " not found")

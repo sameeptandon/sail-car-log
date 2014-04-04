@@ -34,7 +34,7 @@ def loadLDRCamMap(frame_cloud_map):
     frame_folder = frame_folder + '/' + map_name.split('.')[0] + '_frames'
 
     for line in map_file:
-        (frame, ldr_file) = line.rstrip().split(' ')
+        ldr_file = line.rstrip().split(' ')[1]
         clouds.append(frame_folder + '/' + ldr_file)
     map_file.close()
 

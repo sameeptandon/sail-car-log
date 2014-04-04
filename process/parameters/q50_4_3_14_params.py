@@ -57,8 +57,17 @@ def GetQ50CameraParams():
 
     return cam
 
+
+def GetQ50RadarParams():
+    params = { }
+    params['R_from_r_to_l'] = euler_matrix(0, 0, -.015)[0:3,0:3]
+    params['T_from_r_to_l'] = [3.17, 0.4, -1.64]
+
+    return params
+
 def GetQ50Params(): 
     params = { }
     params['lidar'] = GetQ50LidarParams();
     params['cam'] = GetQ50CameraParams();
+    params['radar'] = GetQ50RadarParams();
     return params
