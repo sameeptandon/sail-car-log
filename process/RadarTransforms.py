@@ -42,13 +42,12 @@ def loadRDRCamMap(frame_cloud_map):
     map_file.close()
     return points
 
-def calibrateRadarPts(pts, Rxyz=(0, 0, -.015), Txyz=(3.17, 0.4, -1.64)):
+def calibrateRadarPts(pts, params):
     #T_pts[id] = [dist + 3.17, lat_dist + .4, -1.64, l, w]
-    (Tx, Ty, Tz) = Txyz
-    (Rx, Ry, Rz) = Rxyz
-    R = euler_matrix(Rx, Ry, Rz)[0:3,0:3]
+    R = params['R_from_r_to_l']
 
-    pts[:, 0] += Tx
-    pts[:, 1] += Ty
-    pts[:, 2] += Tz
+    pts[:, 0] += params['T_from_r_to_l'][0]
+    pts[:, 1] += params['T_from_r_to_l'][1]
+    pts[:, 2] += params['T_from_r_to_l'][2]
+
     return np.dot(R, pts.transpose()).transpose()

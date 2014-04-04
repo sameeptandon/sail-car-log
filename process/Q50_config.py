@@ -7,5 +7,3 @@ def LoadParameters(name):
         return GetQ50Params()
     else:
         return 'unknown name'
-
-
