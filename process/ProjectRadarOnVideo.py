@@ -11,6 +11,7 @@ import numpy as np
 import cv2
 from ArgParser import *
 
+(Rx,Ry,Rz) = (0, 0, -.015)
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -36,6 +37,17 @@ def transformLidarPointsToCameraPoints(points, cam):
 
     return pts_wrt_camera_t
 
+def calibrateRadarPts(pts, Rxyz, Txyz=(3.17, 0.4, -1.64)):
+    #T_pts[id] = [dist + 3.17, lat_dist + .4, -1.64, l, w]
+    (Tx, Ty, Tz) = Txyz
+    (Rx, Ry, Rz) = Rxyz
+    R = euler_matrix(Rx, Ry, Rz)[0:3,0:3]
+
+    pts[:, 0] += Tx
+    pts[:, 1] += Ty
+    pts[:, 2] += Tz
+    return np.dot(R, pts.transpose()).transpose()
+
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
@@ -45,65 +57,61 @@ if __name__ == '__main__':
     rdr_map = loadRDRCamMap(args['map'])
     
     writer = cv2.VideoWriter('radar_test.avi', cv.CV_FOURCC('X','V', 'I', 'D'),
-                    10.0, (1280,960) )
+                    50.0, (1280,960) )
 
     while True:
-        for t in range(5):
+        for t in xrange(5):
             (success, I) = video_reader.getNextFrame()
+
         all_pix = None
 
         frame_num = video_reader.framenum
 
-        radar_data = loadRDR(rdr_map[frame_num])[1]
+        radar_data = loadRDR(rdr_map[frame_num])[0]
 
         if radar_data.shape[0] > 0:
-            print radar_data[:, 0:3]
+            radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], (Rx, Ry, Rz))
+
+            # print radar_data[:, 0:3]
             back_pts = transformLidarPointsToCameraPoints(radar_data[:,0:3], cam)
             
-            front_pts = np.array(radar_data[:,0:3])
-            front_pts[:,0] += radar_data[:,3]
-            front_pts = transformLidarPointsToCameraPoints(front_pts, cam)
+            front_right_pts = np.array(radar_data[:,0:3])
+            front_right_pts[:,0] += radar_data[:,3]
+            front_right_pts[:,1] += radar_data[:,4] / 2.
+            front_right_pts = transformLidarPointsToCameraPoints(front_right_pts, cam)
             
+            front_left_pts = np.array(radar_data[:,0:3])
+            front_left_pts[:,0] += radar_data[:,3]
+            front_left_pts[:,1] -= radar_data[:,4] / 2.
+            front_left_pts = transformLidarPointsToCameraPoints(front_left_pts, cam)
+
             right_pts = np.array(radar_data[:,0:3])
-            right_pts[:,1] += radar_data[:,4] / 2
+            right_pts[:,1] += radar_data[:,4] / 2.
             right_pts = transformLidarPointsToCameraPoints(right_pts, cam)
 
             left_pts = np.array(radar_data[:,0:3])
-            left_pts[:,1] -= radar_data[:,4] / 2
+            left_pts[:,1] -= radar_data[:,4] / 2.
             left_pts = transformLidarPointsToCameraPoints(left_pts, cam)
 
-            #print radar_data[:,5]
-
-
-
-            # pts_wrt_camera_t_back = radar_data[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
-            # pts_wrt_camera_t_back = dot(R_to_c_from_l(cam), pts_wrt_camera_t_back.transpose())
-            # # reproject camera_t points in camera frame
-            (pix_front, mask) = cloudToPixels(cam, front_pts)
-            (pix_back, mask) = cloudToPixels(cam, back_pts)
+            # reproject camera_t points in camera frame
+            (pix_front_right, mask) = cloudToPixels(cam, front_right_pts)
+            (pix_front_left, mask) = cloudToPixels(cam, front_left_pts)
             (pix_left, mask) = cloudToPixels(cam, left_pts)
             (pix_right, mask) = cloudToPixels(cam, right_pts)
 
-            for j in range(pix_front.shape[1]):
-                cv2.line(I, tuple(pix_front[:,j]), tuple(pix_back[:,j]), (255,0,0))
-                cv2.line(I, tuple(pix_right[:,j]), tuple(pix_left[:,j]), (255,255,0))
-
-
-            # print pix[:, mask]
-
-            # px = pix[1, mask]
-            # py = pix[0, mask]
-
-            # color = (255,255,0)
-            # if px.shape > (0, 0):
-            #     I[px, py, :] = color
-            #     for i in xrange(3):
-            #         I[px+i,py, :] = color
-            #         I[px,py+i, :] = color
-            #         I[px-i,py, :] = color
-            #         I[px,py-i, :] = color
+            for j in range(pix_front_right.shape[1]):
+                cv2.line(I, tuple(pix_front_right[:,j]), tuple(pix_front_left[:,j]), (255,0,0))
+                cv2.line(I, tuple(pix_front_left[:,j]), tuple(pix_left[:,j]), (255,255,0))
+                cv2.line(I, tuple(pix_left[:,j]), tuple(pix_right[:,j]), (255,255,0))
+                cv2.line(I, tuple(pix_right[:,j]), tuple(pix_front_right[:,j]), (255,255,0))
 
         cv2.imshow('display', I)
-        # writer.write(I)
+        writer.write(I)
+
+        print (Rx, Ry, Rz)
 
         key = chr((cv2.waitKey(1) & 255))
+        if key == 'j':
+            Rz += .001
+        elif key == 'k':
+            Rz -= .001
