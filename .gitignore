@@ -4,6 +4,7 @@
 *.swp
 *.pyc
 *.npz
+*.DS_Store
 *~
 bin
 build
