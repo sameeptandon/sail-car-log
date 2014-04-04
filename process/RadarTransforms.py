@@ -6,8 +6,8 @@ from transformations import euler_matrix
 def loadRDR(rdrfile):
     # OBJ_fmt = 'O {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {rcs} {w} {l}'
     # TGT_fmt = 'T {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {traj} {w} {l} {obst_probab} {exist_probab} {rel_acc} {type} {lost_reason}'
-    T_pts = {}
-    O_pts = {}
+    T_pts = []
+    O_pts = []
     for line in open(rdrfile):
         line = line.rstrip()
         # Assuming that tgt messages happen after obj messages
@@ -17,12 +17,12 @@ def loadRDR(rdrfile):
         if tag == 'T':
             (id, dist, lat_dist, rel_spd, dyn_prop, traj, w, l,
                 obst_probab, exist_probab, rel_acc, type, lost_reason) = tokens
-            T_pts[id] = [dist, lat_dist, 0, l, w]
+            T_pts.append([dist, lat_dist, 0, l, w])
         else:
             (id, dist, lat_dist, rel_spd, dyn_prop, rcs, w, l) = tokens
-            O_pts[id] = [dist, lat_dist, 0, l, w, rcs]
-        
-    return (np.array(O_pts.values()), np.array(T_pts.values()))
+            O_pts.append([dist, lat_dist, 0, l, w, rcs, rel_spd, id])
+
+    return (np.array(O_pts), np.array(T_pts))
 
 def loadRDRCamMap(frame_cloud_map):
     map_file = open(frame_cloud_map, 'r')

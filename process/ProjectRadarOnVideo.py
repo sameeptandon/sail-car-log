@@ -62,9 +62,13 @@ if __name__ == '__main__':
         radar_data = loadRDR(rdr_map[frame_num])[0]
 
         if radar_data.shape[0] > 0:
+            mask = (radar_data[:, 5] > 5)
+            mask &= (radar_data[:, 6] > -20)
+            radar_data = radar_data[mask]
+
+        if radar_data.shape[0] > 0:
             radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], params['radar'])
 
-            # print radar_data[:, 0:3]
             back_pts = transformLidarPointsToCameraPoints(radar_data[:,0:3], cam)
             
             front_right_pts = np.array(radar_data[:,0:3])
@@ -91,16 +95,25 @@ if __name__ == '__main__':
             (pix_left, mask) = cloudToPixels(cam, left_pts)
             (pix_right, mask) = cloudToPixels(cam, right_pts)
 
-            for j in range(pix_front_right.shape[1]):
+            for j in xrange(pix_front_right.shape[1]):
                 cv2.line(I, tuple(pix_front_right[:,j]), tuple(pix_front_left[:,j]), (255,0,0))
                 cv2.line(I, tuple(pix_front_left[:,j]), tuple(pix_left[:,j]), (255,255,0))
                 cv2.line(I, tuple(pix_left[:,j]), tuple(pix_right[:,j]), (255,255,0))
                 cv2.line(I, tuple(pix_right[:,j]), tuple(pix_front_right[:,j]), (255,255,0))
 
+                rcs = radar_data[j, 5]
+                id = int(radar_data[j, 7])
+                dist = radar_data[j, 0]
+                spd = radar_data[j, 6]
+                s = "%d: %d, %0.2f, %0.2f" % (id, rcs, dist, spd)
+
+                cv2.putText(I, s, tuple(pix_right[:,j]),
+                    cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,255), thickness=1)
+
         cv2.imshow('display', I)
         # writer.write(I)
 
-        print (Rx, Ry, Rz)
+        # print (Rx, Ry, Rz)
 
         key = chr((cv2.waitKey(1) & 255))
         if key == 'j':
