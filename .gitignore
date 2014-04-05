@@ -6,6 +6,8 @@
 *.npz
 *.DS_Store
 *~
+*.npz
+*.h5
 bin
 build
 cameralogger/build
