@@ -6,16 +6,20 @@ from pipeline_config import ICP_TRANSFORMS_DIR
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
 from LidarIntegrator import  start_fn, num_fn, step
+import argparse
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Visualize ICP corrections')
+    parser.add_argument('coord', type=int, help='coordinate to visualize', choices=range(0,3))
+    args = parser.parse_args()
 
     # Transforms given by ICP
 
     h5_files = glob.glob(pjoin(ICP_TRANSFORMS_DIR, '*.h5'))
     num_frames = len(h5_files)
 
-    coord = 1
+    coord = args.coord
     coord_name = ['x', 'y', 'z'][coord]
 
     delta_coord_icp = list()

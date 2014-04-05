@@ -1,7 +1,7 @@
 #include <pcl/visualization/pcl_visualizer.h>
 
 template<typename PointT>
-void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_cloud, const boost::shared_ptr<pcl::PointCloud<PointT> > tgt_cloud, boost::shared_ptr<pcl::PointCloud<PointT> > aligned_cloud, const pcl::Correspondences& correspondences)
+void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_cloud, const boost::shared_ptr<pcl::PointCloud<PointT> > tgt_cloud, boost::shared_ptr<pcl::PointCloud<PointT> > aligned_cloud, const pcl::Correspondences& correspondences, bool viz_normals)
 {
     pcl::visualization::PCLVisualizer viz("align clouds viz");
     viz.addCoordinateSystem(3.0);
@@ -10,11 +10,15 @@ void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_clou
 
     pcl::visualization::PointCloudColorHandlerCustom<PointT> green(tgt_cloud, 0, 255, 0);
     viz.addPointCloud(tgt_cloud, green, "tgt_cloud");
-    viz.addPointCloudNormals<PointT>(tgt_cloud, 1, 0.5f, "tgt_cloud_normals", 0);
 
     pcl::visualization::PointCloudColorHandlerCustom<PointT> blue(tgt_cloud, 0, 0, 255);
     viz.addPointCloud(src_cloud, blue, "src_cloud");
-    viz.addPointCloudNormals<PointT>(src_cloud, 1, 0.5f, "src_cloud_normals", 0);
+
+    if (viz_normals)
+    {
+        viz.addPointCloudNormals<PointT>(tgt_cloud, 1, 0.5f, "tgt_cloud_normals", 0);
+        viz.addPointCloudNormals<PointT>(src_cloud, 1, 0.5f, "src_cloud_normals", 0);
+    }
 
     // Add correspondences
 

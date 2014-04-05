@@ -34,8 +34,10 @@ ICP_TRANSFORMS_DIR = pjoin(DSET_DIR, 'icp_transforms')
 DOWNSAMPLE_LEAF_SIZE = 1.0
 K_NORM_EST = 30
 
-ICP_ITERS = 5
-ICP_MAX_DIST = 1.0
+ICP_ITERS = 20
+# NOTE set this parameter based on GPS delta spikes,
+# downsampling voxel leaf size, and time steps between scans
+ICP_MAX_DIST = 5.0
 
 '''
 Print out variable values

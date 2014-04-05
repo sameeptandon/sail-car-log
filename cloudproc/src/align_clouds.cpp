@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <numeric>
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
@@ -157,7 +158,7 @@ float pair_align (const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 }
 
 
-float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr tgt_cloud, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist, bool debug=false)
+float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr tgt_cloud, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist, float tol=0.001, bool debug=false)
 {
     final_transform = Eigen::Matrix4f::Identity();
     PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
@@ -190,7 +191,7 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         float normalized_error = 0;
 
-        int k = 0;
+        int j = 0;
         BOOST_FOREACH(pcl::Correspondence c, all_correspondences)
         {
             int idx_query = c.index_query;
@@ -200,9 +201,9 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
             PointNormalT p_match = tgt_cloud->at(idx_match);
 
             //x_translations[k] = p_match.x - p_query.x;
-            y_translations[k] = p_match.y - p_query.y;
-            z_translations[k] = p_match.z - p_query.z;
-            k++;
+            y_translations[j] = p_match.y - p_query.y;
+            z_translations[j] = p_match.z - p_query.z;
+            j++;
 
             Eigen::Vector3f translation;
             translation << p_match.x - p_query.x, p_match.y - p_query.y, p_match.z - p_query.z;
@@ -215,12 +216,18 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         // Shift src_cloud;
 
+        // Use median
         //std::sort(x_translations.begin(), x_translations.end());
         std::sort(y_translations.begin(), y_translations.end());
         std::sort(z_translations.begin(), z_translations.end());
         //float x_shift = x_translations[x_translations.size() / 2];
         float y_shift = y_translations[y_translations.size() / 2];
         float z_shift = z_translations[z_translations.size() / 2];
+
+        // Use mean
+        //float x_shift = std::accumulate(x_translations.begin(), x_translations.end(), 0.0f) / x_translations.size();
+        //float y_shift = std::accumulate(y_translations.begin(), y_translations.end(), 0.0f) / y_translations.size();
+        //float z_shift = std::accumulate(z_translations.begin(), z_translations.end(), 0.0f) / z_translations.size();
 
         Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
         //transform(0, 3) = x_shift;
@@ -234,6 +241,10 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         PCL_INFO("iter %d, shift %f %f %f, error %f\n", k, 0.0f, y_shift,
                 z_shift, normalized_error);
+
+        // Break if barely changing
+        if (abs(y_shift) < tol && abs(z_shift) < tol)
+            break;
     }
 
     return normalized_errors.back();
