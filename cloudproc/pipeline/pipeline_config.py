@@ -31,6 +31,11 @@ PCD_DOWNSAMPLED_DIR = pjoin(DSET_DIR, 'pcd_downsampled')
 PCD_DOWNSAMPLED_NORMALS_DIR = pjoin(DSET_DIR, 'pcd_downsampled_normals')
 ICP_TRANSFORMS_DIR = pjoin(DSET_DIR, 'icp_transforms')
 
+EXPORT_FULL = False
+EXPORT_START = 5800
+EXPORT_NUM = 200
+EXPORT_STEP = 5
+
 DOWNSAMPLE_LEAF_SIZE = 1.0
 K_NORM_EST = 30
 

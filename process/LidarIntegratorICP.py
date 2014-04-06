@@ -21,6 +21,8 @@ import copy
 import cv2
 import h5py
 import os
+# TODO should be passed in as arguments
+from pipeline_config import EXPORT_START, EXPORT_NUM, EXPORT_STEP
 
 
 global actors
@@ -60,9 +62,9 @@ renderWindow = vtk.vtkRenderWindow()
 #num_fn = 200
 #step = 2
 
-start_fn = 5800 # offset in frame numbers to start exporting data
-num_fn = 200 # number of frames to export. this is changed if --full is enabled
-step = 5 # step between frames
+start_fn = EXPORT_START  # offset in frame numbers to start exporting data
+num_fn = EXPORT_NUM  # number of frames to export. this is changed if --full is enabled
+step = EXPORT_STEP  # step between frames
 
 color_mode = 'INTENSITY'
 
@@ -281,16 +283,15 @@ if __name__ == '__main__':
     imu_transforms = IMUTransforms(GPSData)
     ldr_map = loadLDRCamMap(args['map'])
 
-    
     if '--full' in sys.argv:
         total_num_frames = GPSData.shape[0]
         start_fn = 0
-        step = 10
+        step = 5
         num_fn = int(total_num_frames / step)
 
 
     # this has been flipped for the q50
-    
+
     cloud_r.SetBackground(0., 0., 0.)
     cloud_r.SetViewport(0,0,1.0,1.0)
     integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)

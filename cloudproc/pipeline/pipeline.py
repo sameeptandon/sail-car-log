@@ -5,11 +5,12 @@ from ruffus import follows, transform, regex, mkdir,\
 import os
 import sys
 from subprocess import check_call
-from pipeline_config import DATA_DIR, LDR_DIR, POINTS_H5_DIR,\
+from pipeline_config import POINTS_H5_DIR,\
         PCD_DIR, PCD_DOWNSAMPLED_DIR, NUM_CPUS, DSET_DIR, DSET,\
         SAIL_CAR_LOG_PATH, CLOUDPROC_PATH, DOWNSAMPLE_LEAF_SIZE,\
         K_NORM_EST, PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR,\
-        ICP_ITERS, ICP_MAX_DIST, REMOTE_DATA_DIR, REMOTE_FILES
+        ICP_ITERS, ICP_MAX_DIST, REMOTE_DATA_DIR, REMOTE_FILES,\
+        EXPORT_FULL
 from pipeline_utils import file_num
 
 # TODO Commands to scp stuff over
@@ -38,8 +39,10 @@ def download_files(dummy, local_file):
 def convert_ldr_to_h5():
     if os.path.exists('%s/sentinel' % POINTS_H5_DIR):
         return
-    LIDAR_INTEGRATOR = '%s/process/LidarIntegrator.py' % SAIL_CAR_LOG_PATH
+    LIDAR_INTEGRATOR = '%s/process/LidarIntegratorICP.py' % SAIL_CAR_LOG_PATH
     cmd = 'python {integrator} {dset_dir} {dset}.avi {h5_dir} --export --all --h5'.format(integrator=LIDAR_INTEGRATOR, dset_dir=DSET_DIR, h5_dir=POINTS_H5_DIR, dset=DSET)
+    if EXPORT_FULL:
+        cmd += ' --full'
     check_call(cmd, shell=True)
 
 
