@@ -114,18 +114,20 @@ if __name__ == '__main__':
     A = np.eye(3)
     B = np.eye(3)
     C = np.eye(3)
-    Q = np.diag([0.01, 0.3, 0.3])
     R = np.diag([0.1, 0.1, 0.1])
 
     # Dependent on t
     us = list()
     ds = list()
+    Qs = list()
+    Qs.append(np.diag([0.01, 0.3, 0.3]))
     for t in range(1, nt):
         us.append(imu_states[t, :] - imu_states[t - 1, :])
         if t % EXPORT_STEP == 0:
             ds.append(icp_transforms[t / EXPORT_STEP - 1][0:3, 3])
         else:
             ds.append(None)
+        Qs.append(np.diag(np.abs(imu_states[t, :] - imu_states[t - 1, :])))
 
     # Run Kalman filter
 
@@ -134,7 +136,7 @@ if __name__ == '__main__':
     dmus = list()     # mu_{t+1|t}
     dSigmas = list()  # Sigma_{t+1|t}
     mu00 = imu_states[0, :]
-    Sigma00 = Q
+    Sigma00 = Qs[0]
     mus.append(mu00)
     Sigmas.append(Sigma00)
 
@@ -149,7 +151,7 @@ if __name__ == '__main__':
             d = ds[t - 1]
             assert d is not None
 
-        dm, dSig, m, Sig = kf_pass(A, B, C, d, Q, R, mus[-1], Sigmas[-1], u, z)
+        dm, dSig, m, Sig = kf_pass(A, B, C, d, Qs[t], R, mus[-1], Sigmas[-1], u, z)
 
         mus.append(m)
         Sigmas.append(Sig)
