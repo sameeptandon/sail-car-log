@@ -134,7 +134,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
                            (data[:,2] < -1.8)          & \
                            (data[:,2] > -2.5)         
 
-        #data = data[data_filter_mask, :]
+        data = data[data_filter_mask, :]
         """
         # filter out on intensity
         data = data[ data[:,3] > 60 , :]
@@ -281,6 +281,11 @@ if __name__ == '__main__':
     video_reader2 = VideoReader(video_filename2)
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
+
+    imu_transforms_smoothed = np.load('imu_transforms_smoothed.npz')['data']
+    print imu_transforms_smoothed.shape
+    print np.max(np.max(imu_transforms - imu_transforms_smoothed))
+
     ldr_map = loadLDRCamMap(args['map'])
 
     if '--full' in sys.argv:
@@ -294,7 +299,9 @@ if __name__ == '__main__':
 
     cloud_r.SetBackground(0., 0., 0.)
     cloud_r.SetViewport(0,0,1.0,1.0)
-    integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
+
+    integrateClouds(ldr_map, imu_transforms_smoothed, cloud_r, start_fn, num_fn, step, params)
+    #integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
 
     if '--export' in sys.argv:
         h5 = '--h5' in sys.argv
@@ -309,7 +316,7 @@ if __name__ == '__main__':
                 print 'Exporting to %s' % fname
                 exportData(all_data[k], fname, h5=h5)
         else:
-            data = np.rowstack(all_data)
+            data = np.row_stack(all_data)
             exportData(data, export_path, h5=h5)
         sys.exit(0)
 

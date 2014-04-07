@@ -10,6 +10,7 @@
 - cv/cv2 (`apt-get install python-opencv`)
 - matplotlib (`apt-get install python-matplotlib`)
 - h5py (`apt-get install libhdf5-serial-dev` + `pip install h5py`)
+- ruffus (`pip install ruffus`)
 
 ### C++
 

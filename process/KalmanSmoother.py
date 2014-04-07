@@ -124,8 +124,13 @@ if __name__ == '__main__':
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
 
-    T_start = EXPORT_START
-    T_end = T_start + EXPORT_NUM * EXPORT_STEP
+    if '--full' in sys.argv:
+        T_start = 0
+        T_end = GPSData.shape[0] - GPSData.shape[0] % EXPORT_STEP
+    else:
+        T_start = EXPORT_START
+        T_end = T_start + EXPORT_NUM * EXPORT_STEP
+
     nt = T_end - T_start
     imu_states = imu_transforms[T_start:T_end, 0:3, 3]
 
@@ -153,6 +158,10 @@ if __name__ == '__main__':
     C = np.concatenate((np.eye(3), np.eye(3)), axis=0)
     C = np.concatenate((C, np.zeros((6, 3))), axis=1)
 
+    def has_obs(t):
+        #return t % EXPORT_STEP == EXPORT_STEP - 1 and t < nt - 1
+        return t % EXPORT_STEP == 0
+
     # Dependent on t
     us = list()
     ds = list()
@@ -164,7 +173,7 @@ if __name__ == '__main__':
         ds.append(np.zeros(6))
         delta_state = np.abs(imu_states[t, :] - imu_states[t - 1, :])
         Qs.append(np.diag(np.concatenate((10 * delta_state, delta_state))))
-        if t % EXPORT_STEP == 0:
+        if has_obs(t):
             # Got an ICP scan
             Rs.append(np.diag([INS_VAR, INS_VAR, INS_VAR, SCAN_VAR, SCAN_VAR, SCAN_VAR]))
         else:
@@ -187,9 +196,9 @@ if __name__ == '__main__':
         d = ds[t - 1]
         u = us[t - 1]
 
-        if t % EXPORT_STEP == 0:
+        if has_obs(t):
             # Get an ICP observation
-            z = np.concatenate((imu_states[t, :], imu_states[t, :] + icp_transforms[t / EXPORT_STEP - 1][0:3, 3]))
+            z = np.concatenate((imu_states[t, :], imu_states[t, :] + icp_transforms[(t / EXPORT_STEP) - 1][0:3, 3]))
         else:
             z = np.concatenate((imu_states[t, :], imu_states[t, :]))
 
@@ -226,4 +235,4 @@ if __name__ == '__main__':
         imu_transforms_smoothed[t, 0:3, 3] = Tmus[t - T_start][0:3]
 
     # FIXME Pass in output file
-    np.savez('imu_transforms_smoothed.npz', data=imu_transforms)
+    np.savez('imu_transforms_smoothed.npz', data=imu_transforms_smoothed)
