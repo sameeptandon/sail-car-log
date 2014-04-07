@@ -23,6 +23,7 @@ def parse_args(folder, video_file):
             'radar': radar_folder,
             'gps': gps_file,
             'video': video_file,
+            'cam_num': int(video_file[-5]),
             'params': LoadParameters(params)}
 
 
