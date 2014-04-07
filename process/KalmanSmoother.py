@@ -14,7 +14,9 @@ def kf_pass(A0, B0, C1, d1, Q0, R1, mu00, Sigma00, u0, z1):
     # z1 = C1*x1 + d1 + delta,  delta ~ N(0, R1)
 
     # Dynamics update
-    mu10 = np.dot(A0, mu00) + np.dot(B0, u0)
+    mu10 = np.dot(A0, mu00)
+    if B0 is not None and u0 is not None:
+        mu10 = mu10 + np.dot(B0, u0)
     Sigma10 = np.dot(np.dot(A0, Sigma00), A0.T) + Q0
 
     # Measurement update
@@ -98,7 +100,7 @@ def plot_kfs_deltas(mus, Tmus, Sigmas, TSigmas, imu_states, coord=0):
     # Kalman smoother deltas
     plt.plot(range(1, T), dys2, 'g-', label='$\Delta %s\mathrm{\ smoothed}$' % cn)
     # Difference between smoother and filter
-    plt.plot(range(1, T), dys2 - dys1, 'm-', label='$\Delta %s\mathrm{\ smoothed} - \Delta %s\mathrm{\ filtered}$' % (cn, cn))
+    #plt.plot(range(1, T), dys2 - dys1, 'm-', label='$\Delta %s\mathrm{\ smoothed} - \Delta %s\mathrm{\ filtered}$' % (cn, cn))
 
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend(handles, labels, prop={'size': 20}, loc=0)
@@ -129,6 +131,7 @@ if __name__ == '__main__':
 
     INS_VAR = 1.0  # PARAM
     SCAN_VAR = 0.1  # PARAM
+    VEL_VAR = 0.5  # PARAM
 
     # Load ICP transform corrections
 
@@ -143,21 +146,24 @@ if __name__ == '__main__':
 
     # Set up variables for Kalman smoothing
 
-    # Same across all time steps - right now dynamics model is pretty dumb
-    A = np.eye(3)
-    B = np.eye(3)
+    # Same across all time steps
+    A = np.eye(6)
+    A[0, 3] = A[1, 4] = A[2, 5] = 1.0
+    B = None
     C = np.concatenate((np.eye(3), np.eye(3)), axis=0)
+    C = np.concatenate((C, np.zeros((6, 3))), axis=1)
 
     # Dependent on t
     us = list()
     ds = list()
     Qs = list()
-    Qs.append(np.diag([0.01, 0.3, 0.3]))  # PARAM
+    Qs.append(np.diag([0.01, 0.3, 0.3, VEL_VAR, VEL_VAR, VEL_VAR]))  # PARAM
     Rs = list()
     for t in range(1, nt):
-        us.append(imu_states[t, :] - imu_states[t - 1, :])
+        us.append(None)
         ds.append(np.zeros(6))
-        Qs.append(10*np.diag(np.abs(imu_states[t, :] - imu_states[t - 1, :])))
+        delta_state = np.abs(imu_states[t, :] - imu_states[t - 1, :])
+        Qs.append(np.diag(np.concatenate((10 * delta_state, delta_state))))
         if t % EXPORT_STEP == 0:
             # Got an ICP scan
             Rs.append(np.diag([INS_VAR, INS_VAR, INS_VAR, SCAN_VAR, SCAN_VAR, SCAN_VAR]))
@@ -171,7 +177,7 @@ if __name__ == '__main__':
     Sigmas = list()   # Sigma_{t|t}
     dmus = list()     # mu_{t+1|t}
     dSigmas = list()  # Sigma_{t+1|t}
-    mu00 = imu_states[0, :]
+    mu00 = np.concatenate((imu_states[0, :], imu_states[1, :] - imu_states[0, :]))
     Sigma00 = Qs[0]
     mus.append(mu00)
     Sigmas.append(Sigma00)
@@ -217,7 +223,7 @@ if __name__ == '__main__':
 
     imu_transforms_smoothed = imu_transforms
     for t in range(T_start, T_end):
-        imu_transforms_smoothed[t, 0:3, 3] = Tmus[t - T_start]
+        imu_transforms_smoothed[t, 0:3, 3] = Tmus[t - T_start][0:3]
 
     # FIXME Pass in output file
     np.savez('imu_transforms_smoothed.npz', data=imu_transforms)
