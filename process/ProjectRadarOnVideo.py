@@ -12,38 +12,46 @@ import numpy as np
 import cv2
 from ArgParser import *
 
-(Rx,Ry,Rz) = (0, 0, -.015)
+def projectPoints(radar_data, args):
+    """ Projects radar points into the camera's frame
+        Args: radar_data, the output from loadRDR
+              args, the output from parse_args
+        Returns: A new numpy array with columns:
+                    [dist, lat_dist, z(guess), l, w, rcs, rel_spd, id, x, y]
+    """
+    params = args['params']
+    cam_num = args['cam_num']
+    cam = params['cam'][cam_num - 1]
 
-def cloudToPixels(cam, pts_wrt_cam): 
+    radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], params['radar'])
+    pts = radar_data[:, :3]
 
-    width = 4
-    (pix, J)  = cv2.projectPoints(pts_wrt_cam.transpose(), np.array([0.0,0.0,0.0]), np.array([0.0,0.0,0.0]), cam['KK'], cam['distort'])
+    pts_wrt_cam = pts + cam['displacement_from_l_to_c_in_lidar_frame']
+    pts_wrt_cam = np.dot(R_to_c_from_l(cam), pts_wrt_cam.transpose())
+
+    (pix, J)  = cv2.projectPoints(pts_wrt_cam.transpose(),
+        np.array([0.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.0]),
+        cam['KK'], cam['distort'])
 
     pix = pix.transpose()
     pix = np.around(pix[:, 0, :])
     pix = pix.astype(np.int32)
-    mask = np.logical_and(True, pix[0,:] > 0 + width/2)
-    mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
-    mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
-    mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
-    mask = np.logical_and(mask, pts_wrt_cam[2,:] > 0)
-    dist_sqr = np.sum( pts_wrt_cam[0:3, :] ** 2, axis = 0)
-    mask = np.logical_and(mask, dist_sqr > 3)
 
-    return (pix, mask)
+    # Filter the points to remove points that exist outside the video frame
+    # This is not a problem for the radar because the cameras see everything 
+    # the radar does
+    # dist_sqr = np.sum(pts_wrt_cam[0:3, :] ** 2, axis = 0)
+    # mask = (pix[0,:] > 0) & (pix[1,:] > 0) & \
+    #     (pix[0,:] < 1279) & (pix[1,:] < 959) & \
+    #     (pts_wrt_cam[2,:] > 0) & (dist_sqr > 3)
 
-def transformLidarPointsToCameraPoints(points, cam):
-    pts_wrt_camera_t = points + cam['displacement_from_l_to_c_in_lidar_frame']
-    pts_wrt_camera_t = dot(R_to_c_from_l(cam), pts_wrt_camera_t.transpose())
-
-    return pts_wrt_camera_t
+    # Outputs [dist, lat_dist, z(guess), l, w, rcs, rel_spd, id, x, y]
+    radar_data_projected = np.hstack((radar_data, pix.transpose()))
+    return radar_data_projected
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
-    cam_num = int(sys.argv[2][-5])
-
     params = args['params']
-    cam = params['cam'][cam_num - 1]
 
     video_reader = VideoReader(args['video'])
     rdr_map = loadRDRCamMap(args['map'])
@@ -55,68 +63,57 @@ if __name__ == '__main__':
         for t in xrange(5):
             (success, I) = video_reader.getNextFrame()
 
-        all_pix = None
-
         frame_num = video_reader.framenum
-
         radar_data = loadRDR(rdr_map[frame_num])[0]
 
         if radar_data.shape[0] > 0:
+            # Remove points that have a low radar cross-section
             mask = (radar_data[:, 5] > 5)
+            # Remove points that are moving too fast (fixed objects)
             mask &= (radar_data[:, 6] > -20)
             radar_data = radar_data[mask]
 
         if radar_data.shape[0] > 0:
-            radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], params['radar'])
-
-            back_pts = transformLidarPointsToCameraPoints(radar_data[:,0:3], cam)
-            
-            front_right_pts = np.array(radar_data[:,0:3])
+            front_right_pts = np.array(radar_data)
             front_right_pts[:,0] += radar_data[:,3]
             front_right_pts[:,1] += radar_data[:,4] / 2.
-            front_right_pts = transformLidarPointsToCameraPoints(front_right_pts, cam)
             
-            front_left_pts = np.array(radar_data[:,0:3])
+            front_left_pts = np.array(radar_data)
             front_left_pts[:,0] += radar_data[:,3]
             front_left_pts[:,1] -= radar_data[:,4] / 2.
-            front_left_pts = transformLidarPointsToCameraPoints(front_left_pts, cam)
 
-            right_pts = np.array(radar_data[:,0:3])
+            right_pts = np.array(radar_data)
             right_pts[:,1] += radar_data[:,4] / 2.
-            right_pts = transformLidarPointsToCameraPoints(right_pts, cam)
 
-            left_pts = np.array(radar_data[:,0:3])
+            left_pts = np.array(radar_data)
             left_pts[:,1] -= radar_data[:,4] / 2.
-            left_pts = transformLidarPointsToCameraPoints(left_pts, cam)
 
             # reproject camera_t points in camera frame
-            (pix_front_right, mask) = cloudToPixels(cam, front_right_pts)
-            (pix_front_left, mask) = cloudToPixels(cam, front_left_pts)
-            (pix_left, mask) = cloudToPixels(cam, left_pts)
-            (pix_right, mask) = cloudToPixels(cam, right_pts)
+            front_right_proj = projectPoints(front_right_pts, args)
+            front_left_proj = projectPoints(front_left_pts, args)
+            left_proj = projectPoints(left_pts, args)
+            right_proj = projectPoints(right_pts, args)
 
-            for j in xrange(pix_front_right.shape[1]):
-                cv2.line(I, tuple(pix_front_right[:,j]), tuple(pix_front_left[:,j]), (255,0,0))
-                cv2.line(I, tuple(pix_front_left[:,j]), tuple(pix_left[:,j]), (255,255,0))
-                cv2.line(I, tuple(pix_left[:,j]), tuple(pix_right[:,j]), (255,255,0))
-                cv2.line(I, tuple(pix_right[:,j]), tuple(pix_front_right[:,j]), (255,255,0))
+            for j in xrange(front_right_proj.shape[0]):
+                fr = front_right_proj[j, 8:10].astype(np.int32)
+                fl = front_left_proj[j, 8:10].astype(np.int32)
+                bl = left_proj[j, 8:10].astype(np.int32)
+                br = right_proj[j, 8:10].astype(np.int32)
 
-                rcs = radar_data[j, 5]
-                id = int(radar_data[j, 7])
+                cv2.line(I, tuple(fr), tuple(fl), (255,255,0))
+                cv2.line(I, tuple(fl), tuple(bl), (255,255,0))
+                cv2.line(I, tuple(bl), tuple(br), (255,0,0))
+                cv2.line(I, tuple(br), tuple(fr), (255,255,0))
+
                 dist = radar_data[j, 0]
+                rcs = radar_data[j, 5]
                 spd = radar_data[j, 6]
+                id = int(radar_data[j, 7])
                 s = "%d: %d, %0.2f, %0.2f" % (id, rcs, dist, spd)
-
-                cv2.putText(I, s, tuple(pix_right[:,j]),
+                cv2.putText(I, s, tuple(fr),
                     cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,255), thickness=1)
 
         cv2.imshow('display', I)
         # writer.write(I)
 
-        # print (Rx, Ry, Rz)
-
         key = chr((cv2.waitKey(1) & 255))
-        if key == 'j':
-            Rz += .001
-        elif key == 'k':
-            Rz -= .001
