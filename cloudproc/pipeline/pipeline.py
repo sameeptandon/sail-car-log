@@ -10,7 +10,7 @@ from pipeline_config import POINTS_H5_DIR,\
         SAIL_CAR_LOG_PATH, CLOUDPROC_PATH, DOWNSAMPLE_LEAF_SIZE,\
         K_NORM_EST, PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR,\
         ICP_ITERS, ICP_MAX_DIST, REMOTE_DATA_DIR, REMOTE_FILES,\
-        EXPORT_FULL
+        EXPORT_FULL, GPS_FILE, MAP_FILE
 from pipeline_utils import file_num
 
 # TODO Commands to scp stuff over
@@ -39,8 +39,8 @@ def download_files(dummy, local_file):
 def convert_ldr_to_h5():
     if os.path.exists('%s/sentinel' % POINTS_H5_DIR):
         return
-    LIDAR_INTEGRATOR = '%s/process/LidarIntegratorICP.py' % SAIL_CAR_LOG_PATH
-    cmd = 'python {integrator} {dset_dir} {dset}.avi {h5_dir} --export --all --h5'.format(integrator=LIDAR_INTEGRATOR, dset_dir=DSET_DIR, h5_dir=POINTS_H5_DIR, dset=DSET)
+    exporter = '%s/cloudproc/pipeline/ldr_to_h5.py' % SAIL_CAR_LOG_PATH
+    cmd = 'python {exporter} {fgps} {fmap} {h5_dir}'.format(exporter=exporter, fgps=GPS_FILE, fmap=MAP_FILE, h5_dir=POINTS_H5_DIR)
     if EXPORT_FULL:
         cmd += ' --full'
     check_call(cmd, shell=True)

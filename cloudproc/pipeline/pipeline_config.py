@@ -24,6 +24,9 @@ REMOTE_FILES = [
     '%s.pcap' % DSET[:-1]
 ]
 
+GPS_FILE = pjoin(DSET_DIR, '%s_gps.out' % DSET[:-1])
+MAP_FILE = pjoin(DSET_DIR, '%s.map' % DSET[:-1])
+
 LDR_DIR = pjoin(DSET_DIR, '%s_frames' % DSET[:-1])
 POINTS_H5_DIR = pjoin(DSET_DIR, 'h5')
 PCD_DIR = pjoin(DSET_DIR, 'pcd')
