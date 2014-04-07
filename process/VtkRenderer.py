@@ -4,6 +4,7 @@ import numpy as np
 import vtk.util.numpy_support as converter
 import time
 import cv2
+import itertools
 
 
 class VtkImage:
@@ -31,8 +32,7 @@ class VtkImage:
 
 class VtkBoundingBox:
     def __init__(self, properties):
-        print properties
-        (x, y, z, l, w, rcs) = tuple(properties)
+        (x, y, z, l, w) = tuple(properties[:5])
         h = 1
         self.bounds = (x, x+l, y-w/2., y+w/2., z-h/2., z+h/2.)
 
