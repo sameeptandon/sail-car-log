@@ -100,7 +100,7 @@ def unpack_bag(basename, radar_bag_file):
         if msg.obj_id == 61:
             if cur_file != None:
                 cur_file.close()
-            time = msg.header.stamp.to_nsec()/1000
+            time = msg.header.stamp.to_nsec()/1000 - 66000
             times.append(time)
             cur_file = open(rdr_dir + str(time) + '.rdr', 'w')
             
