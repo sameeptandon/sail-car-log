@@ -74,7 +74,7 @@ def plot_kfs_states(mus, Tmus, Sigmas, TSigmas, imu_states, coord=0):
     plt.show()
 
 
-def plot_kfs_delta(mus, Tmus, Sigmas, TSigmas, imu_states, coord=0):
+def plot_kfs_deltas(mus, Tmus, Sigmas, TSigmas, imu_states, coord=0):
     # Plots to compare GPS positions to positions after filtering and smoothing
     import matplotlib.pyplot as plt
 
@@ -127,6 +127,9 @@ if __name__ == '__main__':
     nt = T_end - T_start
     imu_states = imu_transforms[T_start:T_end, 0:3, 3]
 
+    INS_VAR = 1.0  # PARAM
+    SCAN_VAR = 0.1  # PARAM
+
     # Load ICP transform corrections
 
     icp_transforms = list()
@@ -143,21 +146,24 @@ if __name__ == '__main__':
     # Same across all time steps - right now dynamics model is pretty dumb
     A = np.eye(3)
     B = np.eye(3)
-    C = np.eye(3)
-    R = np.diag([0.1, 0.1, 0.1])
+    C = np.concatenate((np.eye(3), np.eye(3)), axis=0)
 
     # Dependent on t
     us = list()
     ds = list()
     Qs = list()
-    Qs.append(np.diag([0.01, 0.3, 0.3]))
+    Qs.append(np.diag([0.01, 0.3, 0.3]))  # PARAM
+    Rs = list()
     for t in range(1, nt):
         us.append(imu_states[t, :] - imu_states[t - 1, :])
-        if t % EXPORT_STEP == 0:
-            ds.append(icp_transforms[t / EXPORT_STEP - 1][0:3, 3])
-        else:
-            ds.append(None)
+        ds.append(np.zeros(6))
         Qs.append(10*np.diag(np.abs(imu_states[t, :] - imu_states[t - 1, :])))
+        if t % EXPORT_STEP == 0:
+            # Got an ICP scan
+            Rs.append(np.diag([INS_VAR, INS_VAR, INS_VAR, SCAN_VAR, SCAN_VAR, SCAN_VAR]))
+        else:
+            # Didn't get an ICP scan
+            Rs.append(np.diag([INS_VAR, INS_VAR, INS_VAR, np.inf, np.inf, np.inf]))
 
     # Run Kalman filter
 
@@ -172,16 +178,16 @@ if __name__ == '__main__':
 
     for t in range(1, nt):
         z = None
-        d = None
+        d = ds[t - 1]
         u = us[t - 1]
 
         if t % EXPORT_STEP == 0:
             # Get an ICP observation
-            z = imu_states[t, :]
-            d = ds[t - 1]
-            assert d is not None
+            z = np.concatenate((imu_states[t, :], imu_states[t, :] + icp_transforms[t / EXPORT_STEP - 1][0:3, 3]))
+        else:
+            z = np.concatenate((imu_states[t, :], imu_states[t, :]))
 
-        dm, dSig, m, Sig = kf_pass(A, B, C, d, Qs[t], R, mus[-1], Sigmas[-1], u, z)
+        dm, dSig, m, Sig = kf_pass(A, B, C, d, Qs[t], Rs[t-1], mus[-1], Sigmas[-1], u, z)
 
         mus.append(m)
         Sigmas.append(Sig)
@@ -204,8 +210,8 @@ if __name__ == '__main__':
 
     # Plot stuff
 
-    #plot_kfs_state(mus, Tmus, Sigmas, TSigmas, imu_states, coord=1)
-    plot_kfs_delta(mus, Tmus, Sigmas, TSigmas, imu_states, coord=2)
+    plot_kfs_states(mus, Tmus, Sigmas, TSigmas, imu_states, coord=2)
+    #plot_kfs_deltas(mus, Tmus, Sigmas, TSigmas, imu_states, coord=2)
 
     # Export smoothed transforms to file
 
