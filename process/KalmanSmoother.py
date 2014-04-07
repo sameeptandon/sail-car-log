@@ -38,7 +38,7 @@ def ks_pass(A, mu00, mu10, mu1T, Sigma00, Sigma10, Sigma1T):
     return (mu0T, Sigma0T)
 
 
-def plot_ks_results(mus, Tmus, Sigmas, TSigmas, imu_states, coord=0):
+def plot_kfs_states(mus, Tmus, Sigmas, TSigmas, imu_states, coord=0):
     # Plots to compare GPS positions to positions after filtering and smoothing
     import matplotlib.pyplot as plt
 
@@ -54,25 +54,55 @@ def plot_ks_results(mus, Tmus, Sigmas, TSigmas, imu_states, coord=0):
     plt.figure()
 
     # Original GPS positions
-    plt.plot(range(nt), ys3, 'r-', label='$%s\mathrm{-GPS}$' % cn)
+    plt.plot(range(nt), ys3, 'r-', label='$%s\mathrm{\ GPS}$' % cn)
 
     # Kalman filter results
-    plt.plot(range(nt), ys1, 'b-', label='$%s\mathrm{-filtered}$' % cn)
+    plt.plot(range(nt), ys1, 'b-', label='$%s\mathrm{\ filtered}$' % cn)
     # Plot variance interval as well -- should be periodic
     plt.plot(range(nt), ys1 + sigmas, 'b:',
-            label='$%s\mathrm{-filtered\ } \pm\ \Sigma_{%s%s}$' % (cn, cn, cn))
+            label='$%s\mathrm{\ filtered\ } \pm\ \Sigma_{%s%s}$' % (cn, cn, cn))
     plt.plot(range(nt), ys1 - sigmas, 'b:')
 
     # Kalman smoother results
-    plt.plot(range(nt), ys2, 'g-', label='$%s\mathrm{-smoothed}$' % cn)
+    plt.plot(range(nt), ys2, 'g-', label='$%s\mathrm{\ smoothed}$' % cn)
     plt.plot(range(nt), ys2 + Tsigmas, 'g:',
-            label='$%s\mathrm{-smoothed\ } \pm\ \Sigma_{%s%s}$' % (cn, cn, cn))
+            label='$%s\mathrm{\ smoothed\ } \pm\ \Sigma_{%s%s}$' % (cn, cn, cn))
     plt.plot(range(nt), ys2 - Tsigmas, 'g:')
 
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend(handles, labels, prop={'size': 20}, loc=0)
     plt.show()
 
+
+def plot_kfs_delta(mus, Tmus, Sigmas, TSigmas, imu_states, coord=0):
+    # Plots to compare GPS positions to positions after filtering and smoothing
+    import matplotlib.pyplot as plt
+
+    cn = ['x', 'y', 'z'][coord]
+
+    T = len(mus)
+    ys1 = np.array([mu[coord] for mu in mus])
+    ys2 = np.array([mu[coord] for mu in Tmus])
+    ys3 = np.array(imu_states[:, coord])
+
+    dys1 = ys1[1:] - ys1[:-1]
+    dys2 = ys2[1:] - ys2[:-1]
+    dys3 = ys3[1:] - ys3[:-1]
+
+    plt.figure()
+
+    # Original GPS position deltas
+    plt.plot(range(1, T), dys3, 'r-', label='$\Delta %s\mathrm{\ GPS}$' % cn)
+    # Kalman filter deltas
+    plt.plot(range(1, T), dys1, 'b-', label='$\Delta %s\mathrm{\ filtered}$' % cn)
+    # Kalman smoother deltas
+    plt.plot(range(1, T), dys2, 'g-', label='$\Delta %s\mathrm{\ smoothed}$' % cn)
+    # Difference between smoother and filter
+    plt.plot(range(1, T), dys2 - dys1, 'm-', label='$\Delta %s\mathrm{\ smoothed} - \Delta %s\mathrm{\ filtered}$' % (cn, cn))
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    plt.legend(handles, labels, prop={'size': 20}, loc=0)
+    plt.show()
 
 if __name__ == '__main__':
     import os
@@ -127,7 +157,7 @@ if __name__ == '__main__':
             ds.append(icp_transforms[t / EXPORT_STEP - 1][0:3, 3])
         else:
             ds.append(None)
-        Qs.append(np.diag(np.abs(imu_states[t, :] - imu_states[t - 1, :])))
+        Qs.append(10*np.diag(np.abs(imu_states[t, :] - imu_states[t - 1, :])))
 
     # Run Kalman filter
 
@@ -174,6 +204,14 @@ if __name__ == '__main__':
 
     # Plot stuff
 
-    plot_ks_results(mus, Tmus, Sigmas, TSigmas, imu_states, coord=2)
+    #plot_kfs_state(mus, Tmus, Sigmas, TSigmas, imu_states, coord=1)
+    plot_kfs_delta(mus, Tmus, Sigmas, TSigmas, imu_states, coord=2)
 
-    # Export to file
+    # Export smoothed transforms to file
+
+    imu_transforms_smoothed = imu_transforms
+    for t in range(T_start, T_end):
+        imu_transforms_smoothed[t, 0:3, 3] = Tmus[t - T_start]
+
+    # FIXME Pass in output file
+    np.savez('imu_transforms_smoothed.npz', data=imu_transforms)
