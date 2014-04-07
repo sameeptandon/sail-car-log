@@ -1,3 +1,5 @@
+#pragma once
+
 #include "point_defs.h"
 #include <pcl/correspondence.h>
 
