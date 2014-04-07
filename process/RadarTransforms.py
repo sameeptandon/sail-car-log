@@ -1,7 +1,5 @@
 import numpy as np
 import os
-from transformations import euler_matrix
-
 
 def loadRDR(rdrfile):
     # OBJ_fmt = 'O {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {rcs} {w} {l}'
