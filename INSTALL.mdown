@@ -34,15 +34,16 @@ you may need to install OpenCV with Qt4:
 
 ## PCL on Ubuntu
 
-Make sure `libpcap-dev` is installed. Then build PCL from source.
-
-    [PCL 1.7.1](https://github.com/PointCloudLibrary/pcl/releases/tag/pcl-1.7.1)
+Make sure `libpcap-dev` is installed. Then build PCL from source:
+[PCL 1.7.1](https://github.com/PointCloudLibrary/pcl/releases/tag/pcl-1.7.1)
 
 ## PCL on OS X
 
+Via MacPorts:
 `port install cmake flann libusb boost qhull eigen3`
+Then build from source.
 
-Then follow the instructions on
+Or follow the [instructions on wiki](https://github.com/sameeptandon/sail-car-log/wiki/Installing-PCL-on-a-Mac).
 
 ## ROS on OS X
 
