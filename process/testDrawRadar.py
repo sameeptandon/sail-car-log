@@ -28,26 +28,31 @@ class ImageGrabberCallback:
 
         radar_data = loadRDR(self.rdr_pts[self.count])[0]
         radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], self.radar_params)
+        if radar_data.shape[0] > 0:
+            mask = (radar_data[:, 5] > 5)
+            mask &= (radar_data[:, 6] > -20)
+            radar_data = radar_data[mask]
 
-        for i in xrange(len(self.radar_actors)):
-            fren.RemoveActor(self.radar_actors[i])
-        
-        self.radar_actors = []
-        self.radar_clouds = []
+        if radar_data.shape[0] > 0:
+            for i in xrange(len(self.radar_actors)):
+                fren.RemoveActor(self.radar_actors[i])
 
-        for i in xrange(radar_data.shape[0]):
-            self.radar_clouds.append(VtkBoundingBox(radar_data[i, :]))
+            self.radar_actors = []
+            self.radar_clouds = []
 
-            self.radar_actors.append(self.radar_clouds[i].get_vtk_box())
-            fren.AddActor(self.radar_actors[i])
+            for i in xrange(radar_data.shape[0]):
+                self.radar_clouds.append(VtkBoundingBox(radar_data[i, :]))
 
-        lidar_data = loadLDR(self.clouds[self.count])
-        self.lidar_cloud = VtkPointCloud(lidar_data[:, :3], lidar_data[:,3])
+                self.radar_actors.append(self.radar_clouds[i].get_vtk_box())
+                fren.AddActor(self.radar_actors[i])
 
-        fren.RemoveActor(self.lidar_actor)
-        self.lidar_actor = self.lidar_cloud.get_vtk_cloud(zMin=0, zMax=255)
-        fren.AddActor(self.lidar_actor)
-        
+            lidar_data = loadLDR(self.clouds[self.count])
+            self.lidar_cloud = VtkPointCloud(lidar_data[:, :3], lidar_data[:,3])
+
+            fren.RemoveActor(self.lidar_actor)
+            self.lidar_actor = self.lidar_cloud.get_vtk_cloud(zMin=0, zMax=255)
+            fren.AddActor(self.lidar_actor)
+
         if self.count == 0:
             fren.ResetCamera()
             fren.GetActiveCamera().Zoom(1.6)

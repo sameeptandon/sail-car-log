@@ -1,3 +1,5 @@
+#python ProjectRadarOnVideo.py ../lidar/build/data/4-2-14-monterey/ 17N_b2.avi
+
 from Q50_config import *
 import sys, os
 from GPSReader import *
@@ -24,15 +26,14 @@ def projectPoints(radar_data, args):
     cam = params['cam'][cam_num - 1]
 
     radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], params['radar'])
-    pts = radar_data[:, :3]
 
+    pts = radar_data[:, :3]
     pts_wrt_cam = pts + cam['displacement_from_l_to_c_in_lidar_frame']
     pts_wrt_cam = np.dot(R_to_c_from_l(cam), pts_wrt_cam.transpose())
 
     (pix, J)  = cv2.projectPoints(pts_wrt_cam.transpose(),
         np.array([0.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.0]),
         cam['KK'], cam['distort'])
-
     pix = pix.transpose()
     pix = np.around(pix[:, 0, :])
     pix = pix.astype(np.int32)

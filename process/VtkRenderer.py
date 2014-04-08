@@ -32,11 +32,12 @@ class VtkImage:
 
 class VtkBoundingBox:
     def __init__(self, properties):
+        # (x, y) is the center-back of the car
         (x, y, z, l, w) = tuple(properties[:5])
         h = 1
         self.bounds = (x, x+l, y-w/2., y+w/2., z-h/2., z+h/2.)
 
-    def get_vtk_box(self):
+    def get_vtk_box(self, rot = 0):
         # create source
         source = vtk.vtkCubeSource()
         source.SetBounds(self.bounds)
@@ -51,6 +52,9 @@ class VtkBoundingBox:
         actor.GetProperty().SetRepresentationToWireframe()
         actor.GetProperty().SetLineWidth(1)
         actor.GetProperty().LightingOff()
+
+        actor.SetOrigin(source.GetCenter())
+        actor.RotateZ(rot)
 
         # assign actor to the renderer
         return actor
