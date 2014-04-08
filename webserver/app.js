@@ -57,7 +57,7 @@ io.sockets.on('connection', function(socket) {
   var running = subprocess ? true : false;
   socket.emit('subprocess_running', running);
   requester.on('message', function(res) {
-    
+
     if (res.length >= 4 && res.slice(0, 4).toString() == 'CAM:') {
       fs.writeFile('public/images/test.png', res.slice(4), function(err) {
         if (err) throw err;
@@ -103,25 +103,26 @@ process.on('SIGINT', function() {
   }
 });
 
-var outdir = "/home/smart/sail-car-log/cameralogger/build/";
+var outdir = "/home/smart/ros_data/";
 
 var spawnThread = function(prefix, maxFrames) {
   var name = prefix + '_' + util.getNextSuffix(outdir, prefix);
   var command = util.getCaptureCommand(name, maxFrames).split(' ');
-  //console.log(command);
+  console.log(command);
   var head = command.splice(0, 1)[0];
 
   io.sockets.emit('subprocess_running', true);
+  console.log("starting process");
 
   subprocess = spawn(head, command, {cwd: outdir, env: process.env});
   subprocess.stdout.on('data', function(data) {
     console.log(data.toString());
   });
   subprocess.stderr.on('data', function(data) {
-    //console.log('error: ' + data.toString());
+    console.log('error: ' + data.toString());
   });
   subprocess.on('exit', function(code) {
-    //console.log(code);
+    console.log(code);
     subprocess = null;
     if (code == 0 && !requested_terminate) {
         setTimeout(function() { 

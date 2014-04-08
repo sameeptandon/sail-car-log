@@ -16,6 +16,7 @@ import pickle
 WINDOW = 50*5
 
 def cloudToPixels(cam, pts_wrt_cam): 
+
     width = 4
     (pix, J) = cv2.projectPoints(pts_wrt_cam.transpose(), np.array([0.0,0.0,0.0]), np.array([0.0,0.0,0.0]), cam['KK'], cam['distort'])
 
@@ -50,17 +51,24 @@ def localMapToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
     return (pix, mask)
 
 
+def trackbarOnchange(t, prev_t):
+    if abs(t - prev_t) > 1:
+        video_reader.setFrame(t)
+
+
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
+    video_file = args['video']
 
-    cam = GetQ50CameraParams()[cam_num - 1] 
-    video_reader = VideoReader(args['video'])
+    params = args['params']
+    cam = params['cam'][cam_num-1]
+    video_reader = VideoReader(video_file)
     gps_reader = GPSReader(args['gps'])
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
     
-    T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
+    T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
 
     #all_data = np.load(sys.argv[3])
     all_data = pickle.load(open(sys.argv[3],'r'))
@@ -74,7 +82,12 @@ if __name__ == '__main__':
         #  (success, I) = video_reader.getNextFrame()
         for count in range(100):
             (success, I) = video_reader.getNextFrame()
+
+        if not success:
+            break
+
         t = video_reader.framenum - 1
+        print t
         mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t );
         map_data_copy = array(map_data[mask_window, :]);
 

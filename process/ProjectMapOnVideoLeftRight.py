@@ -71,12 +71,16 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
 
-    cam = GetQ50CameraParams()[cam_num - 1] 
-    video_reader = VideoReader(args['video'])
+    video_file = args['video']
+    params = LoadParameters('q50_4_3_14_params')
+    cam = params['cam'][cam_num-1]
+    video_reader = VideoReader(video_file)
     gps_reader = GPSReader(args['gps'])
-    print args['gps']
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
+    
+    T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
+    print args['gps']
    
     labelname = args['gps'][0:-8]+'_interp_lanes.pickle'
     labelname = string.replace(labelname, 'q50_data', '640x480_Q50') 

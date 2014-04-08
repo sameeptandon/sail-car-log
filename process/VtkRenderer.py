@@ -4,6 +4,7 @@ import numpy as np
 import vtk.util.numpy_support as converter
 import time
 import cv2
+import itertools
 
 
 class VtkImage:
@@ -28,6 +29,31 @@ class VtkImage:
         yActor.SetInput(flipY.GetOutput())
 
         return yActor
+
+class VtkBoundingBox:
+    def __init__(self, properties):
+        (x, y, z, l, w) = tuple(properties[:5])
+        h = 1
+        self.bounds = (x, x+l, y-w/2., y+w/2., z-h/2., z+h/2.)
+
+    def get_vtk_box(self):
+        # create source
+        source = vtk.vtkCubeSource()
+        source.SetBounds(self.bounds)
+
+        # mapper
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(source.GetOutputPort())
+
+        # actor
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetRepresentationToWireframe()
+        actor.GetProperty().SetLineWidth(1)
+        actor.GetProperty().LightingOff()
+
+        # assign actor to the renderer
+        return actor
 
 """
 Uses VTK to render a point cloud based on intensities, which might be floating point numbers or RGB values. 

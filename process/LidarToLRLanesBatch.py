@@ -208,7 +208,7 @@ if __name__ == '__main__':
       rootdir = rootdir[0:-1] # remove trailing '/'
     path, directory = os.path.split(rootdir)
     targetfolder = '/scail/group/deeplearning/driving_data/640x480_Q50/' + directory + '/'
-
+    cam_num = 2
     for root, subfolders, files in os.walk(rootdir):
       files1 = filter(lambda z: 'vail' not in z, files)
       files1 = filter(lambda z: '_gps.out' in z, files1)
@@ -219,11 +219,22 @@ if __name__ == '__main__':
       else:
         files = files1
       for f in files:
-        gps_name = os.path.join(root,f)
+
+
+        args = parse_args(root, f[0:-8]+str(cam_num)+'.avi')      
+        params = args['params']                                   
+        cam = params['cam'][cam_num-1]                            
+        gps_name = args['gps']                                     
+        gps_reader = GPSReader(gps_name)                           
+        GPSData = gps_reader.getNumericData()                     
+        imu_transforms = IMUTransforms(GPSData)                   
+                                                                  
+        T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
+        lidar_height = params['lidar']['height']
+
+
+
         print 'gps: '+gps_name
-        gps_reader = GPSReader(gps_name)
-        GPSData = gps_reader.getNumericData()
-        imu_transforms = IMUTransforms(GPSData)
         map_name = gps_name[0:-8]+'.map'
         print 'map: '+ map_name
         ldr_map = loadLDRCamMap(map_name)

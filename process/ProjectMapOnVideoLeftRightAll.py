@@ -77,20 +77,24 @@ if __name__ == '__main__':
       rootdir = rootdir[0:-1] # remove trailing '/'
     
     cam_num = 2
-    cam = GetQ50CameraParams()[cam_num - 1]
     for root, subfolders, files in os.walk(rootdir):
       files1 = filter(lambda z: 'vail' not in z, files)
       files1 = filter(lambda z: '_gps.out' in z, files1)
       files = files1
-      for f in files: 
-        gpsname = os.path.join(root,f) 
-        print gpsname[0:-8]
+      for f in files:
+        
+        args = parse_args(root, f[0:-8]+str(cam_num)+'.avi')
+        video_file = args['video']
+        params = args['params']
+        cam = params['cam'][cam_num-1]
+        video_reader = VideoReader(video_file)
+        gpsname = args['gps']
         gps_reader = GPSReader(gpsname)
         GPSData = gps_reader.getNumericData()
         imu_transforms = IMUTransforms(GPSData)
-
-        videoname = gpsname[0:-8]+str(cam_num)+'.avi'
-        video_reader = VideoReader(videoname)
+        lidar_height = params['lidar']['height'] 
+        T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
+        print gpsname[0:-8]
    
         labelname = gpsname[0:-8]+'_interp_lanes.pickle'
         labelname = string.replace(labelname, 'q50_data', '640x480_Q50') 

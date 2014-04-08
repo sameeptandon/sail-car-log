@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <ros/callback_queue.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
@@ -10,8 +11,6 @@
 #include "flycapture/FlyCapture2.h"
 
 #define NUM_SPLITS 10
-
-static const std::string OPENCV_WINDOW = "Image window";
 
 class ThreadedImageWriter
 {
@@ -41,24 +40,25 @@ public:
         consumer[thread_num] = new Consumer<cv::Mat>(
                 buffer[thread_num].getBuffer(),
                 thread_fname, buffer[thread_num].getMutex(),
-                60.0f, 1280, 1024, nh); 
+                50.0f, 1280, 960, nh); 
     }
     numframes = 0; 
     ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
-    // Subscrive to input video feed and publish output video feed
-    image_sub_ = it_.subscribe(topic, 1000, 
+    // Subscribe to input video feed and publish output video feed
+    image_sub_ = it_.subscribe(topic, 10000, 
       &ThreadedImageWriter::imageCb, this);
 
-    //cv::namedWindow(OPENCV_WINDOW);
   }
 
   ~ThreadedImageWriter()
   {
+  }
+
+  void stop() {
       for (int thread_num = 0; thread_num < NUM_SPLITS; thread_num++) { 
           consumer[thread_num]->stop();
           delete consumer[thread_num];
       }
-    //cv::destroyWindow(OPENCV_WINDOW);
   }
 
   void imageCb(const sensor_msgs::ImageConstPtr& msg)
@@ -75,19 +75,13 @@ public:
       return;
     }
 
-    numframes++; // this happens to be a terrible detail that makes us effectively 1 index. 
+    numframes++; // this makes us effectively 1 index. 
     cv::Mat* img = new cv::Mat( cv_ptr->image ) ;
 
-    // FIXME
     if (!buffer[numframes % NUM_SPLITS].getBuffer()->pushBack(img)) {
-        boost::mutex::scoped_lock( *(buffer[0].getMutex()));
+        boost::mutex::scoped_lock( *(buffer[numframes % NUM_SPLITS].getMutex()));
         ROS_ERROR("Warning! Buffer full, overwriting data!");
     }
-
-    // Update GUI Window
-    //cv::imshow(OPENCV_WINDOW, cv_ptr->image);
-    //cv::waitKey(3);
-    
   }
 };
 
@@ -97,5 +91,7 @@ int main(int argc, char** argv)
   ros::NodeHandle nh("~");
   ThreadedImageWriter ic(nh);
   ros::spin();
+  ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(2.0));
+  ic.stop();
   return 0;
 }
