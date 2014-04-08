@@ -21,6 +21,10 @@ Installing ROS-base should be sufficient.
 Make sure running `import rosbag` from within the Python shell works once
 you're done installing ROS.
 
+#### Octomap
+
+Download release 1.6.3 [here](https://github.com/OctoMap/octomap/tags).
+
 ## OpenCV on gorgon
 
 See the [wiki page](https://github.com/sameeptandon/sail-car-log/wiki/Installing-opencv-on-gorgon).
@@ -40,7 +44,7 @@ Make sure `libpcap-dev` is installed. Then build PCL from source:
 ## PCL on OS X
 
 Via MacPorts:
-`port install cmake flann libusb boost qhull eigen3`
+`port install cmake flann libusb boost qhull eigen3`.
 Then build from source.
 
 Or follow the [instructions on wiki](https://github.com/sameeptandon/sail-car-log/wiki/Installing-PCL-on-a-Mac).

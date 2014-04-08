@@ -1,4 +1,23 @@
+#include <vector>
+
+#include <boost/shared_ptr.hpp>
+
+#include <pcl/io/pcd_io.h>
+#include <pcl/filters/filter.h>
 #include <pcl/visualization/pcl_visualizer.h>
+
+// NOTE Also removes NaNs
+template <typename PointT>
+void load_cloud(std::string pcd_path, boost::shared_ptr<pcl::PointCloud<PointT> > cloud)
+{
+    if (pcl::io::loadPCDFile(pcd_path, *cloud) < 0)
+    {
+        std::cout << "Error loading input point cloud " << pcd_path << std::endl;
+        throw;
+    }
+    std::vector<int> indices;
+    pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
+}
 
 template<typename PointT>
 void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_cloud, const boost::shared_ptr<pcl::PointCloud<PointT> > tgt_cloud, boost::shared_ptr<pcl::PointCloud<PointT> > aligned_cloud, const pcl::Correspondences& correspondences, bool viz_normals)
