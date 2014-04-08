@@ -58,9 +58,10 @@ if __name__ == '__main__':
     # Plot of change in coord
 
     import matplotlib.pyplot as plt
+    corrected = np.array(delta_coord_icp) + np.array(delta_z_gps)
     p1 = plt.plot(range(1, num_frames), delta_z_gps, label='$\Delta %s_{\mathrm{gps}}$' % coord_name)
     p2 = plt.plot(range(1, num_frames), np.array(delta_coord_icp), label='$\delta %s_{\mathrm{icp}}$' % coord_name)
-    p3 = plt.plot(range(1, num_frames), np.array(delta_coord_icp) + np.array(delta_z_gps), label='$\Delta %s_{\mathrm{gps}} + \delta %s_{\mathrm{icp}}$' % (coord_name, coord_name))
+    p3 = plt.plot(range(1, num_frames), corrected, label='$\Delta %s_{\mathrm{gps}} + \delta %s_{\mathrm{icp}}$' % (coord_name, coord_name))
 
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend(handles, labels, prop={'size': 20})

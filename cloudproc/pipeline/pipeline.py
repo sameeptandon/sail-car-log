@@ -47,6 +47,16 @@ def convert_ldr_to_h5():
 
 
 @follows('convert_ldr_to_h5')
+@transform('./h5/*.transform',
+           regex('./h5/(.*?).transform'),
+           r'./h5/\1.euler')
+def convert_matrix_to_euler(input_file, output_file):
+    converter = '%s/cloudproc/pipeline/matrix_to_euler.py' % SAIL_CAR_LOG_PATH
+    cmd = 'python %s %s %s' % (converter, input_file, output_file)
+    check_call(cmd, shell=True)
+
+
+@follows('convert_matrix_to_euler')
 @transform('./h5/*.h5',
            regex('./h5/(.*?).h5'),
            r'./pcd/\1.pcd')

@@ -52,6 +52,10 @@ if __name__ == '__main__':
             print '%d data empty' % t
             raise
 
+        # Filter
+        #data_filter_mask = data[:, 3] > 40
+        #data = data[data_filter_mask]
+
         # transform data into IMU frame at time t
         pts = data[:, 0:3].transpose()
         pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
@@ -70,4 +74,11 @@ if __name__ == '__main__':
         h5f = h5py.File(fname, 'w')
         dset = h5f.create_dataset('points', pts_copy.shape, dtype='f')
         dset[...] = pts_copy
+        h5f.close()
+
+        # Also write the transform at that time
+        transform = imu_transforms[fnum, :, :]
+        h5f = h5py.File(os.path.join(args.h5_dir, '%d.transform' % t), 'w')
+        dset = h5f.create_dataset('transform', transform.shape, dtype='f')
+        dset[...] = transform
         h5f.close()

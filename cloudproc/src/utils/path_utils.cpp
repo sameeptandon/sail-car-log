@@ -4,6 +4,7 @@
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 
 namespace fs = boost::filesystem;
 
@@ -46,5 +47,17 @@ void get_numbered_files(const std::string& file_dir, const std::string& reg_str,
     for (int_path_map::iterator iter = file_path_map.begin(); iter != file_path_map.end(); ++iter)
     {
         file_paths.push_back(iter->second.string());
+    }
+}
+
+void get_range_files(const std::string& file_dir, int start, int step, int count, const std::string& format_str, std::vector<std::string>& file_paths)
+{
+    file_paths.clear();
+
+    int end = start + step * count;
+    for (int k = start; k < end; k += step)
+    {
+        fs::path p = fs::path(file_dir) / fs::path((boost::format(format_str) % k).str());
+        file_paths.push_back(p.string());
     }
 }
