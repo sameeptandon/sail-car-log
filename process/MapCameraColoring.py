@@ -12,8 +12,10 @@ import cv2
 from ArgParser import *
 import vtk
 from VtkRenderer import *
+import multiprocessing
 
-WINDOW = 50*5
+NUM_PROCESSES = 4
+WINDOW = 50*3
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -52,27 +54,42 @@ def localMapToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
 
     return (pix, mask)
 
+def getPixelColors(args):
+    (I, map_data, t) = args
+    mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t );
+
+    # reproject
+    (pix, mask) = localMapToPixels(map_data[mask_window,:], imu_transforms[t,:,:], T_from_i_to_l, cam);
+
+    color_data = np.zeros((np.count_nonzero(mask), 3))
+
+    color_data[:,0] = I[pix[1,mask], pix[0,mask], 2]
+    color_data[:,1] = I[pix[1,mask], pix[0,mask], 1]
+    color_data[:,2] = I[pix[1,mask], pix[0,mask], 0]
+
+    return (color_data,mask)
+
+
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
 
-    cam = GetQ50CameraParams()[cam_num - 1] 
+    params = args['params']
+    cam = params['cam'][cam_num - 1]
     video_reader = VideoReader(args['video'])
     gps_reader = GPSReader(args['gps'])
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
     
-    T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
+    T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
 
     all_data = np.load(sys.argv[3])
     map_data = all_data['data']
     color_data = np.zeros((map_data.shape[0], 3))
     #color_data = np.zeros((map_data.shape[0], 7, 10))
     #map_data = map_data[map_data[:,3] > 60, :]
-    # map points are defined w.r.t the IMU position at time 0
-    # each entry in map_data is (x,y,z,intensity,framenum). 
-    
+   
     start_t = 0
     t = start_t
     while True:
@@ -84,15 +101,19 @@ if __name__ == '__main__':
         if t > np.max(map_data[:,4]):
             break
 
+
         mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t );
 
         # reproject
-        (pix, mask) = localMapToPixels(map_data[mask_window,:], imu_transforms[t,:,:], T_from_i_to_l, cam);
+        #(pix, mask) = localMapToPixels(map_data[mask_window,:], imu_transforms[t,:,:], T_from_i_to_l, cam);
+        (cdata, mask) = getPixelColors((I, map_data, t)) 
+
 
         mask_window[mask_window] &= mask
-        color_data[mask_window,0] = I[pix[1,mask], pix[0,mask], 2]
-        color_data[mask_window,1] = I[pix[1,mask], pix[0,mask], 1]
-        color_data[mask_window,2] = I[pix[1,mask], pix[0,mask], 0]
+        color_data[mask_window, :] = cdata
+        #color_data[mask_window,0] = I[pix[1,mask], pix[0,mask], 2]
+        #color_data[mask_window,1] = I[pix[1,mask], pix[0,mask], 1]
+        #color_data[mask_window,2] = I[pix[1,mask], pix[0,mask], 0]
         """
         idx_num = color_data[mask_window,6,0].astype(np.int32)
         color_data[mask_window,0,idx_num] = I[pix[1,mask], pix[0,mask], 2]
