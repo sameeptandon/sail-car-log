@@ -15,4 +15,5 @@ target_link_libraries(downsample_cloud ${PCL_LIBRARIES})
 add_executable(estimate_normals estimate_normals.cpp)
 target_link_libraries(estimate_normals ${PCL_LIBRARIES})
 
+add_subdirectory(videoreader)
 add_subdirectory(octomap)
