@@ -15,6 +15,20 @@ from AnnotationLib import *
 from optparse import OptionParser
 
 
+def isTheSame(_rect1, _rect2):
+   Thr = .5;
+   rect1 = copy.deepcopy(_rect1);
+   rect2 = copy.deepcopy(_rect2);
+
+   intersection_rect = rect1.intersection(rect2)
+   a1 = rect1.width() * rect1.height();
+   a2 = rect2.width() * rect2.height();
+   a0 = intersection_rect[0] * intersection_rect[1];
+   if (a0 * 1.0) / a1 > Thr or (a0 * 1.0) / a2 > Thr:
+	return True;
+   else:
+	return False
+
 if __name__ == "__main__":
 
     min_remove_iou = 0.65;
@@ -45,9 +59,11 @@ if __name__ == "__main__":
     # convert to full path
     for a in annolist:
         if not os.path.isabs(a.imageName):
+	    print a.imageName
             a.imageName = annolist_basedir + "/" + a.imageName
+	    print "New->"+a.imageName;
 
-        assert(os.path.isfile(a.imageName))
+#        assert(os.path.isfile(a.imageName))
 
     annolist = annolist[firstidx:lastidx+1];
 
@@ -92,32 +108,39 @@ if __name__ == "__main__":
             if len(annolist_track_fwd) == len(annolist_track_back):
                 annolist_track_back.reverse();
 
-                for idx2 in range(1, len(annolist_track_fwd)):
-                    # print annolist_track_fwd[idx2].imageName
-                    # print annolist_track_back[idx2-1].imageName
+		annolist_len = len(annolist_track_fwd);
+		midIdx = annolist_len/2;
+		annolist_track_main = annolist_track_fwd[:midIdx+1] + annolist_track_back[midIdx:annolist_len-1];
+		annolist_track_more = [annolist_track_fwd[0]] + annolist_track_back[0:midIdx] + annolist_track_fwd[midIdx+1:annolist_len]; 
 
-                    assert(annolist_track_fwd[idx2].imageName == annolist_track_back[idx2-1].imageName);
+                for idx2 in range(1, len(annolist_track_fwd)-1):
+                    #print annolist_track_main[idx2].imageName
+                    #print annolist_track_more[idx2].imageName
+
+                    assert(annolist_track_main[idx2].imageName == annolist_track_more[idx2].imageName);
 
                     #annolist_track_fwd[idx2].rects += annolist_track_back[idx2-1].rects;
 
                     r_new = [];
 
-                    #MA: don't include duplicate rects 
-                    for r_back in annolist_track_back[idx2-1].rects:
+                    #MA: don't include duplicate rects
+			
+
+                    for r_more in annolist_track_more[idx2].rects:
 
                         found_similar = False;
-                        for r_front in annolist_track_fwd[idx2].rects:
-                            if r_back.overlap_pascal(r_front) > min_remove_iou:
+                        for r_main in annolist_track_main[idx2].rects:
+                            if isTheSame(r_main, r_more):
                                 found_similar = True;
                                 break;
 
                         if not found_similar:
-                            r_new.append(r_back);
+                            r_new.append(r_more);
 
-                    annolist_track_fwd[idx2].rects += r_new;
+                    annolist_track_main[idx2].rects += r_new;
 
 
-        annolist_track += annolist_track_fwd;
+        annolist_track += annolist_track_main;
         
         # save results ones in a while 
         if idx % 10 == 0:

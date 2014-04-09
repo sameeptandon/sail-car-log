@@ -222,16 +222,16 @@ def RectSIFT(qImg, _qRect, tImg, _tRect):
         tRect = copy.deepcopy(_tRect);
 
 	# MA: make smaller rect relative to the second 
-	if qRect.width() > 180:
-		roi_scale = 0.65;
-	else: 
+	if qRect.width() > 250:
 		roi_scale = 0.85;
+	else: 
+		roi_scale = 0.95;
 
         qRectSmall = copy.deepcopy(qRect);
         qRectSmall.resize(roi_scale);
 
         # MA: pad since SIFT features seem to depend on the size of the cropped image
-	npad = 100;
+	npad = 20;
         pad_annorect(qRect, npad);
         pad_annorect(tRect, npad);
 
@@ -383,7 +383,7 @@ def NextRect(Img1, Img2, Rect1):
 def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
 	MIN_TRACK_RECT_SIZE = 30;
-
+	max_move_thr = .9;
 	#min_match_percentage = 0.25;
 	#min_match_percentage = 0.05;
 	#max_color_dist = 1.7;
@@ -497,7 +497,7 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
 			print "\n\t cur_color_dist: " + str(cur_color_dist);
 
-			if  cur_color_dist > max_color_dist:
+			if  cur_color_dist > max_color_dist and new_rect.overlap_pascal(rect) < max_move_thr:
                             verification_ok = False;
                             num_init_matching_failed_color += 1;
 
@@ -528,7 +528,7 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
                     break;
 
                 curImageName = nextImageName;
-                tracked_rects = new_tracked_rects;
+        	tracked_rects = filter_occluded(new_tracked_rects);
                 Img1 = Img2;
 
             else:
