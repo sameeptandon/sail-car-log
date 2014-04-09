@@ -1,3 +1,0 @@
-<launch>
-  <node pkg="tf" type="static_transform_publisher" name="radar4_tf_broadcaster" args="3.70 -0.63 -0.96 0 0 −1.3962634016 Applanix RadarSensor4 100" />
-</launch>
