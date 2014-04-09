@@ -57,18 +57,21 @@ void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_clou
 
 
 template <typename PointT>
-void project_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, cv::Mat translation_vector, cv::Mat rotation_vector, cv::Mat intrinsics, cv::Mat distortions, std::vector<cv::Point2f>& imagePoints) {
+void project_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, cv::Mat& translation_vector, cv::Mat& rotation_vector, cv::Mat& intrinsics, cv::Mat& distortions, std::vector<cv::Point2f>& imagePoints) {
   int length = cloud->points.size();
   cv::Mat objectPoints(length, 3, CV_32FC1);
 
   // Copy over PCL cloud points into cv::Mat
   for(int i = 0; i < length; i++) {
-    float* pti = objectPoints.ptr<float>(i);
-    pti[0] = cloud->points[i].x;
-    pti[1] = cloud->points[i].y;
-    pti[2] = cloud->points[i].z;
+    objectPoints.at<float>(i, 0) = cloud->points[i].x;
+    objectPoints.at<float>(i, 1) = cloud->points[i].y;
+    objectPoints.at<float>(i, 2) = cloud->points[i].z;
   }
 
+  //std::cout << rotation_vector << std::endl;
+  //std::cout << translation_vector << std::endl;
+  //std::cout << intrinsics << std::endl;
+  //std::cout << distortions << std::endl;
   cv::projectPoints(objectPoints, rotation_vector, translation_vector, intrinsics, distortions, imagePoints);
 }
 

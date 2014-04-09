@@ -75,8 +75,11 @@ int main(int argc, char** argv)
 
     pcl::PointCloud<pcl::PointXYZI> cloud;
     matrix_to_cloud(points, cloud);
+    cloud.width = points.rows();
+    cloud.height = 1;
 
     PCL_INFO("Writing PCD file: %s\n", opts.pcd_file.c_str());
+    //pcl::io::savePCDFileASCII(opts.pcd_file, cloud);
     pcl::io::savePCDFileBinary(opts.pcd_file, cloud);
 
     return 0;

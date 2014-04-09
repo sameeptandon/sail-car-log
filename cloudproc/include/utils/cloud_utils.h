@@ -15,7 +15,7 @@ template<typename PointT>
 void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_cloud, const boost::shared_ptr<pcl::PointCloud<PointT> > tgt_cloud, boost::shared_ptr<pcl::PointCloud<PointT> > aligned_cloud, const pcl::Correspondences& correspondences, bool viz_normals=false);
 
 template <typename PointT>
-void project_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, cv::Mat translation_vector, cv::Mat rotation_vector, cv::Mat intrinsics, cv::Mat distortions, std::vector<cv::Point2f>& imagePoints);
+void project_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, cv::Mat& translation_vector, cv::Mat& rotation_vector, cv::Mat& intrinsics, cv::Mat& distortions, std::vector<cv::Point2f>& imagePoints);
 
 // Wrapper around projectCloud which converts rotation matrix
 // to rvec and uses Eigen matrices instead of cv::Mat

@@ -9,4 +9,4 @@ void filter_pixels(const std::vector<cv::Point2f>& pixels, const cv::Mat& img, s
 void get_pixel_colors(const std::vector<cv::Point2f>& pixels, const cv::Mat& img, std::vector<cv::Vec3b>& colors);
 
 // Useful for debugging projections
-void set_pixel_colors(const std::vector<cv::Point2f>& pixels, const std::vector<cv::Vec3b>& colors, cv::Mat& img, int width=1);
+void set_pixel_colors(const std::vector<cv::Point2f>& pixels, const cv::Vec3b& color, cv::Mat& img, int width=1);

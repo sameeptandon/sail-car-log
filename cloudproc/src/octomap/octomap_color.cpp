@@ -1,4 +1,5 @@
 #include <string>
+#include <limits>
 
 #include <boost/progress.hpp>
 #include <boost/python.hpp>
@@ -6,6 +7,7 @@
 #include <boost/format.hpp>
 
 #include <pcl/common/transforms.h>
+#include <pcl/filters/passthrough.h>
 
 #include "../videoreader/VideoReader.h"
 #include "utils/cloud_utils.h"
@@ -31,7 +33,8 @@ int main(int argc, char** argv)
     std::string h5_dir = py::extract<std::string>(pycfg.attr("POINTS_H5_DIR"));
     std::string pcd_dir = py::extract<std::string>(pycfg.attr("PCD_DIR"));
     std::string params_file = py::extract<std::string>(pycfg.attr("PARAMS_H5_FILE"));
-    int cam_num = py::extract<int>(pycfg.attr("CAM_NUM")) - 1;
+    int cam_ind = py::extract<int>(pycfg.attr("CAM_NUM")) - 1;
+    int lidar_project_min_dist = py::extract<float>(pycfg.attr("LIDAR_PROJECT_MIN_DIST"));
 
     // Read in params and set up transforms
 
@@ -40,17 +43,16 @@ int main(int argc, char** argv)
     MatrixXfRowMajor row_major;
     load_hdf_dataset(params_h5f, "/lidar/T_from_l_to_i", row_major, H5::PredType::NATIVE_FLOAT);
     Eigen::Matrix4f T_from_l_to_i(row_major);
-    std::cout << T_from_l_to_i << std::endl;
     Eigen::Matrix4f T_from_i_to_l = T_from_l_to_i.inverse();
 
     Eigen::Matrix4f trans_from_l_to_c = Eigen::Matrix4f::Identity();
-    std::string s = (boost::format("/cam/%1%/displacement_from_l_to_c_in_lidar_frame") % cam_num).str();
+    std::string s = (boost::format("/cam/%1%/displacement_from_l_to_c_in_lidar_frame") % cam_ind).str();
     load_hdf_dataset(params_h5f, s, row_major, H5::PredType::NATIVE_FLOAT);
     Eigen::Vector3f displacement_from_l_to_c_in_lidar_frame(row_major);
     trans_from_l_to_c.block(0, 3, 3, 1) = displacement_from_l_to_c_in_lidar_frame;
 
-    Eigen::Matrix4f rot_from_l_to_c = Eigen::Matrix4f::Identity();
-    s = (boost::format("/cam/%1%/R_to_c_from_l_in_camera_frame") % cam_num).str();
+    Eigen::Matrix4f rot_to_c_from_l = Eigen::Matrix4f::Identity();
+    s = (boost::format("/cam/%1%/R_to_c_from_l_in_camera_frame") % cam_ind).str();
     load_hdf_dataset(params_h5f, s, row_major, H5::PredType::NATIVE_FLOAT);
     Eigen::Matrix3f R_to_c_from_l_in_camera_frame(row_major);
     // FIXME Too much hard-coding
@@ -58,18 +60,15 @@ int main(int argc, char** argv)
     swap << 0.0, -1.0, 0.0,
             0.0, 0.0, -1.0,
             1.0, 0.0, 0.0;
-    rot_from_l_to_c.block(0, 0, 3, 3) = R_to_c_from_l_in_camera_frame * swap;
+    rot_to_c_from_l.block(0, 0, 3, 3) = R_to_c_from_l_in_camera_frame * swap;
 
-    s = (boost::format("/cam/%1%/KK") % cam_num).str();
+    s = (boost::format("/cam/%1%/KK") % cam_ind).str();
     load_hdf_dataset(params_h5f, s, row_major, H5::PredType::NATIVE_FLOAT);
     Eigen::Matrix3f intrinsics(row_major);
 
-    s = (boost::format("/cam/%1%/distort") % cam_num).str();
+    s = (boost::format("/cam/%1%/distort") % cam_ind).str();
     load_hdf_dataset(params_h5f, s, row_major, H5::PredType::NATIVE_FLOAT);
     Eigen::VectorXf distortions(row_major);
-
-    //std::cout << T_from_l_to_i << std::endl;
-    //std::cout << displacement_from_l_to_c_in_lidar_frame << std::endl;
 
     params_h5f.close();
 
@@ -88,7 +87,6 @@ int main(int argc, char** argv)
     pcl::PointCloud<PointXYZ>::Ptr cloud(new pcl::PointCloud<PointXYZ>());
     std::vector<cv::Point2f> pixels;
     std::vector<cv::Point2f> filtered_pixels;
-    std::vector<cv::Vec3b> pixel_colors;
 
     for (int k = start; k < end; k += step)
     {
@@ -125,28 +123,41 @@ int main(int argc, char** argv)
         transform = transform.inverse().eval();
         pcl::transformPointCloud(*cloud, *cloud, transform);
         // Transform to lidar_t
-        // TODO Verify T_from_i_to_l is valid transform
         pcl::transformPointCloud(*cloud, *cloud, T_from_i_to_l);
         // Transform to camera_t
         pcl::transformPointCloud(*cloud, *cloud, trans_from_l_to_c);
-        pcl::transformPointCloud(*cloud, *cloud, rot_from_l_to_c);
+        pcl::transformPointCloud(*cloud, *cloud, rot_to_c_from_l);
+
+        // Filter point cloud
+
+        pcl::PassThrough<pcl::PointXYZ> pass;
+        pass.setInputCloud(cloud);
+        pass.setFilterFieldName("z");
+        pass.setFilterLimits(0, std::numeric_limits<float>::max());
+        pass.filter(*cloud);
+
+        pcl::PointCloud<PointXYZ>::Ptr final_cloud(new pcl::PointCloud<PointXYZ>());
+        BOOST_FOREACH(pcl::PointXYZ p, cloud->points)
+        {
+            if (p.x*p.x + p.y*p.y + p.z*p.z > lidar_project_min_dist)
+                final_cloud->push_back(p);
+        }
 
         // Project point cloud
 
-        project_cloud_eigen(cloud, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(), intrinsics, distortions, pixels);
+        project_cloud_eigen(final_cloud, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(), intrinsics, distortions, pixels);
 
         // Change the pixel colors
 
         filter_pixels(pixels, frame, filtered_pixels);
-        pixel_colors.clear();
-        BOOST_FOREACH(cv::Point2f px, filtered_pixels) { pixel_colors.push_back(cv::Vec3b(0, 0, 255)); }
-        set_pixel_colors(filtered_pixels, pixel_colors, frame, 4);
-        std::cout << pixels.size() << " " << filtered_pixels.size() << std::endl;
+        set_pixel_colors(filtered_pixels, cv::Vec3b(0, 0, 255), frame, 4);
 
         // Show
 
         cv::imshow("video", frame);
-        cv::waitKey(1);
+        int key = cv::waitKey(1);
+        if (key == 113)
+            break;
 
         // Skip
 

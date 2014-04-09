@@ -122,13 +122,11 @@ int main(int argc, char** argv)
     boost::shared_ptr<octomap::OcTree> octree(new octomap::OcTree(opts.octree_res));
     for (int k = 0; k < pcd_paths.size(); k++)
     {
+        // Load point cloud and transforms
+
         std::string pcd_path = pcd_paths[k];
         std::string transform_path = transform_paths[k];
         std::string euler_path = euler_paths[k];
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-        //std::cout << "Reading " << pcd_path << std::endl;
-        load_cloud(pcd_path, src_cloud);
 
         H5::H5File transform_file(transform_path, H5F_ACC_RDONLY);
         H5::H5File euler_file(euler_path, H5F_ACC_RDONLY);
@@ -137,13 +135,21 @@ int main(int argc, char** argv)
         Eigen::Matrix4f transform_copy(transform);
         Eigen::MatrixXf euler_copy(euler);
 
+        sensor_origin(0) = transform_copy(0, 3);
+        sensor_origin(1) = transform_copy(1, 3);
+        sensor_origin(2) = transform_copy(2, 3);
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+        //std::cout << "Reading " << pcd_path << std::endl;
+        load_cloud(pcd_path, src_cloud);
+
+        // Following is for octovis so the map is close to centered
+
         if (k == 0)
             init_pos = transform_copy.block<3, 1>(0, 3);
-
-        sensor_origin(0) = transform_copy(0, 3) - init_pos(0);
-        sensor_origin(1) = transform_copy(1, 3) - init_pos(1);
-        sensor_origin(2) = transform_copy(2, 3) - init_pos(2);
-
+        sensor_origin(0) -= init_pos(0);
+        sensor_origin(1) -= init_pos(1);
+        sensor_origin(2) -= init_pos(2);
         Eigen::Matrix4f T = Eigen::Matrix4f::Identity();
         T(0, 3) -= init_pos(0);
         T(1, 3) -= init_pos(1);

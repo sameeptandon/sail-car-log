@@ -29,13 +29,13 @@ void get_pixel_colors(const std::vector<cv::Point2f>& pixels, const cv::Mat& img
 }
 
 
-void set_pixel_colors(const std::vector<cv::Point2f>& pixels, const std::vector<cv::Vec3b>& colors, cv::Mat& img, int width)
+void set_pixel_colors(const std::vector<cv::Point2f>& pixels, const cv::Vec3b& color, cv::Mat& img, int width)
 {
     for (int k = 0; k < pixels.size(); k++)
     {
         int col = (int) pixels[k].x;
         int row = (int) pixels[k].y;
-        img.at<cv::Vec3b>(row, col) = colors[k];
+        img.at<cv::Vec3b>(row, col) = color;
 
         for (int dr = -width / 2; dr < width / 2; dr++)
         {
@@ -43,7 +43,7 @@ void set_pixel_colors(const std::vector<cv::Point2f>& pixels, const std::vector<
             {
                 if (row + dr >= img.rows || row + dr < 0 || col + dc > img.cols || col + dc < 0)
                     continue;
-                img.at<cv::Vec3b>(row + dr, col + dc) = colors[k];
+                img.at<cv::Vec3b>(row + dr, col + dc) = color;
             }
         }
     }
