@@ -2,6 +2,9 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
+
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/filter.h>
 #include <pcl/visualization/pcl_visualizer.h>
@@ -52,3 +55,43 @@ void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_clou
     viz.spin();
 }
 
+
+template <typename PointT>
+void project_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, cv::Mat translation_vector, cv::Mat rotation_vector, cv::Mat intrinsics, cv::Mat distortions, std::vector<cv::Point2f>& imagePoints) {
+  int length = cloud->points.size();
+  cv::Mat objectPoints(length, 3, CV_32FC1);
+
+  // Copy over PCL cloud points into cv::Mat
+  for(int i = 0; i < length; i++) {
+    float* pti = objectPoints.ptr<float>(i);
+    pti[0] = cloud->points[i].x;
+    pti[1] = cloud->points[i].y;
+    pti[2] = cloud->points[i].z;
+  }
+
+  cv::projectPoints(objectPoints, rotation_vector, translation_vector, intrinsics, distortions, imagePoints);
+}
+
+
+template <typename PointT>
+void project_cloud_eigen(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, const Eigen::Vector3f& translation_vector, const Eigen::Matrix3f& rotation_matrix, const Eigen::Matrix3f& intrinsics, const Eigen::VectorXf distortions, std::vector<cv::Point2f>& imagePoints)
+//void project_cloud_eigen(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, const Eigen::Vector3f& translation_vector, const Eigen::Matrix3f& rotation_matrix, const Eigen::Matrix3f& intrinsics, const Eigen::VectorXf distortions, Eigen::MatrixX2f& imagePoints)
+{
+    cv::Mat tvec, rmat, rvec, rotmat, K, D;
+    //std::vector<cv::Point2f> cv_pts;
+
+    cv::eigen2cv(translation_vector, tvec);
+    cv::eigen2cv(rotation_matrix, rmat);
+    cv::Rodrigues(rmat, rvec);
+    cv::eigen2cv(intrinsics, K);
+    cv::eigen2cv(distortions, D);
+
+    project_cloud(cloud, tvec, rvec, K, D, imagePoints);
+
+    //imagePoints.resize(2, cv_pts.size());
+    //for (int k = 0; k < cv_pts.size(); k++)
+    //{
+        //imagePoints(0, k) = cv_pts[k].x;
+        //imagePoints(1, k) = cv_pts[k].y;
+    //}
+}

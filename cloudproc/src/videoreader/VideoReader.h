@@ -1,22 +1,22 @@
 #pragma once
-#include "opencv2/opencv.hpp"
-#include <string.h>
+#include <string>
 #include <boost/tuple/tuple.hpp>
+#include <opencv2/opencv.hpp>
 
 #define NUM_SPLITS 10
 
 using namespace cv;
 using namespace std;
 
-class VideoReader{ 
+class VideoReader{
     public:
-        typedef boost::tuple<bool,Mat> FrameReadType; 
+        typedef boost::tuple<bool,Mat> FrameReadType;
         VideoReader(string path, string base_video_name);
-        FrameReadType getNextFrame();
+        bool skip(int k);
+        bool getNextFrame(cv::Mat& frame);
         void setFrame(int fnum);
-    
+
     protected:
         int framenum;
         vector<VideoCapture> captures;
-
 };

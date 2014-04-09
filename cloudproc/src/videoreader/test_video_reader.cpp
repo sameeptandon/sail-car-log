@@ -12,14 +12,14 @@ int main( int argc, char** argv )
     reader.setFrame(800);
 
     namedWindow("video", CV_WINDOW_AUTOSIZE);
+    cv::Mat frame;
     while (true) {
-        VideoReader::FrameReadType data = reader.getNextFrame();
-        if (!boost::get<0>(data))
+        bool success = reader.getNextFrame(frame);
+        if (!success)
             break;
-
-        imshow("video", boost::get<1>(data));
+        imshow("video", frame);
         waitKey(1);
     }
-    
+
     return 0;
 }

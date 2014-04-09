@@ -6,7 +6,7 @@ from Q50_config import LoadParameters
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
 from LidarTransforms import loadLDR, loadLDRCamMap
-from pipeline_config import EXPORT_STEP, EXPORT_START, EXPORT_NUM
+from pipeline_config import EXPORT_STEP, EXPORT_START, EXPORT_NUM, LANE_FILTER
 
 '''
 Essentially just pieces from LidarIntegrator except avoids
@@ -53,8 +53,15 @@ if __name__ == '__main__':
             raise
 
         # Filter
-        #data_filter_mask = data[:, 3] > 40
-        #data = data[data_filter_mask]
+        if LANE_FILTER:
+            dist = np.sqrt(np.sum(data[:, 0:3] ** 2, axis=1))
+            data_filter_mask = (dist > 3) & \
+                               (data[:, 3] > 40) & \
+                               (np.abs(data[:, 1]) < 2.2) & \
+                               (np.abs(data[:, 1]) > 1.2) & \
+                               (data[:, 2] < -1.8) & \
+                               (data[:, 2] > -2.5)
+            data = data[data_filter_mask, :]
 
         # transform data into IMU frame at time t
         pts = data[:, 0:3].transpose()

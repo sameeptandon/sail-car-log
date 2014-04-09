@@ -11,6 +11,8 @@ DATA_DIR = '/media/sdb'
 
 DSET = '17N_b2'
 DSET_DIR = pjoin(DATA_DIR, DSET)
+DSET_AVI = DSET + '.avi'
+CAM_NUM = int(DSET[-1])
 
 # Stuff to scp over
 # TODO Add command for running generate_frames_and_map to pipeline
@@ -21,12 +23,15 @@ REMOTE_FILES = [
     #'%s_frames' % DSET[:-1],
     #'%s.map' % DSET[:-1],
     '%s_*.bag' % DSET[:-1],
-    '%s.pcap' % DSET[:-1]
+    '%s.pcap' % DSET[:-1],
+    'params.ini'
 ]
 
+PARAMS_FILE = pjoin(DSET_DIR, 'params.ini')
 GPS_FILE = pjoin(DSET_DIR, '%s_gps.out' % DSET[:-1])
 MAP_FILE = pjoin(DSET_DIR, '%s.map' % DSET[:-1])
 
+PARAMS_H5_FILE = pjoin(DSET_DIR, 'params.h5')
 LDR_DIR = pjoin(DSET_DIR, '%s_frames' % DSET[:-1])
 POINTS_H5_DIR = pjoin(DSET_DIR, 'h5')
 PCD_DIR = pjoin(DSET_DIR, 'pcd')
@@ -35,6 +40,7 @@ PCD_DOWNSAMPLED_NORMALS_DIR = pjoin(DSET_DIR, 'pcd_downsampled_normals')
 ICP_TRANSFORMS_DIR = pjoin(DSET_DIR, 'icp_transforms')
 
 EXPORT_FULL = False
+LANE_FILTER = True
 EXPORT_START = 5800
 EXPORT_NUM = 200
 EXPORT_STEP = 5

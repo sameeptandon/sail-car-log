@@ -35,6 +35,14 @@ def download_files(dummy, local_file):
 
 
 @follows("download_files")
+@files('./params.ini', './params.h5')
+def convert_params_to_h5(input_file, output_file):
+    converter = '%s/cloudproc/pipeline/params_to_h5.py' % SAIL_CAR_LOG_PATH
+    cmd = 'python %s' % converter
+    check_call(cmd, shell=True)
+
+
+@follows("download_files")
 @posttask(touch_file('%s/sentinel' % POINTS_H5_DIR))
 def convert_ldr_to_h5():
     if os.path.exists('%s/sentinel' % POINTS_H5_DIR):
