@@ -9,7 +9,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl/filters/passthrough.h>
 
-#include "../videoreader/VideoReader.h"
+#include "videoreader/VideoReader.h"
 #include "utils/cloud_utils.h"
 #include "utils/hdf_utils.h"
 #include "utils/cv_utils.h"
