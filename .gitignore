@@ -3,7 +3,11 @@
 *.mp4
 *.swp
 *.pyc
+*.npz
+*.DS_Store
 *~
+*.npz
+*.h5
 bin
 build
 cameralogger/build

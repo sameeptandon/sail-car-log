@@ -1,0 +1,48 @@
+# Installation
+
+## Requirements
+
+### python
+
+- numpy
+- scipy
+- vtk (`apt-get install python-vtk` or `port install vtk5 +python27 +qt4_mac`)
+- cv/cv2 (`apt-get install python-opencv`)
+- matplotlib (`apt-get install python-matplotlib`)
+- h5py (`apt-get install libhdf5-serial-dev` + `pip install h5py`)
+
+### C++
+
+Grab [ROS Groovy](http://wiki.ros.org/groovy/Installation/Ubuntu).
+
+Installing ROS-base should be sufficient.
+
+Make sure running `import rosbag` from within the Python shell works once
+you're done installing ROS.
+
+## OpenCV on gorgon
+
+See the [wiki page](https://github.com/sameeptandon/sail-car-log/wiki/Installing-opencv-on-gorgon).
+
+## OpenCV on OS X
+
+If playing the video using `ProjectMapOnVideo.py` is very slow on OS X,
+you may need to install OpenCV with Qt4:
+
+`port install opencv +qt4 +tbb +eigen +opencl +python27`
+
+## PCL on Ubuntu
+
+Make sure `libpcap-dev` is installed. Then build PCL from source.
+
+    [PCL 1.7.1](https://github.com/PointCloudLibrary/pcl/releases/tag/pcl-1.7.1)
+
+## PCL on OS X
+
+`port install cmake flann libusb boost qhull eigen3`
+
+Then follow the instructions on
+
+## ROS on OS X
+
+TODO

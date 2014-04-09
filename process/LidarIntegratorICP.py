@@ -19,6 +19,8 @@ from ColorMap import *
 import vtk
 import copy
 import cv2
+import h5py
+import os
 
 
 global actors
@@ -58,19 +60,25 @@ renderWindow = vtk.vtkRenderWindow()
 #num_fn = 200
 #step = 2
 
-start_fn = 0 # offset in frame numbers to start exporting data
-num_fn = 100 # number of frames to export. this is changed if --full is enabled
-step = 10 # step between frames
+start_fn = 5800 # offset in frame numbers to start exporting data
+num_fn = 200 # number of frames to export. this is changed if --full is enabled
+step = 5 # step between frames
 
 color_mode = 'INTENSITY'
 
-def exportData():
-        print 'exporting data'
-        export_data = np.row_stack(all_data)
-        print export_data
-        print export_data.shape
-        np.savez(sys.argv[3], data=export_data)
-        print 'export complete'
+def exportData(data, fname, h5=False):
+    print 'exporting data'
+    #print data
+    print data.shape
+    if h5:
+        f = h5py.File(fname, 'w')
+        dset = f.create_dataset('points', data.shape, dtype='f')
+        dset[...] = data
+        f.close()
+    else:
+        np.savez(fname, data=data)
+    print 'export complete'
+
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -124,7 +132,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
                            (data[:,2] < -1.8)          & \
                            (data[:,2] > -2.5)         
 
-        data = data[data_filter_mask, :]
+        #data = data[data_filter_mask, :]
         """
         # filter out on intensity
         data = data[ data[:,3] > 60 , :]
@@ -238,7 +246,7 @@ def keypress(obj, event):
     elif key == 'v':
         color_mode = 'INTENSITY'
     elif key == 'x':
-        exportData()
+        exportData(np.rowstack(all_data), export_path)
 
     else:
         rerender = False
@@ -255,6 +263,7 @@ def keypress(obj, event):
     #print (rx,ry,rz)
 
 if __name__ == '__main__': 
+    export_path = sys.argv[3]
     vfname = sys.argv[2]
     vidname = vfname.split('.')[0]
     vidname2 = vidname[:-1] + '2'
@@ -268,17 +277,16 @@ if __name__ == '__main__':
     cam2 = params['cam'][1]
     video_reader1 = VideoReader(args['video'])
     video_reader2 = VideoReader(video_filename2)
-    gps_reader = GPSReader(args['gps'])
     GPSData = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(GPSData)
     ldr_map = loadLDRCamMap(args['map'])
 
     
     if '--full' in sys.argv:
-      total_num_frames = GPSData.shape[0]
-      start_fn = 0
-      step = 10
-      num_fn = int(total_num_frames / step)
+        total_num_frames = GPSData.shape[0]
+        start_fn = 0
+        step = 10
+        num_fn = int(total_num_frames / step)
 
 
     # this has been flipped for the q50
@@ -288,8 +296,21 @@ if __name__ == '__main__':
     integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
 
     if '--export' in sys.argv:
-      exportData()
-      sys.exit(0)
+        h5 = '--h5' in sys.argv
+        if '--all' in sys.argv:
+            for k in range(len(all_data)):
+                if all_data[k].shape[0] == 0:
+                    print '%d data empty' % k
+                    raise
+                    continue
+                # FIXME Should allow specify cloud prefix
+                fname = os.path.join(export_path, '%d.%s' % (k, 'h5' if h5 else 'npz'))
+                print 'Exporting to %s' % fname
+                exportData(all_data[k], fname, h5=h5)
+        else:
+            data = np.rowstack(all_data)
+            exportData(data, export_path, h5=h5)
+        sys.exit(0)
 
     # Render Window
     renderWindow = vtk.vtkRenderWindow()
