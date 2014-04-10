@@ -18,16 +18,20 @@ axes = vtk.vtkAxesActor()
 ren.AddActor(axes)
 
 
-T = np.eye(4)
-T[1,0] = 0.5
-T[0,1] = 0.5
-T[2,2] = 0.001
+R = np.eye(3)
+R[1,0] = 0.5
+R[0,1] = 0.5
+R[2,2] = 0.001
 
-L = np.linalg.cholesky(T)
-print T
+L = np.linalg.cholesky(R)
 print L
+T = np.eye(4)
+T[0:3,0:3] = L
+T[0:3, 3] = [1.0, 0.0, 0.0]
 
-ellipsoid = VtkEllipsoid(L)
+print T
+
+ellipsoid = VtkEllipsoid(T)
 ren.AddActor(ellipsoid.get_vtk_ellipsoid())
 # enable user interface interactor
 iren.Initialize()
