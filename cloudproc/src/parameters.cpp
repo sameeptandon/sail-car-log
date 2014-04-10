@@ -23,9 +23,11 @@ void Parameters::initialize()
    end = start + step * count;
    h5_dir = py::extract<std::string>(pycfg.attr("POINTS_H5_DIR"));
    pcd_dir = py::extract<std::string>(pycfg.attr("PCD_DIR"));
+   color_dir = py::extract<std::string>(pycfg.attr("COLOR_DIR"));
    params_file = py::extract<std::string>(pycfg.attr("PARAMS_H5_FILE"));
    cam_ind = py::extract<int>(pycfg.attr("CAM_NUM")) - 1;
    lidar_project_min_dist = py::extract<float>(pycfg.attr("LIDAR_PROJECT_MIN_DIST"));
+   cloud_max_store = py::extract<int>(pycfg.attr("CLOUD_MAX_STORE"));
 
    // Loading calibration parameters
 

@@ -6,7 +6,6 @@
 #include <boost/format.hpp>
 
 #include <pcl/common/transforms.h>
-#include <pcl/filters/passthrough.h>
 
 #include "parameters.h"
 #include "videoreader/VideoReader.h"
@@ -80,18 +79,9 @@ int main(int argc, char** argv)
 
         // Filter point cloud
 
-        pcl::PassThrough<pcl::PointXYZ> pass;
-        pass.setInputCloud(cloud);
-        pass.setFilterFieldName("z");
-        pass.setFilterLimits(0, std::numeric_limits<float>::max());
-        pass.filter(*cloud);
-
         pcl::PointCloud<PointXYZ>::Ptr final_cloud(new pcl::PointCloud<PointXYZ>());
-        BOOST_FOREACH(pcl::PointXYZ p, cloud->points)
-        {
-            if (p.x*p.x + p.y*p.y + p.z*p.z > params().lidar_project_min_dist)
-                final_cloud->push_back(p);
-        }
+        std::vector<int> filtered_indices;
+        filter_lidar_cloud(cloud, final_cloud, filtered_indices, params().lidar_project_min_dist);
 
         // Project point cloud
 

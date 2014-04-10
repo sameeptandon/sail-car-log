@@ -22,6 +22,7 @@ class Parameters
     std::string h5_dir;
     std::string pcd_dir;
     std::string params_file;
+    std::string color_dir;
 
     int start;
     int step;
@@ -30,6 +31,8 @@ class Parameters
 
     int cam_ind;
     float lidar_project_min_dist;
+
+    int cloud_max_store;
 
     // Calibration parameters
 

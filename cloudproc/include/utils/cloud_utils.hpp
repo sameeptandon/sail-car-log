@@ -7,6 +7,7 @@
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/filter.h>
+#include <pcl/filters/passthrough.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
 // NOTE Also removes NaNs
@@ -97,4 +98,26 @@ void project_cloud_eigen(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, cons
         //imagePoints(0, k) = cv_pts[k].x;
         //imagePoints(1, k) = cv_pts[k].y;
     //}
+}
+
+template<typename PointT>
+void filter_lidar_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, boost::shared_ptr<pcl::PointCloud<PointT> > output_cloud, std::vector<int>& filtered_indices, float lidar_project_min_dist)
+{
+    std::vector<int> tmp_indices;
+
+    pcl::PassThrough<PointT> pass;
+    pass.setInputCloud(cloud);
+    pass.setFilterFieldName("z");
+    pass.setFilterLimits(0, std::numeric_limits<float>::max());
+    pass.filter(tmp_indices);
+
+    for (int k = 0; k < tmp_indices.size(); k++)
+    {
+        PointT p = cloud->at(tmp_indices[k]);
+        if (p.x*p.x + p.y*p.y + p.z*p.z > lidar_project_min_dist)
+        {
+            output_cloud->push_back(p);
+            filtered_indices.push_back(tmp_indices[k]);
+        }
+    }
 }

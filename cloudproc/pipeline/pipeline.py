@@ -10,13 +10,13 @@ from pipeline_config import POINTS_H5_DIR,\
         SAIL_CAR_LOG_PATH, CLOUDPROC_PATH, DOWNSAMPLE_LEAF_SIZE,\
         K_NORM_EST, PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR,\
         ICP_ITERS, ICP_MAX_DIST, REMOTE_DATA_DIR, REMOTE_FILES,\
-        EXPORT_FULL, GPS_FILE, MAP_FILE
+        EXPORT_FULL, GPS_FILE, MAP_FILE, COLOR_DIR, COLOR_CLOUDS_DIR
 from pipeline_utils import file_num
 
 # TODO Commands to scp stuff over
 
 dirs = [POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
-        PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR]
+        PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR, COLOR_DIR, COLOR_CLOUDS_DIR]
 MKDIRS = [mkdir(d) for d in dirs]
 
 # NOTE chdir into dset dir so can just specify relative paths to data
@@ -26,15 +26,16 @@ DOWNLOADS = list()
 for f in REMOTE_FILES:
     DOWNLOADS.append([None, f])
 
+#@follows(*MKDIRS)
+#@files(DOWNLOADS)
+#def download_files(dummy, local_file):
+    #cmd = 'rsync -vr --ignore-existing %s/%s .' % (REMOTE_DATA_DIR, local_file)
+    #print cmd
+    #check_call(cmd, shell=True)
+
+
+#@follows("download_files")
 @follows(*MKDIRS)
-@files(DOWNLOADS)
-def download_files(dummy, local_file):
-    cmd = 'rsync -vr --ignore-existing %s/%s .' % (REMOTE_DATA_DIR, local_file)
-    print cmd
-    check_call(cmd, shell=True)
-
-
-@follows("download_files")
 @files('./params.ini', './params.h5')
 def convert_params_to_h5(input_file, output_file):
     converter = '%s/cloudproc/pipeline/params_to_h5.py' % SAIL_CAR_LOG_PATH
@@ -42,9 +43,11 @@ def convert_params_to_h5(input_file, output_file):
     check_call(cmd, shell=True)
 
 
-@follows("download_files")
+#@follows("download_files")
+@follows(*MKDIRS)
+@files('params.ini', '%s/sentinel' % POINTS_H5_DIR)
 @posttask(touch_file('%s/sentinel' % POINTS_H5_DIR))
-def convert_ldr_to_h5():
+def convert_ldr_to_h5(dummy_file, output_file):
     if os.path.exists('%s/sentinel' % POINTS_H5_DIR):
         return
     exporter = '%s/cloudproc/pipeline/ldr_to_h5.py' % SAIL_CAR_LOG_PATH
@@ -64,7 +67,7 @@ def convert_matrix_to_euler(input_file, output_file):
     check_call(cmd, shell=True)
 
 
-@follows('convert_matrix_to_euler')
+@follows('convert_ldr_to_h5')
 @transform('./h5/*.h5',
            regex('./h5/(.*?).h5'),
            r'./pcd/\1.pcd')
@@ -72,6 +75,25 @@ def convert_h5_to_pcd(input_file, output_file):
     h5_to_pcd = '%s/bin/h5_to_pcd' % CLOUDPROC_PATH
     cmd = '%s --h5 %s --pcd %s' % (h5_to_pcd, input_file, output_file)
     print cmd
+    check_call(cmd, shell=True)
+
+
+@follows('convert_h5_to_pcd')
+@transform('./pcd/*.pcd',
+           regex('./pcd/(.*?).pcd'),
+           r'./color_clouds/\1.pcd',
+           r'./color/\1.h5')
+def color_clouds(input_file, output_file, color_file):
+    converter = '%s/bin/color_cloud' % CLOUDPROC_PATH
+    cmd = '%s %s %s %s' % (converter, input_file, color_file, output_file)
+    print cmd
+    check_call(cmd, shell=True)
+
+
+@merge('./color_clouds/*.pcd', './color_clouds/merged.pcd')
+def merge_color_clouds(cloud_files, merged_cloud_file):
+    files = [f for f in cloud_files if os.path.exists(f)]
+    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(files) + '; mv output.pcd color_clouds'
     check_call(cmd, shell=True)
 
 

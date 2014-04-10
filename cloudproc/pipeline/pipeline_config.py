@@ -38,6 +38,8 @@ PCD_DIR = pjoin(DSET_DIR, 'pcd')
 PCD_DOWNSAMPLED_DIR = pjoin(DSET_DIR, 'pcd_downsampled')
 PCD_DOWNSAMPLED_NORMALS_DIR = pjoin(DSET_DIR, 'pcd_downsampled_normals')
 ICP_TRANSFORMS_DIR = pjoin(DSET_DIR, 'icp_transforms')
+COLOR_DIR = pjoin(DSET_DIR, 'color')
+COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'color_clouds')
 
 EXPORT_FULL = False
 LANE_FILTER = False
@@ -54,6 +56,9 @@ ICP_ITERS = 20
 ICP_MAX_DIST = 5.0
 
 LIDAR_PROJECT_MIN_DIST = 3.0
+
+CLOUD_MAX_STORE = 200
+MAP_COLOR_WINDOW = 50*3
 
 '''
 Print out variable values

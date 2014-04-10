@@ -3,15 +3,24 @@
 #include <iostream>
 #include "utils/cv_utils.h"
 
-
 void filter_pixels(const std::vector<cv::Point2f>& pixels, const cv::Mat& img, std::vector<cv::Point2f>& filtered_pixels)
 {
+    std::vector<int> filtered_indices;
+    filter_pixels(pixels, img, filtered_pixels, filtered_indices);
+}
+
+
+void filter_pixels(const std::vector<cv::Point2f>& pixels, const cv::Mat& img, std::vector<cv::Point2f>& filtered_pixels, std::vector<int>& filtered_indices)
+{
     filtered_pixels.clear();
-    BOOST_FOREACH(cv::Point2f px, pixels)
+    filtered_indices.clear();
+    for (int k = 0; k < pixels.size(); k++)
     {
+        cv::Point2f px = pixels[k];
         if (px.x >= img.cols || px.y >= img.rows || px.x < 0 || px.y < 0)
             continue;
         filtered_pixels.push_back(px);
+        filtered_indices.push_back(k);
     }
 }
 

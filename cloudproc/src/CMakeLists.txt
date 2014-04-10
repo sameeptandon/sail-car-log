@@ -15,6 +15,9 @@ target_link_libraries(downsample_cloud ${PCL_LIBRARIES})
 add_executable(estimate_normals estimate_normals.cpp)
 target_link_libraries(estimate_normals ${PCL_LIBRARIES})
 
+add_executable(color_cloud color_cloud.cpp utils/hdf_utils.cpp utils/cloud_utils.cpp)
+target_link_libraries(color_cloud ${Boost_LIBRARIES} ${PCL_LIBRARIES} hdf5 hdf5_cpp ${OpenCV_LIBRARIES})
+
 add_subdirectory(videoreader)
 
 # Python
