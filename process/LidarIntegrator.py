@@ -123,7 +123,6 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
                            (np.abs(data[:,1]) > 1.2)   & \
                            (data[:,2] < -1.8)          & \
                            (data[:,2] > -2.5)         
-
         data = data[data_filter_mask, :]
         """
         # filter out on intensity
@@ -249,7 +248,7 @@ def keypress(obj, event):
         clouds = [ ]
         all_data = [ ]
         #start_fn = start_fn + 5
-        integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step)
+        integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
         renderWindow.Render()
     print key
     #print (rx,ry,rz)
@@ -263,7 +262,7 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
 
     gps_reader = GPSReader(args['gps'])
-    params = LoadParameters('q50_4_3_14_params')
+    params = args['params']
     cam1 = params['cam'][0]
     cam2 = params['cam'][1]
     video_reader1 = VideoReader(args['video'])
