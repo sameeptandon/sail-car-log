@@ -21,7 +21,7 @@ add_subdirectory(videoreader)
 find_package(PythonLibs REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
 
-add_executable(project_lidar_on_video project_lidar_on_video.cpp utils/hdf_utils.cpp utils/cv_utils.cpp utils/cloud_utils.cpp)
+add_executable(project_lidar_on_video project_lidar_on_video.cpp utils/hdf_utils.cpp utils/cv_utils.cpp utils/cloud_utils.cpp parameters.cpp)
 target_link_libraries(project_lidar_on_video ${PCL_LIBRARIES} ${Boost_LIBRARIES} ${OCTOMAP_LIBRARIES} VideoReader ${PYTHON_LIBRARIES} hdf5 hdf5_cpp)
 
 add_subdirectory(octomap)

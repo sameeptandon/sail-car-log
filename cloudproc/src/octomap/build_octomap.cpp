@@ -18,6 +18,7 @@
 #include "utils/hdf_utils.h"
 
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 struct Options
 {
@@ -127,6 +128,12 @@ int main(int argc, char** argv)
         std::string pcd_path = pcd_paths[k];
         std::string transform_path = transform_paths[k];
         std::string euler_path = euler_paths[k];
+
+        if (!fs::exists(transform_path))
+        {
+            std::cout << transform_path << " does not exist, quitting" << std::endl;
+            break;
+        }
 
         H5::H5File transform_file(transform_path, H5F_ACC_RDONLY);
         H5::H5File euler_file(euler_path, H5F_ACC_RDONLY);
