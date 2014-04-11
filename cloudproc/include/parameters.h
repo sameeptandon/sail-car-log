@@ -32,7 +32,10 @@ class Parameters
     int cam_ind;
     float lidar_project_min_dist;
 
+    int map_color_window;
     int cloud_max_store;
+
+    std::string octomap_file;
 
     // Calibration parameters
 

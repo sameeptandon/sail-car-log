@@ -16,6 +16,7 @@ int main(int argc, char** argv)
     H5::H5File color_h5f(argv[2], H5F_ACC_RDONLY);
     MatrixXiRowMajor row_major;
     load_hdf_dataset(color_h5f, "/color", row_major, H5::PredType::NATIVE_INT);
+    color_h5f.close();
     Eigen::MatrixXi color(row_major);
 
     assert (cloud->size() == color.rows());
@@ -44,10 +45,13 @@ int main(int argc, char** argv)
         rgb_cloud->push_back(rgb_pt);
     }
 
-    //pcl::io::savePCDFileBinary(argv[3], *rgb_cloud);
     if (rgb_cloud->size() == 0)
+    {
+        std::cout << "empty cloud for " << argv[1] << ", skipping" << std::endl;
         return 0;
-    pcl::io::savePCDFileASCII(argv[3], *rgb_cloud);
+    }
+    pcl::io::savePCDFileBinary(argv[3], *rgb_cloud);
+    //pcl::io::savePCDFileASCII(argv[3], *rgb_cloud);
 
     return 0;
 }

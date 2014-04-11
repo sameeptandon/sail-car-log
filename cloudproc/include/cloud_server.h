@@ -12,13 +12,17 @@ class CloudServer
         return instance;
     }
 
-    void initialize(const std::string& cloud_dir, const std::string& color_dir, const std::string& transforms_dir, int store_max);
+    void initialize(const std::string& cloud_dir, const std::string& color_dir, const std::string& transforms_dir, int size_window, int store_max);
     // FIXME Can't go backward
-    void forward(int start_ind);
+    void forward(int new_start_ind);
+    void getCurrentWindow(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>& clouds_in_window, std::vector<Eigen::MatrixXi*>& colors_in_window);
 
     bool initialized;
+    int start_ind;
     // Maximum number of clouds to store at one time
     int max_store;
+    // Number of clouds to color with an image at a time
+    int window_size;
 
     std::string cloud_path;
     std::string color_path;
@@ -35,6 +39,7 @@ class CloudServer
     std::vector<Eigen::Matrix4f> transforms;
 
     void saveColor(int ind);
+    void saveCurrentColorWindow();
 
   private:
     CloudServer() { initialized = false; };

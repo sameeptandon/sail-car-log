@@ -40,6 +40,8 @@ PCD_DOWNSAMPLED_NORMALS_DIR = pjoin(DSET_DIR, 'pcd_downsampled_normals')
 ICP_TRANSFORMS_DIR = pjoin(DSET_DIR, 'icp_transforms')
 COLOR_DIR = pjoin(DSET_DIR, 'color')
 COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'color_clouds')
+MERGED_CLOUDS_DIR = pjoin(DSET_DIR, 'merged_clouds')
+OCTOMAP_DIR = pjoin(DSET_DIR, 'octomaps')
 
 EXPORT_FULL = False
 LANE_FILTER = False
@@ -58,7 +60,10 @@ ICP_MAX_DIST = 5.0
 LIDAR_PROJECT_MIN_DIST = 3.0
 
 CLOUD_MAX_STORE = 200
-MAP_COLOR_WINDOW = 50*3
+MAP_COLOR_WINDOW = 25
+
+OCTOMAP_RES = 0.5
+OCTOMAP_FILE = '{0}/octomap_{1:.2f}.bt'.format(OCTOMAP_DIR, OCTOMAP_RES)
 
 '''
 Print out variable values

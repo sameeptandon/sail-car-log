@@ -27,7 +27,9 @@ void Parameters::initialize()
    params_file = py::extract<std::string>(pycfg.attr("PARAMS_H5_FILE"));
    cam_ind = py::extract<int>(pycfg.attr("CAM_NUM")) - 1;
    lidar_project_min_dist = py::extract<float>(pycfg.attr("LIDAR_PROJECT_MIN_DIST"));
+   map_color_window = py::extract<int>(pycfg.attr("MAP_COLOR_WINDOW"));
    cloud_max_store = py::extract<int>(pycfg.attr("CLOUD_MAX_STORE"));
+   octomap_file = py::extract<std::string>(pycfg.attr("OCTOMAP_FILE"));_
 
    // Loading calibration parameters
 
