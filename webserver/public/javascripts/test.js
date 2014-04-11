@@ -51,8 +51,8 @@ socket.on('subprocess_running', function(running) {
 
   console.log(enabled);
   console.log(disabled);
-  enabled.classList.remove('disabled');
-  disabled.classList.add('disabled');
+  enabled.classList.remove('hide');
+  disabled.classList.add('hide');
 });
 
 var sendStart = function() {

@@ -39,7 +39,7 @@ input[class=input-large] {
   padding: 20px;
 }
 
-.col-sm-6 .btn-lg {
+#start_button, #stop_button {
   font-size: 100px;
   min-height: 300px;
 }
