@@ -57,7 +57,14 @@ socket.on('GPS', function(data) {
 });
 
 socket.on('disk_usage', function(data) {
-  document.getElementById('disk_usage').innerHTML = 'Disk Usage: ' + data;
+  var $du = $('#disk_usage');
+  var percent = parseInt(data.replace('%', ''));
+  if (percent > 90) {
+    $du.addClass('value_error');
+  } else {
+    $du.removeClass('value_error');
+  }
+  $du.html('Disk Usage: ' + data);
 });
 
 socket.on('subprocess_running', function(running) {
