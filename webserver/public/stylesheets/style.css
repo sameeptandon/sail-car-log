@@ -49,3 +49,8 @@ input[class=input-large] {
   text-align: center;
   font-size:60px;
 }
+
+.value_error {
+  background-color: #d9534f;
+  border-radius: 15px;
+}

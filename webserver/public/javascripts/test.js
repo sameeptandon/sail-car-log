@@ -20,7 +20,28 @@ socket.on('WARN', function(data) {
 });
 
 socket.on('GPSUNCERTAINTY', function(data) {
-  document.getElementById('gps_uncertainty').innerHTML = 'Err: ' + data;
+  // %.2f,%.2f,%.2f\n%.2f,%.2f,%.2f
+  var tokens = data.split('\n');
+  var xyz_err = tokens[0].split(',');
+  var rot_err = tokens[1].split(',');
+
+  var x, y, z,rx, ry, rz
+  x = parseFloat(xyz_err[0]);
+  y = parseFloat(xyz_err[1]);
+  z = parseFloat(xyz_err[2]);
+
+  rx = parseFloat(rot_err[0]);
+  ry = parseFloat(rot_err[1]);
+  rz = parseFloat(rot_err[2]);
+
+  var $g_uncert = $('#gps_uncertainty');
+  if (x > 0.5 || y > 0.5 || z > 0.5 ||
+      rx > 0.001 || ry > 0.001 || rz > 0.1) {
+    $g_uncert.addClass('value_error');
+  } else {
+    $g_uncert.removeClass('value_error');
+  }
+  $g_uncert.html('Err: ' + data);
 });
 
 socket.on('INFOCAPTURERATE', function(data) {
