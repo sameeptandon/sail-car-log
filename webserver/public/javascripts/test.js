@@ -45,7 +45,25 @@ socket.on('GPSUNCERTAINTY', function(data) {
 });
 
 socket.on('INFOCAPTURERATE', function(data) {
-  document.getElementById('capture_rate').innerHTML = 'Capture Rate: ' + data;
+  var tokens = data.substr(1, data.length-2).split(',');
+  var nums = tokens.map(function(e) {
+    return parseInt(e);
+  });
+  var err = false;
+  for (var i = 0; i < nums.length; i++) {
+    j = i + 1 % (nums.length-1);
+    if (Math.abs(nums[i]-nums[j]) > 10) {
+      err = true;
+      break;
+    }
+  }
+  var $cr = $('#capture_rate');
+  if (err) {
+    $cr.addClass('value_error');
+  } else {
+    $cr.removeClass('value_error');
+  }
+  $cr.html('Capture Rate: ' + data);
 });
 
 socket.on('GPS', function(data) {
