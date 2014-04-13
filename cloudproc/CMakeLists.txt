@@ -10,7 +10,7 @@ if (Boost_FOUND)
     add_definitions( "-DHAS_BOOST" )
 endif()
 
-find_package(PCL 1.7 REQUIRED)
+find_package(PCL 1.7 REQUIRED COMPONENTS common io filters visualization surface features)
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
