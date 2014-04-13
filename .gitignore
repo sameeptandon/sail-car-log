@@ -3,8 +3,16 @@
 *.mp4
 *.swp
 *.pyc
+*.npz
+*.DS_Store
 *~
+*.npz
+*.h5
 bin
 build
 cameralogger/build
 gps_test/build/
+ros_drivers/src/q50_can/src/
+ros_drivers/install
+ros_drivers/devel
+ros_drivers/src/CMakeLists.txt

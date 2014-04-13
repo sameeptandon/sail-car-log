@@ -1,0 +1,9 @@
+<launch>
+<arg name="basename" />
+<arg name="maxframes" />
+  <node pkg="q50_tablet_backend" name="q50_tablet_backend" type="q50_tablet_backend.py" output="screen">
+      <param name="basename" value="$(arg basename)" />
+      <param name="maxframes" value="$(arg maxframes)" />
+  </node>
+ 
+</launch>

@@ -1,0 +1,7 @@
+<launch>
+
+<include file="$(find pointgrey_camera_driver)/launch/pointgrey_camera.launch" />
+<include file="$(find novatel_serial_driver)/launch/novatel_driver.launch" />
+
+<include file="$(find q50_can)/launch/can_communication.launch" />
+</launch>

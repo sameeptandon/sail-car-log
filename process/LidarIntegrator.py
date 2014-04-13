@@ -59,7 +59,7 @@ renderWindow = vtk.vtkRenderWindow()
 #step = 2
 
 start_fn = 0 # offset in frame numbers to start exporting data
-num_fn = 25 # number of frames to export. this is changed if --full is enabled
+num_fn = 100 # number of frames to export. this is changed if --full is enabled
 step = 10 # step between frames
 
 color_mode = 'INTENSITY'
@@ -94,7 +94,7 @@ def stepVideo(video_reader, step):
         (success, I) = video_reader.getNextFrame()
     return success
 
-def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
+def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, calibrationParameters):
     start = offset
     end = offset + num_steps*step
     
@@ -119,12 +119,10 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
         # check out the commented out section below to figure out how this is filtering.
         data_filter_mask = (dist > 3)                  & \
                            (data[:,3] > 40)            & \
-                           (data[:,0] > 0)             & \
                            (np.abs(data[:,1]) < 2.2)   & \
                            (np.abs(data[:,1]) > 1.2)   & \
-                           (data[:,2] < -1.5)          & \
-                           (data[:,2] > -2.5)          
-
+                           (data[:,2] < -1.8)          & \
+                           (data[:,2] > -2.5)         
         data = data[data_filter_mask, :]
         """
         # filter out on intensity
@@ -185,8 +183,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
         # transform data into IMU frame at time t
         pts = data[:,0:3].transpose()
         pts = np.vstack((pts,np.ones((1,pts.shape[1]))))
-        #R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
-        #T_from_l_to_i[0:3,0:3] = R
+        T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i']
         pts = np.dot(T_from_l_to_i, pts)
         # transform data into imu_0 frame
         pts = np.dot(IMUTransforms[fnum,:,:], pts);
@@ -251,7 +248,7 @@ def keypress(obj, event):
         clouds = [ ]
         all_data = [ ]
         #start_fn = start_fn + 5
-        integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step)
+        integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
         renderWindow.Render()
     print key
     #print (rx,ry,rz)
@@ -265,8 +262,9 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
 
     gps_reader = GPSReader(args['gps'])
-    cam1 = GetQ50CameraParams()[0] 
-    cam2 = GetQ50CameraParams()[1] 
+    params = args['params']
+    cam1 = params['cam'][0]
+    cam2 = params['cam'][1]
     video_reader1 = VideoReader(args['video'])
     video_reader2 = VideoReader(video_filename2)
     gps_reader = GPSReader(args['gps'])
@@ -286,7 +284,7 @@ if __name__ == '__main__':
     
     cloud_r.SetBackground(0., 0., 0.)
     cloud_r.SetViewport(0,0,1.0,1.0)
-    integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step)
+    integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
 
     if '--export' in sys.argv:
       exportData()

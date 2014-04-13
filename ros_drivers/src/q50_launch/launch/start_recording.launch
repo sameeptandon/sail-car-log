@@ -1,0 +1,37 @@
+<launch>
+
+<arg name="basename" />
+
+<!-- Start Left Camera Recording --> 
+<include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="1" />
+    <arg name="image_topic" value="/fwd_left/image_raw" />
+    <arg name="writer_node_name" value="fwd_left_writer" />
+</include>
+
+<!-- Start Right Camera Recording --> 
+<include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="2" />
+    <arg name="image_topic" value="/fwd_right/image_raw" />
+    <arg name="writer_node_name" value="fwd_right_writer" />
+</include>
+
+<!-- Start Velodyne Recording -->
+<include file="$(find tcpdump_driver)/launch/tcpdump_driver.launch">
+    <arg name="outputPcap" value="$(arg basename).pcap" />
+</include>
+
+<!-- Start GPS Recording -->
+<node pkg="rosbag" type="record" name="rosbag_record_gps"
+    args="-O $(arg basename)_gps.bag /novatel_port_out /novatel_port_in"/>
+
+<!-- Start Radar and ODB recording -->
+<node pkg="rosbag" type="record" name="rosbag_record_radar"
+    args="-O $(arg basename)_radar.bag /object_list /target_status"/>
+
+<node pkg="rosbag" type="record" name="rosbag_record_odb"
+    args="-O $(arg basename)_odb.bag /BrkInfo /EngInfo /GearPos /IMU /STRAngle /TurnSignal /VehicleSpeed"/>
+
+</launch>

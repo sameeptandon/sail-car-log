@@ -4,6 +4,7 @@
 import bisect
 import os
 import sys
+import rosbag
 
 sys.path.append('../process')
 from GPSReader import GPSReader
@@ -11,84 +12,69 @@ from GPSReader import GPSReader
 
 class FrameFinder:
 
-    """ Creates a mapping from cloud to frames. If the file
-    "gps_file_name_to_frame_folder_name.map" exists, it will read from that
-    file. It is about 2x faster to read from this file"
+    """ Creates a mapping from cloud to frames.
     """
 
     frame_to_cloud_map = {}
-    cloud_to_frame_map = {}
     map_file_path = ""
     map_file_name = ""
 
-    def __init__(self, gps_file_path, frames_folder, write_to_file):
-        gps_file_name = os.path.basename(gps_file_path).split('.')[0]
+    def __init__(self, gps_file, frames_folder, radar_bag_file, write_to_file):
         if frames_folder[-1] == '/':
             frames_folder = frames_folder[0:-1]
+        
         basename = frames_folder.replace('_frames', '')
-        frames_folder_name = os.path.basename(frames_folder)
         self.map_file_name = basename + ".map"
+        
+        reader = GPSReader(gps_file)
 
-        if os.path.isfile(self.map_file_name):
-           self.__read_frame_map()
-        else:
-            reader = GPSReader(gps_file_path)
+        # Camera time should already be sorted because frame # always increases
+        camera_times = [utc_from_gps(data['week'], data['seconds'])
+                        for data in reader.getData()]
 
-            # Camera time should already be sorted because frame # always increases
-            camera_times = [utc_from_gps(data['week'], data['seconds'])
-                            for data in reader.getData()]
+        ldr_times = \
+            [long(os.path.splitext(os.path.basename(ldr_file))[0])
+             for ldr_file in os.listdir(frames_folder)
+             if ldr_file.endswith('.ldr')]
 
-            ldr_times = \
-                [long(os.path.splitext(os.path.basename(ldr_file))[0])
-                 for ldr_file in os.listdir(frames_folder)
-                 if ldr_file.endswith('.ldr')]
+        # Need to sort the ldr_times because listdir returns undefined ordering
+        ldr_times.sort()
 
-            # Need to sort the ldr_times because listdir returns undefined ordering
-            ldr_times.sort()
+        rdr_times = unpack_bag(basename, radar_bag_file)
 
-            for frame_number, camera_time in enumerate(camera_times):
-                # Find the closest time in ldr times
-                nearest_index = bisect.bisect(ldr_times, camera_time)
-                if nearest_index >= 1:
-                    lidr_file = str(ldr_times[nearest_index - 1]) + '.ldr'
-                    # Frames are indexed by 1, not
-                    real_frame = frame_number + 1
-                    self.frame_to_cloud_map[real_frame] = lidr_file
-                    self.cloud_to_frame_map[lidr_file] = real_frame
-            
-            if write_to_file == True:
-                self.__write_frame_map()
+        for frame_number, camera_time in enumerate(camera_times):
+            # Find the closest time in ldr times
+            nearest_index_ldr = bisect.bisect(ldr_times, camera_time)
+            nearest_index_rdr = bisect.bisect(rdr_times, camera_time)
+
+            if nearest_index_ldr >= 1 and nearest_index_rdr >=1:
+                lidr_file = str(ldr_times[nearest_index_ldr - 1]) + '.ldr'
+                radar_seq = str(rdr_times[nearest_index_rdr - 1]) + '.rdr'
+
+                # Frames are indexed by 1, not
+                real_frame = frame_number + 1
+
+                self.frame_to_cloud_map[real_frame] = (lidr_file, radar_seq)
+                #print real_frame, (lidr_file, radar_seq)
+        if write_to_file == True:
+            self.__write_frame_map()
 
 
     def get_map(self):
         """ Returns a mapping from camera frame to ldr file """
         return self.frame_to_cloud_map
 
-    def get_inverse_map(self):
-        """ Returns a mapping from cloud to frame """
-        return self.cloud_to_frame_map
-
     def __write_frame_map(self):
         """ Writes the camera frame to ldr file mapping to a file """
         out_file = open(self.map_file_name, 'w')
-        for frame, cloud in self.get_map().iteritems():
-            out_file.write(str(frame) + " " + str(cloud) + "\n")
+        for frame, data in self.get_map().iteritems():
+            line = str(frame) + ' ' + str(data[0]) + ' ' + str(data[1]) + '\n'
+            out_file.write(line)
         out_file.close()
-
-    def __read_frame_map(self):
-         for line in open(self.map_file_name, 'r'):
-                tokens = line.split(" ")
-                frame = tokens[0]
-                cloud = tokens[1]
-                self.frame_to_cloud_map[frame] = cloud
-                self.cloud_to_frame_map[cloud] = frame
 
 def utc_from_gps(gps_week, seconds, leap_seconds=16):
     """ Converts from gps week time to UTC time. UTC time starts from JAN 1,
         1970 and GPS time starts from JAN 6, 1980.
-
-        NOTE: I am not sure if posix corrects for leap seconds, I am leaving
-        it in for now just in case. If the times are 16 seconds off look here
 
         http://leapsecond.com/java/gpsclock.htm
     """
@@ -99,21 +85,79 @@ def utc_from_gps(gps_week, seconds, leap_seconds=16):
     return long((gps_week * secs_in_week + seconds + secs_gps_to_utc
                 - leap_seconds) * 1000000)
 
+def unpack_bag(basename, radar_bag_file):
+    """ Unpacks the bag and writes individual segments to files. 
+    The ouput folder is the basename + _rdr. 
+    Each file name is the time of the starting segment 
+    """
+    radar_bag = rosbag.Bag(radar_bag_file)
+    times = []
+    cur_file = None
+    rdr_dir = basename + '_rdr/'
+    if not os.path.exists(rdr_dir):
+        os.mkdir(rdr_dir)
+    for topic, msg, t in radar_bag.read_messages(topics=['/object_list', '/target_status']):
+        if msg.obj_id == 61:
+            if cur_file != None:
+                cur_file.close()
+            time = msg.header.stamp.to_nsec()/1000 - 66000
+            times.append(time)
+            cur_file = open(rdr_dir + str(time) + '.rdr', 'w')
+            
+        if cur_file != None:
+            if msg.obj_id == 0 or msg.obj_id == 62:
+                continue
+            line = None
+            if topic == '/object_list':
+                if msg.isMeasurd == True:
+                    fmt = 'O {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {rcs} {w} {l}'
+                    line = fmt.format(
+                        id = msg.obj_id, 
+                        dist = msg.dist, 
+                        lat_dist = msg.lat_dist,
+                        rel_spd = msg.relative_spd,
+                        dyn_prop = msg.dyn_prop,
+                        rcs = msg.rcs,
+                        w = msg.width,
+                        l = msg.length) 
+            else:
+                if msg.status > 0:
+                    fmt = 'T {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {traj} {w} {l} {obst_probab} {exist_probab} {rel_acc} {type} {lost_reason}'
+                    line = fmt.format(
+                        id = msg.obj_id, 
+                        dist = msg.dist, 
+                        lat_dist = msg.lat_dist,
+                        rel_spd = msg.relative_spd,
+                        dyn_prop = msg.dyn_prop,
+                        traj = msg.traj,
+                        w = msg.width,
+                        l = msg.length,
+                        obst_probab = msg.obst_probab,
+                        exist_probab = msg.exist_probab,
+                        rel_acc = msg.relative_acc,
+                        type = msg.type,
+                        lost_reason = msg.lost_reason
+                        )
+            if line != None:
+                cur_file.write(line + '\n')
+    times.sort()
+    return times
 
 def main():
     """ Prints out times
     """
 
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print """
-        Usage: ./match_frames.py <gps_output_file> <ldr_folder_directory>
+        Usage: ./FrameFinder.py <gps_output_file> <ldr_folder_directory> <radar_bag_file>
         """
         sys.exit()
 
-    gps_file_path = sys.argv[1]
+    gps_file = sys.argv[1]
     frames_folder = sys.argv[2]
+    radar_folder = sys.argv[3]
 
-    finder = FrameFinder(gps_file_path, frames_folder, True)
+    FrameFinder(gps_file, frames_folder, radar_folder, write_to_file=True)
 
 if __name__ == '__main__':
     main()

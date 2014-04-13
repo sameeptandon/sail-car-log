@@ -4,6 +4,7 @@ import numpy as np
 import vtk.util.numpy_support as converter
 import time
 import cv2
+import itertools
 
 
 class VtkImage:
@@ -28,6 +29,72 @@ class VtkImage:
         yActor.SetInput(flipY.GetOutput())
 
         return yActor
+
+class VtkEllipsoid:
+    def __init__(self, T):
+        self.T = (T[0,0], T[0,1], T[0,2], T[0,3],
+                  T[1,0], T[1,1], T[1,2], T[1,3],
+                  T[2,0], T[2,1], T[2,2], T[2,3],
+                  T[3,0], T[3,1], T[3,2], T[3,3])
+
+
+    def get_vtk_ellipsoid(self):
+        self.transformMatrix = vtk.vtkMatrix4x4()
+        self.transformMatrix.DeepCopy(self.T)
+        transform = vtk.vtkTransform()
+        transform.SetMatrix(self.transformMatrix)
+
+        self.source = vtk.vtkSphereSource()
+        self.source.SetRadius(1.0)
+        self.source.SetCenter(0.0,0.0,0.0)
+
+        transformFilter = vtk.vtkTransformPolyDataFilter()
+        transformFilter.SetTransform(transform)
+        transformFilter.SetInputConnection(self.source.GetOutputPort())
+        transformFilter.Update()
+
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(transformFilter.GetOutputPort())
+        
+        actor = vtk.vtkActor()
+        actor.GetProperty().SetOpacity(0.8)
+        actor.SetMapper(mapper)
+
+        # assign actor to the renderer
+        return actor
+
+
+
+
+
+class VtkBoundingBox:
+    def __init__(self, properties):
+        # (x, y) is the center-back of the car
+        (x, y, z, l, w) = tuple(properties[:5])
+        h = 1
+        self.bounds = (x, x+l, y-w/2., y+w/2., z-h/2., z+h/2.)
+
+    def get_vtk_box(self, rot = 0):
+        # create source
+        source = vtk.vtkCubeSource()
+        source.SetBounds(self.bounds)
+
+        # mapper
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(source.GetOutputPort())
+
+        # actor
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetRepresentationToWireframe()
+        actor.GetProperty().SetLineWidth(1)
+        actor.GetProperty().LightingOff()
+
+        actor.SetOrigin(source.GetCenter())
+        actor.RotateZ(rot)
+
+        # assign actor to the renderer
+        return actor
 
 """
 Uses VTK to render a point cloud based on intensities, which might be floating point numbers or RGB values. 

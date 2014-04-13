@@ -1,0 +1,10 @@
+<launch>
+  <arg name="outputPcap" />
+
+  <group ns="tcpdump">
+  <node pkg="tcpdump_driver" name="velodyne_node" type="tcpdump_driver_node" output="screen">
+      <param name="outputPcap" value="$(arg outputPcap)" />
+  </node>
+  </group>
+ 
+</launch>

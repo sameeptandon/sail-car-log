@@ -1,0 +1,9 @@
+<launch>
+  <node pkg="q50_can" type="can_receive" name="q50_can_ch1" args="0"/>
+  <node pkg="q50_can" type="can_receive" name="q50_can_ch2"
+	args="1" output="screen"/>
+  <!-- <node pkg="q50_can" type="rviz_translator" name="rviz_translator" output="screen"/> -->
+  <!-- <node pkg="q50_can" type="dummy_vehicles" name="dummy_vehicles"/>
+--> 
+  <!-- <node pkg="rviz" type="rviz" name="rviz" args="-d $(find q50_can)/cfg/radar_obj.rviz"/>  --> 
+</launch>

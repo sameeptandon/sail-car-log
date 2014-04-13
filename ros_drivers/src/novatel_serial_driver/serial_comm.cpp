@@ -8,7 +8,8 @@ void serial_comm::safeWrite(string cmd) {
     cout << "Command: " << cmd; 
     _port->write(cmd);
     _port->flushOutput();
-    sleep(1);
+    //sleep(1);
+    usleep(0.1 * 1000 * 1000);
 }
 
 string serial_comm::safeRead() {
@@ -22,7 +23,6 @@ void serial_comm::Connect(string port) {
     cout << "port = " << port << endl; 
     _port = new Serial(port, baudrate, my_timeout);
 
-    /*
     // reset stuff
     safeWrite("unlogall\r\n");
     safeWrite("fix none\r\n");
@@ -32,8 +32,9 @@ void serial_comm::Connect(string port) {
     ///////// logging /////////////////
     //safeWrite("log mark1time onnew\r\n");
     safeWrite("log mark1pvaa onnew\r\n");
+    safeWrite("log inscovs ontime 1 0 nohold\r\n");
+    safeWrite("log gpgst ontime 1 0 nohold\r\n");
     //safeWrite(port, "log usb1 bestposa ontime 0.5 0 nohold\r\n");
-    */
 }
 
 /*
@@ -44,13 +45,12 @@ void serial_comm::Run() {
 
 */
 void serial_comm::Close() {
-    /*
     safeWrite("eventoutcontrol mark2 disable\r\n");
     safeWrite("unlogall\r\n");
     cout << "flushing GPS buffers" << endl;
-    */
     _port->flush();
-    sleep(1);
+    //sleep(1);
+    usleep(0.1 * 1000 * 1000);
     // hack since flush doesn't do it:
     size_t buf_size = _port->available();
     cout << "bytes in buffer after flush: " << buf_size << endl; 

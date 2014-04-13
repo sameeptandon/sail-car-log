@@ -1,0 +1,9 @@
+<launch>
+
+  <group ns="novatel">
+  <node pkg="novatel_serial_driver" name="novatel_driver" type="novatel_driver_node" output="screen">
+      <param name="port" value="/dev/serial/by-id/usb-09d7_0210-if00" />
+  </node>
+  </group>
+ 
+</launch>

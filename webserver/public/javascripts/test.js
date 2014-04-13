@@ -19,8 +19,8 @@ socket.on('WARN', function(data) {
   }, 3000);
 });
 
-socket.on('INFOBUFFERSIZE', function(data) {
-  document.getElementById('queue_size').innerHTML = 'Queue Size: ' + data;
+socket.on('GPSUNCERTAINTY', function(data) {
+  document.getElementById('gps_uncertainty').innerHTML = 'Err: ' + data;
 });
 
 socket.on('INFOCAPTURERATE', function(data) {
@@ -90,6 +90,6 @@ var resetDisplay = function() {
   console.log('woeifjioj');
   document.getElementById('warn_message').innerHTML = '';
   document.getElementById('capture_rate').innerHTML = '';
-  document.getElementById('queue_size').innerHTML = '';
+  document.getElementById('gps_uncertainty').innerHTML = '';
   document.getElementById('gps_pos').innerHTML = '';
 }
