@@ -42,3 +42,23 @@ void VideoReader::setFrame(int fnum) {
         captures[j % NUM_SPLITS].set(CV_CAP_PROP_POS_FRAMES, capfnum);
     }
 }
+
+int VideoReader::getFps()
+{
+    return captures[0].get(CV_CAP_PROP_FPS);
+}
+
+int VideoReader::getFrameWidth()
+{
+    return captures[0].get(CV_CAP_PROP_FRAME_WIDTH);
+}
+
+int VideoReader::getFrameHeight()
+{
+    return captures[0].get(CV_CAP_PROP_FRAME_HEIGHT);
+}
+
+int VideoReader::getCodecType()
+{
+    return static_cast<int>(captures[0].get(CV_CAP_PROP_FOURCC));
+}

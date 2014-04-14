@@ -53,14 +53,16 @@ if __name__ == '__main__':
             raise
 
         # Filter
+        dist = np.sqrt(np.sum(data[:, 0:3] ** 2, axis=1))
         if LANE_FILTER:
-            dist = np.sqrt(np.sum(data[:, 0:3] ** 2, axis=1))
             data_filter_mask = (dist > 3) & \
                                (data[:, 3] > 40) & \
                                (np.abs(data[:, 1]) < 2.2) & \
                                (np.abs(data[:, 1]) > 1.2) & \
                                (data[:, 2] < -1.8) & \
                                (data[:, 2] > -2.5)
+        else:
+            data_filter_mask = (dist > 3)
             data = data[data_filter_mask, :]
 
         # transform data into IMU frame at time t

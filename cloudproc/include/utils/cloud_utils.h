@@ -11,6 +11,9 @@
 template <typename PointT>
 void load_cloud(std::string pcd_path, boost::shared_ptr<pcl::PointCloud<PointT> > cloud);
 
+template <typename PointT>
+void load_clouds(std::vector<std::string> pcd_paths, boost::shared_ptr<pcl::PointCloud<PointT> > cloud);
+
 template<typename PointT>
 void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_cloud, const boost::shared_ptr<pcl::PointCloud<PointT> > tgt_cloud, boost::shared_ptr<pcl::PointCloud<PointT> > aligned_cloud, const pcl::Correspondences& correspondences, bool viz_normals=false);
 

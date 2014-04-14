@@ -21,6 +21,7 @@ class Parameters
     std::string dset_avi;
     std::string h5_dir;
     std::string pcd_dir;
+    std::string pcd_downsampled_dir;
     std::string params_file;
     std::string color_dir;
 
@@ -35,6 +36,15 @@ class Parameters
     int map_color_window;
     int cloud_max_store;
 
+    bool handle_occlusions;
+    float octree_res;
+    bool center_octomap;
+    float prob_hit;
+    float prob_miss;
+    float occupancy_thres;
+    float clamping_thres_max;
+    float clamping_thres_min;
+    float raycast_tol;
     std::string octomap_file;
 
     // Calibration parameters

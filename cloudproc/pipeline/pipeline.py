@@ -82,19 +82,46 @@ def convert_h5_to_pcd(input_file, output_file):
 
 
 @follows('convert_h5_to_pcd')
-@merge(convert_h5_to_pcd, '%s/octomap_%f.bt' % (OCTOMAP_DIR, OCTOMAP_RES))
-def build_octomap(input_files, output_file):
-    cmd = '{0}/bin/build_octomap --pcd_dir {1} --transforms_dir {2} --out_file {3} --octree_res {4:.2f} --start {5} --step {6} --max_count {7}'.format(
-            CLOUDPROC_PATH, PCD_DIR, POINTS_H5_DIR, output_file, OCTOMAP_RES, 0, 1, EXPORT_NUM)  # FIXME fix start / step arguments
+@transform('./pcd/*.pcd',
+           regex('./pcd/(.*?).pcd'),
+           r'./pcd_downsampled/\1.pcd')
+def downsample_pcds(input_file, output_file):
+    downsampler = '%s/bin/downsample_cloud' % CLOUDPROC_PATH
+    cmd = '%s --src_pcd %s --out_pcd %s --leaf_size %f' % (downsampler, input_file,
+                output_file, DOWNSAMPLE_LEAF_SIZE)
     print cmd
     check_call(cmd, shell=True)
 
 
-@follows('convert_h5_to_pcd')
+@follows('downsample_pcds')
+@merge(convert_h5_to_pcd, '%s/octomap_%.2f.ot' % (OCTOMAP_DIR, OCTOMAP_RES))
+def build_octomap(input_files, output_file):
+    cmd = '{0}/bin/build_octomap --pcd_dir {1} --transforms_dir {2} --out_file {3} --octree_res {4:.2f} --start {5} --step {6} --max_count {7}'.format(
+            CLOUDPROC_PATH, PCD_DOWNSAMPLED_DIR, POINTS_H5_DIR, output_file, OCTOMAP_RES, 0, 1, EXPORT_NUM)  # FIXME fix start / step arguments
+    print cmd
+    check_call(cmd, shell=True)
+
+
+''' TODO parallelize
+@follows('build_octomap')
+@transform('./pcd_downsampled/*.pcd',
+           regex('./pcd_downsampled/(.*?).pcd'),
+           r'./color/\1.h5')
+def project_color(input_pcd, output_color_file):
+    pass
+'''
+@follows('build_octomap')
+def project_color():
+    binary = '%s/bin/octomap_color' % CLOUDPROC_PATH
+    print binary
+    check_call(binary, shell=True)
+
+
+@follows('project_color')
 @transform('./color/*.h5',
            regex('./color/(.*?).h5'),
            r'./color_clouds/\1.pcd',
-           r'./pcd/\1.pcd')
+           r'./pcd_downsampled/\1.pcd')
 def color_clouds(color_file, output_file, pcd_file):
     converter = '%s/bin/color_cloud' % CLOUDPROC_PATH
     cmd = '%s %s %s %s' % (converter, pcd_file, color_file, output_file)
@@ -107,18 +134,6 @@ def color_clouds(color_file, output_file, pcd_file):
 def merge_color_clouds(cloud_files, merged_cloud_file):
     files = [f for f in cloud_files if os.path.exists(f)]
     cmd = 'pcl_concatenate_points_pcd ' + ' '.join(files) + '; mv output.pcd merged_clouds/merged_%d.pcd' % MAP_COLOR_WINDOW
-    check_call(cmd, shell=True)
-
-
-@follows('convert_h5_to_pcd')
-@transform('./pcd/*.pcd',
-           regex('./pcd/(.*?).pcd'),
-           r'./pcd_downsampled/\1.pcd')
-def downsample_pcds(input_file, output_file):
-    downsampler = '%s/bin/downsample_cloud' % CLOUDPROC_PATH
-    cmd = '%s --src_pcd %s --out_pcd %s --leaf_size %f' % (downsampler, input_file,
-                output_file, DOWNSAMPLE_LEAF_SIZE)
-    print cmd
     check_call(cmd, shell=True)
 
 

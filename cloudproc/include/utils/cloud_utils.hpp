@@ -23,6 +23,17 @@ void load_cloud(std::string pcd_path, boost::shared_ptr<pcl::PointCloud<PointT> 
     pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
 }
 
+template <typename PointT>
+void load_clouds(std::vector<std::string> pcd_paths, boost::shared_ptr<pcl::PointCloud<PointT> > cloud)
+{
+    BOOST_FOREACH(std::string pcd_path, pcd_paths)
+    {
+        pcl::PointCloud<PointXYZ>::Ptr new_cloud(new pcl::PointCloud<PointT>());
+        load_cloud(pcd_path, new_cloud);
+        *cloud += *new_cloud;
+    }
+}
+
 template<typename PointT>
 void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_cloud, const boost::shared_ptr<pcl::PointCloud<PointT> > tgt_cloud, boost::shared_ptr<pcl::PointCloud<PointT> > aligned_cloud, const pcl::Correspondences& correspondences, bool viz_normals)
 {
@@ -101,23 +112,14 @@ void project_cloud_eigen(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, cons
 }
 
 template<typename PointT>
-void filter_lidar_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, boost::shared_ptr<pcl::PointCloud<PointT> > output_cloud, std::vector<int>& filtered_indices, float lidar_project_min_dist)
+void filter_lidar_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, boost::shared_ptr<pcl::PointCloud<PointT> > output_cloud, std::vector<int>& filtered_indices)
 {
-    std::vector<int> tmp_indices;
+    filtered_indices.clear();
 
     pcl::PassThrough<PointT> pass;
     pass.setInputCloud(cloud);
     pass.setFilterFieldName("z");
     pass.setFilterLimits(0, std::numeric_limits<float>::max());
-    pass.filter(tmp_indices);
-
-    for (int k = 0; k < tmp_indices.size(); k++)
-    {
-        PointT p = cloud->at(tmp_indices[k]);
-        if (p.x*p.x + p.y*p.y + p.z*p.z > lidar_project_min_dist)
-        {
-            output_cloud->push_back(p);
-            filtered_indices.push_back(tmp_indices[k]);
-        }
-    }
+    pass.filter(filtered_indices);
+    pass.filter(*output_cloud);
 }

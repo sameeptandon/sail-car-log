@@ -23,13 +23,23 @@ void Parameters::initialize()
    end = start + step * count;
    h5_dir = py::extract<std::string>(pycfg.attr("POINTS_H5_DIR"));
    pcd_dir = py::extract<std::string>(pycfg.attr("PCD_DIR"));
+   pcd_downsampled_dir = py::extract<std::string>(pycfg.attr("PCD_DOWNSAMPLED_DIR"));
    color_dir = py::extract<std::string>(pycfg.attr("COLOR_DIR"));
    params_file = py::extract<std::string>(pycfg.attr("PARAMS_H5_FILE"));
    cam_ind = py::extract<int>(pycfg.attr("CAM_NUM")) - 1;
    lidar_project_min_dist = py::extract<float>(pycfg.attr("LIDAR_PROJECT_MIN_DIST"));
    map_color_window = py::extract<int>(pycfg.attr("MAP_COLOR_WINDOW"));
    cloud_max_store = py::extract<int>(pycfg.attr("CLOUD_MAX_STORE"));
-   octomap_file = py::extract<std::string>(pycfg.attr("OCTOMAP_FILE"));_
+   handle_occlusions = py::extract<bool>(pycfg.attr("HANDLE_OCCLUSIONS"));
+   octree_res = py::extract<float>(pycfg.attr("OCTOMAP_RES"));
+   prob_hit = py::extract<float>(pycfg.attr("PROB_HIT"));
+   prob_miss = py::extract<float>(pycfg.attr("PROB_MISS"));
+   occupancy_thres = py::extract<float>(pycfg.attr("OCCUPANCY_THRES"));
+   clamping_thres_max = py::extract<float>(pycfg.attr("CLAMPING_THRES_MAX"));
+   clamping_thres_min = py::extract<float>(pycfg.attr("CLAMPING_THRES_MIN"));
+   raycast_tol = py::extract<float>(pycfg.attr("RAYCAST_TOL"));
+   octomap_file = py::extract<std::string>(pycfg.attr("OCTOMAP_FILE"));
+   center_octomap = py::extract<bool>(pycfg.attr("CENTER_OCTOMAP"));
 
    // Loading calibration parameters
 

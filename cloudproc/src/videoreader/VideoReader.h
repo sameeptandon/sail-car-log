@@ -15,6 +15,11 @@ class VideoReader{
         bool skip(int k);
         bool getNextFrame(cv::Mat& frame);
         void setFrame(int fnum);
+        int getFps();
+        int getFrameWidth();
+        int getCodecType();
+
+        int getFrameHeight();
 
     protected:
         int framenum;
