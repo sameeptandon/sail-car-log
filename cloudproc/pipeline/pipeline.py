@@ -12,7 +12,7 @@ from pipeline_config import POINTS_H5_DIR,\
         ICP_ITERS, ICP_MAX_DIST, REMOTE_DATA_DIR, REMOTE_FILES,\
         EXPORT_FULL, GPS_FILE, MAP_FILE, COLOR_DIR, COLOR_CLOUDS_DIR,\
         MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW, OCTOMAP_DIR, OCTOMAP_RES,\
-        EXPORT_NUM
+        EXPORT_NUM, COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES
 from pipeline_utils import file_num
 
 # TODO Commands to scp stuff over
@@ -96,8 +96,7 @@ def downsample_pcds(input_file, output_file):
 @follows('downsample_pcds')
 @merge(convert_h5_to_pcd, '%s/octomap_%.2f.ot' % (OCTOMAP_DIR, OCTOMAP_RES))
 def build_octomap(input_files, output_file):
-    cmd = '{0}/bin/build_octomap --pcd_dir {1} --transforms_dir {2} --out_file {3} --octree_res {4:.2f} --start {5} --step {6} --max_count {7}'.format(
-            CLOUDPROC_PATH, PCD_DOWNSAMPLED_DIR, POINTS_H5_DIR, output_file, OCTOMAP_RES, 0, 1, EXPORT_NUM)  # FIXME fix start / step arguments
+    cmd = '{0}/bin/build_octomap'.format(CLOUDPROC_PATH)
     print cmd
     check_call(cmd, shell=True)
 
@@ -125,6 +124,14 @@ def project_color():
 def color_clouds(color_file, output_file, pcd_file):
     converter = '%s/bin/color_cloud' % CLOUDPROC_PATH
     cmd = '%s %s %s %s' % (converter, pcd_file, color_file, output_file)
+    print cmd
+    check_call(cmd, shell=True)
+
+
+@follows('color_clouds')
+@merge(color_clouds, '%s/octomap_%.2f.ot' % (COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES))
+def build_color_octomap(input_files, output_file):
+    cmd = '{0}/bin/build_color_octomap'.format(CLOUDPROC_PATH)
     print cmd
     check_call(cmd, shell=True)
 

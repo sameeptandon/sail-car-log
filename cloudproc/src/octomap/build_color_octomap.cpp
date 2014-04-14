@@ -11,7 +11,7 @@
 
 #include <octomap/octomap.h>
 #include <octomap/Pointcloud.h>
-#include <octomap/OccupancyOcTreeBase.h>
+#include <octomap/ColorOcTree.h>
 
 #include "utils/path_utils.h"
 #include "utils/cloud_utils.h"
@@ -19,39 +19,7 @@
 
 #include "parameters.h"
 
-namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-
-struct Options
-{
-    bool debug;
-
-    po::options_description desc;
-};
-
-
-int options(int ac, char ** av, Options& opts)
-{
-  // Declare the supported options.
-  po::options_description desc = opts.desc;
-  desc.add_options()("help", "Produce help message.");
-  desc.add_options()
-    ("debug", po::bool_switch(&opts.debug)->default_value(false), "debug flag")
-    ;
-  po::variables_map vm;
-  po::store(po::parse_command_line(ac, av, desc), vm);
-
-  if (vm.count("help"))
-  {
-    std::cout << desc << std::endl;
-    return 1;
-  }
-
-  po::notify(vm);
-
-  return 0;
-}
-
 
 template <typename PointT>
 void pcl_to_octomap(boost::shared_ptr<pcl::PointCloud<PointT> > src_cloud, octomap::Pointcloud& octomap_cloud)
@@ -74,10 +42,6 @@ int main(int argc, char** argv)
 
     // Set up paths
 
-    Options opts;
-    if (options(argc, argv, opts))
-        return 1;
-
     int count = params().count;
 
     std::string transforms_dir = params().h5_dir;
@@ -86,7 +50,7 @@ int main(int argc, char** argv)
     // Read transforms
     std::vector<std::string> transform_paths;
 
-    get_range_files(params().pcd_downsampled_dir, 0, 1, count, "%1%.pcd", pcd_paths);
+    get_range_files(params().color_clouds_dir, 0, 1, count, "%1%.pcd", pcd_paths);
     get_range_files(transforms_dir, 0, 1, count, "%1%.transform", transform_paths);
 
     assert(pcd_paths.size() == transform_paths.size());
@@ -101,16 +65,7 @@ int main(int argc, char** argv)
 
     boost::progress_display show_progress(pcd_paths.size());
 
-    boost::shared_ptr<octomap::OcTree> octree(new octomap::OcTree(params().octree_res));
-    octree->setProbHit(params().prob_hit);
-    octree->setProbMiss(params().prob_miss);
-
-    boost::shared_ptr<octomap::OcTree> octree_centered(new octomap::OcTree(*octree));
-
-    //octree->setOccupancyThres(params().occupancy_thres);
-    //octree->setClampingThresMax(params().clamping_thres_max);
-    //octree->setClampingThresMin(params().clamping_thres_min);
-    //std::cout << "Occupancy threshold: " << octree->getOccupancyThres() << std::endl;
+    boost::shared_ptr<octomap::ColorOcTree> octree(new octomap::ColorOcTree(params().color_octree_res));
 
     for (int k = 0; k < pcd_paths.size(); k++)
     {
@@ -136,16 +91,8 @@ int main(int argc, char** argv)
         sensor_origin(1) = lidar_origin(1);
         sensor_origin(2) = lidar_origin(2);
 
-        pcl::PointCloud<pcl::PointXYZ>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-        //std::cout << "Reading " << pcd_path << std::endl;
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
         load_cloud(pcd_path, src_cloud);
-        pcl::PointCloud<pcl::PointXYZ>::Ptr centered_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-
-        octomap::Pointcloud octomap_cloud;
-        pcl_to_octomap(src_cloud, octomap_cloud);
-        if (opts.debug)
-            std::cout << "cloud size:" <<  octomap_cloud.size() << std::endl;
-        octree->insertPointCloud(octomap_cloud, sensor_origin);
 
         // Following is for octovis so the map is close to centered
         if (k == 0)
@@ -157,17 +104,23 @@ int main(int argc, char** argv)
         T(0, 3) -= init_pos(0);
         T(1, 3) -= init_pos(1);
         T(2, 3) -= init_pos(2);
-        pcl::transformPointCloud(*src_cloud, *centered_cloud, T);
+        pcl::transformPointCloud(*src_cloud, *src_cloud, T);
 
-        pcl_to_octomap(centered_cloud, octomap_cloud);
-        octree_centered->insertPointCloud(octomap_cloud, sensor_origin);
+        octomap::Pointcloud octomap_cloud;
+        pcl_to_octomap(src_cloud, octomap_cloud);
+        octree->insertPointCloud(octomap_cloud, sensor_origin);
+        BOOST_FOREACH(pcl::PointXYZRGB pt, src_cloud->points)
+        {
+            octomap::ColorOcTreeNode* node = octree->search(pt.x, pt.y, pt.z);
+            if (node)
+                node->setColor(pt.r, pt.g, pt.b);
+        }
 
         ++show_progress;
     }
 
     std::cout << "Writing octree of size " << octree->size() << std::endl;
-    octree->write(params().octomap_file);
-    octree_centered->write(params().centered_octomap_file);
+    octree->write(params().color_octomap_file);
 
     return 0;
 }

@@ -23,6 +23,8 @@ int main(int argc, char** arv)
 
     boost::shared_ptr<octomap::OcTree> octree((octomap::OcTree*)octomap::OcTree::read(params().octomap_file));
     std::cout << "Loaded octree of size " << octree->size() << std::endl;
+    if (!octree->size())
+        return 1;
     // TODO Figure out why these don't match parameters from octree written
     //std::cout << "Occupancy threshold: " << octree->getOccupancyThres() << std::endl;
     //std::cout << "Clamp [min, max]: " << "[" << octree->getClampingThresMin() << ", " << octree->getClampingThresMax() << "]" << std::endl;

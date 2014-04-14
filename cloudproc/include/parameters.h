@@ -24,6 +24,7 @@ class Parameters
     std::string pcd_downsampled_dir;
     std::string params_file;
     std::string color_dir;
+    std::string color_clouds_dir;
 
     int start;
     int step;
@@ -38,14 +39,17 @@ class Parameters
 
     bool handle_occlusions;
     float octree_res;
-    bool center_octomap;
+    float color_octree_res;
     float prob_hit;
     float prob_miss;
     float occupancy_thres;
     float clamping_thres_max;
     float clamping_thres_min;
     float raycast_tol;
+
     std::string octomap_file;
+    std::string centered_octomap_file;
+    std::string color_octomap_file;
 
     // Calibration parameters
 

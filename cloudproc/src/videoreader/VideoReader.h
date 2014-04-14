@@ -17,9 +17,8 @@ class VideoReader{
         void setFrame(int fnum);
         int getFps();
         int getFrameWidth();
-        int getCodecType();
-
         int getFrameHeight();
+        int getCodecType();
 
     protected:
         int framenum;
