@@ -24,7 +24,7 @@ global left_data
 global right_data
 
 
-def integrateClouds(ldr_map, imuTransforms, offset, num_steps, step):
+def integrateClouds(ldr_map, imuTransforms, offset, num_steps, step, T_from_l_to_i, lidar_height):
     start = offset
     end = offset + num_steps*step
 
@@ -46,8 +46,8 @@ def integrateClouds(ldr_map, imuTransforms, offset, num_steps, step):
                            (dist < 10)                  & \
                            (data[:,3] > 70)            & \
                            (data[:,0] > 0)             & \
-                           (data[:,2] < -1.8)          & \
-                           (data[:,2] > -1.9)          
+                           (data[:,2] < -(lidar_height-0.05))          & \
+                           (data[:,2] > -(lidar_height+0.05))          
         left_mask = data_filter_mask & (data[:,1] < 2.2) & (data[:,1] > 1.2)
         #left_mask = data_filter_mask & (data[:,1] < 2.6) & (data[:,1] > 1.2)
         right_mask = data_filter_mask & (data[:,1] > -2.6) & (data[:,1] < -1.6)
@@ -211,6 +211,11 @@ if __name__ == '__main__':
     cam_num = 2
     for root, subfolders, files in os.walk(rootdir):
       files1 = filter(lambda z: 'vail' not in z, files)
+      if '4-2-14-monterey' in root:
+        files1 = filter(lambda z: '1S_g' not in z, files1)
+      if '4-10-14-pleasanton' in root:
+        files1 = filter(lambda z: '680s_a' not in z, files1)
+        files1 = filter(lambda z: '237_a' not in z, files1)
       files1 = filter(lambda z: '_gps.out' in z, files1)
       if len(sys.argv)>2:
         files = filter(lambda z: sys.argv[2] in z, files1)
@@ -229,7 +234,8 @@ if __name__ == '__main__':
         GPSData = gps_reader.getNumericData()                     
         imu_transforms = IMUTransforms(GPSData)                   
                                                                   
-        T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
+        T_from_l_to_i = params['lidar']['T_from_l_to_i']
+        T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
         lidar_height = params['lidar']['height']
 
 
@@ -256,7 +262,7 @@ if __name__ == '__main__':
         left_data = [ ] 
         right_data = [ ] 
         start_fn = 0 # offset in frame numbers to start exporting data
-        integrateClouds(ldr_map, imu_transforms, start_fn, num_fn, step)
+        integrateClouds(ldr_map, imu_transforms, start_fn, num_fn, step, T_from_l_to_i, lidar_height)
         all_data = dict()
         all_data['left'] = np.row_stack(left_data)
         all_data['right'] = np.row_stack(right_data)

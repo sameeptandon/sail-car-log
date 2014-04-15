@@ -80,6 +80,12 @@ if __name__ == '__main__':
     for root, subfolders, files in os.walk(rootdir):
       files1 = filter(lambda z: 'vail' not in z, files)
       files1 = filter(lambda z: '_gps.out' in z, files1)
+      if '4-2-14-monterey' in root:
+        files1 = filter(lambda z: '1S_g' not in z, files1)
+        files1 = filter(lambda z: '17N_c' not in z, files1)
+      if '4-10-14' in root:
+        files1 = filter(lambda z: '680s_a' not in z, files1)
+        files1 = filter(lambda z: '237_a' not in z, files1)
       files = files1
       for f in files:
         
@@ -100,7 +106,7 @@ if __name__ == '__main__':
         labelname = string.replace(labelname, 'q50_data', '640x480_Q50') 
         labelfid = open(labelname,'r') 
 
-        new_vid_name = string.replace(videoname, 'q50_data', '640x480_label_videos_nodistort')
+        new_vid_name = string.replace(video_file, 'q50_data', '640x480_label_videos_nodistort')
         new_vid_name = string.replace(new_vid_name, '.avi', '')
         print 'writing to '+ new_vid_name
         #writer = cv2.VideoWriter(new_vid_name,cv.CV_FOURCC('M','J','P','G'),50,(640,320))
