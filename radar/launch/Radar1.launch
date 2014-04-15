@@ -1,5 +1,0 @@
-<launch>
-  <include file="$(find radar)/launch/Radar1Param.launch" />
-  <node name="radar1" pkg="radar" type="radar" >
-  </node>
-</launch>
