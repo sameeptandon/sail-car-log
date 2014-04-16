@@ -95,11 +95,11 @@ void PointGreyCamera::connect(){
     FC2Config pConfig;
     cam_.GetConfiguration(&pConfig);
     pConfig.grabMode = BUFFER_FRAMES;
-    //pConfig.numBuffers = 100;
-    //pConfig.isochBusSpeed = BUSSPEED_S5000;
-    //pConfig.asyncBusSpeed = BUSSPEED_S5000;
-    pConfig.grabTimeout = (int)(1000.0); // Needs to be in ms
-    //pConfig.highPerformanceRetrieveBuffer = true;
+    pConfig.numBuffers = 100;
+    pConfig.isochBusSpeed = BUSSPEED_S5000;
+    pConfig.asyncBusSpeed = BUSSPEED_S5000;
+    pConfig.grabTimeout = (int)(100.0); // Needs to be in ms
+    pConfig.highPerformanceRetrieveBuffer = true;
     cam_.SetConfiguration(&pConfig);
 
     //set external triggering
