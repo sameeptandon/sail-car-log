@@ -1,5 +1,4 @@
 #include "parameters.h"
-#include <boost/python.hpp>
 #include <boost/format.hpp>
 
 namespace py = boost::python;
@@ -47,6 +46,8 @@ void Parameters::initialize()
    centered_color_octomap_file = py::extract<std::string>(pycfg.attr("CENTERED_COLOR_OCTOMAP_FILE"));
    octomap_h5_file = py::extract<std::string>(pycfg.attr("OCTOMAP_H5_FILE"));
    color_octomap_h5_file = py::extract<std::string>(pycfg.attr("COLOR_OCTOMAP_H5_FILE"));
+
+    pyListToVector(pycfg.attr("OCTOMAP_SINGLE_FILES"), octomap_single_files);
 
    // Loading calibration parameters
 

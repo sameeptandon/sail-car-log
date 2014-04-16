@@ -24,6 +24,7 @@ namespace fs = boost::filesystem;
 
 struct Options
 {
+    bool single;
     bool debug;
 
     po::options_description desc;
@@ -36,6 +37,7 @@ int options(int ac, char ** av, Options& opts)
   po::options_description desc = opts.desc;
   desc.add_options()("help", "Produce help message.");
   desc.add_options()
+    ("single", po::bool_switch(&opts.single)->default_value(false), "export octomaps from individual scans")
     ("debug", po::bool_switch(&opts.debug)->default_value(false), "debug flag")
     ;
   po::variables_map vm;
@@ -162,12 +164,23 @@ int main(int argc, char** argv)
         pcl_to_octomap(centered_cloud, octomap_cloud);
         octree_centered->insertPointCloud(octomap_cloud, sensor_origin);
 
+        if (opts.single)
+        {
+            // Write individual octomaps and clear
+            octree->write(params().octomap_single_files[k]);
+            octree->clear();
+            octree_centered->clear();
+        }
+
         ++show_progress;
     }
 
-    std::cout << "Writing octree of size " << octree->size() << std::endl;
-    octree->write(params().octomap_file);
-    octree_centered->write(params().centered_octomap_file);
+    if (!opts.single)
+    {
+        std::cout << "Writing octree of size " << octree->size() << std::endl;
+        octree->write(params().octomap_file);
+        octree_centered->write(params().centered_octomap_file);
+    }
 
     return 0;
 }

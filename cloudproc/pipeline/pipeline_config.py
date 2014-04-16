@@ -73,8 +73,8 @@ CLAMPING_THRES_MIN = 0.0
 RAYCAST_TOL = 3.0
 CAST_ONCE = True
 
-OCC_EXT = 'occ' if HANDLE_OCCLUSIONS else ''
-OCTOMAP_FILE = '{0}/octomap_{1:.2f}_{2}.ot'.format(OCTOMAP_DIR, OCTOMAP_RES, OCC_EXT)
+OCC_EXT = '_occ' if HANDLE_OCCLUSIONS else ''
+OCTOMAP_FILE = '{0}/octomap_{1:.2f}{2}.ot'.format(OCTOMAP_DIR, OCTOMAP_RES, OCC_EXT)
 CENTERED_OCTOMAP_FILE = os.path.splitext(OCTOMAP_FILE)[0] + '_centered.ot'
 COLOR_OCTOMAP_FILE = '{0}/octomap_{1:.2f}_{2}.ot'.format(COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCC_EXT)
 CENTERED_COLOR_OCTOMAP_FILE = '{0}/octomap_{1:.2f}_{2}_centered.bt'.format(COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCC_EXT)
@@ -83,6 +83,10 @@ COLOR_OCTOMAP_MESH = ''
 
 OCTOMAP_H5_FILE = os.path.splitext(OCTOMAP_FILE)[0] + '.h5'
 COLOR_OCTOMAP_H5_FILE = os.path.splitext(COLOR_OCTOMAP_FILE)[0] + '.h5'
+
+OCTOMAP_SINGLE_FILES = list()
+for k in range(EXPORT_NUM):
+    OCTOMAP_SINGLE_FILES.append(os.path.splitext(OCTOMAP_FILE)[0] + '_%d.ot' % k)
 
 MERGED_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'merged_%d.pcd' % MAP_COLOR_WINDOW)
 

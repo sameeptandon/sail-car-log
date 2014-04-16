@@ -1,7 +1,9 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "utils/hdf_utils.h"
+#include <boost/python.hpp>
 
 class Parameters
 {
@@ -55,6 +57,8 @@ class Parameters
     std::string octomap_h5_file;
     std::string color_octomap_h5_file;
 
+    std::vector<std::string> octomap_single_files;
+
     // Calibration parameters
 
     Eigen::Matrix4f T_from_i_to_l;
@@ -71,3 +75,8 @@ class Parameters
 };
 
 Parameters& params();
+
+template <typename T>
+void pyListToVector(const boost::python::object& py_list, std::vector<T>& vec);
+
+#include "parameters.hpp"
