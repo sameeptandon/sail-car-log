@@ -104,13 +104,13 @@ int main(int argc, char** argv)
     boost::shared_ptr<octomap::OcTree> octree(new octomap::OcTree(params().octree_res));
     octree->setProbHit(params().prob_hit);
     octree->setProbMiss(params().prob_miss);
+    octree->setClampingThresMax(params().clamping_thres_max);
+    octree->setClampingThresMin(params().clamping_thres_min);
+    //octree->setOccupancyThres(params().occupancy_thres);
+    //std::cout << "Occupancy threshold: " << octree->getOccupancyThres() << std::endl;
 
     boost::shared_ptr<octomap::OcTree> octree_centered(new octomap::OcTree(*octree));
 
-    //octree->setOccupancyThres(params().occupancy_thres);
-    //octree->setClampingThresMax(params().clamping_thres_max);
-    //octree->setClampingThresMin(params().clamping_thres_min);
-    //std::cout << "Occupancy threshold: " << octree->getOccupancyThres() << std::endl;
 
     for (int k = 0; k < pcd_paths.size(); k++)
     {
@@ -139,7 +139,6 @@ int main(int argc, char** argv)
         pcl::PointCloud<pcl::PointXYZ>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZ>());
         //std::cout << "Reading " << pcd_path << std::endl;
         load_cloud(pcd_path, src_cloud);
-        pcl::PointCloud<pcl::PointXYZ>::Ptr centered_cloud(new pcl::PointCloud<pcl::PointXYZ>());
 
         octomap::Pointcloud octomap_cloud;
         pcl_to_octomap(src_cloud, octomap_cloud);
@@ -148,6 +147,7 @@ int main(int argc, char** argv)
         octree->insertPointCloud(octomap_cloud, sensor_origin);
 
         // Following is for octovis so the map is close to centered
+        pcl::PointCloud<pcl::PointXYZ>::Ptr centered_cloud(new pcl::PointCloud<pcl::PointXYZ>());
         if (k == 0)
             init_pos = transform_copy.block<3, 1>(0, 3);
         sensor_origin(0) -= init_pos(0);

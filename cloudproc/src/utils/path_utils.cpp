@@ -50,7 +50,7 @@ void get_numbered_files(const std::string& file_dir, const std::string& reg_str,
     }
 }
 
-void get_range_files(const std::string& file_dir, int start, int step, int count, const std::string& format_str, std::vector<std::string>& file_paths)
+void get_range_files(const std::string& file_dir, int start, int step, int count, const std::string& format_str, std::vector<std::string>& file_paths, bool check_exists)
 {
     file_paths.clear();
 
@@ -58,6 +58,8 @@ void get_range_files(const std::string& file_dir, int start, int step, int count
     for (int k = start; k < end; k += step)
     {
         fs::path p = fs::path(file_dir) / fs::path((boost::format(format_str) % k).str());
+        if (check_exists && !fs::exists(p))
+            break;
         file_paths.push_back(p.string());
     }
 }

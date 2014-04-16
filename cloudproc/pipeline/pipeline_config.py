@@ -15,7 +15,6 @@ DSET_AVI = DSET + '.avi'
 CAM_NUM = int(DSET[-1])
 
 # Stuff to scp over
-# TODO Add command for running generate_frames_and_map to pipeline
 REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/sameep/4-2-14-monterey'
 REMOTE_FILES = [
     'split_\\*_%s.avi' % DSET,
@@ -61,20 +60,31 @@ ICP_MAX_DIST = 5.0
 LIDAR_PROJECT_MIN_DIST = 3.0
 
 CLOUD_MAX_STORE = 200
-MAP_COLOR_WINDOW = 20
+MAP_COLOR_WINDOW = 60
 
-HANDLE_OCCLUSIONS = False
-OCTOMAP_RES = 0.5
-COLOR_OCTOMAP_RES = 0.2
-PROB_HIT = 0.9
+HANDLE_OCCLUSIONS = True
+OCTOMAP_RES = 1.0
+COLOR_OCTOMAP_RES = 0.5
+PROB_HIT = 1.0
 PROB_MISS = 0.4
-OCCUPANCY_THRES = 0.5
-CLAMPING_THRES_MAX = 0.971
-CLAMPING_THRES_MIN = 0.1192
-RAYCAST_TOL = 5.0
-OCTOMAP_FILE = '{0}/octomap_{1:.2f}.ot'.format(OCTOMAP_DIR, OCTOMAP_RES)
+OCCUPANCY_THRES = 1.0
+CLAMPING_THRES_MAX = 1.0
+CLAMPING_THRES_MIN = 0.0
+RAYCAST_TOL = 3.0
+CAST_ONCE = True
+
+OCC_EXT = 'occ' if HANDLE_OCCLUSIONS else ''
+OCTOMAP_FILE = '{0}/octomap_{1:.2f}_{2}.ot'.format(OCTOMAP_DIR, OCTOMAP_RES, OCC_EXT)
 CENTERED_OCTOMAP_FILE = os.path.splitext(OCTOMAP_FILE)[0] + '_centered.ot'
-COLOR_OCTOMAP_FILE = '{0}/octomap_{1:.2f}.ot'.format(COLOR_OCTOMAP_DIR, OCTOMAP_RES)
+COLOR_OCTOMAP_FILE = '{0}/octomap_{1:.2f}_{2}.ot'.format(COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCC_EXT)
+CENTERED_COLOR_OCTOMAP_FILE = '{0}/octomap_{1:.2f}_{2}_centered.bt'.format(COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCC_EXT)
+COLOR_OCTOMAP_BT = os.path.splitext(COLOR_OCTOMAP_FILE)[0] + '.bt'
+COLOR_OCTOMAP_MESH = ''
+
+OCTOMAP_H5_FILE = os.path.splitext(OCTOMAP_FILE)[0] + '.h5'
+COLOR_OCTOMAP_H5_FILE = os.path.splitext(COLOR_OCTOMAP_FILE)[0] + '.h5'
+
+MERGED_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'merged_%d.pcd' % MAP_COLOR_WINDOW)
 
 '''
 Print out variable values

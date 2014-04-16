@@ -12,4 +12,4 @@ void get_numbered_files(const std::string& file_dir, const std::string& regex_st
 
 // Get files of certain format in specified directory in
 // range(start, start + step*count, step) excluding start + step*count
-void get_range_files(const std::string& file_dir, int start, int step, int count, const std::string& format_str, std::vector<std::string>& file_paths);
+void get_range_files(const std::string& file_dir, int start, int step, int count, const std::string& format_str, std::vector<std::string>& file_paths, bool check_exists=false);

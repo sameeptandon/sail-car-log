@@ -40,9 +40,13 @@ void Parameters::initialize()
    clamping_thres_max = py::extract<float>(pycfg.attr("CLAMPING_THRES_MAX"));
    clamping_thres_min = py::extract<float>(pycfg.attr("CLAMPING_THRES_MIN"));
    raycast_tol = py::extract<float>(pycfg.attr("RAYCAST_TOL"));
+   cast_once = py::extract<bool>(pycfg.attr("CAST_ONCE"));
    octomap_file = py::extract<std::string>(pycfg.attr("OCTOMAP_FILE"));
    centered_octomap_file = py::extract<std::string>(pycfg.attr("CENTERED_OCTOMAP_FILE"));
    color_octomap_file = py::extract<std::string>(pycfg.attr("COLOR_OCTOMAP_FILE"));
+   centered_color_octomap_file = py::extract<std::string>(pycfg.attr("CENTERED_COLOR_OCTOMAP_FILE"));
+   octomap_h5_file = py::extract<std::string>(pycfg.attr("OCTOMAP_H5_FILE"));
+   color_octomap_h5_file = py::extract<std::string>(pycfg.attr("COLOR_OCTOMAP_H5_FILE"));
 
    // Loading calibration parameters
 
@@ -52,6 +56,9 @@ void Parameters::initialize()
     load_hdf_dataset(params_h5f, "/lidar/T_from_l_to_i", row_major, H5::PredType::NATIVE_FLOAT);
     Eigen::Matrix4f T_from_l_to_i(row_major);
     T_from_i_to_l = T_from_l_to_i.inverse();
+
+    trans_from_i_to_l = Eigen::Matrix4f::Identity();
+    trans_from_i_to_l.block(0, 3, 3, 1) = T_from_i_to_l.block(0, 3, 3, 1);
 
     trans_from_l_to_c = Eigen::Matrix4f::Identity();
     std::string s = (boost::format("/cam/%1%/displacement_from_l_to_c_in_lidar_frame") % cam_ind).str();

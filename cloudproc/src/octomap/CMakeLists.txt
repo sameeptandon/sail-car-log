@@ -9,3 +9,6 @@ target_link_libraries(project_lidar_on_video ${OCTOMAP_LIBRARIES} cloud_utils cv
 
 add_executable(octomap_color octomap_color.cpp ../utils/path_utils.cpp ../cloud_server.cpp)
 target_link_libraries(octomap_color cloud_utils cv_utils ${OCTOMAP_LIBRARIES} VideoReader params)
+
+add_executable(octree_to_h5 octree_to_h5.cpp)
+target_link_libraries(octree_to_h5 ${OCTOMAP_LIBRARIES} params h5)

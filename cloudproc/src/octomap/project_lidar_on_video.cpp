@@ -137,10 +137,10 @@ int main(int argc, char** argv)
 
         // Show
 
-        //cv::imshow("video", frame);
-        //int key = cv::waitKey(1);
-        //if (key == 113)
-            //break;
+        cv::imshow("video", frame);
+        int key = cv::waitKey(1);
+        if (key == 113)
+            break;
 
         writer.write(frame);
 

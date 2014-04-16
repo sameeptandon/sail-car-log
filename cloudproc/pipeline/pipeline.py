@@ -1,7 +1,7 @@
 from ruffus import follows, transform, regex, mkdir,\
         pipeline_printout, pipeline_printout_graph,\
-        pipeline_run, files, split, merge, collate,\
-        touch_file, posttask
+        pipeline_run, files, merge,\
+        touch_file, posttask, jobs_limit
 import os
 import sys
 from subprocess import check_call
@@ -12,14 +12,15 @@ from pipeline_config import POINTS_H5_DIR,\
         ICP_ITERS, ICP_MAX_DIST, REMOTE_DATA_DIR, REMOTE_FILES,\
         EXPORT_FULL, GPS_FILE, MAP_FILE, COLOR_DIR, COLOR_CLOUDS_DIR,\
         MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW, OCTOMAP_DIR, OCTOMAP_RES,\
-        EXPORT_NUM, COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES
+        EXPORT_NUM, COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCTOMAP_FILE,\
+        COLOR_OCTOMAP_FILE, COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH, MERGED_CLOUD_FILE
 from pipeline_utils import file_num
 
-# TODO Commands to scp stuff over
+# TODO Use generate_frames_and_map.py
 
 dirs = [POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
         PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR, COLOR_DIR,
-        COLOR_CLOUDS_DIR, MERGED_CLOUDS_DIR, OCTOMAP_DIR]
+        COLOR_CLOUDS_DIR, MERGED_CLOUDS_DIR, OCTOMAP_DIR, COLOR_OCTOMAP_DIR]
 MKDIRS = [mkdir(d) for d in dirs]
 
 # NOTE chdir into dset dir so can just specify relative paths to data
@@ -29,12 +30,12 @@ DOWNLOADS = list()
 for f in REMOTE_FILES:
     DOWNLOADS.append([None, f])
 
-#@follows(*MKDIRS)
-#@files(DOWNLOADS)
-#def download_files(dummy, local_file):
-    #cmd = 'rsync -vr --ignore-existing %s/%s .' % (REMOTE_DATA_DIR, local_file)
-    #print cmd
-    #check_call(cmd, shell=True)
+@follows(*MKDIRS)
+@files(DOWNLOADS)
+def download_files(dummy, local_file):
+    cmd = 'rsync -vr --ignore-existing %s/%s .' % (REMOTE_DATA_DIR, local_file)
+    print cmd
+    check_call(cmd, shell=True)
 
 
 #@follows("download_files")
@@ -94,7 +95,8 @@ def downsample_pcds(input_file, output_file):
 
 
 @follows('downsample_pcds')
-@merge(convert_h5_to_pcd, '%s/octomap_%.2f.ot' % (OCTOMAP_DIR, OCTOMAP_RES))
+@jobs_limit(1)
+@merge(convert_h5_to_pcd, OCTOMAP_FILE)
 def build_octomap(input_files, output_file):
     cmd = '{0}/bin/build_octomap'.format(CLOUDPROC_PATH)
     print cmd
@@ -109,8 +111,10 @@ def build_octomap(input_files, output_file):
 def project_color(input_pcd, output_color_file):
     pass
 '''
-@follows('build_octomap')
-def project_color():
+#@follows('build_octomap')
+@jobs_limit(1)
+@files(None, '{0}/0.h5'.format(COLOR_DIR))
+def project_color(dummy_file, output_file):
     binary = '%s/bin/octomap_color' % CLOUDPROC_PATH
     print binary
     check_call(binary, shell=True)
@@ -129,18 +133,25 @@ def color_clouds(color_file, output_file, pcd_file):
 
 
 @follows('color_clouds')
-@merge(color_clouds, '%s/octomap_%.2f.ot' % (COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES))
+@jobs_limit(1)
+@merge(color_clouds, COLOR_OCTOMAP_FILE)
 def build_color_octomap(input_files, output_file):
     cmd = '{0}/bin/build_color_octomap'.format(CLOUDPROC_PATH)
     print cmd
     check_call(cmd, shell=True)
 
 
+@follows('build_color_octomap')
+@files(COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH)
+def convert_octomap_to_mesh(input_file, output_file):
+    pass
+
+
 @follows('color_clouds')
 @merge('./color_clouds/*.pcd', './merged_clouds/merged_%d.pcd' % MAP_COLOR_WINDOW)
 def merge_color_clouds(cloud_files, merged_cloud_file):
     files = [f for f in cloud_files if os.path.exists(f)]
-    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(files) + '; mv output.pcd merged_clouds/merged_%d.pcd' % MAP_COLOR_WINDOW
+    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(files) + '; mv output.pcd %s' % MERGED_CLOUD_FILE
     check_call(cmd, shell=True)
 
 

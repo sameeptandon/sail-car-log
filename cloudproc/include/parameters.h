@@ -46,14 +46,19 @@ class Parameters
     float clamping_thres_max;
     float clamping_thres_min;
     float raycast_tol;
+    bool cast_once;
 
     std::string octomap_file;
     std::string centered_octomap_file;
     std::string color_octomap_file;
+    std::string centered_color_octomap_file;
+    std::string octomap_h5_file;
+    std::string color_octomap_h5_file;
 
     // Calibration parameters
 
     Eigen::Matrix4f T_from_i_to_l;
+    Eigen::Matrix4f trans_from_i_to_l;
     Eigen::Matrix4f trans_from_l_to_c;
     Eigen::Matrix4f rot_to_c_from_l;
     Eigen::Matrix3f intrinsics;

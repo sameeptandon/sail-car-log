@@ -59,7 +59,7 @@ add_subdirectory(videoreader)
 
 # Octomap stuff
 
-find_package(octomap REQUIRED)
+find_package(octomap 1.6.5 EXACT)
 message(${OCTOMAP_INCLUDE_DIRS})
 message(${OCTOMAP_LIBRARY_DIRS})
 include_directories(${OCTOMAP_INCLUDE_DIRS})

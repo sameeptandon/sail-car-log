@@ -25,10 +25,6 @@ int main(int argc, char** arv)
     std::cout << "Loaded octree of size " << octree->size() << std::endl;
     if (!octree->size())
         return 1;
-    // TODO Figure out why these don't match parameters from octree written
-    //std::cout << "Occupancy threshold: " << octree->getOccupancyThres() << std::endl;
-    //std::cout << "Clamp [min, max]: " << "[" << octree->getClampingThresMin() << ", " << octree->getClampingThresMax() << "]" << std::endl;
-    //std::cout << "Prob hit/miss: " << octree->getProbHit() << " / " << octree->getProbMiss() << std::endl;
 
     // Initialize cloud server
 
@@ -38,40 +34,47 @@ int main(int argc, char** arv)
     // Initialize reader
 
     VideoReader reader(params().dset_dir, params().dset_avi);
-    reader.setFrame(start);
     cv::Mat frame;
 
     std::vector<cv::Point2f> pixels;
     std::vector<cv::Point2f> filtered_pixels;
     std::vector<cv::Vec3b> pixel_colors;
 
-    boost::progress_display show_progress(count);
-    for (int k = start; k < end; k += step)
+    boost::progress_display show_progress(params().map_color_window);
+
+    std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> current_clouds;
+    std::vector<Eigen::MatrixXi*> current_colors;
+
+    server().getCurrentWindow(current_clouds, current_colors);
+    assert (current_clouds.size() == current_colors.size());
+
+    // Reason we iterate over w in the outer loop is so that casting just once gives us
+    // the highest resolution coloring
+    for (int w = 0; w < params().map_color_window; w++)
     {
-        int num_steps = (k - start) / step;
+        reader.setFrame(start);
 
-        // Read frame
-
-        bool success = reader.getNextFrame(frame);
-        if (!success)
+        for (int k = start; k < end; k += step)
         {
-            std::cout << "Reached end of video before expected" << std::endl;
-            return 1;
-        }
+            int num_steps = (k - start) / step;
 
-        Eigen::Matrix4f transform = server().transforms[num_steps];
+            // Read frame
 
-        std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> current_clouds;
-        std::vector<Eigen::MatrixXi*> current_colors;
+            bool success = reader.getNextFrame(frame);
+            if (!success)
+            {
+                std::cout << "Reached end of video before expected" << std::endl;
+                return 1;
+            }
 
-        server().forward(num_steps);
-        server().getCurrentWindow(current_clouds, current_colors);
-        assert (current_clouds.size() == current_colors.size());
+            Eigen::Matrix4f transform = server().transforms[num_steps];
 
-        for (int w = 0; w < current_clouds.size(); w++)
-        {
+            //server().forward(num_steps);
+            if (num_steps + w >= current_clouds.size())
+                break;
+
             pcl::PointCloud<pcl::PointXYZ>::Ptr pcloud(new pcl::PointCloud<pcl::PointXYZ>());
-            pcl::copyPointCloud(*(current_clouds[w]), *pcloud);
+            pcl::copyPointCloud(*(current_clouds[num_steps + w]), *pcloud);
 
             // Transform point cloud
             // We start with the clouds wrt imu_0
@@ -92,7 +95,9 @@ int main(int argc, char** arv)
             filter_lidar_cloud(pcloud, final_cloud, filtered_indices);
             assert (final_cloud->size() == filtered_indices.size());
 
-            Eigen::MatrixXi* color = current_colors[w];
+            Eigen::MatrixXi* color = current_colors[num_steps + w];
+            std::cout << "color: " << color->rows() << ", " << color->cols() << std::endl;
+            std::cout << "cloud: " << pcloud->size() << std::endl;
 
             // Get colors by projecting the point cloud
 
@@ -117,7 +122,10 @@ int main(int argc, char** arv)
             // Get origin of camera in imu 0 frame
             Eigen::Vector4f imu_origin = transform.block<4, 1>(0, 3);
             Eigen::Vector4f lidar_origin = params().T_from_i_to_l * imu_origin;
+            //Eigen::Vector4f lidar_origin = params().trans_from_i_to_l * imu_origin;
             octomap::point3d lidar_pos(lidar_origin(0), lidar_origin(1), lidar_origin(2));
+            Eigen::Vector4f camera_origin = params().trans_from_l_to_c * lidar_origin;
+            octomap::point3d cam_pos(imu_origin(0), imu_origin(1), imu_origin(2));
 
             std::vector<int> octomap_indices;
             std::vector<cv::Point2f> octomap_pixels;
@@ -130,13 +138,18 @@ int main(int argc, char** arv)
                 for (int j = 0; j < final_indices.size(); j++)
                 {
                     int ind = final_indices[j];
+                    if (params().cast_once &&
+                            (*color)(ind, 0) != -1) // Was already set
+                    {
+                        //continue;
+                    }
 
                     // Original point location in imu_0 frame
-                    pcl::PointXYZ pt = current_clouds[w]->at(ind);
+                    pcl::PointXYZ pt = current_clouds[num_steps + w]->at(ind);
                     octomap::point3d pt_origin(pt.x, pt.y, pt.z);
                     octomap::point3d ray_end;
-                    double max_range = (pt_origin - lidar_pos).norm() + tol;
-                    bool cast_success = octree->castRay(lidar_pos, (pt_origin - lidar_pos), ray_end, ignore_unknown, max_range);
+                    double max_range = (pt_origin - cam_pos).norm() + tol;
+                    bool cast_success = octree->castRay(cam_pos, (pt_origin - cam_pos), ray_end, ignore_unknown, max_range);
 
                     // Check that ray end didn't hit occluding object in front of the car
                     if (cast_success && (ray_end - pt_origin).norm() > tol)
@@ -173,30 +186,30 @@ int main(int argc, char** arv)
                 (*color)(octomap_indices[j], 2) = pixel_colors[j][0];
             }
 
-            //cv::Mat new_frame = frame;
-            //set_pixel_colors(filtered_pixels, cv::Vec3b(0, 255, 0), new_frame, 4);
-            //set_pixel_colors(octomap_pixels, cv::Vec3b(0, 0, 255), new_frame, 4);
-            //cv::imshow("video", new_frame);
-            //char k = 0;
-            //while (k != 113)
-            //{
-                //k = cv::waitKey(0);
-            //}
+            // NOTE Remember to not use cast_once if visualizing this
+            cv::Mat new_frame = frame;
+            set_pixel_colors(filtered_pixels, cv::Vec3b(0, 255, 0), new_frame, 4);
+            set_pixel_colors(octomap_pixels, cv::Vec3b(0, 0, 255), new_frame, 4);
+            cv::imshow("video", new_frame);
+            char k = 0;
+            while (k != 113)
+            {
+                k = cv::waitKey(0);
+            }
+
+            // Skip
+
+            success = reader.skip(step - 1);
+            if (!success)
+            {
+                std::cout << "Reached end of video before expected" << std::endl;
+                return 1;
+            }
         }
-
-        server().saveCurrentColorWindow();
-
-        // Skip
-
-        success = reader.skip(step - 1);
-        if (!success)
-        {
-            std::cout << "Reached end of video before expected" << std::endl;
-            return 1;
-        }
-
         ++show_progress;
     }
+
+    server().saveCurrentColorWindow();
 
     return 0;
 }
