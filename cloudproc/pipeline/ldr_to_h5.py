@@ -62,7 +62,8 @@ if __name__ == '__main__':
                                (data[:, 2] < -1.8) & \
                                (data[:, 2] > -2.5)
         else:
-            data_filter_mask = (dist > 3)
+            data_filter_mask = (dist > 3) & \
+                               (data[:, 0] > 0)
             data = data[data_filter_mask, :]
 
         # transform data into IMU frame at time t
