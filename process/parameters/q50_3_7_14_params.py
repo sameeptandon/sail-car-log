@@ -19,7 +19,7 @@ def GetQ50LidarParams():
     params['R_from_i_to_l'] = euler_matrix(0.005,-0.0101,-0.029)[0:3,0:3]
     params['T_from_l_to_i'] = np.eye(4) 
     params['T_from_l_to_i'][0:3,0:3] = params['R_from_i_to_l'].transpose()
-
+    params['height'] = 1.85
     return params
 
 ##### LIDAR to Camera Calibration parameters #####
