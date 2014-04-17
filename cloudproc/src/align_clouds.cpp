@@ -1,16 +1,11 @@
 #include <iostream>
 #include <string>
-#include <sstream>
 #include <numeric>
 
-#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/foreach.hpp>
-#include <boost/regex.hpp>
 
 #include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/filters/filter.h>
 
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
@@ -18,11 +13,10 @@
 
 #include "point_defs.h"
 #include "utils/hdf_utils.h"
-#include "utils/cloud_viz.h"
+#include "utils/cloud_utils.h"
 
 
 namespace po = boost::program_options;
-namespace fs = boost::filesystem;
 
 struct Options
 {
@@ -60,16 +54,6 @@ int options(int ac, char ** av, Options& opts)
   po::notify(vm);
 
   return 0;
-}
-
-// TODO Move to utils file
-
-template <typename T>
-T st2num ( const std::string &Text )
-{
-     std::stringstream ss(Text);
-     T result;
-     return ss >> result ? result : 0;
 }
 
 
@@ -251,17 +235,6 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 }
 
 
-
-void load_cloud(std::string pcd_path, PointCloudWithNormals::Ptr cloud)
-{
-    if (pcl::io::loadPCDFile(pcd_path, *cloud) < 0)
-    {
-        std::cout << "Error loading input point cloud " << pcd_path << std::endl;
-        throw;
-    }
-    std::vector<int> indices;
-    pcl::removeNaNFromPointCloud(*cloud, *cloud, indices);
-}
 
 int main(int argc, char** argv)
 {

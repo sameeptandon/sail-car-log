@@ -5,8 +5,15 @@ import numpy as np
 from pipeline_config import ICP_TRANSFORMS_DIR
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
-from LidarIntegrator import  start_fn, num_fn, step
+from pipeline_config import EXPORT_START, EXPORT_NUM, EXPORT_STEP
 import argparse
+
+
+def read_imu_transforms(gps_file):
+    gps_reader = GPSReader(gps_file)
+    GPSData = gps_reader.getNumericData()
+    imu_transforms = IMUTransforms(GPSData)
+    return imu_transforms
 
 
 if __name__ == '__main__':
@@ -38,27 +45,23 @@ if __name__ == '__main__':
 
     # Transforms given by GPS
 
-    gps_reader = GPSReader('/media/sdb/17N_b2/17N_b_gps.out')
-    GPSData = gps_reader.getNumericData()
-    imu_transforms = IMUTransforms(GPSData)
+    imu_transforms = read_imu_transforms('/media/sdb/17N_b2/17N_b_gps.out')
 
-    #T = imu_transforms.shape[0]
-    #t = np.arange(0, T - 1)
-    t = np.arange(start_fn, start_fn + (num_fn-1)*step, step)
-    num = num_fn
+    t = np.arange(EXPORT_START, EXPORT_START + (EXPORT_NUM-1)*EXPORT_STEP, EXPORT_STEP)
     print t
     print len(t)
     print len(delta_coord_icp)
-    delta_z_gps = imu_transforms[t + step, coord, 3] - imu_transforms[t, coord, 3]
+    delta_z_gps = imu_transforms[t + EXPORT_STEP, coord, 3] - imu_transforms[t, coord, 3]
 
     # Plot and compare
 
     # Plot of change in coord
 
     import matplotlib.pyplot as plt
+    corrected = np.array(delta_coord_icp) + np.array(delta_z_gps)
     p1 = plt.plot(range(1, num_frames), delta_z_gps, label='$\Delta %s_{\mathrm{gps}}$' % coord_name)
     p2 = plt.plot(range(1, num_frames), np.array(delta_coord_icp), label='$\delta %s_{\mathrm{icp}}$' % coord_name)
-    p3 = plt.plot(range(1, num_frames), np.array(delta_coord_icp) + np.array(delta_z_gps), label='$\Delta %s_{\mathrm{gps}} + \delta %s_{\mathrm{icp}}$' % (coord_name, coord_name))
+    p3 = plt.plot(range(1, num_frames), corrected, label='$\Delta %s_{\mathrm{gps}} + \delta %s_{\mathrm{icp}}$' % (coord_name, coord_name))
 
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend(handles, labels, prop={'size': 20})
