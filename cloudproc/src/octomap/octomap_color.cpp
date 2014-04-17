@@ -21,10 +21,14 @@ int main(int argc, char** arv)
 
     // Load the octomap
 
-    boost::shared_ptr<octomap::OcTree> octree((octomap::OcTree*)octomap::OcTree::read(params().octomap_file));
+    boost::shared_ptr<octomap::OcTree> octree;
+    if (!params().cast_octomap_single)
+    {
+        octree.reset((octomap::OcTree*)octomap::OcTree::read(params().octomap_file));
     std::cout << "Loaded octree of size " << octree->size() << std::endl;
     if (!octree->size())
         return 1;
+    }
 
     // Initialize cloud server
 
@@ -50,6 +54,7 @@ int main(int argc, char** arv)
 
     // Reason we iterate over w in the outer loop is so that casting just once gives us
     // the highest resolution coloring
+    std::cout << "window: " << params().map_color_window << std::endl;
     for (int w = 0; w < params().map_color_window; w++)
     {
         reader.setFrame(start);
@@ -57,6 +62,9 @@ int main(int argc, char** arv)
         for (int k = start; k < end; k += step)
         {
             int num_steps = (k - start) / step;
+
+            if (params().handle_occlusions && params().cast_octomap_single)
+                octree.reset((octomap::OcTree*) octomap::OcTree::read(params().octomap_single_files[num_steps]));
 
             // Read frame
 
@@ -119,6 +127,7 @@ int main(int argc, char** arv)
 
             // Project each remaining point back and see if it hits anything
 
+            // FIXME
             // Get origin of camera in imu 0 frame
             Eigen::Vector4f imu_origin = transform.block<4, 1>(0, 3);
             Eigen::Vector4f lidar_origin = params().T_from_i_to_l * imu_origin;
@@ -141,7 +150,7 @@ int main(int argc, char** arv)
                     if (params().cast_once &&
                             (*color)(ind, 0) != -1) // Was already set
                     {
-                        //continue;
+                        continue;
                     }
 
                     // Original point location in imu_0 frame
@@ -164,8 +173,17 @@ int main(int argc, char** arv)
             }
             else
             {
-                octomap_indices = final_indices;
-                octomap_pixels = filtered_pixels;
+                for (int j = 0; j < final_indices.size(); j++)
+                {
+                    int ind = final_indices[j];
+                    if (params().cast_once &&
+                            (*color)(ind, 0) != -1) // Was already set
+                    {
+                        continue;
+                    }
+                    octomap_indices.push_back(ind);
+                    octomap_pixels.push_back(filtered_pixels[j]);
+                }
             }
 
             // Finally set some colors
@@ -187,15 +205,15 @@ int main(int argc, char** arv)
             }
 
             // NOTE Remember to not use cast_once if visualizing this
-            cv::Mat new_frame = frame;
-            set_pixel_colors(filtered_pixels, cv::Vec3b(0, 255, 0), new_frame, 4);
-            set_pixel_colors(octomap_pixels, cv::Vec3b(0, 0, 255), new_frame, 4);
-            cv::imshow("video", new_frame);
-            char k = 0;
-            while (k != 113)
-            {
-                k = cv::waitKey(0);
-            }
+            //cv::Mat new_frame = frame;
+            //set_pixel_colors(filtered_pixels, cv::Vec3b(0, 255, 0), new_frame, 4);
+            //set_pixel_colors(octomap_pixels, cv::Vec3b(0, 0, 255), new_frame, 4);
+            //cv::imshow("video", new_frame);
+            //char k = 0;
+            //while (k != 113)
+            //{
+                //k = cv::waitKey(0);
+            //}
 
             // Skip
 

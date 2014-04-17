@@ -8,6 +8,7 @@
 *~
 *.npz
 *.h5
+*.ply
 bin
 build
 cameralogger/build

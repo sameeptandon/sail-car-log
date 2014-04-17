@@ -79,7 +79,8 @@ void CloudServer::getCurrentWindow(std::vector<pcl::PointCloud<pcl::PointXYZ>::P
     clouds_in_window.clear();
     colors_in_window.clear();
 
-    for (int k = start_ind; k < start_ind + window_size; k++)
+    // FIXME
+    for (int k = start_ind; k < start_ind + max_store; k++)
     {
         if (k >= colors.size())
             break;
@@ -100,7 +101,8 @@ void CloudServer::saveColor(int ind)
 
 void CloudServer::saveCurrentColorWindow()
 {
-    for (int k = start_ind; k < start_ind + window_size; k++)
+    // FIXME
+    for (int k = start_ind; k < start_ind + max_store; k++)
     {
         if (k >= colors.size())
             break;

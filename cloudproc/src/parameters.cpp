@@ -39,6 +39,7 @@ void Parameters::initialize()
    clamping_thres_max = py::extract<float>(pycfg.attr("CLAMPING_THRES_MAX"));
    clamping_thres_min = py::extract<float>(pycfg.attr("CLAMPING_THRES_MIN"));
    raycast_tol = py::extract<float>(pycfg.attr("RAYCAST_TOL"));
+    cast_octomap_single = py::extract<bool>(pycfg.attr("CAST_OCTOMAP_SINGLE"));
    cast_once = py::extract<bool>(pycfg.attr("CAST_ONCE"));
    octomap_file = py::extract<std::string>(pycfg.attr("OCTOMAP_FILE"));
    centered_octomap_file = py::extract<std::string>(pycfg.attr("CENTERED_OCTOMAP_FILE"));

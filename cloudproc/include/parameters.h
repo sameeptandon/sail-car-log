@@ -49,6 +49,7 @@ class Parameters
     float clamping_thres_min;
     float raycast_tol;
     bool cast_once;
+    bool cast_octomap_single;
 
     std::string octomap_file;
     std::string centered_octomap_file;

@@ -132,11 +132,11 @@ int main(int argc, char** argv)
         Eigen::Matrix4f transform_copy(transform);
 
         Eigen::Vector4f imu_origin = transform_copy.block<4, 1>(0, 3);
-        Eigen::Vector4f lidar_origin = params().T_from_i_to_l * imu_origin;
+        //Eigen::Vector4f lidar_origin = params().T_from_i_to_l * imu_origin;
 
-        sensor_origin(0) = lidar_origin(0);
-        sensor_origin(1) = lidar_origin(1);
-        sensor_origin(2) = lidar_origin(2);
+        sensor_origin(0) = imu_origin(0);
+        sensor_origin(1) = imu_origin(1);
+        sensor_origin(2) = imu_origin(2);
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZ>());
         //std::cout << "Reading " << pcd_path << std::endl;

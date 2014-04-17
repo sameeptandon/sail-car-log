@@ -13,7 +13,8 @@ from pipeline_config import POINTS_H5_DIR,\
         EXPORT_FULL, GPS_FILE, MAP_FILE, COLOR_DIR, COLOR_CLOUDS_DIR,\
         MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW, OCTOMAP_DIR, OCTOMAP_RES,\
         EXPORT_NUM, COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCTOMAP_FILE,\
-        COLOR_OCTOMAP_FILE, COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH, MERGED_CLOUD_FILE
+        COLOR_OCTOMAP_FILE, COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH, MERGED_CLOUD_FILE,\
+        CAST_OCTOMAP_SINGLE, MERGED_VTK_FILE
 from pipeline_utils import file_num
 
 # TODO Use generate_frames_and_map.py
@@ -99,6 +100,8 @@ def downsample_pcds(input_file, output_file):
 @merge(convert_h5_to_pcd, OCTOMAP_FILE)
 def build_octomap(input_files, output_file):
     cmd = '{0}/bin/build_octomap'.format(CLOUDPROC_PATH)
+    if CAST_OCTOMAP_SINGLE:
+        cmd += ' --single'
     print cmd
     check_call(cmd, shell=True)
 
@@ -151,7 +154,11 @@ def convert_octomap_to_mesh(input_file, output_file):
 @merge('./color_clouds/*.pcd', './merged_clouds/merged_%d.pcd' % MAP_COLOR_WINDOW)
 def merge_color_clouds(cloud_files, merged_cloud_file):
     files = [f for f in cloud_files if os.path.exists(f)]
+    # Concatenate PCD files
     cmd = 'pcl_concatenate_points_pcd ' + ' '.join(files) + '; mv output.pcd %s' % MERGED_CLOUD_FILE
+    check_call(cmd, shell=True)
+    # Convert merged cloud to vtk for visualizer
+    cmd = 'pcl_pcd2vtk %s %s' % (MERGED_CLOUD_FILE, MERGED_VTK_FILE)
     check_call(cmd, shell=True)
 
 
