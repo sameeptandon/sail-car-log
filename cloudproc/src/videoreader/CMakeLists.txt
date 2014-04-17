@@ -2,8 +2,6 @@ set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH}
                         /opt/local/lib/cmake)
 
 message(${CMAKE_PREFIX_PATH})
-find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_definitions(-O3)
 
