@@ -1,6 +1,8 @@
 #include <iostream>
 #include "utils/cloud_utils.h"
 #include "utils/hdf_utils.h"
+#include "utils/color_utils.h"
+
 
 int main(int argc, char** argv)
 {
@@ -10,7 +12,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>());
     load_cloud(argv[1], cloud);
 
     H5::H5File color_h5f(argv[2], H5F_ACC_RDONLY);
@@ -21,10 +23,18 @@ int main(int argc, char** argv)
 
     assert (cloud->size() == color.rows());
 
+    std::vector<float> intensities;
+    cv::Mat rgb(cloud->size(), 1, CV_8UC3);
+    for (int k = 0; k < cloud->size(); k++)
+    {
+        intensities.push_back((cloud->at(k)).intensity);
+    }
+    heatmap_color(intensities, rgb, 0, 100);
+
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr rgb_cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
     for (int k = 0; k < cloud->size(); k++)
     {
-        pcl::PointXYZ pt = cloud->at(k);
+        pcl::PointXYZI pt = cloud->at(k);
 
         pcl::PointXYZRGB rgb_pt;
         rgb_pt.x = pt.x;
@@ -32,8 +42,10 @@ int main(int argc, char** argv)
         rgb_pt.z = pt.z;
         if (color(k, 0) == -1)  // Never assigned a color
         {
-            //rgb_pt.rgb = 0;
-            continue;
+            cv::Vec3b col = rgb.at<cv::Vec3b>(k, 0);
+            rgb_pt.r = col(0);
+            rgb_pt.g = col(1);
+            rgb_pt.b = col(2);
         }
         else
         {
