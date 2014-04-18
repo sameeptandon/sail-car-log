@@ -6,7 +6,7 @@ from vtk.io import vtkPLYReader
 import h5py
 from pipeline_config import COLOR_OCTOMAP_H5_FILE, MERGED_CLOUD_FILE,\
         GPS_FILE, EXPORT_START, EXPORT_STEP, EXPORT_NUM, OCTOMAP_SINGLE_FILES,\
-        OCTOMAP_H5_FILE
+        OCTOMAP_H5_FILE, STATIC_VTK_FILE
 from VtkRenderer import VtkPointCloud
 
 from GPSTransforms import IMUTransforms
@@ -142,7 +142,7 @@ class Blockworld:
         print 'Adding transforms'
 
         gps_cloud = VtkPointCloud(self.trans_wrt_imu[:, 0:3],
-                -1 * self.trans_wrt_imu[:, 0])
+                0 * self.trans_wrt_imu[:, 0])
         self.ren.AddActor(gps_cloud.get_vtk_cloud())
 
         #print 'Adding octomap'
@@ -152,7 +152,7 @@ class Blockworld:
 
         print 'Adding point cloud'
 
-        cloud_actor = load_vtk_cloud(MERGED_CLOUD_FILE.replace('.pcd', '.vtk'))
+        cloud_actor = load_vtk_cloud(STATIC_VTK_FILE)
         self.ren.AddActor(cloud_actor)
 
         print 'Adding car'
@@ -175,6 +175,12 @@ class Blockworld:
 
         self.iren.Initialize()
 
+        # Whether to write video
+
+        self.record = False
+
+        # Set up time
+
         self.iren.AddObserver('TimerEvent', self.update)
         self.timer = self.iren.CreateRepeatingTimer(100)
 
@@ -189,18 +195,16 @@ class Blockworld:
         if self.mode == 'ahead':
             position = self.imu_transforms[t, 0:3, 3]
             focal_point = self.imu_transforms[t + self.step, 0:3, 3]
-            roll0 = 80
         elif self.mode == 'behind':
             position = self.imu_transforms[t - self.step, 0:3, 3]
             focal_point = self.imu_transforms[t, 0:3, 3]
-            roll0 = 80
         elif self.mode == 'above':
             position = self.imu_transforms[t - self.step, 0:3, 3] + np.array([0, 0, 100.0])
             focal_point = self.imu_transforms[t, 0:3, 3]
-            roll0 = 0
         elif self.mode == 'passenger':
+            # TODO
             pass
-        return position, focal_point, roll0
+        return position, focal_point
 
     def keyhandler(self, obj, event):
         key = obj.GetKeySym()
@@ -210,6 +214,15 @@ class Blockworld:
             self.mode == 'behind'
         elif key == 'd':
             self.mode = 'ahead'
+        elif key == '0':
+            self.count = 0
+        elif key == 'r':
+            if self.record:
+                self.closeVideo()
+                self.record = False
+            else:
+                self.startVideo()
+                self.record = True
         else:
             pass
 
@@ -223,14 +236,38 @@ class Blockworld:
 
         fren = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
         cam = fren.GetActiveCamera()
-        position, focal_point, roll0 = self.getCameraPosition()
+        position, focal_point = self.getCameraPosition()
         cam.SetPosition(position)
         cam.SetFocalPoint(focal_point)
-        if self.count == 0:
-            cam.Roll(roll0)
+        cam.SetViewUp(0, 0, 1)
 
         iren.GetRenderWindow().Render()
+
+        if self.record:
+            self.writeVideo()
+
         self.count += 1
+
+    def startVideo(self):
+        self.win2img = vtk.vtkWindowToImageFilter()
+        self.win2img.SetInput(self.win)
+        self.videoWriter = vtk.vtkFFMPEGWriter()
+        self.videoWriter.SetFileName('/home/zxie/Desktop/blockworld.avi')
+        self.videoWriter.SetInputConnection(self.win2img.GetOutputPort())
+        self.videoWriter.SetRate(10)  # 10 fps
+        self.videoWriter.SetQuality(2)  # Highest
+        self.videoWriter.SetBitRate(1000)  # kilobits/s
+        self.videoWriter.SetBitRateTolerance(1000)
+        self.videoWriter.Start()
+
+    def writeVideo(self):
+        self.win2img.Modified()
+        self.videoWriter.Write()
+
+    def closeVideo(self):
+        self.videoWriter.End()
+        self.videoWriter.Delete()
+        self.win2img.Delete()
 
 
 if __name__ == '__main__':
