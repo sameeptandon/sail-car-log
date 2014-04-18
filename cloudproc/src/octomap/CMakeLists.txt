@@ -12,3 +12,6 @@ target_link_libraries(octomap_color cloud_utils cv_utils ${OCTOMAP_LIBRARIES} Vi
 
 add_executable(octree_to_h5 octree_to_h5.cpp)
 target_link_libraries(octree_to_h5 ${OCTOMAP_LIBRARIES} params h5)
+
+add_executable(octomap_filter octomap_filter.cpp)
+target_link_libraries(octomap_filter ${OCTOMAP_LIBRARIES} ${PCL_LIBRARIES} params)
