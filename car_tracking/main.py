@@ -97,6 +97,8 @@ if __name__ == "__main__":
 
         annolist_track_fwd = track_frame(annolist[idx], stop_imgname, trackMaxFrames, 1);
 
+        annolist_track_main = [];
+
         # track backward
         if idx < len(annolist) - 1:
             stop_imgname = annolist[idx].imageName;
@@ -139,6 +141,9 @@ if __name__ == "__main__":
 
                     annolist_track_main[idx2].rects += r_new;
 
+        # MA: add forward tracks if tracking back failed
+        if len(annolist_track_main) == 0:
+           annolist_track_main = annolist_track_fwd;
 
         annolist_track += annolist_track_main;
         
