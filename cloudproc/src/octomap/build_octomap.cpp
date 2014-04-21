@@ -104,12 +104,21 @@ int main(int argc, char** argv)
     boost::progress_display show_progress(pcd_paths.size());
 
     boost::shared_ptr<octomap::OcTree> octree(new octomap::OcTree(params().octree_res));
-    octree->setProbHit(params().prob_hit);
-    octree->setProbMiss(params().prob_miss);
-    octree->setClampingThresMax(params().clamping_thres_max);
-    octree->setClampingThresMin(params().clamping_thres_min);
-    //octree->setOccupancyThres(params().occupancy_thres);
-    //std::cout << "Occupancy threshold: " << octree->getOccupancyThres() << std::endl;
+    if (opts.single)
+    {
+        // TODO PARAM
+        octree->setProbHit(1.0);
+        octree->setProbMiss(0.4);
+        octree->setClampingThresMax(1.0);
+        octree->setClampingThresMin(0.0);
+    }
+    else
+    {
+        octree->setProbHit(params().prob_hit);
+        octree->setProbMiss(params().prob_miss);
+        octree->setClampingThresMax(params().clamping_thres_max);
+        octree->setClampingThresMin(params().clamping_thres_min);
+    }
 
     boost::shared_ptr<octomap::OcTree> octree_centered(new octomap::OcTree(*octree));
 

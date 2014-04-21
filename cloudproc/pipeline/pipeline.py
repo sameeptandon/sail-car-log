@@ -14,10 +14,11 @@ from pipeline_config import POINTS_H5_DIR,\
         MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW, OCTOMAP_DIR, OCTOMAP_RES,\
         EXPORT_NUM, COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCTOMAP_FILE,\
         COLOR_OCTOMAP_FILE, COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH, MERGED_CLOUD_FILE,\
-        CAST_OCTOMAP_SINGLE, MERGED_VTK_FILE
+        CAST_OCTOMAP_SINGLE, MERGED_VTK_FILE, STATIC_CLOUD_FILE,\
+        STATIC_VTK_FILE, DYNAMIC_CLOUD_FILE, DYNAMIC_VTK_FILE,\
+        PARAMS_TO_LOAD
 from pipeline_utils import file_num
 
-# TODO Use generate_frames_and_map.py
 
 dirs = [POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
         PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR, COLOR_DIR,
@@ -39,8 +40,15 @@ def download_files(dummy, local_file):
     check_call(cmd, shell=True)
 
 
-#@follows("download_files")
-@follows(*MKDIRS)
+@follows('download_files')
+@files('./%s_gps.bag' % DSET[:-1], '%s_frames' % DSET[:-1])
+def generate_frames_and_map(input_file, output_dir):
+    cmd = 'cd %s/lidar; python generate_frames_and_map.py %s %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR, PARAMS_TO_LOAD)
+    print cmd
+    check_call(cmd, shell=True)
+
+
+@follows('generate_frames_and_map')
 @files('./params.ini', './params.h5')
 def convert_params_to_h5(input_file, output_file):
     converter = '%s/cloudproc/pipeline/params_to_h5.py' % SAIL_CAR_LOG_PATH
@@ -48,8 +56,7 @@ def convert_params_to_h5(input_file, output_file):
     check_call(cmd, shell=True)
 
 
-#@follows("download_files")
-@follows(*MKDIRS)
+@follows('convert_params_to_h5')
 @files('params.ini', '%s/sentinel' % POINTS_H5_DIR)
 @posttask(touch_file('%s/sentinel' % POINTS_H5_DIR))
 def convert_ldr_to_h5(dummy_file, output_file):
@@ -63,19 +70,9 @@ def convert_ldr_to_h5(dummy_file, output_file):
 
 
 @follows('convert_ldr_to_h5')
-@transform('./h5/*.transform',
-           regex('./h5/(.*?).transform'),
-           r'./h5/\1.euler')
-def convert_matrix_to_euler(input_file, output_file):
-    converter = '%s/cloudproc/pipeline/matrix_to_euler.py' % SAIL_CAR_LOG_PATH
-    cmd = 'python %s %s %s' % (converter, input_file, output_file)
-    check_call(cmd, shell=True)
-
-
-@follows('convert_ldr_to_h5')
-@transform('./h5/*.h5',
-           regex('./h5/(.*?).h5'),
-           r'./pcd/\1.pcd')
+@transform('%s/*.h5' % POINTS_H5_DIR,
+           regex('%s/(.*?).h5' % POINTS_H5_DIR),
+           r'./%s/\1.pcd' % PCD_DIR)
 def convert_h5_to_pcd(input_file, output_file):
     h5_to_pcd = '%s/bin/h5_to_pcd' % CLOUDPROC_PATH
     cmd = '%s --h5 %s --pcd %s' % (h5_to_pcd, input_file, output_file)
@@ -84,9 +81,9 @@ def convert_h5_to_pcd(input_file, output_file):
 
 
 @follows('convert_h5_to_pcd')
-@transform('./pcd/*.pcd',
-           regex('./pcd/(.*?).pcd'),
-           r'./pcd_downsampled/\1.pcd')
+@transform('%s/*.pcd' % PCD_DIR,
+           regex('%s/(.*?).pcd' % PCD_DIR),
+           r'%s/\1.pcd' % PCD_DOWNSAMPLED_DIR)
 def downsample_pcds(input_file, output_file):
     downsampler = '%s/bin/downsample_cloud' % CLOUDPROC_PATH
     cmd = '%s --src_pcd %s --out_pcd %s --leaf_size %f' % (downsampler, input_file,
@@ -101,20 +98,20 @@ def downsample_pcds(input_file, output_file):
 def build_octomap(input_files, output_file):
     cmd = '{0}/bin/build_octomap'.format(CLOUDPROC_PATH)
     if CAST_OCTOMAP_SINGLE:
-        cmd += ' --single'
+        cmd += ('; ' + cmd + ' --single')
     print cmd
     check_call(cmd, shell=True)
 
 
 ''' TODO parallelize
 @follows('build_octomap')
-@transform('./pcd_downsampled/*.pcd',
-           regex('./pcd_downsampled/(.*?).pcd'),
-           r'./color/\1.h5')
+@transform('%s/*.pcd' % PCD_DOWNSAMPLED_DIR,
+           regex('%s/(.*?).pcd' % PCD_DOWNSAMPLED_DIR),
+           r'%s/\1.h5' % COLOR_DIR)
 def project_color(input_pcd, output_color_file):
     pass
 '''
-#@follows('build_octomap')
+@follows('build_octomap')
 @jobs_limit(1)
 @files(None, '{0}/0.h5'.format(COLOR_DIR))
 def project_color(dummy_file, output_file):
@@ -124,10 +121,10 @@ def project_color(dummy_file, output_file):
 
 
 @follows('project_color')
-@transform('./color/*.h5',
-           regex('./color/(.*?).h5'),
-           r'./color_clouds/\1.pcd',
-           r'./pcd_downsampled/\1.pcd')
+@transform('%s/*.h5' % COLOR_DIR,
+           regex('%s/(.*?).h5' % COLOR_DIR),
+           r'%s/\1.pcd' % COLOR_CLOUDS_DIR,
+           r'%s/\1.pcd' % PCD_DOWNSAMPLED_DIR)
 def color_clouds(color_file, output_file, pcd_file):
     converter = '%s/bin/color_cloud' % CLOUDPROC_PATH
     cmd = '%s %s %s %s' % (converter, pcd_file, color_file, output_file)
@@ -151,7 +148,7 @@ def convert_octomap_to_mesh(input_file, output_file):
 
 
 @follows('color_clouds')
-@merge('./color_clouds/*.pcd', './merged_clouds/merged_%d.pcd' % MAP_COLOR_WINDOW)
+@merge('%s/*.pcd' % COLOR_CLOUDS_DIR, '%s/merged_%d.pcd' % (MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW))
 def merge_color_clouds(cloud_files, merged_cloud_file):
     files = [f for f in cloud_files if os.path.exists(f)]
     # Concatenate PCD files
@@ -162,10 +159,21 @@ def merge_color_clouds(cloud_files, merged_cloud_file):
     check_call(cmd, shell=True)
 
 
+@follows('merge_color_clouds')
+@files(MERGED_CLOUD_FILE, STATIC_CLOUD_FILE)
+def octomap_filter(input_file, output_file):
+    cmd = '%s/bin/octomap_filter %s %s %s' % (CLOUDPROC_PATH, MERGED_CLOUD_FILE, STATIC_CLOUD_FILE, DYNAMIC_CLOUD_FILE)
+    print cmd
+    check_call(cmd, shell=True)
+    cmd = 'pcl_pcd2vtk %s %s; pcl_pcd2vtk %s %s' % (STATIC_CLOUD_FILE, STATIC_VTK_FILE, DYNAMIC_CLOUD_FILE, DYNAMIC_VTK_FILE)
+    print cmd
+    check_call(cmd, shell=True)
+
+
 @follows('downsample_pcds')
-@transform('./pcd_downsampled/*.pcd',
-           regex('./pcd_downsampled/(.*?).pcd'),
-           r'./pcd_downsampled_normals/\1.pcd')
+@transform('%s/*.pcd' % PCD_DOWNSAMPLED_DIR,
+           regex('%s/(.*?).pcd' % PCD_DOWNSAMPLED_DIR),
+           r'%s/\1.pcd' % PCD_DOWNSAMPLED_NORMALS_DIR)
 def estimate_normals(input_file, output_file):
     norm_est = '%s/bin/estimate_normals' % CLOUDPROC_PATH
     cmd = '%s --src_pcd %s --out_pcd %s --k %d' % (norm_est, input_file,
@@ -175,9 +183,9 @@ def estimate_normals(input_file, output_file):
 
 
 @follows('estimate_normals')
-@transform('./pcd_downsampled_normals/*.pcd',
-           regex('./pcd_downsampled_normals/(.*?).pcd'),
-           r'./icp_transforms/\1.h5')
+@transform('%s/*.pcd' % PCD_DOWNSAMPLED_NORMALS_DIR,
+           regex('%s/(.*?).pcd' % PCD_DOWNSAMPLED_NORMALS_DIR),
+           r'%s/\1.h5' % ICP_TRANSFORMS_DIR)
 def align_clouds(input_file, output_file):
     icp_reg = '%s/bin/align_clouds' % CLOUDPROC_PATH
     if file_num(input_file) == 0:  # no transform for first pcd, touch empty file
@@ -191,11 +199,6 @@ def align_clouds(input_file, output_file):
             icp_reg=icp_reg, tgt=tgt, src=src, h5f=output_file, iters=ICP_ITERS, dist=ICP_MAX_DIST)
     print cmd
     check_call(cmd, shell=True)
-
-
-@follows('align_clouds')
-def build_static_map():
-    pass
 
 
 def clean():

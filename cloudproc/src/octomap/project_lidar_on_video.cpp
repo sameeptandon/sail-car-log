@@ -41,9 +41,12 @@ int main(int argc, char** argv)
     cv::VideoWriter writer;
     int fps = 30;
     //writer.open(argv[1], reader.getCodecType(), fps, cv::Size(reader.getFrameWidth(), reader.getFrameHeight()), true);
-    writer.open(argv[1], CV_FOURCC( 'M', 'J', 'P', 'G' ), fps, cv::Size(reader.getFrameWidth(), reader.getFrameHeight()), true);
-    if (!writer.isOpened())
-        std::cout << "Could not open " << argv[1] << " to write video" << std::endl;
+    if (argc > 1)
+    {
+        writer.open(argv[1], CV_FOURCC( 'M', 'J', 'P', 'G' ), fps, cv::Size(reader.getFrameWidth(), reader.getFrameHeight()), true);
+        if (!writer.isOpened())
+            std::cout << "Could not open " << argv[1] << " to write video" << std::endl;
+     }
 
     cv::namedWindow("video", CV_WINDOW_AUTOSIZE);
     cv::Mat frame;
@@ -66,7 +69,8 @@ int main(int argc, char** argv)
 
         // Load cloud
 
-        load_clouds(pcd_files, cloud);
+        //load_clouds(pcd_files, cloud);
+        load_cloud(pcd_files[0], cloud);
         pcl::copyPointCloud(*cloud, *cloud_copy);
 
         // Load transform from imu_0 to imu_t
@@ -124,8 +128,9 @@ int main(int argc, char** argv)
             int ind = filtered_indices[filtered_pixel_indices[j]];
             pcl::PointXYZ pt = cloud_copy->at(ind);
             octomap::OcTreeNode* node = octree->search(pt.x, pt.y, pt.z);
+            octomap::OcTreeNode* node_below = octree->search(pt.x, pt.y + params().octree_res, pt.z);
             // FIXME PARAM
-            if ((node && octree->isNodeOccupied(node)) || cloud->at(ind).y < -3.0)
+            if ((node && octree->isNodeOccupied(node)) || (node_below && octree->isNodeOccupied(node_below)) || cloud->at(ind).y < -3.0)
                 static_pixels.push_back(filtered_pixels[j]);
             else
                 dynamic_pixels.push_back(filtered_pixels[j]);
@@ -142,7 +147,8 @@ int main(int argc, char** argv)
         if (key == 113)
             break;
 
-        writer.write(frame);
+        if (writer.isOpened())
+            writer.write(frame);
 
         // Skip
 
