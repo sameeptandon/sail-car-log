@@ -63,7 +63,7 @@ if __name__ == "__main__":
             a.imageName = annolist_basedir + "/" + a.imageName
 	    print "New->"+a.imageName;
 
-#        assert(os.path.isfile(a.imageName))
+    assert(os.path.isfile(a.imageName))
 
     annolist = annolist[firstidx:lastidx+1];
 
