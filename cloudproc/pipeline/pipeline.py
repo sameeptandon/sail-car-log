@@ -11,18 +11,19 @@ from pipeline_config import POINTS_H5_DIR,\
         K_NORM_EST, PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR,\
         ICP_ITERS, ICP_MAX_DIST, REMOTE_DATA_DIR, REMOTE_FILES,\
         EXPORT_FULL, GPS_FILE, MAP_FILE, COLOR_DIR, COLOR_CLOUDS_DIR,\
-        MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW, OCTOMAP_DIR, OCTOMAP_RES,\
-        EXPORT_NUM, COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCTOMAP_FILE,\
+        MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW, OCTOMAP_DIR,\
+        COLOR_OCTOMAP_DIR, OCTOMAP_FILE,\
         COLOR_OCTOMAP_FILE, COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH, MERGED_CLOUD_FILE,\
         CAST_OCTOMAP_SINGLE, MERGED_VTK_FILE, STATIC_CLOUD_FILE,\
         STATIC_VTK_FILE, DYNAMIC_CLOUD_FILE, DYNAMIC_VTK_FILE,\
-        PARAMS_TO_LOAD
+        FILTERED_CLOUDS_DIR, PARAMS_TO_LOAD
 from pipeline_utils import file_num
 
 
 dirs = [POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
         PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR, COLOR_DIR,
-        COLOR_CLOUDS_DIR, MERGED_CLOUDS_DIR, OCTOMAP_DIR, COLOR_OCTOMAP_DIR]
+        COLOR_CLOUDS_DIR, MERGED_CLOUDS_DIR, OCTOMAP_DIR, COLOR_OCTOMAP_DIR,
+        FILTERED_CLOUDS_DIR]
 MKDIRS = [mkdir(d) for d in dirs]
 
 # NOTE chdir into dset dir so can just specify relative paths to data
@@ -72,7 +73,7 @@ def convert_ldr_to_h5(dummy_file, output_file):
 @follows('convert_ldr_to_h5')
 @transform('%s/*.h5' % POINTS_H5_DIR,
            regex('%s/(.*?).h5' % POINTS_H5_DIR),
-           r'./%s/\1.pcd' % PCD_DIR)
+           r'%s/\1.pcd' % PCD_DIR)
 def convert_h5_to_pcd(input_file, output_file):
     h5_to_pcd = '%s/bin/h5_to_pcd' % CLOUDPROC_PATH
     cmd = '%s --h5 %s --pcd %s' % (h5_to_pcd, input_file, output_file)
@@ -145,6 +146,22 @@ def build_color_octomap(input_files, output_file):
 @files(COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH)
 def convert_octomap_to_mesh(input_file, output_file):
     pass
+
+
+@follows('color_clouds')
+@transform('%s/*.pcd' % COLOR_CLOUDS_DIR,
+           regex('%s/(.*?).pcd' % COLOR_CLOUDS_DIR),
+           r'%s/\1_static.pcd' % FILTERED_CLOUDS_DIR,
+           r'%s/\1_dynamic.pcd' % FILTERED_CLOUDS_DIR)
+def octomap_filter_single(input_file, static_file, dynamic_file):
+    cmd = '%s/bin/octomap_filter %s %s %s' % (CLOUDPROC_PATH, input_file, static_file, dynamic_file)
+    print cmd
+    check_call(cmd, shell=True)
+    static_vtk_file = os.path.splitext(static_file)[0] + '.vtk'
+    dynamic_vtk_file = os.path.splitext(dynamic_file)[0] + '.vtk'
+    cmd = 'pcl_pcd2vtk %s %s; pcl_pcd2vtk %s %s' % (static_file, static_vtk_file, dynamic_file, dynamic_vtk_file)
+    print cmd
+    check_call(cmd, shell=True)
 
 
 @follows('color_clouds')
