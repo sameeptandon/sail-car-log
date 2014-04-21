@@ -38,7 +38,7 @@ template<typename PointT>
 void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_cloud, const boost::shared_ptr<pcl::PointCloud<PointT> > tgt_cloud, boost::shared_ptr<pcl::PointCloud<PointT> > aligned_cloud, const pcl::Correspondences& correspondences, bool viz_normals)
 {
     pcl::visualization::PCLVisualizer viz("align clouds viz");
-    viz.addCoordinateSystem(3.0);
+    //viz.addCoordinateSystem(3.0);
 
     // Add point clouds and normals
 

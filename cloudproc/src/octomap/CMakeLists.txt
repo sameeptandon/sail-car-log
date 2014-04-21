@@ -11,7 +11,7 @@ add_executable(octomap_color octomap_color.cpp ../utils/path_utils.cpp ../cloud_
 target_link_libraries(octomap_color cloud_utils cv_utils ${OCTOMAP_LIBRARIES} VideoReader params)
 
 add_executable(octree_to_h5 octree_to_h5.cpp)
-target_link_libraries(octree_to_h5 ${OCTOMAP_LIBRARIES} params h5)
+target_link_libraries(octree_to_h5 ${OCTOMAP_LIBRARIES} params h5 ${Boost_LIBRARIES})
 
 add_executable(octomap_filter octomap_filter.cpp)
 target_link_libraries(octomap_filter ${OCTOMAP_LIBRARIES} ${PCL_LIBRARIES} params)
