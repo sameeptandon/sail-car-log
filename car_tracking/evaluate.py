@@ -348,7 +348,7 @@ def main(annoIDL, detIDL):
 	parser.add_option("-i", "--ignore", action="store", type="string", dest="ignoreFile")
 	parser.add_option("--ignoreOverlap", action="store", type="float", dest="ignoreOverlap", default = 0.9)
 	
-	(options, args) = parser.parse_args()
+	(options, args) = parser.parse_args("")
 	
 	if (len(args) < 2):
 		print "Please specify annotation and detection as arguments!"
