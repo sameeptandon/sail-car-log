@@ -31,6 +31,12 @@ REMOTE_FILES = [
     #'params.ini'
 ]
 
+# Cluster management
+CLUSTER_HOSTS = ['gorgon39']
+CLUSTER_DATA_DIR = '/var/tmp/scl'
+CLUSTER_DSET_DIR = '%s/%s' % (CLUSTER_DATA_DIR, DSET)
+FABRIC_PASS_FILE = '%s/pipeline/pass.txt' % CLOUDPROC_PATH
+
 PARAMS_TO_LOAD = 'q50_4_3_14_params'
 PARAMS_FILE = pjoin(DSET_DIR, 'params.ini')
 GPS_FILE = pjoin(DSET_DIR, '%s_gps.out' % DSET[:-1])
@@ -45,6 +51,7 @@ PCD_DOWNSAMPLED_NORMALS_DIR = pjoin(DSET_DIR, 'pcd_downsampled_normals')
 ICP_TRANSFORMS_DIR = pjoin(DSET_DIR, 'icp_transforms')
 COLOR_DIR = pjoin(DSET_DIR, 'color')
 COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'color_clouds')
+FILTERED_CLOUDS_DIR = pjoin(DSET_DIR, 'filtered_clouds')
 MERGED_CLOUDS_DIR = pjoin(DSET_DIR, 'merged_clouds')
 OCTOMAP_DIR = pjoin(DSET_DIR, 'octomaps')
 COLOR_OCTOMAP_DIR = pjoin(DSET_DIR, 'color_octomaps')
