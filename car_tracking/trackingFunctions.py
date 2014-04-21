@@ -123,7 +123,13 @@ def match_and_ratio_test(des1, des2):
 	# good = [m for m, n in matches if m.distance < 0.75*n.distance];
 
 	# BFMatcher with default params
+    
+       	# MA: need at least two points to perform ratio test 
+	if len(des1) <= 1 or len(des2) <= 1:
+            return [];
+        
 	bf = cv2.BFMatcher()
+
 	matches = bf.knnMatch(des1, des2, k=2)
 
 	if len(matches)<2:
