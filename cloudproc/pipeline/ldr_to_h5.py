@@ -63,8 +63,18 @@ if __name__ == '__main__':
                                (data[:, 2] > -2.5)
         else:
             data_filter_mask = (dist > 3) & \
-                               (data[:, 0] > 0)
-            data = data[data_filter_mask, :]
+                               (data[:, 0] > 0) & \
+                               (data[:, 2] > -5)
+
+        filtered_data = data[data_filter_mask, :]
+
+        if filtered_data.shape[0] == 0:
+            print '%d data empty after filtering' % t
+            # FIXME, hack, just include a single point
+            data = data[0, :]
+            #raise
+        else:
+            data = filtered_data
 
         # transform data into IMU frame at time t
         pts = data[:, 0:3].transpose()
