@@ -152,7 +152,6 @@ if __name__ == "__main__":
             print "saving " + save_filename_partiall;
             saveXML(save_filename_partiall, annolist_track);
 
-
     print "saving " + save_filename;
     saveXML(save_filename, annolist_track);
     

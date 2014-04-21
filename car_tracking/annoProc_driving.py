@@ -1,11 +1,13 @@
 #!/usr/bin/python 
 
 import pdb;
+import copy
 
 from AnnotationLib import *
 from optparse import OptionParser
 
 from helpers import *
+import evaluate;
 
 if __name__ == "__main__":
 
@@ -14,15 +16,20 @@ if __name__ == "__main__":
     parser.add_option('-a', '--annolist', dest='annolist_name', type='string', help='input annotation list (*.al or *.idl)', default=None)
     parser.add_option('-o', '--output_dir', dest='output_dir', type='string', help='directory for saving tracking results', default='./')
     parser.add_option('--sort', action="store_true", dest='do_sort_annolist', help='sort by frame index')
+
+    parser.add_option('--eval_by_scale', action="store_true", dest='do_eval_scale', help='evluate for different scales')
+    parser.add_option('-d', '--det_annolist', dest='det_annolist_name', type='string', help='detection annotation list (*.al or *.idl)', default=None)
+
     parser.add_option('--clip_path', action="store_true", dest='do_clip_path', help='clip path, make path relative to given depth')
     parser.add_option('--comp_stats', action="store_true", dest='do_comp_stats', help='compute statistics')
 
     parser.add_option('--clip_path_depth', dest='clip_path_depth', type="int", help='relative depth to clip', default=2)
 
-
     (opts, args) = parser.parse_args()
     
     annolist_basedir = os.path.dirname(opts.annolist_name)
+
+    print "loading %s"  % opts.annolist_name;
     annolist = parseXML(opts.annolist_name);
 
     annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
@@ -37,6 +44,15 @@ if __name__ == "__main__":
         save_filename += annolist_ext;
         
         do_save = True;
+
+    elif opts.do_eval_scale:
+
+        # MA: experiment, set score to bbox width 
+        print "loading %s"  % opts.det_annolist_name;
+        det_annolist = parseXML(opts.det_annolist_name);
+    
+        evaluate.main(annolist, det_annolist)
+        
 
     elif opts.do_clip_path:
 
