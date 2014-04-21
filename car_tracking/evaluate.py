@@ -348,14 +348,14 @@ def main(annoIDL, detIDL):
 	parser.add_option("-i", "--ignore", action="store", type="string", dest="ignoreFile")
 	parser.add_option("--ignoreOverlap", action="store", type="float", dest="ignoreOverlap", default = 0.9)
 	
-	(options, args) = parser.parse_args("")
+	(options, args) = parser.parse_args([])
 	
-	if (len(args) < 2):
-		print "Please specify annotation and detection as arguments!"
-		parser.print_help()
-		sys.exit(1)
+	# if (len(args) < 2):
+	# 	print "Please specify annotation and detection as arguments!"
+	# 	parser.print_help()
+	# 	sys.exit(1)
 	
-	annoFile = args[0]
+	#annoFile = args[0]
 		
 	# First figure out the minimum height and width we are dealing with
 	minWidth =  options.minWidth
@@ -570,54 +570,57 @@ def main(annoIDL, detIDL):
 		lastcd = cd
 		lastiflow = iflow
 
-	###--- output to file ---###
-	outfilename = options.outFile
-	if outfilename is None:
-		outputDir = os.path.dirname(os.path.abspath(args[1]))
-		outputFile = os.path.basename(os.path.abspath(args[1]))
-		[base, ext] = idlBase(outputFile)
-		outfilename = outputDir + "/rpc-" + base +".txt"
+	return (recalls, precs);
 
-	print "saving " + outfilename;
 
-	file = open(outfilename, 'w')
-	for i in xrange(len(precs)):
-		file.write(str(precs[i])+" "+str(recalls[i])+" "+str(scores[i])+ " " + str(fppi[i])+ "\n")
-	file.close()
+	# ###--- output to file ---###
+	# outfilename = options.outFile
+	# if outfilename is None:
+	# 	outputDir = os.path.dirname(os.path.abspath(args[1]))
+	# 	outputFile = os.path.basename(os.path.abspath(args[1]))
+	# 	[base, ext] = idlBase(outputFile)
+	# 	outfilename = outputDir + "/rpc-" + base +".txt"
+
+	# print "saving " + outfilename;
+
+	# file = open(outfilename, 'w')
+	# for i in xrange(len(precs)):
+	# 	file.write(str(precs[i])+" "+str(recalls[i])+" "+str(scores[i])+ " " + str(fppi[i])+ "\n")
+	# file.close()
 	
-	# Extracting failure cases
-	if(options.analysisFile != None):
+	# # Extracting failure cases
+	# if(options.analysisFile != None):
 				
-		anaPrefix = options.analysisFile
+	# 	anaPrefix = options.analysisFile
 			
-		falsePositives = []
-		truePositives = []
-		missingRecall = []
-		ignoredTruePositives = []
+	# 	falsePositives = []
+	# 	truePositives = []
+	# 	missingRecall = []
+	# 	ignoredTruePositives = []
 		
-		for i in xrange(len(graphs)):				
-			falsePositives.append(graphs[i].getFalsePositives())
-			truePositives.append(graphs[i].getTruePositives())
-			truePositives[-1].imageName = falsePositives[-1].imageName
-			truePositives[-1].imagePath = falsePositives[-1].imagePath
-			missingRecall.append(graphs[i].getMissingRecall())
-			missingRecall[-1].imageName = falsePositives[-1].imageName
-			missingRecall[-1].imagePath = falsePositives[-1].imagePath
-			if options.ignoreFile != None:
-				ignoredTruePositives.append(graphs[i].getIgnoredTruePositives())
+	# 	for i in xrange(len(graphs)):				
+	# 		falsePositives.append(graphs[i].getFalsePositives())
+	# 		truePositives.append(graphs[i].getTruePositives())
+	# 		truePositives[-1].imageName = falsePositives[-1].imageName
+	# 		truePositives[-1].imagePath = falsePositives[-1].imagePath
+	# 		missingRecall.append(graphs[i].getMissingRecall())
+	# 		missingRecall[-1].imageName = falsePositives[-1].imageName
+	# 		missingRecall[-1].imagePath = falsePositives[-1].imagePath
+	# 		if options.ignoreFile != None:
+	# 			ignoredTruePositives.append(graphs[i].getIgnoredTruePositives())
 		
-		saveIDL(anaPrefix + "-falsePositives.idl.gz", falsePositives);
+	# 	saveIDL(anaPrefix + "-falsePositives.idl.gz", falsePositives);
 	
-		sortedFP = annoAnalyze(falsePositives);
-		saveIDL(anaPrefix + "-falsePositives-sortedByScore.idl.gz", sortedFP);
+	# 	sortedFP = annoAnalyze(falsePositives);
+	# 	saveIDL(anaPrefix + "-falsePositives-sortedByScore.idl.gz", sortedFP);
 		
-		saveIDL(anaPrefix + "-truePositives.idl.gz", truePositives);
-		sortedFP = annoAnalyze(truePositives);
-		saveIDL(anaPrefix + "-truePositives-sortedByScore.idl.gz", sortedFP);
-		if options.ignoreFile != None:
-			saveIDL(anaPrefix + "-ignoredTruePositives.idl.gz", ignoredTruePositives)
+	# 	saveIDL(anaPrefix + "-truePositives.idl.gz", truePositives);
+	# 	sortedFP = annoAnalyze(truePositives);
+	# 	saveIDL(anaPrefix + "-truePositives-sortedByScore.idl.gz", sortedFP);
+	# 	if options.ignoreFile != None:
+	# 		saveIDL(anaPrefix + "-ignoredTruePositives.idl.gz", ignoredTruePositives)
 		
-		saveIDL(anaPrefix + "-missingRecall.idl.gz", missingRecall);
+	# 	saveIDL(anaPrefix + "-missingRecall.idl.gz", missingRecall);
 
 # if __name__ == "__main__":
 # 	main()

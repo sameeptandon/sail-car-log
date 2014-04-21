@@ -2,12 +2,37 @@
 
 import pdb;
 import copy
+import math;
+import numpy as np;
 
 from AnnotationLib import *
 from optparse import OptionParser
 
 from helpers import *
 import evaluate;
+
+def filter_by_scale_annolist(annolist, min_width_px, max_width_px):
+    num_rects = 0;
+
+    for a in annolist:
+        a.rects = filter_by_scale(a.rects, min_width_px, max_width_px);
+        num_rects += len(a.rects);
+
+    return num_rects;
+
+def filter_by_scale(_rects, min_width_px, max_width_px):
+    rects = copy.deepcopy(_rects);
+
+    rects_filtered = [];
+    num_rects = len(rects);
+
+    for r in rects:
+        cur_width = r.width();
+        if cur_width >= min_width_px and cur_width < max_width_px:
+            rects_filtered.append(r);
+        
+    return rects_filtered;
+
 
 if __name__ == "__main__":
 
@@ -50,9 +75,52 @@ if __name__ == "__main__":
         # MA: experiment, set score to bbox width 
         print "loading %s"  % opts.det_annolist_name;
         det_annolist = parseXML(opts.det_annolist_name);
-    
-        evaluate.main(annolist, det_annolist)
+
+        min_width = np.inf;
+        max_width = -np.inf;
+
+        for a in annolist:
+            for r in a.rects:
+                cur_width = r.width();
+
+                if cur_width < min_width:
+                    min_width = r.width();
+                if cur_width > max_width:
+                    max_width = r.width();
+
+
+        print "min_width: %.2f, max_width: %.2f" % (min_width, max_width);
+
+        if min_width < 20:
+            min_width = 20;
+
+        scale_range = np.linspace(min_width, max_width, 15);
+        scale_num_rects = [];
+        scale_recall = [];
+
+        for idx in range(0, len(scale_range)-1):
+            cur_annolist = copy.deepcopy(annolist);
+            cur_det_annolist = copy.deepcopy(det_annolist);
+
+            cur_num_rects = filter_by_scale_annolist(cur_annolist, scale_range[idx], scale_range[idx+1]);
+
+            #saveXML("/afs/cs.stanford.edu/u/andriluka/code/cartrack_hossein/sail-car-log/car_tracking/tmp2/" + str(math.floor(scale_range[idx])) + "_" + str(math.floor(scale_range[idx+1]))a + ".al", cur_annolist);
+            scale_num_rects.append(cur_num_rects);
+
+            #filter_by_scale_annolist(cur_det_annolist, scale_range[idx], scale_range[idx+1]);
         
+            #recalls, precs = evaluate.main(cur_annolist, cur_det_annolist);
+            recalls, precs = evaluate.main(cur_annolist, det_annolist);
+            scale_recall.append(recalls[-1]);
+            #print "scale range: (%.2f, %.2f), recall: %.2f, precision: %.2f\n\n" % (scale_range[idx], scale_range[idx+1], recalls[-1], precs[-1]);
+
+        
+        recalls, precs = evaluate.main(annolist, det_annolist);
+        print "recall: %.2f, precision: %.2f" % (recalls[-1], precs[-1]);
+
+        print scale_range
+        print scale_num_rects
+        print scale_recall
 
     elif opts.do_clip_path:
 
