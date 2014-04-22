@@ -32,9 +32,6 @@ def GetQ50CameraParams():
 
         if i == 0: # left camera
             
-            R_to_c_from_l_in_camera_frame = euler_matrix(0.044,0.0291,0.0115)[0:3,0:3] 
-            cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
-            cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.5,0.31,0.34]);
             cam[i]['fx'] = 2254.76 # these parameters for this camera are not updated
             cam[i]['fy'] = 2266.30
             cam[i]['cu'] = 655.55
