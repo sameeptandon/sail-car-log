@@ -25,14 +25,27 @@ def GetQ50LidarParams():
 
 def GetQ50CameraParams():
     cam = [{}, {}]
-    for i in [0, 1]:
+    for i in [1, 0]:
         cam[i]['R_to_c_from_i'] = np.array([[-1, 0, 0],
                                          [0, 0, -1],
                                          [0, -1, 0]])
 
         if i == 0: # left camera
+           
+            cam[i]['R_to_c_from_l_in_camera_frame'] = cam[1]['R_to_c_from_l_in_camera_frame']
+            cam[i]['displacement_from_l_to_c_in_lidar_frame'] = cam[1]['displacement_from_l_to_c_in_lidar_frame']
+
+            # extrinsics parameters for transforming points in right camera frame to this camera
+            T = np.array([-0.5873763710461054, 0.00012196510170337307, 0.08922401781210791])
+            R = np.array([0.9999355343485463, -0.00932576944123699, 0.006477435558612815, 0.009223923954826548, 0.9998360945238545, 0.015578938158992275, -0.006621659456863392, -0.01551818647957998, 0.9998576596268203])
+            R = R.reshape((3,3))
+            T = T.reshape((3,1))
+            E = np.hstack((R.transpose(), np.dot(-R.transpose(),T)))
+            E = np.vstack((E,np.array([0,0,0,1])))
+            cam[i]['E'] = E 
             
-            cam[i]['fx'] = 2254.76 # these parameters for this camera are not updated
+
+            cam[i]['fx'] = 2254.76 
             cam[i]['fy'] = 2266.30
             cam[i]['cu'] = 655.55
             cam[i]['cv'] = 488.85
@@ -42,6 +55,7 @@ def GetQ50CameraParams():
             R_to_c_from_l_in_camera_frame = euler_matrix(0.044,0.0291,0.0115)[0:3,0:3] 
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.5,0.31,0.34]);
+            cam[i]['E'] = np.eye(4)
 
             cam[i]['fx'] = 2250.72
             cam[i]['fy'] = 2263.75
