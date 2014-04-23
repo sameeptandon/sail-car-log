@@ -33,7 +33,7 @@ REMOTE_FILES = [
 
 # Cluster management
 CLUSTER_HOSTS = ['gorgon39']
-CLUSTER_DATA_DIR = '/var/tmp/scl'
+CLUSTER_DATA_DIR = '/scr/scl'
 CLUSTER_DSET_DIR = '%s/%s' % (CLUSTER_DATA_DIR, DSET)
 FABRIC_PASS_FILE = '%s/pipeline/pass.txt' % CLOUDPROC_PATH
 

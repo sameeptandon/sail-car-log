@@ -4,8 +4,8 @@ import vtk
 #import vtk.util.numpy_support as converter
 from vtk.io import vtkPLYReader
 import h5py
-from pipeline_config import COLOR_OCTOMAP_H5_FILE, MERGED_CLOUD_FILE,\
-        GPS_FILE, EXPORT_START, EXPORT_STEP, EXPORT_NUM, OCTOMAP_SINGLE_FILES,\
+from pipeline_config import COLOR_OCTOMAP_H5_FILE,\
+        GPS_FILE, EXPORT_START, EXPORT_STEP, EXPORT_NUM,\
         OCTOMAP_H5_FILE, STATIC_VTK_FILE, DYNAMIC_VTK_FILE, MAP_FILE
 from VtkRenderer import VtkPointCloud, VtkBoundingBox
 from transformations import euler_from_matrix
