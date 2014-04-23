@@ -17,7 +17,10 @@ var strokeColors = [
     '#00ffff', // aqua
 ];
 var paths = [];
-var tracksActive = [];
+
+var allLat = [];
+var allLon = [];
+var heatmap;
 
 function initializeMap() {
     var mapOptions = {
@@ -27,6 +30,23 @@ function initializeMap() {
     map = new google.maps.Map(document.getElementById("map-canvas"), mapOptions);
 }
 //google.maps.event.addDomListener(window, 'load', initialize);
+
+function drawHeatmap() {
+    console.log('Drawing heatmap ' + allLat.length);
+    var coords = [];
+    $.each(allLat, function(ind, val) {
+        coords.push(new google.maps.LatLng(val, allLon[ind]));
+    });
+    var coordArray = new google.maps.MVCArray(coords);
+    heatmap = new google.maps.visualization.HeatmapLayer({
+        data: coordArray
+    });
+    heatmap.setMap(map);
+}
+
+function toggleHeatmap() {
+    heatmap.setMap(heatmap.getMap() ? null : map);
+}
 
 // Load GPS
 
@@ -44,9 +64,11 @@ function loadGPSTracks(f) {
                     console.log('\t\t' + split + ': ' + gps['lat'].length);
                     var lat = gps['lat'];
                     var lon = gps['lon'];
+                    // NOTE push.apply(a, b) could fail for long b?
+                    allLat.push.apply(allLat, lat);
+                    allLon.push.apply(allLon, lon);
                     drawGPSTrack(lat, lon);
                     segmentDiv.append('<div class="trackPanel"><input type="checkbox" checked="true" onclick="toggleTrack(' + numTracks + ')" /><span style="color:' + strokeColors[numRoutes % strokeColors.length] + '">' + split + '</span></div>');
-                    tracksActive.push(true);
                     numTracks++;
                 });
                 routeDiv.append(segmentDiv);
@@ -54,23 +76,17 @@ function loadGPSTracks(f) {
             addTrackPanel(routeDiv);
             numRoutes++;
         });
+
+        drawHeatmap();
     });
 }
 
 function addTrackPanel(routeDiv) {
     $('#trackPanels').append(routeDiv);
-    //$('#trackPanels').append('<div class="trackPanel"><input type="checkbox" checked="true" onclick="toggleTrack(' + numTracks + ')" /><span style="color:' + strokeColors[numRoutes % strokeColors.length] + '">' + name + '</span></div>');
 }
 
 function toggleTrack(ind) {
-    if (tracksActive[ind]) {
-        paths[ind].setMap(null);
-        tracksActive[ind] = false;
-    }
-    else {
-        paths[ind].setMap(map);
-        tracksActive[ind] = true;
-    }
+    paths[ind].setMap(paths[ind].getMap() ? null: map);
 }
 
 function drawGPSTrack(lat, lon) {

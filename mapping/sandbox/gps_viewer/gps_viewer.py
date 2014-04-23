@@ -1,6 +1,5 @@
 import os
 import json
-from pipeline_config import GPS_FILE, DATA_DIR
 from GPSReader import GPSReader
 from collections import defaultdict
 

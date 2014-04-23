@@ -5,7 +5,7 @@
     <link rel="stylesheet" href="viewer.css" />
     <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
     <script type="text/javascript"
-        src="https://maps.googleapis.com/maps/api/js?key={api_key}&sensor=false">
+        src="https://maps.googleapis.com/maps/api/js?key={api_key}&sensor=false&libraries=visualization">
     </script>
     <script type="text/javascript">
         var lat_center = {lat_center};
@@ -15,6 +15,9 @@
   </head>
   <body>
     <div id="map-canvas"></div>
+    <div id="controlPanel">
+        <button onclick="toggleHeatmap()">Toggle Heatmap</button>
+    </div>
     <div id="trackPanels">
     </div>
   </body>
