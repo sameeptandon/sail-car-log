@@ -6,7 +6,7 @@ from Q50_config import LoadParameters
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
 from LidarTransforms import loadLDR, loadLDRCamMap
-from pipeline_config import EXPORT_STEP, EXPORT_START, EXPORT_NUM, LANE_FILTER
+from pipeline_config import EXPORT_STEP, EXPORT_START, EXPORT_NUM, LANE_FILTER, PARAMS_TO_LOAD
 
 '''
 Essentially just pieces from LidarIntegrator except avoids
@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     trans_wrt_imu = imu_transforms[start:end, 0:3, 3]
 
-    params = LoadParameters('q50_4_3_14_params')  # FIXME
+    params = LoadParameters(PARAMS_TO_LOAD)
     ldr_map = loadLDRCamMap(args.map)
 
     for t in range(num_fn):
@@ -63,8 +63,18 @@ if __name__ == '__main__':
                                (data[:, 2] > -2.5)
         else:
             data_filter_mask = (dist > 3) & \
-                               (data[:, 0] > 0)
-            data = data[data_filter_mask, :]
+                               (data[:, 0] > 0) & \
+                               (data[:, 2] > -5)
+
+        filtered_data = data[data_filter_mask, :]
+
+        if filtered_data.shape[0] == 0:
+            print '%d data empty after filtering' % t
+            # FIXME, hack, just include a single point
+            data = data[0, :]
+            #raise
+        else:
+            data = filtered_data
 
         # transform data into IMU frame at time t
         pts = data[:, 0:3].transpose()

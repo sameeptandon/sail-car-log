@@ -4,10 +4,12 @@ import vtk
 #import vtk.util.numpy_support as converter
 from vtk.io import vtkPLYReader
 import h5py
-from pipeline_config import COLOR_OCTOMAP_H5_FILE, MERGED_CLOUD_FILE,\
-        GPS_FILE, EXPORT_START, EXPORT_STEP, EXPORT_NUM, OCTOMAP_SINGLE_FILES,\
-        OCTOMAP_H5_FILE
-from VtkRenderer import VtkPointCloud
+from pipeline_config import COLOR_OCTOMAP_H5_FILE,\
+        GPS_FILE, EXPORT_START, EXPORT_STEP, EXPORT_NUM,\
+        OCTOMAP_H5_FILE, STATIC_VTK_FILE, DYNAMIC_VTK_FILE, MAP_FILE
+from VtkRenderer import VtkPointCloud, VtkBoundingBox
+from transformations import euler_from_matrix
+from RadarTransforms import loadRDRCamMap, loadRDR, calibrateRadarPts
 
 from GPSTransforms import IMUTransforms
 from GPSReader import GPSReader
@@ -138,11 +140,18 @@ class Blockworld:
         self.trans_wrt_imu = self.imu_transforms[self.start:self.end:self.step,
                 0:3, 3]
         self.params = LoadParameters('q50_4_3_14_params')
+        self.radar_params = self.params['radar']
+        self.lidar_params = self.params['lidar']
+
+        ''' Radar '''
+
+        self.rdr_pts = loadRDRCamMap(MAP_FILE)
+        self.radar_actors = []
 
         print 'Adding transforms'
 
         gps_cloud = VtkPointCloud(self.trans_wrt_imu[:, 0:3],
-                -1 * self.trans_wrt_imu[:, 0])
+                0 * self.trans_wrt_imu[:, 0])
         self.ren.AddActor(gps_cloud.get_vtk_cloud())
 
         #print 'Adding octomap'
@@ -152,8 +161,13 @@ class Blockworld:
 
         print 'Adding point cloud'
 
-        cloud_actor = load_vtk_cloud(MERGED_CLOUD_FILE.replace('.pcd', '.vtk'))
+        cloud_actor = load_vtk_cloud(STATIC_VTK_FILE)
         self.ren.AddActor(cloud_actor)
+
+        #dynamic_actor = load_vtk_cloud(DYNAMIC_VTK_FILE)
+        #dynamic_actor.GetProperty().SetColor(0, 0, 1)
+        #dynamic_actor.GetMapper().ScalarVisibilityOff()
+        #self.ren.AddActor(dynamic_actor)
 
         print 'Adding car'
 
@@ -175,6 +189,12 @@ class Blockworld:
 
         self.iren.Initialize()
 
+        # Whether to write video
+
+        self.record = False
+
+        # Set up time
+
         self.iren.AddObserver('TimerEvent', self.update)
         self.timer = self.iren.CreateRepeatingTimer(100)
 
@@ -189,48 +209,119 @@ class Blockworld:
         if self.mode == 'ahead':
             position = self.imu_transforms[t, 0:3, 3]
             focal_point = self.imu_transforms[t + self.step, 0:3, 3]
-            roll0 = 80
         elif self.mode == 'behind':
-            position = self.imu_transforms[t - self.step, 0:3, 3]
-            focal_point = self.imu_transforms[t, 0:3, 3]
-            roll0 = 80
+            # FIXME Tune this
+            position = self.imu_transforms[t - 5*self.step, 0:3, 3]
+            focal_point = self.imu_transforms[t - 4*self.step, 0:3, 3]
         elif self.mode == 'above':
-            position = self.imu_transforms[t - self.step, 0:3, 3] + np.array([0, 0, 100.0])
+            position = self.imu_transforms[t - self.step, 0:3, 3] + np.array([0, 0, 200.0])
             focal_point = self.imu_transforms[t, 0:3, 3]
-            roll0 = 0
         elif self.mode == 'passenger':
+            # TODO Not sure being inside mesh works...
             pass
-        return position, focal_point, roll0
+        return position, focal_point
 
     def keyhandler(self, obj, event):
         key = obj.GetKeySym()
         if key == 'a':
             self.mode = 'above'
         elif key == 'b':
-            self.mode == 'behind'
+            self.mode = 'behind'
         elif key == 'd':
             self.mode = 'ahead'
+        elif key == '0':
+            self.count = 0
+        elif key == 'r':
+            if self.record:
+                self.closeVideo()
+                self.record = False
+            else:
+                self.startVideo()
+                self.record = True
         else:
             pass
 
+    def updateRadar(self):
+        # Taken from testDrawRadarOnMap.py
+        fren = self.iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
+        t = self.start + self.step * self.count
+        radar_data = loadRDR(self.rdr_pts[t])[0]
+
+        if radar_data.shape[0] > 0:
+            #Convert from radar to lidar ref-frame
+            radar_data[:, :3] = calibrateRadarPts(radar_data[:, :3], self.radar_params)
+
+            #Convert from lidar to IMU ref-frame
+            radar_data[:, :3] = np.dot(self.lidar_params['T_from_l_to_i'][:3, :3],
+                radar_data[:, :3].transpose()).transpose()
+
+            h_radar_data = np.hstack((radar_data[:, :3], np.ones((radar_data.shape[0], 1))))
+
+            radar_data[:, :3] = np.dot(self.imu_transforms[t],
+                h_radar_data.transpose()).transpose()[:, :3]
+
+            for i in xrange(len(self.radar_actors)):
+                fren.RemoveActor(self.radar_actors[i])
+
+            self.radar_actors = []
+            self.radar_clouds = []
+
+            for i in xrange(radar_data.shape[0]):
+                self.radar_clouds.append(VtkBoundingBox(radar_data[i, :]))
+                (ax, ay, az) = euler_from_matrix(self.imu_transforms[t])
+                box = self.radar_clouds[i].get_vtk_box(rot=az*180/np.pi)
+                self.radar_actors.append(box)
+                fren.AddActor(self.radar_actors[i])
+
     def update(self, iren, event):
         # Transform the car
-        imu_transform = self.imu_transforms[self.start + self.step * self.count, :, :]
+
+        t = self.start + self.step * self.count
+        imu_transform = self.imu_transforms[t, :, :]
         transform = vtk_transform_from_np(imu_transform)
         transform.RotateZ(90)
-        transform.Translate(-2, 3, -1)
+        transform.Translate(-2, -3, -2)
         self.car.SetUserTransform(transform)
 
+        # Add the radar
+
+        self.updateRadar()
+
+        # Set camera position
         fren = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
         cam = fren.GetActiveCamera()
-        position, focal_point, roll0 = self.getCameraPosition()
+        position, focal_point = self.getCameraPosition()
         cam.SetPosition(position)
         cam.SetFocalPoint(focal_point)
-        if self.count == 0:
-            cam.Roll(roll0)
+        cam.SetViewUp(0, 0, 1)
 
         iren.GetRenderWindow().Render()
+
+        if self.record:
+            self.writeVideo()
+
         self.count += 1
+
+    def startVideo(self):
+        self.win2img = vtk.vtkWindowToImageFilter()
+        self.win2img.SetInput(self.win)
+        self.videoWriter = vtk.vtkFFMPEGWriter()
+        self.videoWriter.SetFileName('/home/zxie/Desktop/blockworld.avi')
+        self.videoWriter.SetInputConnection(self.win2img.GetOutputPort())
+        self.videoWriter.SetRate(10)  # 10 fps
+        self.videoWriter.SetQuality(2)  # Highest
+        self.videoWriter.SetBitRate(1000)  # kilobits/s
+        self.videoWriter.SetBitRateTolerance(1000)
+        self.videoWriter.Start()
+
+    def writeVideo(self):
+        self.win2img.Modified()
+        self.videoWriter.Write()
+
+    def closeVideo(self):
+        self.videoWriter.End()
+        self.videoWriter.Delete()
+        self.win2img.Delete()
 
 
 if __name__ == '__main__':

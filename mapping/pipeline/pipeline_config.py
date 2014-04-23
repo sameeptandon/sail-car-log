@@ -2,20 +2,25 @@ import os
 from os.path import dirname, join as pjoin
 import multiprocessing
 
-CLOUDPROC_PATH = dirname(dirname(os.path.abspath(__file__)))
-SAIL_CAR_LOG_PATH = dirname(CLOUDPROC_PATH)
+MAPPING_PATH = dirname(dirname(os.path.abspath(__file__)))
+SAIL_CAR_LOG_PATH = dirname(MAPPING_PATH)
 
 NUM_CPUS = multiprocessing.cpu_count() - 1
 
 DATA_DIR = '/media/sdb'
 
 DSET = '17N_b2'
+#DSET = '280N_b2'
+#DSET = 'sandhill_b2'
 DSET_DIR = pjoin(DATA_DIR, DSET)
+if not os.path.exists(DSET_DIR):
+    os.mkdir(DSET_DIR)
 DSET_AVI = DSET + '.avi'
 CAM_NUM = int(DSET[-1])
 
 # Stuff to scp over
-REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/sameep/4-2-14-monterey'
+REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/q50_data/4-2-14-monterey'
+#REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/sameep/3-30-14-rosdatatest'
 REMOTE_FILES = [
     'split_\\*_%s.avi' % DSET,
     #'%s_gps.out' % DSET[:-1],
@@ -23,9 +28,16 @@ REMOTE_FILES = [
     #'%s.map' % DSET[:-1],
     '%s_*.bag' % DSET[:-1],
     '%s.pcap' % DSET[:-1],
-    'params.ini'
+    #'params.ini'
 ]
 
+# Cluster management
+CLUSTER_HOSTS = ['gorgon39']
+CLUSTER_DATA_DIR = '/scr/scl'
+CLUSTER_DSET_DIR = '%s/%s' % (CLUSTER_DATA_DIR, DSET)
+FABRIC_PASS_FILE = '%s/pipeline/pass.txt' % MAPPING_PATH
+
+PARAMS_TO_LOAD = 'q50_4_3_14_params'
 PARAMS_FILE = pjoin(DSET_DIR, 'params.ini')
 GPS_FILE = pjoin(DSET_DIR, '%s_gps.out' % DSET[:-1])
 MAP_FILE = pjoin(DSET_DIR, '%s.map' % DSET[:-1])
@@ -39,14 +51,15 @@ PCD_DOWNSAMPLED_NORMALS_DIR = pjoin(DSET_DIR, 'pcd_downsampled_normals')
 ICP_TRANSFORMS_DIR = pjoin(DSET_DIR, 'icp_transforms')
 COLOR_DIR = pjoin(DSET_DIR, 'color')
 COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'color_clouds')
+FILTERED_CLOUDS_DIR = pjoin(DSET_DIR, 'filtered_clouds')
 MERGED_CLOUDS_DIR = pjoin(DSET_DIR, 'merged_clouds')
 OCTOMAP_DIR = pjoin(DSET_DIR, 'octomaps')
 COLOR_OCTOMAP_DIR = pjoin(DSET_DIR, 'color_octomaps')
 
 EXPORT_FULL = False
 LANE_FILTER = False
-EXPORT_START = 6500
-EXPORT_NUM = 60
+EXPORT_START = 1000
+EXPORT_NUM = 400
 EXPORT_STEP = 5
 
 DOWNSAMPLE_LEAF_SIZE = 0.1
@@ -59,17 +72,17 @@ ICP_MAX_DIST = 5.0
 
 LIDAR_PROJECT_MIN_DIST = 3.0
 
-CLOUD_MAX_STORE = 200
-MAP_COLOR_WINDOW = 30
+CLOUD_MAX_STORE = 400
+MAP_COLOR_WINDOW = 15
 
 HANDLE_OCCLUSIONS = True
 OCTOMAP_RES = 0.5
 COLOR_OCTOMAP_RES = 0.5
-PROB_HIT = 1.0
+PROB_HIT = 0.7
 PROB_MISS = 0.4
-OCCUPANCY_THRES = 1.0
-CLAMPING_THRES_MAX = 1.0
-CLAMPING_THRES_MIN = 0.0
+OCCUPANCY_THRES = 0.5
+CLAMPING_THRES_MAX = 0.97
+CLAMPING_THRES_MIN = 0.12
 RAYCAST_TOL = 3.0
 CAST_ONCE = True
 CAST_OCTOMAP_SINGLE = True
@@ -91,6 +104,11 @@ for k in range(EXPORT_NUM):
 
 MERGED_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'merged_%d.pcd' % MAP_COLOR_WINDOW)
 MERGED_VTK_FILE = os.path.splitext(MERGED_CLOUD_FILE)[0] + '.vtk'
+
+STATIC_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'static_%d.pcd' % MAP_COLOR_WINDOW)
+STATIC_VTK_FILE = os.path.splitext(STATIC_CLOUD_FILE)[0] + '.vtk'
+DYNAMIC_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'dynamic_%d.pcd' % MAP_COLOR_WINDOW)
+DYNAMIC_VTK_FILE = os.path.splitext(DYNAMIC_CLOUD_FILE)[0] + '.vtk'
 
 '''
 Print out variable values
