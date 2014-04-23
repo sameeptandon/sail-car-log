@@ -2,8 +2,8 @@ import os
 from os.path import dirname, join as pjoin
 import multiprocessing
 
-CLOUDPROC_PATH = dirname(dirname(os.path.abspath(__file__)))
-SAIL_CAR_LOG_PATH = dirname(CLOUDPROC_PATH)
+MAPPING_PATH = dirname(dirname(os.path.abspath(__file__)))
+SAIL_CAR_LOG_PATH = dirname(MAPPING_PATH)
 
 NUM_CPUS = multiprocessing.cpu_count() - 1
 
@@ -33,9 +33,9 @@ REMOTE_FILES = [
 
 # Cluster management
 CLUSTER_HOSTS = ['gorgon39']
-CLUSTER_DATA_DIR = '/var/tmp/scl'
+CLUSTER_DATA_DIR = '/scr/scl'
 CLUSTER_DSET_DIR = '%s/%s' % (CLUSTER_DATA_DIR, DSET)
-FABRIC_PASS_FILE = '%s/pipeline/pass.txt' % CLOUDPROC_PATH
+FABRIC_PASS_FILE = '%s/pipeline/pass.txt' % MAPPING_PATH
 
 PARAMS_TO_LOAD = 'q50_4_3_14_params'
 PARAMS_FILE = pjoin(DSET_DIR, 'params.ini')

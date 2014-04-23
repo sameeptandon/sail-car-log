@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 from ArgParser import *
 
-WINDOW = 50*5
+WINDOW = 50*2.5
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -44,6 +44,12 @@ def localMapToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
     pts_wrt_camera_t = dot(R_to_c_from_l(cam), 
             pts_wrt_camera_t.transpose())
+
+    pts_wrt_camera_t = np.vstack((pts_wrt_camera_t,
+        np.ones((1,pts_wrt_camera_t.shape[1]))))
+    pts_wrt_camera_t = dot(cam['E'], pts_wrt_camera_t)
+    pts_wrt_camera_t = pts_wrt_camera_t[0:3,:]
+
     # reproject camera_t points in camera frame
     (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
 
