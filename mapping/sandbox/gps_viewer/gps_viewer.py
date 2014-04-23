@@ -1,6 +1,8 @@
+import os
 import json
 from pipeline_config import GPS_FILE, DATA_DIR
 from GPSReader import GPSReader
+from collections import defaultdict
 
 
 def downsample_points(points, num_downsampled):
@@ -21,6 +23,20 @@ def read_lat_lon(gps_file):
 
 if __name__ == '__main__':
     API_KEY = open('api_key.txt', 'r').read().strip()
+
+    SCAIL_Q50_DATA_DIR = '/scail/group/deeplearning/driving_data/q50_data'
+    route_segment_split_gps_files = defaultdict(lambda: defaultdict(dict))
+    routes = [d for d in os.listdir(SCAIL_Q50_DATA_DIR) if os.path.isdir(d)]
+    for route in routes:
+        route_dir = os.path.join(SCAIL_Q50_DATA_DIR, route)
+        gps_out_files = [f for f in os.listdir(route_dir) if f.endswith('gps.out')]
+        segments = list()
+        for gps_out_file in gps_out_files:
+            parts = gps_out_file.split('_')
+            split = [part for part in parts if (len(part) == 1 and part.isalpha())][0]
+            segment = parts[0:parts.index(split)]
+            route_segment_split_gps_files[route][segment][split] =\
+                {'gps_file': os.path.join(route_dir, gps_out_file)}
 
     gps_files = list()
     gps_files.append(GPS_FILE)

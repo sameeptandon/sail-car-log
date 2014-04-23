@@ -1,1 +1,3 @@
 #map-canvas { width: 800px; height: 800px; }
+#trackPanels { position: absolute; left: 850px; top: 10px; }
+.trackPanel { width: 150px; padding: 10px; border: 1px solid #ccc; margin-bottom: 5px; }
