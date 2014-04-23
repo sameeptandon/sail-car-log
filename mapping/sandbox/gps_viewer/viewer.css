@@ -1,3 +1,5 @@
 #map-canvas { width: 800px; height: 800px; }
-#trackPanels { position: absolute; left: 850px; top: 10px; }
-.trackPanel { width: 150px; padding: 10px; border: 1px solid #ccc; margin-bottom: 5px; }
+#trackPanels { position: absolute; left: 850px; top: 10px;  height: 800px; }
+.routeDiv { border: 1px solid #ccc; padding: 5px; float: left; margin-right: 5px; }
+.segmentDiv { border: 1px solid #999; padding: 5px; margin-bottom: 5px; }
+.trackPanel { }
