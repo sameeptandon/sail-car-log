@@ -164,13 +164,38 @@ def octomap_filter_single(input_file, static_file, dynamic_file):
     check_call(cmd, shell=True)
 
 
+def chunk(l, n):
+    for k in xrange(0, len(l), n):
+        yield l[k:k + n]
+
+
 @follows('color_clouds')
 @merge('%s/*.pcd' % COLOR_CLOUDS_DIR, '%s/merged_%d.pcd' % (MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW))
 def merge_color_clouds(cloud_files, merged_cloud_file):
     files = [f for f in cloud_files if os.path.exists(f)]
-    # Concatenate PCD files
-    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(files) + '; mv output.pcd %s' % MERGED_CLOUD_FILE
+
+    # Have to chunk the files since there's limit on number of command line arguments
+    chunks = chunk(files, 500)
+    merged_chunk_files = list()
+    k = 0
+    for chunk_files in chunks:
+        merged_chunk_file = os.path.dirname(MERGED_CLOUD_FILE) + 'chunk%d.pcd' % k
+        # Concatenate PCD files
+        cmd = 'pcl_concatenate_points_pcd ' + ' '.join(chunk_files) + '; mv output.pcd %s' % merged_chunk_file
+        print cmd
+        check_call(cmd, shell=True)
+        merged_chunk_files.append(merged_chunk_file)
+        k += 1
+
+    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(merged_chunk_files) + '; mv output.pcd %s' % MERGED_CLOUD_FILE
+    print cmd
     check_call(cmd, shell=True)
+
+    for chunk_file in merged_chunk_files:
+        cmd = 'rm %s' % chunk_file
+        print cmd
+        check_call(cmd, shell=True)
+
     # Convert merged cloud to vtk for visualizer
     cmd = 'pcl_pcd2vtk %s %s' % (MERGED_CLOUD_FILE, MERGED_VTK_FILE)
     check_call(cmd, shell=True)
