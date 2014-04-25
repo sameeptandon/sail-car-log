@@ -67,7 +67,7 @@ function loadGPSTracks(f) {
                     // NOTE push.apply(a, b) could fail for long b?
                     allLat.push.apply(allLat, lat);
                     allLon.push.apply(allLon, lon);
-                    drawGPSTrack(lat, lon);
+                    drawGPSTrack(lat, lon, [route, segment, split]);
                     segmentDiv.append('<div class="trackPanel"><input type="checkbox" checked="true" onclick="toggleTrack(' + numTracks + ')" /><span style="color:' + strokeColors[numRoutes % strokeColors.length] + '">' + split + '</span></div>');
                     numTracks++;
                 });
@@ -89,7 +89,7 @@ function toggleTrack(ind) {
     paths[ind].setMap(paths[ind].getMap() ? null: map);
 }
 
-function drawGPSTrack(lat, lon) {
+function drawGPSTrack(lat, lon, pathInfo) {
     var coords = [];
     $.each(lat, function(ind, val) {
         coords.push(new google.maps.LatLng(val, lon[ind]));
@@ -104,6 +104,10 @@ function drawGPSTrack(lat, lon) {
     });
     path.setMap(map);
     paths.push(path);
+
+    google.maps.event.addDomListener(path, 'click', function() {
+        $('#pathInfo').html(pathInfo.join(' / '));
+    });
 }
 
 // Onload
