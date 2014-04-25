@@ -10,6 +10,7 @@
 - cv/cv2 (`apt-get install python-opencv`)
 - matplotlib (`apt-get install python-matplotlib`)
 - h5py (`apt-get install libhdf5-serial-dev` + `pip install h5py`)
+- ruffus (`pip install ruffus`)
 
 ### C++
 
@@ -20,9 +21,19 @@ Installing ROS-base should be sufficient.
 Make sure running `import rosbag` from within the Python shell works once
 you're done installing ROS.
 
+#### Octomap
+
+Download release 1.6.3 [here](https://github.com/OctoMap/octomap/tags).
+
 ## OpenCV on gorgon
 
 See the [wiki page](https://github.com/sameeptandon/sail-car-log/wiki/Installing-opencv-on-gorgon).
+
+## OpenCV on Ubuntu
+
+If calls to `VideoCapture.set(CV_CAP_PROP_POS_FRAMES, k)` causes
+glitches, installing OpenCV [2.4+](http://docs.opencv.org/doc/tutorials/introduction/linux_install/linux_install.html)
+fixed the issue for me.
 
 ## OpenCV on OS X
 
@@ -33,15 +44,16 @@ you may need to install OpenCV with Qt4:
 
 ## PCL on Ubuntu
 
-Make sure `libpcap-dev` is installed. Then build PCL from source.
-
-    [PCL 1.7.1](https://github.com/PointCloudLibrary/pcl/releases/tag/pcl-1.7.1)
+Make sure `libpcap-dev` is installed. Then build PCL from source:
+[PCL 1.7.1](https://github.com/PointCloudLibrary/pcl/releases/tag/pcl-1.7.1)
 
 ## PCL on OS X
 
-`port install cmake flann libusb boost qhull eigen3`
+Via MacPorts:
+`port install cmake flann libusb boost qhull eigen3`.
+Then build from source.
 
-Then follow the instructions on
+Or follow the [instructions on wiki](https://github.com/sameeptandon/sail-car-log/wiki/Installing-PCL-on-a-Mac).
 
 ## ROS on OS X
 
