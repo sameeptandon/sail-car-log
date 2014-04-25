@@ -103,7 +103,7 @@ process.on('SIGINT', function() {
   }
 });
 
-var outdir = "/home/smart/ros_data/";
+var outdir = "/home/q50/ros_data/";
 
 var spawnThread = function(prefix, maxFrames) {
   var name = prefix + '_' + util.getNextSuffix(outdir, prefix);
