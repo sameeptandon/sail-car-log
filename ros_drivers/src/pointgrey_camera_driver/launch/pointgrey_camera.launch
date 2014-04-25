@@ -1,14 +1,14 @@
 <launch>
 
   <group ns="fwd_left">
-  <node pkg="nodelet" type="nodelet" name="pg_nodelet" output="screen" args="standalone pointgrey_camera_driver/PointGreyCameraNodelet" >
+  <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
       <param name="serial" value="13041044" />
   </node>
   <node pkg="image_proc" type="image_proc" name="image_proc" />
   </group>
  
   <group ns="fwd_right">
-  <node pkg="nodelet" type="nodelet" name="pg_nodelet" output="screen" args="standalone pointgrey_camera_driver/PointGreyCameraNodelet" >
+  <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
       <param name="serial" value="13041026" />
   </node>
   <node pkg="image_proc" type="image_proc" name="image_proc" />

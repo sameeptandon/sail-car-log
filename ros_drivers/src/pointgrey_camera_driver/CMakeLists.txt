@@ -31,8 +31,6 @@ endif()
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-add_definitions(-O3)
-
 add_library(PointGreyCamera src/PointGreyCamera.cpp)
 target_link_libraries(PointGreyCamera ${POINTGREY_LIB} ${catkin_LIBRARIES})
 add_dependencies(PointGreyCamera ${PROJECT_NAME}_gencfg) 
@@ -46,11 +44,14 @@ target_link_libraries(pointgrey_camera_node PointGreyCamera ${catkin_LIBRARIES})
 add_executable(pointgrey_list_cameras src/list_cameras.cpp)
 target_link_libraries(pointgrey_list_cameras PointGreyCamera ${catkin_LIBRARIES})
 
+add_executable(pointgrey_camera_driver src/PointGreyDriver.cpp)
+target_link_libraries(pointgrey_camera_driver ${POINTGREY_LIB} ${catkin_LIBRARIES})
  
 install(TARGETS 
   PointGreyCamera
   PointGreyCameraNodelet
   pointgrey_camera_node
+  pointgrey_camera_driver
   pointgrey_list_cameras 
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
