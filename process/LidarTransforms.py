@@ -49,7 +49,6 @@ def R_to_c_from_l_old(cam):
     return R_to_c_from_l
 
 def R_to_c_from_l(cam):
-    # hard coded calibration parameters for now
     R_to_c_from_l = np.array([[0.0, -1.0, 0.0],
                               [0.0, 0.0, -1.0],
                               [1.0, 0.0, 0.0]])

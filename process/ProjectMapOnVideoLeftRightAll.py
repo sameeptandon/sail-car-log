@@ -46,6 +46,10 @@ def localMapToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
     # transform points from lidar_t to camera_t
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
     pts_wrt_camera_t = dot(R_to_c_from_l(cam), pts_wrt_camera_t.transpose())
+    pts_wrt_camera_t = np.vstack((pts_wrt_camera_t,
+        np.ones((1,pts_wrt_camera_t.shape[1]))))
+    pts_wrt_camera_t = dot(cam['E'], pts_wrt_camera_t)
+    pts_wrt_camera_t = pts_wrt_camera_t[0:3,:]
     # reproject camera_t points in camera frame
     (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
 
@@ -65,6 +69,10 @@ def localMapToPixelsTrajectory(imu_data, imu_transforms_t, T_from_i_to_l, cam, h
     # transform points from lidar_t to camera_t
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
     pts_wrt_camera_t = dot(R_to_c_from_l(cam), pts_wrt_camera_t.transpose())
+    pts_wrt_camera_t = np.vstack((pts_wrt_camera_t,
+        np.ones((1,pts_wrt_camera_t.shape[1]))))
+    pts_wrt_camera_t = dot(cam['E'], pts_wrt_camera_t)
+    pts_wrt_camera_t = pts_wrt_camera_t[0:3,:]
     # reproject camera_t points in camera frame
     (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
 
@@ -86,7 +94,12 @@ if __name__ == '__main__':
       if '4-10-14' in root:
         files1 = filter(lambda z: '680s_a' not in z, files1)
         files1 = filter(lambda z: '237_a' not in z, files1)
-      files = files1
+      if len(sys.argv)>2:
+        files = filter(lambda z: sys.argv[2] in z, files1)
+        if len(files1)==len(files):
+          print 'warning: filter '+sys.argv[2]+' not found in files, including all files.'
+      else:
+        files = files1
       for f in files:
         
         args = parse_args(root, f[0:-8]+str(cam_num)+'.avi')
@@ -126,7 +139,7 @@ if __name__ == '__main__':
         while t<left_data.shape:
           #while video_reader.framenum<7000:
           #  (success, I) = video_reader.getNextFrame()
-          for count in range(10):
+          for count in range(30):
             (success, I) = video_reader.getNextFrame()
           t = video_reader.framenum - 1
           if t>=left_data.shape[0]-WINDOW-1:
@@ -170,8 +183,6 @@ if __name__ == '__main__':
           #cv2.waitKey(1)
           cv2.imwrite(new_vid_name+str(cnt)+'.png',I)
           cnt +=1
-        subprocess.call('ffmpeg -i '+ new_vid_name+'%d.png -r 50 -s 640x480 -vb 20M '+ new_vid_name+'.avi', shell=True)
-        subprocess.call('rm '+ new_vid_name+'*.png', shell=True)
           #I = I[:,:,[2,1,0]]
           #pl.ion()
           #pl.imshow(I)
@@ -179,3 +190,5 @@ if __name__ == '__main__':
           #pl.draw()
           #pl.clf()
           #pl.ioff()
+        subprocess.call('ffmpeg -i '+ new_vid_name+'%d.png -r 50 -s 640x480 -vb 20M '+ new_vid_name+'.avi', shell=True)
+        subprocess.call('rm '+ new_vid_name+'*.png', shell=True)
