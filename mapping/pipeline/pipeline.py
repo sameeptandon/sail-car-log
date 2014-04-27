@@ -142,12 +142,6 @@ def build_color_octomap(input_files, output_file):
     check_call(cmd, shell=True)
 
 
-@follows('build_color_octomap')
-@files(COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH)
-def convert_octomap_to_mesh(input_file, output_file):
-    pass
-
-
 @follows('color_clouds')
 @transform('%s/*.pcd' % COLOR_CLOUDS_DIR,
            regex('%s/(.*?).pcd' % COLOR_CLOUDS_DIR),

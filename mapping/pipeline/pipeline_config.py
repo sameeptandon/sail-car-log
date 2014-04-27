@@ -4,12 +4,16 @@ import multiprocessing
 
 MAPPING_PATH = dirname(dirname(os.path.abspath(__file__)))
 SAIL_CAR_LOG_PATH = dirname(MAPPING_PATH)
+SCAIL_Q50_DATA_DIR = '/scail/group/deeplearning/driving_data/q50_data'
+
 
 NUM_CPUS = multiprocessing.cpu_count() - 1
 
-DATA_DIR = '/media/sdb'
+DATA_DIR = '/scr/scl'
 
-DSET = '17N_b2'
+#DSET = 'to_gilroy_a2'
+DSET = '280S_a2'
+#DSET = '17N_b2'
 #DSET = '280N_b2'
 #DSET = 'sandhill_b2'
 DSET_DIR = pjoin(DATA_DIR, DSET)
@@ -19,6 +23,7 @@ DSET_AVI = DSET + '.avi'
 CAM_NUM = int(DSET[-1])
 
 # Stuff to scp over
+#REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/q50_data/4-3-14-gilroy'
 REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/q50_data/4-2-14-monterey'
 #REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/sameep/3-30-14-rosdatatest'
 REMOTE_FILES = [
@@ -58,8 +63,8 @@ COLOR_OCTOMAP_DIR = pjoin(DSET_DIR, 'color_octomaps')
 
 EXPORT_FULL = False
 LANE_FILTER = False
-EXPORT_START = 1000
-EXPORT_NUM = 400
+EXPORT_START = 0
+EXPORT_NUM = 500
 EXPORT_STEP = 5
 
 DOWNSAMPLE_LEAF_SIZE = 0.1
@@ -72,7 +77,7 @@ ICP_MAX_DIST = 5.0
 
 LIDAR_PROJECT_MIN_DIST = 3.0
 
-CLOUD_MAX_STORE = 400
+CLOUD_MAX_STORE = EXPORT_NUM  # FIXME
 MAP_COLOR_WINDOW = 15
 
 HANDLE_OCCLUSIONS = True

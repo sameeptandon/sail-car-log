@@ -71,7 +71,7 @@ if __name__ == '__main__':
         if filtered_data.shape[0] == 0:
             print '%d data empty after filtering' % t
             # FIXME, hack, just include a single point
-            data = data[0, :]
+            data = data[0:1, :]
             #raise
         else:
             data = filtered_data

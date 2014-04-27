@@ -41,4 +41,4 @@ if __name__ == '__main__':
         rsync_to_remote(MAP_FILE, '%s:%s' % (host, CLUSTER_DSET_DIR))
         rsync_to_remote(PARAMS_FILE, '%s:%s' % (host, CLUSTER_DSET_DIR))
         #tar_scp_to_remote(LDR_DIR, '%s:%s' % (host, CLUSTER_DSET_DIR))
-        rsync_to_remote(LDR_DIR, '%s:%s' % (host, CLUSTER_DSET_DIR))
+        #rsync_to_remote(LDR_DIR, '%s:%s' % (host, CLUSTER_DSET_DIR))
