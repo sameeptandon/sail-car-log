@@ -4,9 +4,11 @@ import numpy as np
 import h5py
 from Q50_config import LoadParameters
 from GPSReader import GPSReader
-from GPSTransforms import IMUTransforms
+from GPSTransforms import IMUTransforms, R_to_i_from_w
+from WGS84toENU import deg2rad
 from LidarTransforms import loadLDR, loadLDRCamMap
-from pipeline_config import EXPORT_STEP, EXPORT_START, EXPORT_NUM, LANE_FILTER, PARAMS_TO_LOAD
+from pipeline_config import EXPORT_STEP, EXPORT_START, EXPORT_NUM, LANE_FILTER,\
+    PARAMS_TO_LOAD, OPT_POS_FILE
 
 '''
 Essentially just pieces from LidarIntegrator except avoids
@@ -26,7 +28,19 @@ if __name__ == '__main__':
 
     gps_reader = GPSReader(args.gps)
     GPSData = gps_reader.getNumericData()
-    imu_transforms = IMUTransforms(GPSData)
+    #imu_transforms = IMUTransforms(GPSData)
+    opt_pos = np.load(OPT_POS_FILE)['data']
+    # FIXME put this in solve_qp?
+    N = opt_pos.shape[1]
+    imu_transforms = np.zeros((N, 4, 4))
+    for t in range(N):
+        imu_transforms[t, :, :] = np.eye(4)
+        imu_transforms[t, 0:3, 3] = opt_pos[:, t]
+        roll = deg2rad(GPSData[t, 8])
+        pitch = deg2rad(GPSData[t, 7])
+        yaw = -deg2rad(GPSData[t, 9])
+        R = R_to_i_from_w(roll, pitch, yaw)
+        imu_transforms[t, 0:3, 0:3] = R.transpose()
 
     # Assuming want to just export from start to end
     step = EXPORT_STEP

@@ -183,7 +183,7 @@ class Blockworld:
         self.win.SetSize(400, 400)
 
         self.iren = vtk.vtkRenderWindowInteractor()
-        self.iren .SetRenderWindow(self.win)
+        self.iren.SetRenderWindow(self.win)
         mouseInteractor = vtk.vtkInteractorStyleTrackballCamera()
         self.iren.SetInteractorStyle(mouseInteractor)
 
@@ -285,7 +285,7 @@ class Blockworld:
 
         # Add the radar
 
-        self.updateRadar()
+        #self.updateRadar()
 
         # Set camera position
         fren = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
