@@ -58,24 +58,25 @@ int options(int ac, char ** av, Options& opts)
 
 
 // Define a new point representation for < x, y, z, curvature>
-class ZPointRepresentation : public pcl::PointRepresentation <PointNormalT>
+class ZPointRepresentation : public pcl::PointRepresentation <pcl::PointXYZINormal>
 {
-    using pcl::PointRepresentation<PointNormalT>::nr_dimensions_;
+    using pcl::PointRepresentation<pcl::PointXYZINormal>::nr_dimensions_;
   public:
     ZPointRepresentation ()
     {
         // Define the number of dimensions
-        nr_dimensions_ = 4;
+        nr_dimensions_ = 5;
     }
   
     // Override the copyToFloatArray method to define our feature vector
-    virtual void copyToFloatArray (const PointNormalT &p, float * out) const
+    virtual void copyToFloatArray (const pcl::PointXYZINormal&p, float * out) const
     {
         // < x, y, z, curvature >
         out[0] = p.x;
         out[1] = p.y;
         out[2] = p.z;
-        out[3] = p.curvature;
+        out[3] = p.intensity;
+        out[4] = p.curvature;
     }
 };
 
@@ -87,10 +88,10 @@ float pair_align (const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
     // Align
 
     ZPointRepresentation point_representation;
-    float alpha[4] = {1.0, 1.0, 1.0, 1.0};   // PARAM
+    float alpha[5] = {1.0, 1.0, 1.0, 10.0, 1.0};   // PARAM
     point_representation.setRescaleValues (alpha);
 
-    pcl::IterativeClosestPointNonLinear<PointNormalT, PointNormalT> reg;
+    pcl::IterativeClosestPointNonLinear<pcl::PointXYZINormal, pcl::PointXYZINormal> reg;
     reg.setTransformationEpsilon (1e-6);  // Change in transformation for (convergence) // PARAM
     reg.setMaxCorrespondenceDistance (max_dist);
       reg.setPointRepresentation (boost::make_shared<const ZPointRepresentation> (point_representation));
@@ -155,7 +156,7 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
     {
         // Estimate correspondences
 
-        pcl::registration::CorrespondenceEstimation<PointNormalT, PointNormalT> correspondence_est;
+        pcl::registration::CorrespondenceEstimation<pcl::PointXYZINormal, pcl::PointXYZINormal> correspondence_est;
         correspondence_est.setInputSource(src_cloud);
         correspondence_est.setInputTarget(tgt_cloud);
 
@@ -164,10 +165,10 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         if (debug)
         {
-            align_clouds_viz(src_cloud, tgt_cloud, aligned_cloud, all_correspondences);
+            //align_clouds_viz(src_cloud, tgt_cloud, aligned_cloud, all_correspondences);
         }
 
-        //std::vector<float> x_translations(all_correspondences.size());
+        std::vector<float> x_translations(all_correspondences.size());
         std::vector<float> y_translations(all_correspondences.size());
         std::vector<float> z_translations(all_correspondences.size());
         // TODO May want to use these at some point
@@ -181,10 +182,10 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
             int idx_query = c.index_query;
             int idx_match = c.index_match;
 
-            PointNormalT p_query = src_cloud->at(idx_query);
-            PointNormalT p_match = tgt_cloud->at(idx_match);
+            pcl::PointXYZINormal p_query = src_cloud->at(idx_query);
+            pcl::PointXYZINormal p_match = tgt_cloud->at(idx_match);
 
-            //x_translations[k] = p_match.x - p_query.x;
+            x_translations[j] = p_match.x - p_query.x;
             y_translations[j] = p_match.y - p_query.y;
             z_translations[j] = p_match.z - p_query.z;
             j++;
@@ -201,10 +202,10 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
         // Shift src_cloud;
 
         // Use median
-        //std::sort(x_translations.begin(), x_translations.end());
+        std::sort(x_translations.begin(), x_translations.end());
         std::sort(y_translations.begin(), y_translations.end());
         std::sort(z_translations.begin(), z_translations.end());
-        //float x_shift = x_translations[x_translations.size() / 2];
+        float x_shift = x_translations[x_translations.size() / 2];
         float y_shift = y_translations[y_translations.size() / 2];
         float z_shift = z_translations[z_translations.size() / 2];
 
@@ -214,7 +215,7 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
         //float z_shift = std::accumulate(z_translations.begin(), z_translations.end(), 0.0f) / z_translations.size();
 
         Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
-        //transform(0, 3) = x_shift;
+        transform(0, 3) = x_shift;
         transform(1, 3) = y_shift;
         transform(2, 3) = z_shift;
 
@@ -223,11 +224,11 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         final_transform = transform * final_transform;
 
-        PCL_INFO("iter %d, shift %f %f %f, error %f\n", k, 0.0f, y_shift,
+        PCL_INFO("iter %d, shift %f %f %f, error %f\n", k, x_shift, y_shift,
                 z_shift, normalized_error);
 
         // Break if barely changing
-        if (abs(y_shift) < tol && abs(z_shift) < tol)
+        if (abs(x_shift) < tol && abs(y_shift) < tol && abs(z_shift) < tol)
             break;
     }
 
@@ -260,8 +261,8 @@ int main(int argc, char** argv)
         std::cout << "transform:" << std::endl;
         std::cout << transform << std::endl;
 
-        pcl::Correspondences correspondences;
-        align_clouds_viz<pcl::PointNormal>(src_cloud, tgt_cloud, aligned_cloud, correspondences);
+        //pcl::Correspondences correspondences;
+        //align_clouds_viz<pcl::PointXYZINormal>(src_cloud, tgt_cloud, aligned_cloud, correspondences);
 
         // Don't write outputs
         return 0;

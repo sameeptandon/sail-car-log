@@ -13,17 +13,19 @@ from pipeline_config import POINTS_H5_DIR,\
         EXPORT_FULL, GPS_FILE, MAP_FILE, COLOR_DIR, COLOR_CLOUDS_DIR,\
         MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW, OCTOMAP_DIR,\
         COLOR_OCTOMAP_DIR, OCTOMAP_FILE,\
-        COLOR_OCTOMAP_FILE, COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH, MERGED_CLOUD_FILE,\
+        COLOR_OCTOMAP_FILE, COLOR_OCTOMAP_BT, MERGED_CLOUD_FILE,\
         CAST_OCTOMAP_SINGLE, MERGED_VTK_FILE, STATIC_CLOUD_FILE,\
         STATIC_VTK_FILE, DYNAMIC_CLOUD_FILE, DYNAMIC_VTK_FILE,\
-        FILTERED_CLOUDS_DIR, PARAMS_TO_LOAD
+        FILTERED_CLOUDS_DIR, PARAMS_TO_LOAD,\
+        MERGED_COLOR_CLOUDS_DIR, MERGED_COLOR_CLOUD_FILE,\
+        MERGED_COLOR_VTK_FILE
 from pipeline_utils import file_num
 
 
 dirs = [POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
         PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR, COLOR_DIR,
-        COLOR_CLOUDS_DIR, MERGED_CLOUDS_DIR, OCTOMAP_DIR, COLOR_OCTOMAP_DIR,
-        FILTERED_CLOUDS_DIR]
+        COLOR_CLOUDS_DIR, MERGED_CLOUDS_DIR, MERGED_COLOR_CLOUDS_DIR,
+        OCTOMAP_DIR, COLOR_OCTOMAP_DIR, FILTERED_CLOUDS_DIR]
 MKDIRS = [mkdir(d) for d in dirs]
 
 # NOTE chdir into dset dir so can just specify relative paths to data
@@ -142,12 +144,6 @@ def build_color_octomap(input_files, output_file):
     check_call(cmd, shell=True)
 
 
-@follows('build_color_octomap')
-@files(COLOR_OCTOMAP_BT, COLOR_OCTOMAP_MESH)
-def convert_octomap_to_mesh(input_file, output_file):
-    pass
-
-
 @follows('color_clouds')
 @transform('%s/*.pcd' % COLOR_CLOUDS_DIR,
            regex('%s/(.*?).pcd' % COLOR_CLOUDS_DIR),
@@ -164,15 +160,78 @@ def octomap_filter_single(input_file, static_file, dynamic_file):
     check_call(cmd, shell=True)
 
 
-@follows('color_clouds')
-@merge('%s/*.pcd' % COLOR_CLOUDS_DIR, '%s/merged_%d.pcd' % (MERGED_CLOUDS_DIR, MAP_COLOR_WINDOW))
-def merge_color_clouds(cloud_files, merged_cloud_file):
+def chunk(l, n):
+    for k in xrange(0, len(l), n):
+        yield l[k:k + n]
+
+
+# FIXME Repeats code in merge_color_clouds
+@follows('downsample_pcds')
+@merge('%s/*.pcd' % PCD_DOWNSAMPLED_DIR, '%s/merged.pcd' % MERGED_CLOUDS_DIR)
+def merge_raw_clouds(cloud_files, merged_cloud_file):
     files = [f for f in cloud_files if os.path.exists(f)]
-    # Concatenate PCD files
-    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(files) + '; mv output.pcd %s' % MERGED_CLOUD_FILE
+
+    # Have to chunk the files since there's limit on number of command line arguments
+    chunks = chunk(files, 500)
+    merged_chunk_files = list()
+    k = 0
+    for chunk_files in chunks:
+        merged_chunk_file = os.path.dirname(MERGED_CLOUD_FILE) + '/chunk%d.pcd' % k
+        # Concatenate PCD files
+        cmd = 'pcl_concatenate_points_pcd ' + ' '.join(chunk_files) + '; mv output.pcd %s' % merged_chunk_file
+        print cmd
+        check_call(cmd, shell=True)
+        merged_chunk_files.append(merged_chunk_file)
+        k += 1
+
+    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(merged_chunk_files) + '; mv output.pcd %s' % MERGED_CLOUD_FILE
+    print cmd
     check_call(cmd, shell=True)
+
+    for chunk_file in merged_chunk_files:
+        cmd = 'rm %s' % chunk_file
+        print cmd
+        check_call(cmd, shell=True)
+
+    # Color the merged cloud by intensity
+    cmd = '%s/bin/color_intensity %s %s' % (MAPPING_PATH, MERGED_CLOUD_FILE, MERGED_CLOUD_FILE)
+    print cmd
+    check_call(cmd, shell=True)
+
     # Convert merged cloud to vtk for visualizer
     cmd = 'pcl_pcd2vtk %s %s' % (MERGED_CLOUD_FILE, MERGED_VTK_FILE)
+    check_call(cmd, shell=True)
+
+
+@follows('color_clouds')
+@merge('%s/*.pcd' % COLOR_CLOUDS_DIR, '%s/merged_%d.pcd' % (MERGED_COLOR_CLOUDS_DIR, MAP_COLOR_WINDOW))
+def merge_color_clouds(cloud_files, merged_cloud_file):
+    files = [f for f in cloud_files if os.path.exists(f)]
+
+    # Have to chunk the files since there's limit on number of command line arguments
+    chunks = chunk(files, 500)
+    merged_chunk_files = list()
+    k = 0
+    for chunk_files in chunks:
+        merged_chunk_file = os.path.dirname(MERGED_COLOR_CLOUD_FILE) + 'chunk%d.pcd' % k
+        # Concatenate PCD files
+        cmd = 'pcl_concatenate_points_pcd ' + ' '.join(chunk_files) + '; mv output.pcd %s' % merged_chunk_file
+        print cmd
+        check_call(cmd, shell=True)
+        merged_chunk_files.append(merged_chunk_file)
+        k += 1
+
+    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(merged_chunk_files) + '; mv output.pcd %s' % MERGED_COLOR_CLOUD_FILE
+    print cmd
+    check_call(cmd, shell=True)
+
+    for chunk_file in merged_chunk_files:
+        cmd = 'rm %s' % chunk_file
+        print cmd
+        check_call(cmd, shell=True)
+
+    # Convert merged cloud to vtk for visualizer
+    cmd = 'pcl_pcd2vtk %s %s' % (MERGED_COLOR_CLOUD_FILE, MERGED_COLOR_VTK_FILE)
     check_call(cmd, shell=True)
 
 
@@ -227,7 +286,7 @@ def clean():
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print 'Usage: ./train_pipeline.py print,graph,run (task1,task2)'
+        print 'Usage: python pipeline.py print,graph,run (task1,task2)'
         sys.exit(1)
 
     TORUN = [

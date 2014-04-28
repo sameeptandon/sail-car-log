@@ -14,5 +14,5 @@ def scp_to_local(remote, local):
 if __name__ == '__main__':
     for host in CLUSTER_HOSTS[0:1]:
         print green('syncing from %s' % host)
-        scp_to_local('%s:%s' % (host, os.path.join(CLUSTER_DSET_DIR, 'filtered_clouds')), FILTERED_CLOUDS_DIR + '_remote')
+        #scp_to_local('%s:%s' % (host, os.path.join(CLUSTER_DSET_DIR, 'filtered_clouds')), FILTERED_CLOUDS_DIR + '_remote')
         scp_to_local('%s:%s' % (host, os.path.join(CLUSTER_DSET_DIR, 'merged_clouds')), MERGED_CLOUDS_DIR + '_remote')

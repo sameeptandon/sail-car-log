@@ -4,12 +4,17 @@ import multiprocessing
 
 MAPPING_PATH = dirname(dirname(os.path.abspath(__file__)))
 SAIL_CAR_LOG_PATH = dirname(MAPPING_PATH)
+SCAIL_Q50_DATA_DIR = '/scail/group/deeplearning/driving_data/q50_data'
+
 
 NUM_CPUS = multiprocessing.cpu_count() - 1
 
+#DATA_DIR = '/scr/scl'
 DATA_DIR = '/media/sdb'
 
-DSET = '17N_b2'
+#DSET = 'to_gilroy_a2'
+DSET = '280S_a2'
+#DSET = '17N_b2'
 #DSET = '280N_b2'
 #DSET = 'sandhill_b2'
 DSET_DIR = pjoin(DATA_DIR, DSET)
@@ -19,6 +24,7 @@ DSET_AVI = DSET + '.avi'
 CAM_NUM = int(DSET[-1])
 
 # Stuff to scp over
+#REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/q50_data/4-3-14-gilroy'
 REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/q50_data/4-2-14-monterey'
 #REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/sameep/3-30-14-rosdatatest'
 REMOTE_FILES = [
@@ -53,26 +59,28 @@ COLOR_DIR = pjoin(DSET_DIR, 'color')
 COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'color_clouds')
 FILTERED_CLOUDS_DIR = pjoin(DSET_DIR, 'filtered_clouds')
 MERGED_CLOUDS_DIR = pjoin(DSET_DIR, 'merged_clouds')
+MERGED_COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'merged_color_clouds')
 OCTOMAP_DIR = pjoin(DSET_DIR, 'octomaps')
 COLOR_OCTOMAP_DIR = pjoin(DSET_DIR, 'color_octomaps')
 
 EXPORT_FULL = False
 LANE_FILTER = False
-EXPORT_START = 1000
-EXPORT_NUM = 400
+#EXPORT_START = 1700
+EXPORT_START = 0
+EXPORT_NUM = 100
 EXPORT_STEP = 5
 
 DOWNSAMPLE_LEAF_SIZE = 0.1
 K_NORM_EST = 30
 
-ICP_ITERS = 20
+ICP_ITERS = 100
 # NOTE set this parameter based on GPS delta spikes,
 # downsampling voxel leaf size, and time steps between scans
 ICP_MAX_DIST = 5.0
 
 LIDAR_PROJECT_MIN_DIST = 3.0
 
-CLOUD_MAX_STORE = 400
+CLOUD_MAX_STORE = EXPORT_NUM  # FIXME
 MAP_COLOR_WINDOW = 15
 
 HANDLE_OCCLUSIONS = True
@@ -93,7 +101,6 @@ CENTERED_OCTOMAP_FILE = os.path.splitext(OCTOMAP_FILE)[0] + '_centered.ot'
 COLOR_OCTOMAP_FILE = '{0}/octomap_{1:.2f}{2}.ot'.format(COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCC_EXT)
 CENTERED_COLOR_OCTOMAP_FILE = '{0}/octomap_{1:.2f}_{2}_centered.bt'.format(COLOR_OCTOMAP_DIR, COLOR_OCTOMAP_RES, OCC_EXT)
 COLOR_OCTOMAP_BT = os.path.splitext(COLOR_OCTOMAP_FILE)[0] + '.bt'
-COLOR_OCTOMAP_MESH = ''
 
 OCTOMAP_H5_FILE = os.path.splitext(OCTOMAP_FILE)[0] + '.h5'
 COLOR_OCTOMAP_H5_FILE = os.path.splitext(COLOR_OCTOMAP_FILE)[0] + '.h5'
@@ -102,12 +109,14 @@ OCTOMAP_SINGLE_FILES = list()
 for k in range(EXPORT_NUM):
     OCTOMAP_SINGLE_FILES.append(os.path.splitext(OCTOMAP_FILE)[0] + '_%d.ot' % k)
 
-MERGED_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'merged_%d.pcd' % MAP_COLOR_WINDOW)
+MERGED_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'merged.pcd')
 MERGED_VTK_FILE = os.path.splitext(MERGED_CLOUD_FILE)[0] + '.vtk'
+MERGED_COLOR_CLOUD_FILE = pjoin(MERGED_COLOR_CLOUDS_DIR, 'merged_%d.pcd' % MAP_COLOR_WINDOW)
+MERGED_COLOR_VTK_FILE = os.path.splitext(MERGED_COLOR_CLOUD_FILE)[0] + '.vtk'
 
-STATIC_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'static_%d.pcd' % MAP_COLOR_WINDOW)
+STATIC_CLOUD_FILE = pjoin(MERGED_COLOR_CLOUDS_DIR, 'static_%d.pcd' % MAP_COLOR_WINDOW)
 STATIC_VTK_FILE = os.path.splitext(STATIC_CLOUD_FILE)[0] + '.vtk'
-DYNAMIC_CLOUD_FILE = pjoin(MERGED_CLOUDS_DIR, 'dynamic_%d.pcd' % MAP_COLOR_WINDOW)
+DYNAMIC_CLOUD_FILE = pjoin(MERGED_COLOR_CLOUDS_DIR, 'dynamic_%d.pcd' % MAP_COLOR_WINDOW)
 DYNAMIC_VTK_FILE = os.path.splitext(DYNAMIC_CLOUD_FILE)[0] + '.vtk'
 
 '''
