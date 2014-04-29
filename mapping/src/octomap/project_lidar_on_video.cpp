@@ -9,12 +9,12 @@
 
 #include <octomap/octomap.h>
 
-#include "parameters.h"
 #include "../videoreader/VideoReader.h"
 #include "utils/cloud_utils.h"
 #include "utils/hdf_utils.h"
 #include "utils/cv_utils.h"
 #include "utils/path_utils.h"
+#include "parameters.h"
 
 //namespace po = boost::program_options;
 namespace fs = boost::filesystem;

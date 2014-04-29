@@ -236,9 +236,9 @@ def merge_color_clouds(cloud_files, merged_cloud_file):
 
 
 @follows('merge_color_clouds')
-@files(MERGED_CLOUD_FILE, STATIC_CLOUD_FILE)
+@files(MERGED_COLOR_CLOUD_FILE, STATIC_CLOUD_FILE)
 def octomap_filter(input_file, output_file):
-    cmd = '%s/bin/octomap_filter %s %s %s' % (MAPPING_PATH, MERGED_CLOUD_FILE, STATIC_CLOUD_FILE, DYNAMIC_CLOUD_FILE)
+    cmd = '%s/bin/octomap_filter %s %s %s' % (MAPPING_PATH, MERGED_COLOR_CLOUD_FILE, STATIC_CLOUD_FILE, DYNAMIC_CLOUD_FILE)
     print cmd
     check_call(cmd, shell=True)
     cmd = 'pcl_pcd2vtk %s %s; pcl_pcd2vtk %s %s' % (STATIC_CLOUD_FILE, STATIC_VTK_FILE, DYNAMIC_CLOUD_FILE, DYNAMIC_VTK_FILE)

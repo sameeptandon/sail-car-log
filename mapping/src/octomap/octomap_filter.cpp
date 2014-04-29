@@ -1,7 +1,7 @@
 #include <octomap/octomap.h>
 
-#include "parameters.h"
 #include "utils/cloud_utils.h"
+#include "parameters.h"
 
 int main(int argc, char** argv)
 {

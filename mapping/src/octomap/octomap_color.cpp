@@ -6,8 +6,8 @@
 
 #include <octomap/octomap.h>
 
-#include "parameters.h"
 #include "cloud_server.h"
+#include "parameters.h"
 #include "../videoreader/VideoReader.h"
 #include "utils/cv_utils.h"
 
