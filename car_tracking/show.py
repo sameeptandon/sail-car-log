@@ -20,24 +20,29 @@ from ProjectRadarOnVideo import *
 from collections import defaultdict
 from collections import Counter
 
-def set_ids(annotations):                       
+def set_ids(annotations):
+	gap_between_the_same_id_usage = 50;
         n = len(annotations)            
-        available_id = 0;                       
+        available_id = 0;
+	id_last_usage = [];     
         annotation = annotations[0];
         rects = annotation.rects;
         for rect in rects:      
-                rect.classID = available_id; 
+                rect.classID = available_id;
+		id_last_usage.append(0);
                 available_id += 1;
         for anno_idx in range(1,n):
                 new_annotation = annotations[anno_idx];
                 new_rects = new_annotation.rects;
                 dist_mat = [[0 for i in range(len(rects))] for j in range(len(new_rects))]
+		# Finding the distance of rects in two consecutive frames
                 for i, new_rect in enumerate(new_rects):
                         for j, rect in enumerate(rects):
                                 dist_mat[i][j] = (new_rect.centerX()-rect.centerX())**2 + (new_rect.centerY()-rect.centerY())**2 \
                                                  + (new_rect.width()-rect.width())**2 + (new_rect.height()-rect.height())**2
                 min_dist = [min(dist_mat[i]) for i in range(len(new_rects))];
                 new_ids = [dist_mat[i].index(min(dist_mat[i])) for i in range(len(new_rects))];
+		# Checking for confilicts in the matching
                 for i in range(len(new_rects)):
                         for j in range(i+1, len(new_rects)):
                                 if new_ids[i] == new_ids[j]:
@@ -45,29 +50,39 @@ def set_ids(annotations):
                                                 new_ids[j] = -1;
                                         else:
                                                 new_ids[i] = -1;
+		# Updating the ids of rects in the new frame
                 for i in range(len(new_rects)):
                         if new_ids[i] == -1:
-                                new_rects[i].classID = available_id;
-                                available_id += 1;
+				flag = False;
+				for j in range(available_id):
+					if(anno_idx-id_last_usage[j] > gap_between_the_same_id_usage):
+						flag = True;
+						break;
+				if flag:
+					new_rects[i].classID = j;
+					id_last_usage[j] = anno_idx;
+				else:
+                               		new_rects[i].classID = available_id;
+					id_last_usage.append(anno_idx);
+                                	available_id += 1;
                         else:
                                 new_rects[i].classID = rects[new_ids[i]].classID;
-                                         
+				id_last_usage[new_rects[i].classID] = anno_idx;
+				
                 annotation = new_annotation;
                 rects = annotation.rects;
         
-        return available_id; 
+        return [available_id,gap_between_the_same_id_usage]; 
     
-
-def radarTrackerMapping(annotation, rdr_map, args, sc, l): # l is the length of consistency in annotation's ids
-	anno_len = len(annotation);
+def set_annotations_ids_using_radar(annotations, rdr_map, args):
+	max_id, block_size = set_ids(annotations);
+	anno_len = len(annotations);
 	rdr_len = len(rdr_map);
-	max_id = 1000;
+	sc = 10; # scaling factor between tracker and radar indices
 	i = 0;
-	
 	while (i < anno_len and i < rdr_map):
 		id_info = [[] for r in range(max_id)];
-		eq = 1;
-		for j in range(l):
+		for j in range(block_size):
 			idx = i + j;
 			if idx >=len(annotations):
 				break;
@@ -83,10 +98,8 @@ def radarTrackerMapping(annotation, rdr_map, args, sc, l): # l is the length of 
 			
 		        center_proj = projectPoints(np.array(radar_data), args)
 		        cn_rdr = center_proj[:, 7:10].astype(np.int32);
-			cn_trk = np.array([[eq*rect.classID, int(rect.centerX()), int(rect.bottom())] 
+			cn_trk = np.array([[rect.classID, int(rect.centerX()), int(rect.bottom())] 
 					for rect in annotation.rects if rect.width() > 40]);
-			print cn_rdr;
-			print cn_trk;
 			for r in range(len(cn_trk)):
 				id_r = cn_rdr[0,0];
 				dis = (cn_rdr[0,1]-cn_trk[r,1])**2 + (cn_rdr[0,2]-cn_trk[r,2])**2;
@@ -95,33 +108,21 @@ def radarTrackerMapping(annotation, rdr_map, args, sc, l): # l is the length of 
 					if dis_new < dis:
 						dis = dis_new;
 						id_r = cn_rdr[s,0];
+				id_info[cn_trk[r,0]].append([id_r, dis]);
 
-				id_info[cn_trk[r,0] + max_id/2].append([id_r, dis]);
-		max_ID = [[0,0] for r in range(max_id)];
+
+		max_ID = [0 for r in range(max_id)];
 		for r in range(max_id):
 			arr = np.array(id_info[r]);
 			if len(arr) > 0:
 				result = Counter(arr[:,0]).most_common(1)[0]
-	#			d = defaultdict(int)
-	#			for s in arr:
-	#			    d[s] += 1
-	#			result = max(d.iteritems(), key=itemgetter(1));
 				if result[1] > .5 * len(arr):
-					max_ID[r][0] = result[0];
-					max_ID[r][1] = sum([arr[sx][1] for sx in range(len(arr)) if arr[sx][0]==result[0]])
+					max_ID[r] = result[0];
 				else:
-					max_ID[r][0] = -1;
-#		for r in range(max_id):
-#			for s in range(r,max_id):
-#				if max_ID[r][0]==max_ID[s][0] and max_ID[r][0]!=-1:
-#					if max_ID[r][1] < max_ID[s][1]:
-#						max_ID[s][0] = -1;
-#					else:
-#						max_ID[r][0] = -1;
-				
-		print id_info;
-		print max_ID; 
-		for j in range(l):
+					max_ID[r] = -1;
+		
+		# Checking for mismatching (matching two tracker results to one radar result)
+		for j in range(block_size):
 			idx = i + j;
 			if idx >= len(annotations):
 				break;
@@ -138,16 +139,13 @@ def radarTrackerMapping(annotation, rdr_map, args, sc, l): # l is the length of 
 			center_proj = projectPoints(np.array(radar_data), args)
 			cn_rdr = center_proj[:, 7:10].astype(np.int32);
 			
-			new_ids = [max_ID[rect.classID + max_id/2][0] for rect in annotation.rects];
-#			print "new_ids: ", new_ids
+			new_ids = [max_ID[rect.classID] for rect in annotation.rects];
 			for r in range(len(new_ids)):
 				for s in range(r+1,len(new_ids)):
 					if new_ids[r] == new_ids[s] and new_ids[r] > 0:
 						cn_idx = 0;
 						flag = False;
-#						print r,s, len(cn_rdr), "============="
 						while(True):
-							print cn_idx
 							if cn_rdr[cn_idx][0] == new_ids[r]:
 								flag = True;
 								break;
@@ -175,7 +173,6 @@ def radarTrackerMapping(annotation, rdr_map, args, sc, l): # l is the length of 
 					cn_idx = 0;
 					flag = False;
 					while(True):
-						print cn_idx;
 						if radar_data[cn_idx][7] == r_id:
 							flag = True;
 							break;
@@ -184,38 +181,21 @@ def radarTrackerMapping(annotation, rdr_map, args, sc, l): # l is the length of 
 							break;
 					if flag:
 						rect.score = radar_data[cn_idx][0];
-		i += l;
+		i += block_size;
+	return annotations;
 
-if __name__ == "__main__":
-	if (len(sys.argv) < 5):
-		print "python show.py <.al file> <frame#> <directory of .avi> <video file>"
-		sys.exit();
-	
+def show_3D(annotations,rdr_map, args, save_video = False, with_options=False):
 	writer = cv2.VideoWriter('edited_sequence_test3D.avi', cv.CV_FOURCC('X','V', 'I', 'D'),
                     20.0, (1280,960) )	
-	filename = (sys.argv[1]);
-	annotations = parseXML(filename);
-	set_ids(annotations);
-	print len(annotations);
-	di = 1;
-	ind = int(sys.argv[2]);
-
-
-####
-	args = parse_args(sys.argv[3], sys.argv[4])
-  	params = args['params']
-   
-  	video_reader = VideoReader(args['video'])
-   	rdr_map = loadRDRCamMap(args['map'])
-	
-	radarTrackerMapping(annotations, rdr_map, args, 10, 20);   
-	
-	saveXML(filename.split('.')[0] + "_with_distance.al", annotations);
+	ind = 0;
+	anno_size = len(annotations);
 	while True:
-	
-#		choice = raw_input("> ");
-		
-		choice = 'f';
+		if(ind >= anno_size):
+			break;
+		if (with_options):
+			choice = raw_input("> ");
+		else:
+			choice = 'f';
 		if choice=='f': di = 1;
 		elif choice=='b': di = -1;
 		elif choice == 'x': break;
@@ -223,21 +203,12 @@ if __name__ == "__main__":
 		ImgName =  annotation.filename();
 		ImgName = "/Users/Carrie/Desktop/radarData/all_extracted/"+'/'.join(ImgName.split('/')[-2:])
 		print ImgName;
-#		ImgName = "/Users/Carrie/Desktop/radarData/"+ImgName[14:]	
 		
 		frame_num = ind * 10
 		radar_data = loadRDR(rdr_map[frame_num])[0]
 		 
-		print ImgName;
-		print os.path.isfile(ImgName)
 		rects = annotation.rects;
 		I = cv2.imread(ImgName);
-#		cv2.imshow('img1',I);
-#		cv2.waitKey(0)
-		bottom_right_pnt = [];
-		
-		for i, rect in enumerate(rects):
-			bottom_right_pnt.append([int(rect.classID), int(rect.x2), int(rect.y2)]);
 			
 
 		if radar_data.shape[0] > 0:
@@ -289,8 +260,6 @@ if __name__ == "__main__":
 						break;
 					else:
 						scale_factor = rect.width()/radar_width;
-						#scale_factor = 1;
-						print scale_factor;
 						flag0 = False;
 						#cv2.circle(I, tuple(front_left_proj[cn_idx][8:10].astype(np.int32)), 4, (255,255,0))
 						if front_right_proj[cn_idx][8] > right_proj[cn_idx][8]:
@@ -301,17 +270,8 @@ if __name__ == "__main__":
 							r_vector = [int(scale_factor * (left_proj[cn_idx][8]-right_proj[cn_idx][8])), 0];
 							f_vector = [int(scale_factor * (front_left_proj[cn_idx][8]-left_proj[cn_idx][8])), 
 									int(scale_factor * (front_left_proj[cn_idx][9] - left_proj[cn_idx][9]))]
-							print rect.classID, r_vector, f_vector,  rect.width();
 							t_vector = [0, -int(rect.height())];
 							
-							bbl = pnt0;
-							bbr = [pnt0[0] + r_vector[0], pnt0[1]];
-							bfl = [pnt0[0] + f_vector[0], pnt0[1] + f_vector[1]];
-							bfr = [pnt0[0] + f_vector[0] + r_vector[0], pnt0[1] + f_vector[1]];
-							tbl = [pnt0[0], pnt0[1] + t_vector[1]];
-							tbr = [pnt0[0] + r_vector[0], pnt0[1] + t_vector[1]];
-							tfl = [pnt0[0] + f_vector[0], pnt0[1] + int(-.2*f_vector[1]) + t_vector[1]];
-							tfr = [pnt0[0] + f_vector[0] + r_vector[0], pnt0[1] + int(-.2*f_vector[1]) + t_vector[1]];
 						else:
 							r_vector = [int(scale_factor * (left_proj[cn_idx][8]-right_proj[cn_idx][8])), 0];
 							f_vector = [int(scale_factor * (front_right_proj[cn_idx][8]-right_proj[cn_idx][8])), 
@@ -319,14 +279,14 @@ if __name__ == "__main__":
 							t_vector = [0, -int(rect.height())];
 							pnt0 = [int(rect.x2)- r_vector[0] , int(rect.y2)];
 							
-							bbl = pnt0;
-							bbr = [pnt0[0] + r_vector[0], pnt0[1]];
-							bfl = [pnt0[0] + f_vector[0], pnt0[1] + f_vector[1]];
-							bfr = [pnt0[0] + f_vector[0] + r_vector[0], pnt0[1] + f_vector[1]];
-							tbl = [pnt0[0], pnt0[1] + t_vector[1]];
-							tbr = [pnt0[0] + r_vector[0], pnt0[1] + t_vector[1]];
-							tfl = [pnt0[0] + f_vector[0], pnt0[1] + int(-.2*f_vector[1]) + t_vector[1]];
-							tfr = [pnt0[0] + f_vector[0] + r_vector[0], pnt0[1] + int(-.2*f_vector[1]) + t_vector[1]];
+						bbl = pnt0;
+						bbr = [pnt0[0] + r_vector[0], pnt0[1]];
+						bfl = [pnt0[0] + f_vector[0], pnt0[1] + f_vector[1]];
+						bfr = [pnt0[0] + f_vector[0] + r_vector[0], pnt0[1] + f_vector[1]];
+						tbl = [pnt0[0], pnt0[1] + t_vector[1]];
+						tbr = [pnt0[0] + r_vector[0], pnt0[1] + t_vector[1]];
+						tfl = [pnt0[0] + f_vector[0], pnt0[1] + int(-.2*f_vector[1]) + t_vector[1]];
+						tfr = [pnt0[0] + f_vector[0] + r_vector[0], pnt0[1] + int(-.2*f_vector[1]) + t_vector[1]];
 							 
 							
 				#		cv2.line(I, tuple(bfr), tuple(bfl), (255,255,0))
@@ -351,34 +311,34 @@ if __name__ == "__main__":
 						    cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,255), thickness=1)
 	#	    mmap = RadarTrackerMapping(right_proj[:,8:10], np.array(bottom_right_pnt));
 		    
-		    for j in xrange(front_right_proj.shape[0]):
-			fr = front_right_proj[j, 8:10].astype(np.int32);
-			fl = front_left_proj[j, 8:10].astype(np.int32);
-			bl = left_proj[j, 8:10].astype(np.int32);
-			br = right_proj[j, 8:10].astype(np.int32);
-			cn = center_proj[j, 8:10].astype(np.int32);
-			
-#			cv2.circle(I, tuple(cn), 4, (255,255,0))
-#			cv2.line(I, tuple(fr), tuple(fl), (255,255,0))
-#			cv2.line(I, tuple(fl), tuple(bl), (255,255,0))
-#			cv2.line(I, tuple(bl), tuple(br), (255,0,0))
-#			cv2.line(I, tuple(br), tuple(fr), (255,255,0))
-
-			dist = radar_data[j, 0]
-			rcs = radar_data[j, 5]
-			spd = radar_data[j, 6]
-			id = int(radar_data[j, 7])
-			s = "%d: %d, %0.2f, %0.2f" % (id, rcs, dist, spd)
-			s = "%d" %(id);
-#			cv2.putText(I, s, tuple(fr),
-#			    cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,255), thickness=1)
-	
-#		for rect in rects:
-#			Is = cv2.rectangle(I, (int(rect.x1),int(rect.y1)), (int(rect.x2), int(rect.y2)), 255,2);
-#			cv2.putText(I, str(rect.classID), (int(rect.x2),int(rect.y1)),
-#			    cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,255), thickness=1)
-
-		ind += di;
+		
+		ind += 1;
 		cv2.imshow('img1',I);
-		writer.write(I);
+		if(save_video):
+			writer.write(I);
+
 		cv2.waitKey(20)
+if __name__ == "__main__":
+	if (len(sys.argv) < 5):
+		print "python show.py <.al file> <frame#> <directory of .avi> <video file>"
+		sys.exit();
+	
+	filename = (sys.argv[1]);
+	annotations = parseXML(filename);
+	num_of_ids = set_ids(annotations);
+	print len(annotations);
+	di = 1;
+	ind = int(sys.argv[2]);
+	print(num_of_ids);
+	choice = raw_input("> ");
+
+####
+	args = parse_args(sys.argv[3], sys.argv[4])
+  	params = args['params']
+   
+  	video_reader = VideoReader(args['video'])
+   	rdr_map = loadRDRCamMap(args['map'])
+	
+	set_annotations_ids_using_radar(annotations, rdr_map, args);   
+	show_3D(annotations, rdr_map,args, True);
+	saveXML(filename.split('.')[0] + "_with_distance.al", annotations);
