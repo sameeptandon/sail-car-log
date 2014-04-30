@@ -1,7 +1,7 @@
 import cv
 import sys, os
 from AnnotationLib import *
-process_dir = '/'.join(os.path.abspath('show.py').split('/')[:-2])+'/process/';
+process_dir = '/'.join(os.path.abspath('radar_tracker.py').split('/')[:-2])+'/process/';
 sys.path.append(process_dir);
 from Q50_config import *
 from GPSReader import *
