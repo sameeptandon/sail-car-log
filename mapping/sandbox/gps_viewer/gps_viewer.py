@@ -22,22 +22,25 @@ def read_gps_fields(gps_file, fields):
     return field_data
 
 
-if __name__ == '__main__':
-    API_KEY = open('api_key.txt', 'r').read().strip()
-
+def get_route_segment_split_gps():
     route_segment_split_gps = defaultdict(lambda: defaultdict(dict))
     routes = [d for d in os.listdir(SCAIL_Q50_DATA_DIR)]
-    print routes
     for route in routes:
         route_dir = os.path.join(SCAIL_Q50_DATA_DIR, route)
         gps_out_files = [f for f in os.listdir(route_dir) if f.endswith('gps.out')]
-        segments = list()
         for gps_out_file in gps_out_files:
             parts = gps_out_file.split('_')
             split = [part for part in parts if (len(part) == 1 and part.isalpha())][0]
             segment = '_'.join(parts[0:parts.index(split)])
             route_segment_split_gps[route][segment][split] =\
                 {'gps_file': os.path.join(route_dir, gps_out_file)}
+    return route_segment_split_gps
+
+
+if __name__ == '__main__':
+    API_KEY = open('api_key.txt', 'r').read().strip()
+
+    route_segment_split_gps = get_route_segment_split_gps()
 
     lat_max_all, lat_min_all = float('-inf'), float('inf')
     lon_max_all, lon_min_all = float('-inf'), float('inf')
