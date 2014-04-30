@@ -17,7 +17,10 @@ def filter_occluded(_rects):
     OCCLUSION_THRESHOLD = 0.4;
 
     rects = copy.deepcopy(_rects);
-    rects.sort(key=lambda r: r.width())
+
+    # cars that are closer to the camera should come first -> closer to the camera means lower in the image
+    #rects.sort(key=lambda r: r.width())
+    rects.sort(key=lambda r: (r.y2, r.width()))
 
     rects_filtered = [];
     num_rects = len(rects);
@@ -120,7 +123,13 @@ def match_and_ratio_test(des1, des2):
 	# good = [m for m, n in matches if m.distance < 0.75*n.distance];
 
 	# BFMatcher with default params
+    
+       	# MA: need at least two points to perform ratio test 
+	if len(des1) <= 1 or len(des2) <= 1:
+            return [];
+        
 	bf = cv2.BFMatcher()
+
 	matches = bf.knnMatch(des1, des2, k=2)
 
 	if len(matches)<2:
@@ -509,7 +518,7 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 			# 	verification_ok = False;
                         #         num_init_matching_failed_sift += 1;
 
-                        # MA: for now tracks that start on the boundary should remain on the boundary (otherwise we don't know t he correct extent)
+                        # MA: for now tracks that start on the boundary should remain on the boundary (otherwise we don't know the correct extent)
                         BORDER_THRESHOLD = 10;
                         if (rect.x1 < BORDER_THRESHOLD and new_rect.x1 > rect.x1) or (rect.x2 > Img2.shape[1] - BORDER_THRESHOLD and new_rect.x2 < rect.x2):
                             verification_ok = False;

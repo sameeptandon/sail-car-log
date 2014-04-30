@@ -63,7 +63,7 @@ if __name__ == "__main__":
             a.imageName = annolist_basedir + "/" + a.imageName
 	    print "New->"+a.imageName;
 
-#        assert(os.path.isfile(a.imageName))
+    assert(os.path.isfile(a.imageName))
 
     annolist = annolist[firstidx:lastidx+1];
 
@@ -96,6 +96,8 @@ if __name__ == "__main__":
             stop_imgname = inc_image_name(annolist[idx].imageName, trackMaxFrames);
 
         annolist_track_fwd = track_frame(annolist[idx], stop_imgname, trackMaxFrames, 1);
+
+        annolist_track_main = [];
 
         # track backward
         if idx < len(annolist) - 1:
@@ -140,6 +142,9 @@ if __name__ == "__main__":
 
                     annolist_track_main[idx2].rects += r_new;
 
+        # MA: add forward tracks if tracking back failed
+        if len(annolist_track_main) == 0:
+           annolist_track_main = annolist_track_fwd;
 
         annolist_track += annolist_track_main;
         
@@ -147,7 +152,6 @@ if __name__ == "__main__":
         if idx % 10 == 0:
             print "saving " + save_filename_partiall;
             saveXML(save_filename_partiall, annolist_track);
-
 
     print "saving " + save_filename;
     saveXML(save_filename, annolist_track);
