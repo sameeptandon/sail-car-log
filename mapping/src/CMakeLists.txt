@@ -46,6 +46,9 @@ target_link_libraries(cv_utils
 
 # Executables
 
+add_executable(view_pcd view_pcd.cpp)
+target_link_libraries(view_pcd ${PCL_LIBRARIES})
+
 add_executable(h5_to_pcd h5_to_pcd.cpp)
 target_link_libraries(h5_to_pcd ${PCL_LIBRARIES} h5 ${Boost_PROGRAM_OPTIONS_LIBRARY})
 

@@ -213,7 +213,7 @@ def merge_color_clouds(cloud_files, merged_cloud_file):
     merged_chunk_files = list()
     k = 0
     for chunk_files in chunks:
-        merged_chunk_file = os.path.dirname(MERGED_COLOR_CLOUD_FILE) + 'chunk%d.pcd' % k
+        merged_chunk_file = os.path.dirname(MERGED_COLOR_CLOUD_FILE) + '/chunk%d.pcd' % k
         # Concatenate PCD files
         cmd = 'pcl_concatenate_points_pcd ' + ' '.join(chunk_files) + '; mv output.pcd %s' % merged_chunk_file
         print cmd
