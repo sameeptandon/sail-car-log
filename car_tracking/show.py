@@ -185,8 +185,9 @@ def set_annotations_ids_using_radar(annotations, rdr_map, args):
 	return annotations;
 
 def show_3D(annotations,rdr_map, args, save_video = False, with_options=False):
-	writer = cv2.VideoWriter('edited_sequence_test3D.avi', cv.CV_FOURCC('X','V', 'I', 'D'),
-                    20.0, (1280,960) )	
+	if (save_video):
+		writer = cv2.VideoWriter('edited_sequence_test3D.avi', cv.CV_FOURCC('X','V', 'I', 'D'),
+			    20.0, (1280,960) )	
 	ind = 0;
 	anno_size = len(annotations);
 	while True:
@@ -318,6 +319,72 @@ def show_3D(annotations,rdr_map, args, save_video = False, with_options=False):
 			writer.write(I);
 
 		cv2.waitKey(20)
+def compute_statistics(annotations, rdr_map):
+	idx = 0;
+	anno_size = len(annotations);
+	hasnt_radar_w = [];
+	all_w = [];
+	hasnt_tracker_d = [];
+	all_d = [];
+	while(True):
+		if(idx >= anno_size):
+			break;
+		annotation = annotations[idx];
+		frame_num = idx * 10
+		radar_data = loadRDR(rdr_map[frame_num])[0]
+		if radar_data.shape[0] > 0:
+		    # Remove points that have a low radar cross-section
+		    mask = (radar_data[:, 5] > 0)
+		    # Remove points that are moving too fast (fixed objects)
+		    mask &= (radar_data[:, 6] > -20)
+		    radar_data = radar_data[mask]
+
+		 
+		rects = annotation.rects;
+		for i, rect in enumerate(rects):
+			cn_idx = 0;
+			flag = False;
+			while(True):
+				if radar_data[cn_idx][7] == rect.classID:
+					flag = True;
+					break;
+				cn_idx += 1;
+				if cn_idx > len(radar_data)-1:
+					break;
+			all_w.append(rect.width());
+			if not flag:
+				hasnt_radar_w.append(rect.width());
+		
+		for i, rdr in enumerate(radar_data):
+			cn_idx = 0;
+			flag = False;
+			while(True):
+				if rects[cn_idx].classID == rdr[7]:
+					flag = True;
+					break;
+				cn_idx += 1;
+				if cn_idx > len(rects)-1:
+					break;
+			all_d.append(rdr[0]);
+			if not flag:
+				hasnt_tracker_d.append(rdr[0]);
+		idx += 1;
+	hist_hasnt_radar_w = np.histogram(hasnt_radar_w,20);  
+	hist_all_w = np.histogram(all_w,20);  
+	
+	hist_hasnt_tracker_d = np.histogram(hasnt_tracker_d,10);  
+	hist_all_d = np.histogram(all_d,10);  
+
+	ratio_w = [1.0*hist_hasnt_radar_w[0][i]/hist_all_w[0][i] for i in range(20)];	
+	ratio_d = [1.0*hist_hasnt_tracker_d[0][i]/hist_all_d[0][i] for i in range(10)];	
+	print hist_hasnt_radar_w;
+	print hist_all_w;
+	print hist_hasnt_tracker_d;
+	print hist_all_d;
+	
+	print(ratio_w);	
+	print(ratio_d);
+
 if __name__ == "__main__":
 	if (len(sys.argv) < 5):
 		print "python show.py <.al file> <frame#> <directory of .avi> <video file>"
@@ -340,5 +407,6 @@ if __name__ == "__main__":
    	rdr_map = loadRDRCamMap(args['map'])
 	
 	set_annotations_ids_using_radar(annotations, rdr_map, args);   
-	show_3D(annotations, rdr_map,args, True);
+	compute_statistics(annotations, rdr_map);
+#	show_3D(annotations, rdr_map,args, True);
 	saveXML(filename.split('.')[0] + "_with_distance.al", annotations);
