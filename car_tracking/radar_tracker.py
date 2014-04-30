@@ -387,7 +387,7 @@ def compute_statistics(annotations, rdr_map):
 
 if __name__ == "__main__":
 	if (len(sys.argv) < 5):
-		print "python show.py <.al file> <frame#> <directory of .avi> <video file>"
+		print "python radar_tracker.py <.al file> <frame#> <directory of .avi> <video file>"
 		sys.exit();
 	
 	filename = (sys.argv[1]);
