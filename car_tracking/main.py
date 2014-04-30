@@ -126,11 +126,12 @@ if __name__ == "__main__":
                     #MA: don't include duplicate rects
 			
 
-                    for r_more in annolist_track_more[idx2].rects:
+                    for r_ind, r_more in enumerate(annolist_track_more[idx2].rects):
 
                         found_similar = False;
                         for r_main in annolist_track_main[idx2].rects:
                             if isTheSame(r_main, r_more):
+				if r_ind > midIdx: r_main.classID = r_more.classID;
                                 found_similar = True;
                                 break;
 

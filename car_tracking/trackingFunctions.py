@@ -421,8 +421,11 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
         # MA: init track id's
         for tidx, r in enumerate(tracked_rects):
-            r.classID = tidx;
-
+	    if frame_inc > 0 :
+            	r.classID = tidx;
+	    else:
+            	r.classID = -tidx;
+		
             tracks_init_des.append([]);
             tracks_init_num_matches.append(-1);
 
@@ -477,15 +480,15 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
                         cur_num_matches = 0;
 
                         if framesTracked == 0:
-                            tracks_init_des[rect.classID] = des1;
-                            tracks_init_num_matches[rect.classID] = len(matches);
+                            tracks_init_des[abs(rect.classID)] = des1;
+                            tracks_init_num_matches[abs(rect.classID)] = len(matches);
 
-                            cur_num_matches = tracks_init_num_matches[rect.classID];
+                            cur_num_matches = tracks_init_num_matches[abs(rect.classID)];
                         else:
                             bf = cv2.BFMatcher();
-                            cur_num_matches = len(match_and_ratio_test(tracks_init_des[rect.classID], des2));
+                            cur_num_matches = len(match_and_ratio_test(tracks_init_des[abs(rect.classID)], des2));
                         
-                        print "\ttrack %d, init_num_matches %d, cur_num_matches: %d" % (rect.classID, tracks_init_num_matches[rect.classID], cur_num_matches)
+                        print "\ttrack %d, init_num_matches %d, cur_num_matches: %d" % (rect.classID, tracks_init_num_matches[abs(rect.classID)], cur_num_matches)
 
 			verification_ok = True;
 
@@ -493,7 +496,7 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 		        hist_cur = comp_rect_hist(Img2_color, new_rect);
 			
 			#cur_color_dist = cv2.compareHist(tracks_init_colorhist[rect.classID], hist_cur, cv.CV_COMP_CHISQR)
-			cur_color_dist = dist_chi2(tracks_init_colorhist[rect.classID], hist_cur);
+			cur_color_dist = dist_chi2(tracks_init_colorhist[abs(rect.classID)], hist_cur);
 
 			print "\n\t cur_color_dist: " + str(cur_color_dist);
 
