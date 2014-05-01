@@ -1,7 +1,6 @@
 import os, sys
 import subprocess, multiprocessing
 
-LDR_COMMAND = 'build/LDRConverter --hdlcalibration 32db.xml --p '
 FF_COMMAND = 'python FrameFinder.py '
 GPS_COMMAND = 'python ../gps/BagToGPSOut.py '
 
@@ -16,10 +15,6 @@ def run_command(args):
     f.write(params + '\n')
     f.close()
     print 'Wrote %s to %s' % (params, param_file)
-
-    cmd = LDR_COMMAND + target_dir + '/' + p
-    print cmd
-    subprocess.call(cmd, shell=True)
  
     basename = p.split('.')[0]
     gps_bag = basename + '_gps.bag'
