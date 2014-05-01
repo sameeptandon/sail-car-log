@@ -20,11 +20,50 @@ socket.on('WARN', function(data) {
 });
 
 socket.on('GPSUNCERTAINTY', function(data) {
-  document.getElementById('gps_uncertainty').innerHTML = 'Err: ' + data;
+  // %.2f,%.2f,%.2f\n%.2f,%.2f,%.2f
+  var tokens = data.split('\n');
+  var xyz_err = tokens[0].split(',');
+  var rot_err = tokens[1].split(',');
+
+  var x, y, z,rx, ry, rz
+  x = parseFloat(xyz_err[0]);
+  y = parseFloat(xyz_err[1]);
+  z = parseFloat(xyz_err[2]);
+
+  rx = parseFloat(rot_err[0]);
+  ry = parseFloat(rot_err[1]);
+  rz = parseFloat(rot_err[2]);
+
+  var $g_uncert = $('#gps_uncertainty');
+  if (x > 0.5 || y > 0.5 || z > 0.5 ||
+      rx > 0.001 || ry > 0.001 || rz > 0.1) {
+    $g_uncert.addClass('value_error');
+  } else {
+    $g_uncert.removeClass('value_error');
+  }
+  $g_uncert.html('Err: ' + data);
 });
 
 socket.on('INFOCAPTURERATE', function(data) {
-  document.getElementById('capture_rate').innerHTML = 'Capture Rate: ' + data;
+  var tokens = data.substr(1, data.length-2).split(',');
+  var nums = tokens.map(function(e) {
+    return parseInt(e);
+  });
+  var err = false;
+  for (var i = 0; i < nums.length; i++) {
+    j = i + 1 % (nums.length-1);
+    if (Math.abs(nums[i]-nums[j]) > 10) {
+      err = true;
+      break;
+    }
+  }
+  var $cr = $('#capture_rate');
+  if (err) {
+    $cr.addClass('value_error');
+  } else {
+    $cr.removeClass('value_error');
+  }
+  $cr.html('Capture Rate: ' + data);
 });
 
 socket.on('GPS', function(data) {
@@ -36,7 +75,14 @@ socket.on('GPS', function(data) {
 });
 
 socket.on('disk_usage', function(data) {
-  document.getElementById('disk_usage').innerHTML = 'Disk Usage: ' + data;
+  var $du = $('#disk_usage');
+  var percent = parseInt(data.replace('%', ''));
+  if (percent > 90) {
+    $du.addClass('value_error');
+  } else {
+    $du.removeClass('value_error');
+  }
+  $du.html('Disk Usage: ' + data);
 });
 
 socket.on('subprocess_running', function(running) {
@@ -51,8 +97,8 @@ socket.on('subprocess_running', function(running) {
 
   console.log(enabled);
   console.log(disabled);
-  enabled.classList.remove('disabled');
-  disabled.classList.add('disabled');
+  enabled.classList.remove('hide');
+  disabled.classList.add('hide');
 });
 
 var sendStart = function() {

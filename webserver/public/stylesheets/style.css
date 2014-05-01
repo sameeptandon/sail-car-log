@@ -39,7 +39,7 @@ input[class=input-large] {
   padding: 20px;
 }
 
-.col-sm-6 .btn-lg {
+#start_button, #stop_button {
   font-size: 100px;
   min-height: 300px;
 }
@@ -48,4 +48,9 @@ input[class=input-large] {
   color: #d35400;
   text-align: center;
   font-size:60px;
+}
+
+.value_error {
+  background-color: #d9534f;
+  border-radius: 15px;
 }

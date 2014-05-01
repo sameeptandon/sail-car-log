@@ -63,9 +63,11 @@ target_link_libraries(estimate_normals ${PCL_LIBRARIES} ${Boost_PROGRAM_OPTIONS_
 
 add_subdirectory(videoreader)
 
+add_executable(color_intensity color_intensity.cpp utils/color_utils.cpp)
+target_link_libraries(color_intensity ${Boost_LIBRARIES} cloud_utils h5 ${OpenCV_LIBS} ${PYTHON_LIBRARIES})
+
 add_executable(color_cloud color_cloud.cpp utils/color_utils.cpp)
 target_link_libraries(color_cloud ${Boost_LIBRARIES} cloud_utils h5 ${OpenCV_LIBS} ${PYTHON_LIBRARIES})
-
 
 # Octomap stuff
 

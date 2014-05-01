@@ -53,7 +53,7 @@ int main(int argc, char** argv)
     // Load stuff
 
     PCL_INFO("Loading src_pd: %s\n", opts.src_pcd_file.c_str());
-    pcl::PointCloud<PointXYZ>::Ptr src_cloud(new pcl::PointCloud<PointXYZ>());
+    pcl::PointCloud<pcl::PointXYZI>::Ptr src_cloud(new pcl::PointCloud<pcl::PointXYZI>());
     if (pcl::io::loadPCDFile(opts.src_pcd_file, *src_cloud) < 0)
     {
         std::cout << "Error loading input point cloud " << opts.src_pcd_file << std::endl;
@@ -64,8 +64,8 @@ int main(int argc, char** argv)
 
     PointCloudWithNormals::Ptr out_cloud(new PointCloudWithNormals);
 
-    pcl::NormalEstimation<PointXYZ, PointNormalT> norm_est;
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>());
+    pcl::NormalEstimation<pcl::PointXYZI, pcl::PointXYZINormal> norm_est;
+    pcl::search::KdTree<pcl::PointXYZI>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZI>());
     norm_est.setSearchMethod(tree);
     norm_est.setKSearch(opts.k_search);
 
