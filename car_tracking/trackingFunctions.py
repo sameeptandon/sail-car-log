@@ -93,6 +93,12 @@ def inc_image_name(s, n):
     pos1 = s.rfind('_');
     pos2 = s.rfind('.');
 
+    pos1_slash = s.rfind('/');
+
+    # supported formats: "/path/filename_<framenumber>.ext" or "/path/<framenumber>.ext" 
+    if pos1 < pos1_slash:
+        pos1 = pos1_slash;
+
     num = int(s[pos1+1:pos2]) + n
     numlen = pos2 - pos1 - 1;
     res = s[:pos1+1] + str(num).zfill(numlen) + s[pos2:];
@@ -430,11 +436,11 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
         # MA: init track id's
         for tidx, r in enumerate(tracked_rects):
-	    if frame_inc > 0 :
-            	r.classID = tidx;
+	    if frame_inc > 0:
+		    r.classID = tidx;
 	    else:
-            	r.classID = -tidx;
-		
+		    r.classID = -tidx;
+			
             tracks_init_des.append([]);
             tracks_init_num_matches.append(-1);
 
