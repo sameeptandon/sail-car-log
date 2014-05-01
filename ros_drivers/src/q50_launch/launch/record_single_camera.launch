@@ -1,0 +1,14 @@
+<launch>
+
+<arg name="basename" />
+
+<!-- Start Camera Recording --> 
+<include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="1" />
+    <arg name="image_topic" value="/image_raw" />
+    <arg name="writer_node_name" value="fwd_writer" />
+</include>
+
+
+</launch>
