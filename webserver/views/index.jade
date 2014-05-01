@@ -2,10 +2,10 @@ extends layout
 
 block content
   .row
-    .col-lg-3.col-lg-offset-2.col-sm-6
+    .col-lg-3.col-lg-offset-2.col-sm-12
       button.btn.btn-success.btn-block.btn-lg#start_button(type='button', onclick='sendStart();') Start
-    .col-lg-3.col-lg-offset-2.col-sm-6
-      button.btn.btn-danger.btn-block.btn-lg.disabled#stop_button(type='button', onclick='sendStop();') Stop
+    .col-lg-3.col-lg-offset-2.col-sm-12
+      button.btn.btn-danger.btn-block.btn-lg.hide#stop_button(type='button', onclick='sendStop();') Stop
 
   .row
     .col-lg-3.col-lg-offset-3.col-sm-6
