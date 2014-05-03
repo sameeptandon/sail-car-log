@@ -69,6 +69,7 @@ def convert_ldr_to_h5(dummy_file, output_file):
     cmd = 'python {exporter} {fgps} {fmap} {h5_dir}'.format(exporter=exporter, fgps=GPS_FILE, fmap=MAP_FILE, h5_dir=POINTS_H5_DIR)
     if EXPORT_FULL:
         cmd += ' --full'
+    print cmd
     check_call(cmd, shell=True)
 
 

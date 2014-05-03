@@ -85,9 +85,9 @@ class SimpleHDLViewer
 {
   public:
     typedef PointCloud<PointXYZRGBA> Cloud;
-    typedef typename Cloud::ConstPtr CloudConstPtr;
+    typedef Cloud::ConstPtr CloudConstPtr;
     typedef PointCloud<PointXYZI> VisualCloud;
-    typedef typename VisualCloud::ConstPtr VisualCloudConstPtr;
+    typedef VisualCloud::ConstPtr VisualCloudConstPtr;
 
     SimpleHDLViewer(Grabber& grabber,
                      PointCloudColorHandler<PointXYZI> &handler)
