@@ -28,6 +28,10 @@ void Parameters::initialize()
    params_file = py::extract<std::string>(pycfg.attr("PARAMS_H5_FILE"));
    cam_ind = py::extract<int>(pycfg.attr("CAM_NUM")) - 1;
    lidar_project_min_dist = py::extract<float>(pycfg.attr("LIDAR_PROJECT_MIN_DIST"));
+   py::list l = py::extract<py::list>(pycfg.attr("ICP_COORD_WEIGHTS"));
+   for (int j = 0; j < py::len(l); j++)
+       icp_coord_weights.push_back(py::extract<float>(l[j]));
+   icp_tol = py::extract<float>(pycfg.attr("ICP_TOL"));
    map_color_window = py::extract<int>(pycfg.attr("MAP_COLOR_WINDOW"));
    cloud_max_store = py::extract<int>(pycfg.attr("CLOUD_MAX_STORE"));
    handle_occlusions = py::extract<bool>(pycfg.attr("HANDLE_OCCLUSIONS"));

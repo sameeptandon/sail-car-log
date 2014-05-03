@@ -36,6 +36,9 @@ class Parameters
     int cam_ind;
     float lidar_project_min_dist;
 
+    float icp_tol;
+    std::vector<float> icp_coord_weights;
+
     int map_color_window;
     int cloud_max_store;
 
