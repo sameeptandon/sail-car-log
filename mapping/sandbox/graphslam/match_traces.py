@@ -15,7 +15,7 @@ from sklearn.neighbors import NearestNeighbors
 from WGS84toENU import WGS84toECEF
 import matplotlib.pyplot as plt
 from graphslam_config import GPS_MATCH_DIST_TOL,\
-    GPS_BBOX_OVERLAP_PADDING, MIN_OVERLAP_THRESH
+    GPS_BBOX_OVERLAP_PADDING, MIN_OVERLAP_THRESH, FREEWAY
 from gps_viewer import get_route_segment_split_gps
 
 
@@ -93,18 +93,26 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     route_segment_split_gps = get_route_segment_split_gps()
+    freeway_data = json.load(open('segment_freeways.json', 'r'))
     gps_file_list = list()
     gps_bbox_list = list()
     gps_trace_dirs = list()
     rss_list = list()
 
     for route in route_segment_split_gps.keys():
+        # FIXME Some March data missing bag files
+        if route.startswith('3'):
+            continue
         print route
         segment_split_gps = route_segment_split_gps[route]
         for segment in segment_split_gps:
             print '\t' + segment
             split_gps = segment_split_gps[segment]
             for split in split_gps:
+                if FREEWAY not in freeway_data[route][segment][split].split('+'):
+                    # Only consider splits on freeway we're currently looking at
+                    continue
+
                 gps_file = split_gps[split]['gps_file']
                 print '\t\t' + split + ': ' + gps_file
                 xyz = read_gps_ecef(gps_file)
@@ -132,9 +140,14 @@ if __name__ == '__main__':
     json_data = dict()
     json_data['matches'] = list()
 
+    seen = np.zeros((N, N), dtype=np.bool8)
+
     for j in range(N):
         overlap_fracs[j, j] = -1
         k = overlap_fracs[j, :].argmax()
+        if seen[j, k]:
+            continue
+
         max_overlap = overlap_fracs[j, k]
 
         xyz1 = read_gps_ecef(gps_file_list[j])
@@ -176,6 +189,10 @@ if __name__ == '__main__':
             dset[...] = match_mat
 
             h5f.close()
+
+        seen[j, k] = True
+        seen[k, j] = True
+        break  # FIXME
 
     json_out_file = pjoin(args.out_dir, 'matches.json')
     json.dump(json_data, open(json_out_file, 'w'), indent=4, sort_keys=True)
