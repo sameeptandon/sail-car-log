@@ -117,6 +117,13 @@ transformPointCloudHelper<PointXYZRGBNormal> (PointCloud<PointXYZRGBNormal> & in
   transformPointCloudWithNormals (input, output, tform);
 }
 
+template <> void
+transformPointCloudHelper<PointXYZINormal> (PointCloud<PointXYZINormal> & input,
+                                              PointCloud<PointXYZINormal> & output,
+                                              Eigen::Matrix4f &tform)
+{
+  transformPointCloudWithNormals (input, output, tform);
+}
 
 template <typename PointT> void
 transformPointCloud2AsType (const pcl::PCLPointCloud2 &input, pcl::PCLPointCloud2 &output,
@@ -132,26 +139,37 @@ void
 transformPointCloud2 (const pcl::PCLPointCloud2 &input, pcl::PCLPointCloud2 &output,
                       Eigen::Matrix4f &tform)
 {
-  // Check for 'rgb' and 'normals' fields
+  // Check for 'rgb', 'normals', and 'intensity' fields
   bool has_rgb = false;
   bool has_normals = false;
+  bool has_intensity = false;
   for (size_t i = 0; i < input.fields.size (); ++i)
   {
     if (input.fields[i].name == "rgb")
       has_rgb = true;
     if (input.fields[i].name == "normal_x")
       has_normals = true;
+    if (input.fields[i].name == "intensity")
+      has_intensity = true;
   }
 
-  // Handle the following four point types differently: PointXYZ, PointXYZRGB, PointNormal, PointXYZRGBNormal
-  if (!has_rgb && !has_normals)
+  std::cout << " by " << std::endl << tform << std::endl;
+
+  // Handle the following four point types differently: PointXYZ, PointXYZRGB, PointNormal, PointXYZRGBNormal, PointXYZINormal
+  if (!has_rgb && !has_normals && !has_intensity)
     transformPointCloud2AsType<PointXYZ> (input, output, tform);
-  else if (has_rgb && !has_normals)
+  else if (has_rgb && !has_normals && !has_intensity)
     transformPointCloud2AsType<PointXYZRGB> (input, output, tform);
-  else if (!has_rgb && has_normals)
+  else if (!has_rgb && has_normals && !has_intensity)
     transformPointCloud2AsType<PointNormal> (input, output, tform);
-  else // (has_rgb && has_normals)
+  else if (has_rgb && has_normals && !has_intensity)
     transformPointCloud2AsType<PointXYZRGBNormal> (input, output, tform);
+  else if (!has_rgb && has_normals && has_intensity)
+    transformPointCloud2AsType<PointXYZINormal> (input, output, tform);
+  else {
+      std::cout << "Unhandled point cloud type" << std::endl;
+      throw;
+  }
 }
 
 void
