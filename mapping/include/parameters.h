@@ -38,6 +38,7 @@ class Parameters
 
     float icp_tol;
     std::vector<float> icp_coord_weights;
+    float icp_min_intensity;
 
     int map_color_window;
     int cloud_max_store;

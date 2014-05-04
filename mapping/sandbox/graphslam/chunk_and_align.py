@@ -6,7 +6,7 @@ from gps_viewer import read_gps_fields
 from WGS84toENU import WGS84toECEF, WGS84toENU
 from pipeline_config import EXPORT_STEP, EXPORT_START, DATA_DIR, CAMERA, MAPPING_PATH, ICP_ITERS, ICP_MAX_DIST
 from graphslam_config import MATCH_JSON_DATA, CHUNK_SIZE, GRAPHSLAM_CHUNK_DIR, GRAPHSLAM_ALIGN_DIR
-from subprocess import check_call
+from pipeline_utils import print_and_call
 
 '''
 For every alignment, we need to create two small chunks of the
@@ -36,11 +36,6 @@ def get_enu0(gps_file, gps_ref_file):
 def dset_dir_from_rss(rss):
     dset = '%s_%s%d' % (rss[1], rss[2], CAMERA)
     return '%s/%s/%s' % (DATA_DIR, rss[0], dset)
-
-
-def print_and_call(cmd):
-    print cmd
-    check_call(cmd, shell=True)
 
 
 def vtk_filename(pcd_file):

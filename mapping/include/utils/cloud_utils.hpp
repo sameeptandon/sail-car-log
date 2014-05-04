@@ -61,7 +61,7 @@ void align_clouds_viz(const boost::shared_ptr<pcl::PointCloud<PointT> > src_clou
 
     // Add the final aligned cloud
 
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointNormal> red(aligned_cloud, 255, 0, 0);
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZINormal> red(aligned_cloud, 255, 0, 0);
     viz.addPointCloud(aligned_cloud, red, "aligned_cloud");
 
     viz.spin();

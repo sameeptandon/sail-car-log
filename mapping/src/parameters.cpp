@@ -32,6 +32,7 @@ void Parameters::initialize()
    for (int j = 0; j < py::len(l); j++)
        icp_coord_weights.push_back(py::extract<float>(l[j]));
    icp_tol = py::extract<float>(pycfg.attr("ICP_TOL"));
+   icp_min_intensity = py::extract<float>(pycfg.attr("ICP_MIN_INTENSITY"));
    map_color_window = py::extract<int>(pycfg.attr("MAP_COLOR_WINDOW"));
    cloud_max_store = py::extract<int>(pycfg.attr("CLOUD_MAX_STORE"));
    handle_occlusions = py::extract<bool>(pycfg.attr("HANDLE_OCCLUSIONS"));

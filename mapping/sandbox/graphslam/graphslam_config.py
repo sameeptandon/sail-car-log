@@ -1,6 +1,7 @@
 import os
 import json
 from os.path import dirname, join as pjoin
+import datetime
 
 GRAPHSLAM_PATH = dirname(os.path.abspath(__file__))
 GRAPHSLAM_OUT_DIR = '/scail/group/deeplearning/driving_data/zxie/graphslam'
@@ -16,6 +17,7 @@ for p in GRAPHSLAM_DIRS:
         os.mkdir(p)
 
 FREEWAY = '280N'
+DATE_RANGE = [datetime.date(2014, 4, 3), datetime.date(2014, 4, 29)]
 
 seen_gps_files = set()
 GPS_FILES = list()
@@ -45,4 +47,4 @@ CHUNK_SIZE = 10
 BIAS_GAMMA = 0.999
 dt = 1/50.0
 
-MIN_OVERLAP_THRESH = 0.5
+MIN_OVERLAP_THRESH = 0.25

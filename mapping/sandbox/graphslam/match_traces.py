@@ -15,7 +15,8 @@ from sklearn.neighbors import NearestNeighbors
 from WGS84toENU import WGS84toECEF
 import matplotlib.pyplot as plt
 from graphslam_config import GPS_MATCH_DIST_TOL,\
-    GPS_BBOX_OVERLAP_PADDING, MIN_OVERLAP_THRESH, FREEWAY
+    GPS_BBOX_OVERLAP_PADDING, MIN_OVERLAP_THRESH, FREEWAY, DATE_RANGE
+import datetime
 from gps_viewer import get_route_segment_split_gps
 
 
@@ -100,8 +101,12 @@ if __name__ == '__main__':
     rss_list = list()
 
     for route in route_segment_split_gps.keys():
-        # FIXME Some March data missing bag files
-        if route.startswith('3'):
+        month, day, year = [int(x) for x in route.split('-')[0:3]]
+        year = 2000 + year
+        if not (DATE_RANGE[0] <= datetime.date(year, month, day) <= DATE_RANGE[1]):
+            continue
+        if route not in freeway_data:
+            # Unlabeled route
             continue
         print route
         segment_split_gps = route_segment_split_gps[route]
@@ -192,7 +197,6 @@ if __name__ == '__main__':
 
         seen[j, k] = True
         seen[k, j] = True
-        break  # FIXME
 
     json_out_file = pjoin(args.out_dir, 'matches.json')
     json.dump(json_data, open(json_out_file, 'w'), indent=4, sort_keys=True)

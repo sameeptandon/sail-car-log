@@ -175,7 +175,7 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         if (debug)
         {
-            //align_clouds_viz(src_cloud, tgt_cloud, aligned_cloud, all_correspondences);
+            align_clouds_viz(src_cloud, tgt_cloud, aligned_cloud, all_correspondences);
         }
 
         if (all_correspondences.size() == 0)
@@ -184,15 +184,14 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
             throw;
         }
 
-        std::vector<float> x_translations(all_correspondences.size());
-        std::vector<float> y_translations(all_correspondences.size());
-        std::vector<float> z_translations(all_correspondences.size());
+        std::vector<float> x_translations;
+        std::vector<float> y_translations;
+        std::vector<float> z_translations;
         // TODO May want to use these at some point
         std::vector<Eigen::Vector3f> translations;
 
         float normalized_error = 0;
 
-        int j = 0;
         BOOST_FOREACH(pcl::Correspondence c, all_correspondences)
         {
             int idx_query = c.index_query;
@@ -200,17 +199,21 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
             pcl::PointXYZINormal p_query = src_cloud->at(idx_query);
             pcl::PointXYZINormal p_match = tgt_cloud->at(idx_match);
-
-            x_translations[j] = p_match.x - p_query.x;
-            y_translations[j] = p_match.y - p_query.y;
-            z_translations[j] = p_match.z - p_query.z;
-            j++;
+            // PARAM
+            if (p_query.intensity < params().icp_min_intensity || p_match.intensity < params().icp_min_intensity)
+                continue;
 
             Eigen::Vector3f translation;
             translation << p_match.x - p_query.x, p_match.y - p_query.y, p_match.z - p_query.z;
             normalized_error += translation.norm();
             translations.push_back(translation);
+
+            x_translations.push_back(p_match.x - p_query.x);
+            y_translations.push_back(p_match.y - p_query.y);
+            z_translations.push_back(p_match.z - p_query.z);
         }
+        //std::cout << translations.size() << "/" << all_correspondences.size() << " correspondences with high enough intensity" << std::endl;
+        assert (translations.size() > 0);
 
         normalized_error = normalized_error / all_correspondences.size();
         normalized_errors.push_back(normalized_error);
@@ -246,6 +249,9 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
         // Break if barely changing
         if (fabs(x_shift) < tol && fabs(y_shift) < tol && fabs(z_shift) < tol)
             break;
+
+        //while (max_dist > 0.5) // PARAM
+            //max_dist = max_dist / 2.0;
     }
 
     return normalized_errors.back();

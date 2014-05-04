@@ -3,3 +3,8 @@ from subprocess import check_call
 
 def file_num(file_path):
     return int(os.path.splitext(os.path.basename(file_path))[0])
+
+
+def print_and_call(cmd):
+    print cmd
+    check_call(cmd, shell=True)

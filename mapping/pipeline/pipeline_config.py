@@ -66,7 +66,7 @@ MERGED_COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'merged_color_clouds')
 OCTOMAP_DIR = pjoin(DSET_DIR, 'octomaps')
 COLOR_OCTOMAP_DIR = pjoin(DSET_DIR, 'color_octomaps')
 
-EXPORT_FULL = False
+EXPORT_FULL = True
 LANE_FILTER = False
 #EXPORT_START = 1700
 EXPORT_START = 0
@@ -88,8 +88,9 @@ ICP_ITERS = 100
 # NOTE set this parameter based on GPS delta spikes,
 # downsampling voxel leaf size, and time steps between scans
 ICP_MAX_DIST = 100.0
-ICP_COORD_WEIGHTS = [0.0, 1.0, 1.0, 10.0, 1.0]
-ICP_TOL = 0.001;
+ICP_COORD_WEIGHTS = [1.0, 1.0, 1.0, 10.0, 1.0]
+ICP_TOL = 0.001
+ICP_MIN_INTENSITY = 20
 
 LIDAR_PROJECT_MIN_DIST = 3.0
 
