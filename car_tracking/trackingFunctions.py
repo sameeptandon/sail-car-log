@@ -64,6 +64,9 @@ def comp_rect_hist(I, _rect, normtype=1):
 
     roi_img = I[rect.y1:rect.y2, rect.x1:rect.x2, :];
 
+    print "roi width: ", roi_img.shape[0], ", roi height: ", roi_img.shape[1];
+    print rect.y1, rect.y2, rect.x1, rect.x2
+
     assert(roi_img.shape[0] > 0 and roi_img.shape[1] > 0);
 
     hsv_img = cv2.cvtColor(roi_img, cv2.COLOR_BGR2HSV);
@@ -443,6 +446,8 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 			
             tracks_init_des.append([]);
             tracks_init_num_matches.append(-1);
+
+            print "width: ", r.width(), ", height: ", r.height();
 
 	    assert(r.width > 0 and r.height() > 0);
 	    tracks_init_colorhist.append(comp_rect_hist(Img1_color, r));
