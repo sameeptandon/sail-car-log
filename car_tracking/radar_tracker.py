@@ -32,24 +32,33 @@ def set_ids(annotations):
 		id_last_usage.append(0);
                 available_id += 1;
         for anno_idx in range(1,n):
+#		print str(1.0 * anno_idx / n *100).split('.')[0] + "%"
                 new_annotation = annotations[anno_idx];
                 new_rects = new_annotation.rects;
-                dist_mat = [[0 for i in range(len(rects))] for j in range(len(new_rects))]
-		# Finding the distance of rects in two consecutive frames
-                for i, new_rect in enumerate(new_rects):
-                        for j, rect in enumerate(rects):
-                                dist_mat[i][j] = (new_rect.centerX()-rect.centerX())**2 + (new_rect.centerY()-rect.centerY())**2 \
-                                                 + (new_rect.width()-rect.width())**2 + (new_rect.height()-rect.height())**2
-                min_dist = [min(dist_mat[i]) for i in range(len(new_rects))];
-                new_ids = [dist_mat[i].index(min(dist_mat[i])) for i in range(len(new_rects))];
-		# Checking for confilicts in the matching
-                for i in range(len(new_rects)):
-                        for j in range(i+1, len(new_rects)):
-                                if new_ids[i] == new_ids[j]:
-                                        if min_dist[i] < min_dist[j]:
-                                                new_ids[j] = -1;
-                                        else:
-                                                new_ids[i] = -1;
+		if(len(new_rects)==0):
+			annotation = new_annotation;
+			rects = annotation.rects;
+			continue;
+		if(len(rects)==0):
+			new_ids = [-1 for i in range(len(new_rects))];
+		else:	
+			dist_mat = [[0 for i in range(len(rects))] for j in range(len(new_rects))]
+			# Finding the distance of rects in two consecutive frames
+			for i, new_rect in enumerate(new_rects):
+				for j, rect in enumerate(rects):
+					dist_mat[i][j] = (new_rect.centerX()-rect.centerX())**2 + (new_rect.centerY()-rect.centerY())**2 \
+							 + (new_rect.width()-rect.width())**2 + (new_rect.height()-rect.height())**2
+#			print new_rects
+			min_dist = [min(dist_mat[i]) for i in range(len(new_rects))];
+			new_ids = [dist_mat[i].index(min(dist_mat[i])) for i in range(len(new_rects))];
+			# Checking for confilicts in the matching
+			for i in range(len(new_rects)):
+				for j in range(i+1, len(new_rects)):
+					if new_ids[i] == new_ids[j]:
+						if min_dist[i] < min_dist[j]:
+							new_ids[j] = -1;
+						else:
+							new_ids[i] = -1;
 		# Updating the ids of rects in the new frame
                 for i in range(len(new_rects)):
                         if new_ids[i] == -1:
@@ -75,7 +84,9 @@ def set_ids(annotations):
         return [available_id,gap_between_the_same_id_usage]; 
     
 def set_annotations_ids_using_radar(annotations, rdr_map, args): # rect.classID: corresponding radar id, rect.score: distance
+	print "Setting ids ..."
 	max_id, block_size = set_ids(annotations);
+	print "Importing radar information..."
 	anno_len = len(annotations);
 	rdr_len = len(rdr_map);
 	sc = 10; # scaling factor between tracker and radar indices
@@ -84,11 +95,12 @@ def set_annotations_ids_using_radar(annotations, rdr_map, args): # rect.classID:
 		id_info = [[] for r in range(max_id)];
 		for j in range(block_size):
 			idx = i + j;
-			if idx >=len(annotations):
+			frame_num = sc * idx;
+			if idx >=len(annotations) or frame_num > len(rdr_map):
 				break;
 			annotation = annotations[idx];
-			frame_num = sc * idx;
 			radar_data = loadRDR(rdr_map[frame_num])[0]
+	#		print "============" + str(len(radar_data)) + ", " +  str(len(radar_data[0]))
 			if radar_data.shape[0] > 0:
 			    # Remove points that have a low radar cross-section
 			    mask = (radar_data[:, 5] > 0)
@@ -96,7 +108,10 @@ def set_annotations_ids_using_radar(annotations, rdr_map, args): # rect.classID:
 			    mask &= (radar_data[:, 6] > -20)
 			    radar_data = radar_data[mask]
 			
-		        center_proj = projectPoints(np.array(radar_data), args)
+			ctr_pts = np.array(radar_data);
+			if len(ctr_pts)==0:
+				continue;
+		        center_proj = projectPoints(ctr_pts, args)
 		        cn_rdr = center_proj[:, 7:10].astype(np.int32);
 			cn_trk = np.array([[rect.classID, int(rect.centerX()), int(rect.bottom())] 
 					for rect in annotation.rects if rect.width() > 40]);
@@ -109,8 +124,7 @@ def set_annotations_ids_using_radar(annotations, rdr_map, args): # rect.classID:
 						dis = dis_new;
 						id_r = cn_rdr[s,0];
 				id_info[cn_trk[r,0]].append([id_r, dis]);
-
-
+		
 		max_ID = [0 for r in range(max_id)];
 		for r in range(max_id):
 			arr = np.array(id_info[r]);
@@ -124,10 +138,10 @@ def set_annotations_ids_using_radar(annotations, rdr_map, args): # rect.classID:
 		# Checking for mismatching (matching two tracker results to one radar result)
 		for j in range(block_size):
 			idx = i + j;
-			if idx >= len(annotations):
+			frame_num = sc * idx;
+			if idx >= len(annotations) or frame_num > len(rdr_map):
 				break;
 			annotation = annotations[idx]
-			frame_num = sc * idx;
 			radar_data = loadRDR(rdr_map[frame_num])[0]
 			if radar_data.shape[0] > 0:
 			    # Remove points that have a low radar cross-section
@@ -136,33 +150,35 @@ def set_annotations_ids_using_radar(annotations, rdr_map, args): # rect.classID:
 			    mask &= (radar_data[:, 6] > -20)
 			    radar_data = radar_data[mask]
 			
-			center_proj = projectPoints(np.array(radar_data), args)
-			cn_rdr = center_proj[:, 7:10].astype(np.int32);
+			ctr_pts = np.array(radar_data);
 			
 			new_ids = [max_ID[rect.classID] for rect in annotation.rects];
-			for r in range(len(new_ids)):
-				for s in range(r+1,len(new_ids)):
-					if new_ids[r] == new_ids[s] and new_ids[r] > 0:
-						cn_idx = 0;
-						flag = False;
-						while(True):
-							if cn_rdr[cn_idx][0] == new_ids[r]:
-								flag = True;
-								break;
-							cn_idx += 1;
-							if cn_idx > len(cn_rdr)-1:
-								break;
-						if flag:
-						 
-							r_pnt = [int(annotation.rects[r].centerX()), int(annotation.rects[r].bottom())]	
-							s_pnt = [int(annotation.rects[s].centerX()), int(annotation.rects[s].bottom())]	
-							dis_r = (cn_rdr[cn_idx,1]-r_pnt[0])**2 + (cn_rdr[cn_idx,2]-r_pnt[1])**2;
-							dis_s = (cn_rdr[cn_idx,1]-s_pnt[0])**2 + (cn_rdr[cn_idx,2]-s_pnt[1])**2;
-							if(dis_r < dis_s):
-								new_ids[s] = -1;
-							else:
-								new_ids[r] = -1;
-						
+			if(len(ctr_pts)>0):
+				center_proj = projectPoints(ctr_pts, args)
+				cn_rdr = center_proj[:, 7:10].astype(np.int32);
+				
+				for r in range(len(new_ids)):
+					for s in range(r+1,len(new_ids)):
+						if new_ids[r] == new_ids[s] and new_ids[r] > 0:
+							cn_idx = 0;
+							flag = False;
+							while(True):
+								if cn_rdr[cn_idx][0] == new_ids[r]:
+									flag = True;
+									break;
+								cn_idx += 1;
+								if cn_idx > len(cn_rdr)-1:
+									break;
+							if flag:
+							 
+								r_pnt = [int(annotation.rects[r].centerX()), int(annotation.rects[r].bottom())]	
+								s_pnt = [int(annotation.rects[s].centerX()), int(annotation.rects[s].bottom())]	
+								dis_r = (cn_rdr[cn_idx,1]-r_pnt[0])**2 + (cn_rdr[cn_idx,2]-r_pnt[1])**2;
+								dis_s = (cn_rdr[cn_idx,1]-s_pnt[0])**2 + (cn_rdr[cn_idx,2]-s_pnt[1])**2;
+								if(dis_r < dis_s):
+									new_ids[s] = -1;
+								else:
+									new_ids[r] = -1;
 		        for r, rect in enumerate(annotation.rects):
 				r_id = new_ids[r];
 				rect.score = -1;
@@ -170,17 +186,18 @@ def set_annotations_ids_using_radar(annotations, rdr_map, args): # rect.classID:
 					rect.classID = -abs(rect.classID);
 				else:
 					rect.classID = r_id;
-					cn_idx = 0;
-					flag = False;
-					while(True):
-						if radar_data[cn_idx][7] == r_id:
-							flag = True;
-							break;
-						cn_idx += 1;
-						if cn_idx >= len(radar_data):
-							break;
-					if flag:
-						rect.score = radar_data[cn_idx][0];
+					if len(ctr_pts)>0 :
+						cn_idx = 0;
+						flag = False;
+						while(True):
+							if radar_data[cn_idx][7] == r_id:
+								flag = True;
+								break;
+							cn_idx += 1;
+							if cn_idx >= len(radar_data):
+								break;
+						if flag:
+							rect.score = radar_data[cn_idx][0];
 		i += block_size;
 	return annotations;
 
@@ -191,7 +208,8 @@ def show_3D(annotations,rdr_map, args, save_video = False, with_options=False):
 	ind = 0;
 	anno_size = len(annotations);
 	while True:
-		if(ind >= anno_size):
+		frame_num = ind * 10
+		if(ind >= anno_size or frame_num >=len(rdr_map)):
 			break;
 		if (with_options):
 			choice = raw_input("> ");
@@ -205,7 +223,6 @@ def show_3D(annotations,rdr_map, args, save_video = False, with_options=False):
 		ImgName = "/Users/Carrie/Desktop/radarData/all_extracted/"+'/'.join(ImgName.split('/')[-2:])
 		print ImgName;
 		
-		frame_num = ind * 10
 		radar_data = loadRDR(rdr_map[frame_num])[0]
 		 
 		rects = annotation.rects;
@@ -386,27 +403,26 @@ def compute_statistics(annotations, rdr_map):
 	print(ratio_d);
 
 if __name__ == "__main__":
-	if (len(sys.argv) < 5):
-		print "python radar_tracker.py <.al file> <frame#> <directory of .avi> <video file>"
+	if (len(sys.argv) < 4):
+		print "python radar_tracker.py <.al file> <directory of .avi> <video file>"
 		sys.exit();
 	
 	filename = (sys.argv[1]);
+	print "Loading annotation file . . .";
 	annotations = parseXML(filename);
-	num_of_ids = set_ids(annotations);
 	print len(annotations);
-	di = 1;
-	ind = int(sys.argv[2]);
-	print(num_of_ids);
-	choice = raw_input("> ");
-
-####
-	args = parse_args(sys.argv[3], sys.argv[4])
+	
+	args = parse_args(sys.argv[2], sys.argv[3])
   	params = args['params']
    
   	video_reader = VideoReader(args['video'])
    	rdr_map = loadRDRCamMap(args['map'])
 	
 	set_annotations_ids_using_radar(annotations, rdr_map, args);   
-	compute_statistics(annotations, rdr_map);
-#	show_3D(annotations, rdr_map,args, True);
+	
+	save_filename = filename.split('.')[0] + "_new.al";
+	saveXML(save_filename, annotations);
+#	compute_statistics(annotations, rdr_map);
+	show_3D(annotations, rdr_map,args, True);
+	print "Writing new annotations into a file..."
 	saveXML(filename.split('.')[0] + "_with_distance.al", annotations);
