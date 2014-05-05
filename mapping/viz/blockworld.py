@@ -294,6 +294,8 @@ class Blockworld:
         cam.SetPosition(position)
         cam.SetFocalPoint(focal_point)
         cam.SetViewUp(0, 0, 1)
+        fren.ResetCameraClippingRange()
+        cam.SetClippingRange(0.1,1600)
 
         iren.GetRenderWindow().Render()
 
