@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
         annolist_out = annolist;
 
-        save_filename = opts.output_dir + "/" + annolist_base + "-clip-path";
+        save_filename = opts.output_dir + "/" + annolist_base + "-relpath";
         save_filename += annolist_ext;
 
         do_save = True;

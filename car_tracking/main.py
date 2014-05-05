@@ -67,6 +67,14 @@ if __name__ == "__main__":
 
     annolist = annolist[firstidx:lastidx+1];
 
+    # MA: clip rectangles to image boundaries
+    for a in annolist:
+       for r in a.rects:
+          if r.x1 < 0: 
+             r.x1 = 0;
+          if r.y1 < 0:
+             r.y1 = 0;
+
     annolist_track = [];
     
     #trackMaxFrames = int(opts.track_frames);
@@ -149,7 +157,7 @@ if __name__ == "__main__":
         annolist_track += annolist_track_main;
         
         # save results ones in a while 
-        if idx % 10 == 0:
+        if idx % 100 == 0:
             print "saving " + save_filename_partiall;
             saveXML(save_filename_partiall, annolist_track);
 

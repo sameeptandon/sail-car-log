@@ -64,6 +64,9 @@ def comp_rect_hist(I, _rect, normtype=1):
 
     roi_img = I[rect.y1:rect.y2, rect.x1:rect.x2, :];
 
+    print "roi width: ", roi_img.shape[0], ", roi height: ", roi_img.shape[1];
+    print rect.y1, rect.y2, rect.x1, rect.x2
+
     assert(roi_img.shape[0] > 0 and roi_img.shape[1] > 0);
 
     hsv_img = cv2.cvtColor(roi_img, cv2.COLOR_BGR2HSV);
@@ -92,6 +95,12 @@ def comp_rect_hist(I, _rect, normtype=1):
 def inc_image_name(s, n):
     pos1 = s.rfind('_');
     pos2 = s.rfind('.');
+
+    pos1_slash = s.rfind('/');
+
+    # supported formats: "/path/filename_<framenumber>.ext" or "/path/<framenumber>.ext" 
+    if pos1 < pos1_slash:
+        pos1 = pos1_slash;
 
     num = int(s[pos1+1:pos2]) + n
     numlen = pos2 - pos1 - 1;
@@ -430,13 +439,15 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
         # MA: init track id's
         for tidx, r in enumerate(tracked_rects):
-	    if frame_inc > 0 :
-            	r.classID = tidx;
+	    if frame_inc > 0:
+		    r.classID = tidx;
 	    else:
-            	r.classID = -tidx;
-		
+		    r.classID = -tidx;
+			
             tracks_init_des.append([]);
             tracks_init_num_matches.append(-1);
+
+            print "width: ", r.width(), ", height: ", r.height();
 
 	    assert(r.width > 0 and r.height() > 0);
 	    tracks_init_colorhist.append(comp_rect_hist(Img1_color, r));
