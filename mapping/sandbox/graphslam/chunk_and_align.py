@@ -56,6 +56,7 @@ if __name__ == '__main__':
 
         h5f = h5py.File(d['match_file'], 'r')
         nn_matches = h5f['matches']
+        h5f.close()
 
         start1 = (nn_matches[0, 1] - EXPORT_START) / EXPORT_STEP
         start2 = (nn_matches[0, 0] - EXPORT_START) / EXPORT_STEP

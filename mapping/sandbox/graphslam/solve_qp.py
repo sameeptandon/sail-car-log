@@ -4,9 +4,11 @@ import gurobipy
 from gurobipy import GRB
 from numpy.linalg import inv
 from WGS84toENU import WGS84toENU
+from WGS84toENU import deg2rad
 from GPSTransforms import integrateVelocity
 from graphslam_config import BIAS_GAMMA, dt
 from gps_viewer import read_gps_fields
+from GPSTransforms import R_to_i_from_w
 
 
 if __name__ == '__main__':
@@ -99,5 +101,18 @@ if __name__ == '__main__':
     if args.debug:
         plt.show()
     else:
+        # Save the result in 4x4 transform matrix format
+        imu_transforms = np.zeros((N, 4, 4))
+        rpy = read_gps_fields(args.gps_file, ['rot_x', 'rot_y', 'azimuth'])
+        for t in range(N):
+            imu_transforms[t, :, :] = np.eye(4)
+            imu_transforms[t, 0:3, 3] = opt_xs[:, t]
+            roll = deg2rad(rpy[0][t])
+            pitch = deg2rad(rpy[1][t])
+            yaw = -deg2rad(rpy[2][t])
+            R = R_to_i_from_w(roll, pitch, yaw)
+            imu_transforms[t, 0:3, 0:3] = R.transpose()
+
+        # Save figure and transform data
         plt.savefig(os.path.splitext(args.out_file)[0] + '.pdf')
-        np.savez(args.out_file, data=opt_xs)
+        np.savez(args.out_file, data=imu_transforms)

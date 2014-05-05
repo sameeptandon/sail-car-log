@@ -1,10 +1,11 @@
 import os
 from subprocess import check_call
 from ruffus import files, follows, pipeline_run, pipeline_printout, pipeline_printout_graph, touch_file,\
-        posttask, jobs_limit, pretask
+        posttask, jobs_limit
 from graphslam_config import GRAPHSLAM_PATH,\
         GRAPHSLAM_MATCH_DIR, GRAPHSLAM_OPT_POS_DIR, GRAPHSLAM_ALIGN_DIR,\
         MATCHES_FILE, GPS_FILES, RSS_LIST, GRAPHSLAM_OUT_DIR, GRAPHSLAM_DIRS
+import pipeline_config
 from pipeline_config import NUM_CPUS, SAIL_CAR_LOG_PATH
 
 
@@ -17,8 +18,11 @@ def match_traces(dummy, output_file):
     check_call(cmd, shell=True)
 
 
-@follows('match_traces')
-@pretask(lambda x: reload(pipeline_config))
+def reload_config():
+    reload(pipeline_config)
+
+
+@follows('match_traces', reload_config)
 @files(zip(GPS_FILES, [os.path.join(GRAPHSLAM_OPT_POS_DIR, '--'.join(rss) + '.npz') for rss in RSS_LIST], GPS_FILES))
 def solve_qps(gps_src_file, output_file, gps_tgt_file):
     cmd = 'python %s/solve_qp.py %s %s %s' % (GRAPHSLAM_PATH,
