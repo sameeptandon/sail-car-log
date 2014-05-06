@@ -52,6 +52,9 @@ target_link_libraries(view_pcd ${PCL_LIBRARIES})
 add_executable(transform_point_cloud transform_point_cloud.cpp)
 target_link_libraries(transform_point_cloud ${PCL_LIBRARIES})
 
+add_executable(concatenate_points_pcd concatenate_points_pcd.cpp)
+target_link_libraries(concatenate_points_pcd ${PCL_LIBRARIES})
+
 add_executable(h5_to_pcd h5_to_pcd.cpp)
 target_link_libraries(h5_to_pcd ${PCL_LIBRARIES} h5 ${Boost_PROGRAM_OPTIONS_LIBRARY})
 
