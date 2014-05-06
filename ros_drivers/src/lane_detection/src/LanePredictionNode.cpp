@@ -5,7 +5,7 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
-#include "LanePredictor.h"
+#include "LanePredictor_Q50.h"
 #include <vector>
 #include <queue>
 #include "lane_detection/Delay.h"
@@ -24,7 +24,6 @@ void push_data(const std::vector<float>& data){
 void lanePredictorCb(const sensor_msgs::ImageConstPtr& msg){
     lane_detection::Delay delay_msg;
     delay_msg.cam_frame = msg->header.stamp;
-    delay_msg.start_proc = ros::Time::now();
     //delay_pub.publish(delay_msg);
     //return;
     cv_bridge::CvImagePtr cv_ptr;
@@ -61,21 +60,26 @@ void lanePredictorCb(const sensor_msgs::ImageConstPtr& msg){
 	perm[1] = 0;
 	perm[2] = 1;
 	perm[3] = 2;
-
+	delay_msg.start_proc = ros::Time::now();
 	Ptr<ArrayViewHandle> pred = predictor->processImage( permute(arr,perm) );
-
+	delay_msg.end_proc = ros::Time::now();
 	int num_classifier = pred->dim(1);
 	float pixel_pred[num_classifier];
 	std::copy((float*)pred->memoryHandle()->ptr(),(float*)pred->memoryHandle()->ptr()+num_classifier,pixel_pred);
 	
-    delay_msg.end_proc = ros::Time::now();
     delay_msg.proc_time = delay_msg.end_proc-delay_msg.start_proc;
     delay_msg.cam_frame_delay = delay_msg.end_proc-delay_msg.cam_frame;
     delay_pub.publish(delay_msg);
-    
+    /*   
     for(int i=0;i<24;i++){
 		cv::circle(frame,cv::Point(pixel_pred[i]*8.0,pixel_pred[i+24]*4.0+160.0),2,cv::Scalar(0,0,255),-1,8);
-	}
+    }*/
+
+    for(int m=0;m<10;m++){
+        cv::circle(frame,cv::Point((pixel_pred[m]+0.5)*640,(pixel_pred[m+10]+0.5)*480),2,cv::Scalar(0,0,255),-1,8);
+        cv::circle(frame,cv::Point((pixel_pred[m+20]+0.5)*640,(pixel_pred[m+30]+0.5)*480),2,cv::Scalar(0,0,255),-1,8);
+    }
+
 	// Update GUI Window
 	cv::imshow(OPENCV_WINDOW, frame);
 	cv::waitKey(3);
@@ -86,9 +90,9 @@ int main(int argc,char** argv){
 	ros::init(argc,argv,"LanePredictorNode");
 	ros::NodeHandle nh_;
 	cv::namedWindow(OPENCV_WINDOW);
-	predictor = new LanePredictor(&argc,argv,0);
+	predictor = new LanePredictor_Q50(&argc,argv,0);
 	ros::Subscriber sub = nh_.subscribe(argv[2],1,lanePredictorCb);
-    delay_pub = nh_.advertise<lane_detection::Delay>("lane_detection/Delay",100);
+	delay_pub = nh_.advertise<lane_detection::Delay>("lane_detection/Delay",100);
 	ros::spin();
 	cv::destroyWindow(OPENCV_WINDOW);
 	return 0;
