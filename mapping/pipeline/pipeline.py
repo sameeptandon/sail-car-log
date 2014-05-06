@@ -179,13 +179,13 @@ def merge_raw_clouds(cloud_files, merged_cloud_file):
     for chunk_files in chunks:
         merged_chunk_file = os.path.dirname(MERGED_CLOUD_FILE) + '/chunk%d.pcd' % k
         # Concatenate PCD files
-        cmd = 'pcl_concatenate_points_pcd ' + ' '.join(chunk_files) + '; mv output.pcd %s' % merged_chunk_file
+        cmd = 'concatenate_points_pcd ' + ' '.join(chunk_files) + ' ' + merged_chunk_file
         print cmd
         check_call(cmd, shell=True)
         merged_chunk_files.append(merged_chunk_file)
         k += 1
 
-    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(merged_chunk_files) + '; mv output.pcd %s' % MERGED_CLOUD_FILE
+    cmd = 'concatenate_points_pcd ' + ' '.join(merged_chunk_files) + ' ' + MERGED_CLOUD_FILE
     print cmd
     check_call(cmd, shell=True)
 
@@ -216,13 +216,13 @@ def merge_color_clouds(cloud_files, merged_cloud_file):
     for chunk_files in chunks:
         merged_chunk_file = os.path.dirname(MERGED_COLOR_CLOUD_FILE) + '/chunk%d.pcd' % k
         # Concatenate PCD files
-        cmd = 'pcl_concatenate_points_pcd ' + ' '.join(chunk_files) + '; mv output.pcd %s' % merged_chunk_file
+        cmd = 'concatenate_points_pcd ' + ' '.join(chunk_files) + ' ' + merged_chunk_file
         print cmd
         check_call(cmd, shell=True)
         merged_chunk_files.append(merged_chunk_file)
         k += 1
 
-    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(merged_chunk_files) + '; mv output.pcd %s' % MERGED_COLOR_CLOUD_FILE
+    cmd = 'concatenate_points_pcd ' + ' '.join(merged_chunk_files) + ' ' + MERGED_COLOR_CLOUD_FILE
     print cmd
     check_call(cmd, shell=True)
 

@@ -121,7 +121,6 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
         fnum = offset+t*step
         print fnum
 
-        
         data = loadLDR(ldr_map[fnum])
         # filter out the roof rack
         dist = np.sqrt(np.sum( data[:, 0:3] ** 2, axis = 1))

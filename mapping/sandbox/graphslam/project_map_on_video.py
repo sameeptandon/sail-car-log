@@ -98,9 +98,6 @@ if __name__ == '__main__':
     nn_dict = dict()
     for t in range(nn_matches.shape[0]):
         nn_dict[nn_matches[t, 1]] = nn_matches[t, 0]
-    shift1 = start1 - min(start1, start2)
-    shift2 = start2 - min(start1, start2)
-    print 'shift1: %d, shift2: %d' % (shift1, shift2)
 
     h5f = h5py.File(args.tb, 'r')
     tb = h5f['transform'][...]
@@ -148,9 +145,8 @@ if __name__ == '__main__':
 
         # Reproject
 
-        (pix1, mask1) = localMapToPixels(all_data1_copy, imu_transforms1[t + shift1, :, :], T_from_i_to_l, cam)
-        # TODO Use imu_transforms1 below? Should work
-        (pix2, mask2) = localMapToPixels(all_data2_copy, imu_transforms2[t + shift2, :, :], T_from_i_to_l, cam)
+        (pix1, mask1) = localMapToPixels(all_data1_copy, imu_transforms1[t, :, :], T_from_i_to_l, cam)
+        (pix2, mask2) = localMapToPixels(all_data2_copy, imu_transforms2[nn_dict[t], :, :], T_from_i_to_l, cam)
 
         # Draw
 

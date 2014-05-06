@@ -51,7 +51,8 @@ if __name__ == '__main__':
 
     for t in range(num_fn):
         fnum = start + t * step
-        print '%d / %d' % (fnum, end)
+        if (fnum - start) % (100 * step) == 0:  # PARAM
+            print '%d / %d' % (fnum, end)
 
         data = loadLDR(ldr_map[fnum])
         if data.shape[0] == 0:
