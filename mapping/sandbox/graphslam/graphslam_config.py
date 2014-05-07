@@ -1,36 +1,55 @@
 import os
+import json
 from os.path import dirname, join as pjoin
-from pipeline_config import DATA_DIR
+import datetime
 
 GRAPHSLAM_PATH = dirname(os.path.abspath(__file__))
-GRAPHSLAM_OUT_DIR = '%s/graphslam' % DATA_DIR
-if not os.path.exists(GRAPHSLAM_OUT_DIR):
-    os.mkdir(GRAPHSLAM_OUT_DIR)
+GRAPHSLAM_OUT_DIR = '/scail/group/deeplearning/driving_data/zxie/graphslam'
+GRAPHSLAM_MATCH_DIR = '%s/matches' % GRAPHSLAM_OUT_DIR
+MATCHES_FILE = '%s/matches.json' % GRAPHSLAM_MATCH_DIR
+GRAPHSLAM_OPT_POS_DIR = '%s/opt_pos' % GRAPHSLAM_OUT_DIR
+GRAPHSLAM_ALIGN_DIR = '%s/align' % GRAPHSLAM_OUT_DIR
+GRAPHSLAM_CHUNK_DIR = '%s/chunks' % GRAPHSLAM_OUT_DIR
+GRAPHSLAM_LANES_DIR = '%s/lanes' % GRAPHSLAM_OUT_DIR
+GRAPHSLAM_VIDEOS_DIR = '%s/videos' % GRAPHSLAM_OUT_DIR
 
-# 4-3-14-gilroy / to_gilroy / a
-# 4-2-14-monterey / 280S / a
-# Segment to align to
-SEGMENT_TGT = 'to_gilroy_a2'
-# Segment to transform
-SEGMENT_SRC = '280S_a2'
+GRAPHSLAM_DIRS = [GRAPHSLAM_OUT_DIR, GRAPHSLAM_MATCH_DIR,
+        GRAPHSLAM_OPT_POS_DIR, GRAPHSLAM_ALIGN_DIR, GRAPHSLAM_CHUNK_DIR,
+        GRAPHSLAM_LANES_DIR, GRAPHSLAM_VIDEOS_DIR]
+for p in GRAPHSLAM_DIRS:
+    if not os.path.exists(p):
+        os.mkdir(p)
 
-TGT_DIR = '%s/%s' % (DATA_DIR, SEGMENT_TGT)
-SRC_DIR = '%s/%s' % (DATA_DIR, SEGMENT_SRC)
+FREEWAY = '280N'
+DATE_RANGE = [datetime.date(2014, 4, 3), datetime.date(2014, 4, 29)]
 
-# GPS trace data and matching
-GPS_TGT = '%s/%s_gps.out' % (TGT_DIR, SEGMENT_TGT[:-1])
-GPS_SRC = '%s/%s_gps.out' % (SRC_DIR, SEGMENT_SRC[:-1])
-GPS_MATCH_DIST_TOL = 5.0  # PARAM
-GPS_MATCH_FILE = '%s/%s_match.h5' % (GRAPHSLAM_OUT_DIR, SEGMENT_TGT + '+' + SEGMENT_SRC)
-GPS_ALIGNMENT_FILE = '%s/%s_align.h5' % (GRAPHSLAM_OUT_DIR, SEGMENT_TGT + '+' + SEGMENT_SRC)
+seen_gps_files = set()
+GPS_FILES = list()
+RSS_LIST = list()
+MATCH_JSON_DATA = dict()
+if os.path.exists(MATCHES_FILE):
+    MATCH_JSON_DATA = json.load(open(MATCHES_FILE, 'r'))['matches']
+    for d in MATCH_JSON_DATA:
+        if d['gps_file1'] not in seen_gps_files:
+            GPS_FILES.append(d['gps_file1'])
+            RSS_LIST.append(d['rss1'])
+        seen_gps_files.add(d['gps_file1'])
+        if d['gps_file2'] not in seen_gps_files:
+            GPS_FILES.append(d['gps_file2'])
+            RSS_LIST.append(d['rss2'])
+        seen_gps_files.add(d['gps_file2'])
 
-OPT_POS_FILE_TGT = '%s/%s_opt.npz' % (TGT_DIR, SEGMENT_TGT[:-1])
-OPT_POS_FILE_SRC = '%s/%s_opt.npz' % (SRC_DIR, SEGMENT_SRC[:-1])
+# Numerical parameters
 
-# TODO Chunk scans for matching...
+GPS_MATCH_DIST_TOL = 20.0
+GPS_BBOX_OVERLAP_PADDING = 5.0
+
 # pipeline_config EXPORT_STEP of 5 => 10Hz
 # Chunk of 10 => 1s of data
-CHUNK_SIZE = 10
+CHUNK_SIZE = 10  # Size of chunks to do ICP with
+REALIGN_EVERY = 50  # Compute alignment again every this number of clouds
 
 BIAS_GAMMA = 0.999
 dt = 1/50.0
+
+MIN_OVERLAP_THRESH = 0.25

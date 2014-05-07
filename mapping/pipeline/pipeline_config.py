@@ -1,6 +1,7 @@
 import os
 from os.path import dirname, join as pjoin
 import multiprocessing
+from graphslam_config import GRAPHSLAM_OPT_POS_DIR
 
 MAPPING_PATH = dirname(dirname(os.path.abspath(__file__)))
 SAIL_CAR_LOG_PATH = dirname(MAPPING_PATH)
@@ -9,29 +10,29 @@ SCAIL_Q50_DATA_DIR = '/scail/group/deeplearning/driving_data/q50_data'
 
 NUM_CPUS = multiprocessing.cpu_count() - 1
 
-#DATA_DIR = '/scr/scl'
-DATA_DIR = '/media/sdb'
+DATA_DIR = '/scr/scl'
+#DATA_DIR = '/media/sdb'
 
-#DSET = 'to_gilroy_a2'
-DSET = '280S_a2'
-#DSET = '17N_b2'
-#DSET = '280N_b2'
+ROUTE = os.getenv('SCL_ROUTE', '4-2-14-monterey')
+SEGMENT = os.getenv('SCL_SEGMENT', '280N')
+SPLIT = os.getenv('SCL_SPLIT', 'a')
+CAMERA = 2
+
+DSET = '%s_%s%d' % (SEGMENT, SPLIT, CAMERA)
 #DSET = 'sandhill_b2'
-DSET_DIR = pjoin(DATA_DIR, DSET)
+DSET_DIR = pjoin(pjoin(DATA_DIR, ROUTE), DSET)
 if not os.path.exists(DSET_DIR):
-    os.mkdir(DSET_DIR)
+    os.makedirs(DSET_DIR)
 DSET_AVI = DSET + '.avi'
 CAM_NUM = int(DSET[-1])
 
 # Stuff to scp over
-#REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/q50_data/4-3-14-gilroy'
-REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/q50_data/4-2-14-monterey'
-#REMOTE_DATA_DIR = 'robo:/scail/group/deeplearning/driving_data/sameep/3-30-14-rosdatatest'
+REMOTE_DATA_DIR = 'gorgon39:/scail/group/deeplearning/driving_data/q50_data/%s' % ROUTE
 REMOTE_FILES = [
     'split_\\*_%s.avi' % DSET,
-    #'%s_gps.out' % DSET[:-1],
+    '%s_gps.out' % DSET[:-1],
     #'%s_frames' % DSET[:-1],
-    #'%s.map' % DSET[:-1],
+    '%s.map' % DSET[:-1],
     '%s_*.bag' % DSET[:-1],
     '%s.pcap' % DSET[:-1],
     #'params.ini'
@@ -40,13 +41,15 @@ REMOTE_FILES = [
 # Cluster management
 CLUSTER_HOSTS = ['gorgon39']
 CLUSTER_DATA_DIR = '/scr/scl'
-CLUSTER_DSET_DIR = '%s/%s' % (CLUSTER_DATA_DIR, DSET)
+CLUSTER_DSET_DIR = '%s/%s/%s' % (CLUSTER_DATA_DIR, ROUTE, DSET)
 FABRIC_PASS_FILE = '%s/pipeline/pass.txt' % MAPPING_PATH
 
 PARAMS_TO_LOAD = 'q50_4_3_14_params'
 PARAMS_FILE = pjoin(DSET_DIR, 'params.ini')
 GPS_FILE = pjoin(DSET_DIR, '%s_gps.out' % DSET[:-1])
 MAP_FILE = pjoin(DSET_DIR, '%s.map' % DSET[:-1])
+
+OPT_POS_FILE = '%s/%s' % (GRAPHSLAM_OPT_POS_DIR, '--'.join([ROUTE, SEGMENT, SPLIT]) + '.npz')
 
 PARAMS_H5_FILE = pjoin(DSET_DIR, 'params.h5')
 LDR_DIR = pjoin(DSET_DIR, '%s_frames' % DSET[:-1])
@@ -63,11 +66,19 @@ MERGED_COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'merged_color_clouds')
 OCTOMAP_DIR = pjoin(DSET_DIR, 'octomaps')
 COLOR_OCTOMAP_DIR = pjoin(DSET_DIR, 'color_octomaps')
 
-EXPORT_FULL = False
+EXPORT_FULL = True
 LANE_FILTER = False
 #EXPORT_START = 1700
 EXPORT_START = 0
-EXPORT_NUM = 100
+
+EXPORT_FULL_NUM_FILE = '%s/export_full_num' % DSET_DIR
+EXPORT_NUM = 1000
+if EXPORT_FULL:
+    # This file should be created by ldr_to_h5
+    if os.path.exists(EXPORT_FULL_NUM_FILE):
+        EXPORT_NUM = int(open(EXPORT_FULL_NUM_FILE, 'r').read().strip())
+    else:
+        pass
 EXPORT_STEP = 5
 
 DOWNSAMPLE_LEAF_SIZE = 0.1
@@ -76,7 +87,10 @@ K_NORM_EST = 30
 ICP_ITERS = 100
 # NOTE set this parameter based on GPS delta spikes,
 # downsampling voxel leaf size, and time steps between scans
-ICP_MAX_DIST = 5.0
+ICP_MAX_DIST = 100.0
+ICP_COORD_WEIGHTS = [1.0, 1.0, 1.0, 10.0, 1.0]
+ICP_TOL = 0.001
+ICP_MIN_INTENSITY = 20
 
 LIDAR_PROJECT_MIN_DIST = 3.0
 

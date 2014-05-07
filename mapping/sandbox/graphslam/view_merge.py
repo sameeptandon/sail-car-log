@@ -1,8 +1,8 @@
+import sys
 import vtk
 from blockworld import load_vtk_cloud
 from pipeline_config import DATA_DIR
 import h5py
-from graphslam_config import GPS_ALIGNMENT_FILE
 
 recolored = False
 
@@ -26,18 +26,24 @@ def keyhandler(obj, event):
 if __name__ == '__main__':
 
     ren = vtk.vtkRenderer()
-    cloud_actor1 = load_vtk_cloud('%s/to_gilroy_a2/merged_clouds/merged.vtk' % DATA_DIR)
-    cloud_actor2 = load_vtk_cloud('%s/280S_a2/merged_clouds/merged.vtk' % DATA_DIR)
-
-    h5f = h5py.File(GPS_ALIGNMENT_FILE)
-    T = h5f['transform'][...]
-    print T
-    transform = vtk.vtkTransform()
-    #transform.Translate(T[0, 3], T[1, 3], T[2, 3])
-    cloud_actor2.SetUserTransform(transform)
+    cloud_actor1 = load_vtk_cloud(sys.argv[1])
+    cloud_actor2 = load_vtk_cloud(sys.argv[2])
+    transform_file = None
+    if (len(sys.argv) > 3):
+        transform_file = sys.argv[3]
+        h5f = h5py.File(transform_file)
+        T = h5f['transform'][...]
+        print T
+        transform = vtk.vtkTransform()
+        transform.Translate(T[0, 3], T[1, 3], T[2, 3])
+        cloud_actor2.SetUserTransform(transform)
 
     ren.AddActor(cloud_actor1)
     ren.AddActor(cloud_actor2)
+
+    axes = vtk.vtkAxesActor()
+    axes.AxisLabelsOff()
+    ren.AddActor(axes)
 
     ren.ResetCamera()
 

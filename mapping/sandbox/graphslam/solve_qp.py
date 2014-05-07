@@ -1,11 +1,14 @@
+import os
 import numpy as np
 import gurobipy
 from gurobipy import GRB
 from numpy.linalg import inv
 from WGS84toENU import WGS84toENU
+from WGS84toENU import deg2rad
 from GPSTransforms import integrateVelocity
 from graphslam_config import BIAS_GAMMA, dt
 from gps_viewer import read_gps_fields
+from GPSTransforms import R_to_i_from_w
 
 
 if __name__ == '__main__':
@@ -17,6 +20,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='display plots or not')
     args = parser.parse_args()
 
+    # NOTE We're reading un ENU order while by default it's in NEU
     gps_fields = read_gps_fields(args.gps_file,
             ['lat', 'long', 'height', 'v_east', 'v_north', 'v_up'])
     ref_gps_fields = read_gps_fields(args.ref_gps_file, ['lat', 'long', 'height'])
@@ -25,7 +29,6 @@ if __name__ == '__main__':
     vel = np.array(gps_fields[3:6], dtype=np.float64)
     itg_vel = integrateVelocity(vel.T)
     xyz = WGS84toENU(llh_ref[0, :], llh)
-    #xyz = WGS84toENU(llh[0, :], llh)
     N = xyz.shape[1]
     #N = 10000
 
@@ -81,21 +84,35 @@ if __name__ == '__main__':
 
     # Plot
 
+    import matplotlib.pyplot as plt
+    coord = 2
+    plt.plot(xyz[coord, :], label='gps')
+    plt.plot(opt_xs[coord, :], label='graphslam')
+    smooth_xyz = xyz[:, 0].reshape(3, 1) + itg_vel.T
+    plt.plot(smooth_xyz[coord, :], label='smooth')
+    #plt.plot(opt_bs[coord, :])
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    plt.legend(handles, labels, prop={'size': 20})
+
+    plt.xlabel('t')
+    plt.ylabel(['x', 'y', 'z'][coord])
+
     if args.debug:
-        import matplotlib.pyplot as plt
-        coord = 2
-        plt.plot(xyz[coord, :], label='gps')
-        plt.plot(opt_xs[coord, :], label='graphslam')
-        smooth_xyz = xyz[:, 0].reshape(3, 1) + itg_vel.T
-        plt.plot(smooth_xyz[coord, :], label='smooth')
-        #plt.plot(opt_bs[coord, :])
-
-        handles, labels = plt.gca().get_legend_handles_labels()
-        plt.legend(handles, labels, prop={'size': 20})
-
-        plt.xlabel('t')
-        plt.ylabel(['x', 'y', 'z'][coord])
-
         plt.show()
     else:
-        np.savez(args.out_file, data=opt_xs)
+        # Save the result in 4x4 transform matrix format
+        imu_transforms = np.zeros((N, 4, 4))
+        rpy = read_gps_fields(args.gps_file, ['rot_x', 'rot_y', 'azimuth'])
+        for t in range(N):
+            imu_transforms[t, :, :] = np.eye(4)
+            imu_transforms[t, 0:3, 3] = opt_xs[:, t]
+            roll = deg2rad(rpy[0][t])
+            pitch = deg2rad(rpy[1][t])
+            yaw = -deg2rad(rpy[2][t])
+            R = R_to_i_from_w(roll, pitch, yaw)
+            imu_transforms[t, 0:3, 0:3] = R.transpose()
+
+        # Save figure and transform data
+        plt.savefig(os.path.splitext(args.out_file)[0] + '.pdf')
+        np.savez(args.out_file, data=imu_transforms)

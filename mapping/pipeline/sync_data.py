@@ -1,10 +1,6 @@
-from os.path import join as pjoin
 import subprocess
 import pipes
 from subprocess import check_call
-from pipeline_config import CLUSTER_DSET_DIR, GPS_FILE, MAP_FILE, LDR_DIR,\
-        PARAMS_FILE, CLUSTER_HOSTS
-from fabric.colors import green
 
 
 def exists_remote(host, path):
@@ -35,10 +31,4 @@ def tar_scp_to_remote(local, remote, dry_run=False):
 
 
 if __name__ == '__main__':
-    for host in CLUSTER_HOSTS:
-        print green('syncing to %s' % host)
-        rsync_to_remote(GPS_FILE, '%s:%s' % (host, CLUSTER_DSET_DIR))
-        rsync_to_remote(MAP_FILE, '%s:%s' % (host, CLUSTER_DSET_DIR))
-        rsync_to_remote(PARAMS_FILE, '%s:%s' % (host, CLUSTER_DSET_DIR))
-        #tar_scp_to_remote(LDR_DIR, '%s:%s' % (host, CLUSTER_DSET_DIR))
-        #rsync_to_remote(LDR_DIR, '%s:%s' % (host, CLUSTER_DSET_DIR))
+    pass
