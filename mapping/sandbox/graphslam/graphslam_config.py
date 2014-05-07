@@ -41,12 +41,13 @@ if os.path.exists(MATCHES_FILE):
 
 # Numerical parameters
 
-GPS_MATCH_DIST_TOL = 5.0
+GPS_MATCH_DIST_TOL = 20.0
 GPS_BBOX_OVERLAP_PADDING = 5.0
 
 # pipeline_config EXPORT_STEP of 5 => 10Hz
 # Chunk of 10 => 1s of data
-CHUNK_SIZE = 10
+CHUNK_SIZE = 10  # Size of chunks to do ICP with
+REALIGN_EVERY = 50  # Compute alignment again every this number of clouds
 
 BIAS_GAMMA = 0.999
 dt = 1/50.0

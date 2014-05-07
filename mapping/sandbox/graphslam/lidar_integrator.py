@@ -119,7 +119,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
     renderer.AddActor(actors[-1])
     for t in range(num_steps):
         fnum = offset+t*step
-        print fnum
+        #print fnum
 
         data = loadLDR(ldr_map[fnum])
         # filter out the roof rack

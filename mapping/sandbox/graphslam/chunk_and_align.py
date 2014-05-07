@@ -5,7 +5,7 @@ import h5py
 from gps_viewer import read_gps_fields
 from WGS84toENU import WGS84toECEF, WGS84toENU
 from pipeline_config import EXPORT_STEP, EXPORT_START, MAPPING_PATH, ICP_ITERS, ICP_MAX_DIST, NUM_CPUS
-from graphslam_config import MATCH_JSON_DATA, CHUNK_SIZE, GRAPHSLAM_CHUNK_DIR, GRAPHSLAM_ALIGN_DIR
+from graphslam_config import MATCH_JSON_DATA, CHUNK_SIZE, GRAPHSLAM_CHUNK_DIR, GRAPHSLAM_ALIGN_DIR, REALIGN_EVERY
 from pipeline_utils import print_and_call, dset_dir_from_rss
 from joblib import Parallel, delayed
 
@@ -38,24 +38,8 @@ def vtk_filename(pcd_file):
     return os.path.splitext(pcd_file)[0] + '.vtk'
 
 
-def chunk_and_align_match(d):
-    print d['match_file']
-    rss1 = d['rss1']
-    rss2 = d['rss2']
-    pcd_dir1 = pjoin(dset_dir_from_rss(rss1), 'pcd_downsampled_normals')
-    pcd_dir2 = pjoin(dset_dir_from_rss(rss2), 'pcd_downsampled_normals')
-
-    # Read and save initial transform files
-    enu1 = get_enu0(d['gps_file1'], d['gps_file1'])
-    enu2 = get_enu0(d['gps_file2'], d['gps_file1'])
-
-    h5f = h5py.File(d['match_file'], 'r')
-    nn_matches = h5f['matches'][...]
-    h5f.close()
-
-    start1 = (nn_matches[0, 1] - EXPORT_START) / EXPORT_STEP
-    start2 = (nn_matches[0, 0] - EXPORT_START) / EXPORT_STEP
-
+# Helper function for chunk_and_align all
+def chunk_and_align(start1, start2, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, chunk_num):
     chunk1_files = list()
     chunk2_files = list()
     for k in range(0, CHUNK_SIZE):
@@ -65,10 +49,11 @@ def chunk_and_align_match(d):
         assert os.path.exists(chunk1_files[-1])
         ind2 = start2 + k
         chunk2_files.append('%s/%d.pcd' % (pcd_dir2, ind2))
+        print chunk2_files[-1]
         assert os.path.exists(chunk2_files[-1])
 
-    merged_chunks1 = '%s/%s' % (GRAPHSLAM_CHUNK_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '_1.pcd')
-    merged_chunks2 = '%s/%s' % (GRAPHSLAM_CHUNK_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '_2.pcd')
+    merged_chunks1 = '%s/%s' % (GRAPHSLAM_CHUNK_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '%d_1.pcd' % chunk_num)
+    merged_chunks2 = '%s/%s' % (GRAPHSLAM_CHUNK_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '%d_2.pcd' % chunk_num)
 
     # Concatenate
 
@@ -95,11 +80,52 @@ def chunk_and_align_match(d):
     # Finally perform alignment
 
     reg = '%s/bin/align_clouds' % MAPPING_PATH
-    h5f = '%s/%s' % (GRAPHSLAM_ALIGN_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '.h5')
+    h5f = '%s/%s' % (GRAPHSLAM_ALIGN_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '--%d' % chunk_num + '.h5')
 
     cmd = '{reg} --pcd_tgt {tgt} --pcd_src {src} --h5_file {h5f} --icp_iters {iters} --max_dist {dist}'.format(
             reg=reg, tgt=merged_chunks1, src=merged_chunks2, h5f=h5f, iters=ICP_ITERS, dist=ICP_MAX_DIST)
     print_and_call(cmd)
 
+
+def get_closest_key_value(k, d, max_shift=5):
+    shift = -1
+    while k not in d:
+        k = k + shift
+        shift = -1 * (abs(shift) + 1) * cmp(shift, 0)
+        assert abs(shift) < max_shift
+    return d[k]
+
+
+def chunk_and_align_all(d):
+    print d['match_file']
+    rss1 = d['rss1']
+    rss2 = d['rss2']
+    pcd_dir1 = pjoin(dset_dir_from_rss(rss1), 'pcd_downsampled_normals')
+    pcd_dir2 = pjoin(dset_dir_from_rss(rss2), 'pcd_downsampled_normals')
+
+    # Read and save initial transform files
+    enu1 = get_enu0(d['gps_file1'], d['gps_file1'])
+    enu2 = get_enu0(d['gps_file2'], d['gps_file1'])
+
+    h5f = h5py.File(d['match_file'], 'r')
+    nn_matches = h5f['matches'][...]
+    nn_dict = dict(zip(nn_matches[:, 1], nn_matches[:, 0]))
+    h5f.close()
+
+    assert EXPORT_START == 0
+    start1 = nn_matches[0, 1] / EXPORT_STEP
+
+    args_all = list()
+    chunk_num = 0
+    for k in range(start1, start1 + nn_matches.shape[0] / EXPORT_STEP, REALIGN_EVERY):
+        #def chunk_and_align(start1, start2, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, chunk_num):
+        k2 = get_closest_key_value(k * EXPORT_STEP, nn_dict, max_shift=10)
+        args_all.append((k, k2 / EXPORT_STEP, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, chunk_num))
+        chunk_num += 1
+
+    Parallel(n_jobs=NUM_CPUS)(delayed(chunk_and_align)(*args) for args in args_all)
+
+
 if __name__ == '__main__':
-    Parallel(n_jobs=NUM_CPUS)(delayed(chunk_and_align_match)(d) for d in MATCH_JSON_DATA)
+    for d in MATCH_JSON_DATA:
+        chunk_and_align_all(d)

@@ -1,3 +1,4 @@
+import os
 import argparse
 import cv2
 import numpy as np
@@ -6,9 +7,12 @@ from Q50_config import LoadParameters
 from VideoReader import VideoReader
 from chunk_and_align import get_enu0
 from LidarTransforms import R_to_c_from_l
+from graphslam_config import REALIGN_EVERY
+from pipeline_config import EXPORT_STEP
+from chunk_and_align import get_closest_key_value
 
 # FIXME PARAM
-WINDOW = 50*5
+WINDOW = 50*2.5
 
 def cloudToPixels(cam, pts_wrt_cam):
 
@@ -88,23 +92,42 @@ if __name__ == '__main__':
     print args.ldr1, args.ldr2
     all_data1 = np.load(args.ldr1)['data']
     all_data2 = np.load(args.ldr2)['data']
-    #print np.max(np.max(np.abs(all_data1 - all_data2)))
-    print all_data1.shape
 
     h5f = h5py.File(args.match_file, 'r')
     nn_matches = h5f['matches'][...]
     h5f.close()
     start2, start1 = nn_matches[0, :]
+    start1 = start1 / EXPORT_STEP
+    start2 = start2 / EXPORT_STEP
     nn_dict = dict()
     for t in range(nn_matches.shape[0]):
         nn_dict[nn_matches[t, 1]] = nn_matches[t, 0]
 
-    h5f = h5py.File(args.tb, 'r')
-    tb = h5f['transform'][...]
+    tbs = list()
+    chunk_num = 0
+    for k in range(start1, start1 + nn_matches.shape[0] / EXPORT_STEP, REALIGN_EVERY):
+        f = os.path.splitext(args.tb)[0] + '--%d' % chunk_num + '.h5'
+        h5f = h5py.File(f, 'r')
+        tb = h5f['transform'][...]
+        tbs.append(tb)
+        chunk_num += 1
     h5f.close()
 
-    # Transform computed by scan matching
-    print tb[0:3, 3]
+    # Apply transform in global coordinates
+
+    all_data2[:, 0:3] = all_data2[:, 0:3] + (enu2 - enu1)
+
+    # Transforms computed by scan matching
+
+    chunk_num = 0
+    #all_data2[:, 0:3] = all_data2[:, 0:3] + tbs[0][0:3, 3]
+    for k in range(start1, start1 + nn_matches.shape[0] / EXPORT_STEP, REALIGN_EVERY):
+        start_ind = k * EXPORT_STEP
+        t_start = get_closest_key_value(k * EXPORT_STEP, nn_dict, max_shift=10)
+        t_final = get_closest_key_value(k * EXPORT_STEP + REALIGN_EVERY * EXPORT_STEP, nn_dict, max_shift=10)
+        mask_window = (all_data2[:, 4] <= t_final) & (all_data2[:, 4] > t_start)
+        all_data2[mask_window, 0:3] = all_data2[mask_window, 0:3] + tbs[chunk_num][0:3, 3]
+        chunk_num += 1
 
     # BGR
 
@@ -131,7 +154,7 @@ if __name__ == '__main__':
 
         t = video_reader.framenum - 1
 
-        if (t < start1 and t < start2) or t not in nn_dict:
+        if t not in nn_dict or (t + WINDOW) not in nn_dict:
             continue
 
         print t
@@ -139,14 +162,15 @@ if __name__ == '__main__':
         mask_window = (all_data1[:, 4] < t + WINDOW) & (all_data1[:, 4] > t)
         all_data1_copy = np.array(all_data1[mask_window, :])
 
-        mask_window = (all_data2[:, 4] < nn_dict[t] + WINDOW) & (all_data2[:, 4] > nn_dict[t])
+        mask_window = (all_data2[:, 4] < nn_dict[t + WINDOW]) & (all_data2[:, 4] > nn_dict[t])
         all_data2_copy = np.array(all_data2[mask_window, :])
         #print all_data1_copy.shape, all_data2_copy.shape
 
         # Reproject
 
         (pix1, mask1) = localMapToPixels(all_data1_copy, imu_transforms1[t, :, :], T_from_i_to_l, cam)
-        (pix2, mask2) = localMapToPixels(all_data2_copy, imu_transforms2[nn_dict[t], :, :], T_from_i_to_l, cam)
+        #(pix2, mask2) = localMapToPixels(all_data2_copy, imu_transforms2[nn_dict[t], :, :], T_from_i_to_l, cam)
+        (pix2, mask2) = localMapToPixels(all_data2_copy, imu_transforms1[t, :, :], T_from_i_to_l, cam)
 
         # Draw
 
