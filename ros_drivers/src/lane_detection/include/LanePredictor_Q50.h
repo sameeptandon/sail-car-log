@@ -9,9 +9,13 @@ class LanePredictor_Q50 : public LanePredictor{
 
     private:
         Ptr<ArrayViewHandle> mean_lcn;
+        Ptr<ArrayViewHandle> mean_lcn_buf;
         Ptr<ArrayViewHandle> mean_lcn_sqr;
         Ptr<ArrayViewHandle> divide_lcn;
+        Ptr<ArrayViewHandle> divide_lcn_buf;
         Ptr<ArrayViewHandle> filt_LCN;
+        Ptr<ArrayViewHandle> filt_LCN_X;
+        Ptr<ArrayViewHandle> filt_LCN_Y;
         Ptr<ArrayViewHandle> W_1;
         Ptr<ArrayViewHandle> filt_1;
         Ptr<ArrayViewHandle> nonlin_1;

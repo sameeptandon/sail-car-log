@@ -112,4 +112,17 @@ protected:
                 }
         }
 };
+
+    static void init_filt_LCN_sep(const Ptr<ArrayViewHandle>& filt_LCN,double mean_sigma,int stream){
+        int mean_size = filt_LCN->dim(0);
+        double fsum = 0.0;
+        int hp = (mean_size-1)/2;
+        for(int i=0;i<mean_size;i++){
+            int dx = i-hp;
+            double c = expf(-0.5*(dx*dx)/(mean_sigma*mean_sigma));
+            gpuSet(c,filt_LCN->view(DDim(i),DDim(1)),stream);
+            fsum+=c;
+        }
+        gpuTimesScalar(filt_LCN,1.0/fsum,filt_LCN,stream);
+    };
 };

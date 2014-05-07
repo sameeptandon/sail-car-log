@@ -94,10 +94,15 @@ LanePredictor_Q50::LanePredictor_Q50(int* argc, char* argv[],int stream_num){
 
 	data_buf = gpuArrayAllocRM(DataType::FLOAT, DDim(BATCH_SIZE,IMG_DIMZ,IMG_DIMX,IMG_DIMY), stream);
 	mean_lcn = gpuArrayAllocRM(DataType::FLOAT, DDim(BATCH_SIZE,MEAN_OUTPUTZ,MEAN_OUTPUTX,MEAN_OUTPUTY),stream);
-	mean_lcn_sqr = gpuArrayAllocRM(DataType::FLOAT, mean_lcn->dim(),stream);
+    mean_lcn_buf = gpuArrayAllocRM(DataType::FLOAT, DDim(BATCH_SIZE,MEAN_OUTPUTZ,MEAN_OUTPUTX,IMG_DIMY),stream);
+    mean_lcn_sqr = gpuArrayAllocRM(DataType::FLOAT, mean_lcn->dim(),stream);
 	divide_lcn = gpuArrayAllocRM(DataType::FLOAT, DDim(BATCH_SIZE,DIVIDE_OUTPUTZ,DIVIDE_OUTPUTX,DIVIDE_OUTPUTY),stream);
+    divide_lcn_buf = gpuArrayAllocRM(DataType::FLOAT, DDim(BATCH_SIZE,DIVIDE_OUTPUTZ,DIVIDE_OUTPUTX,MEAN_OUTPUTY),stream);
 	filt_LCN = gpuArrayAllocRM(DataType::FLOAT,DDim(IMG_DIMZ,1,1,IMG_DIMZ,MEAN_SIZE1,MEAN_SIZE2),stream);
+    filt_LCN_X = gpuArrayAllocRM(DataType::FLOAT,DDim(MEAN_SIZE1),stream);
 	init_filt_LCN(filt_LCN,MEAN_SIGMA,stream);
+    init_filt_LCN_sep(filt_LCN_X,MEAN_SIGMA,stream);
+    gpuTimesScalar(filt_LCN_X,1.0/IMG_DIMZ,filt_LCN_X,stream);
 
 	W_1 = gpuArrayAllocRM(DataType::FLOAT, DDim(MAPS_1,1,1,FILT1_DIMZ,FILT1_DIMX,FILT1_DIMY), stream);
 	Ptr<DistArrayHandle> W_1_load = loadDistArray(model+"_W_1",DDim(1,1,1,1,1,1),stream);
@@ -154,13 +159,15 @@ Ptr<ArrayViewHandle> LanePredictor_Q50::processImage(const Ptr<ArrayViewHandle>&
         copy(img->view(DDim(0,0,IMG_OFFSETX,i),DDim(BATCH_SIZE,IMG_DIMZ,IMG_DIMX,1)),
             data_buf->view(DDim(0,0,0,i-IMG_OFFSETY),DDim(BATCH_SIZE,IMG_DIMZ,IMG_DIMX,1)),stream);
     }
-	gpuFilterTimesLarge(filt_LCN,false,IMG_DIMZ,MEAN_STEP1,MEAN_STEP2,data_buf,mean_lcn,
-		data_buf_scratch,mean_lcn_scratch,stream,MEAN_LCN_SPLITS);
+	//gpuFilterTimesLarge(filt_LCN,false,IMG_DIMZ,MEAN_STEP1,MEAN_STEP2,data_buf,mean_lcn,
+	//	data_buf_scratch,mean_lcn_scratch,stream,MEAN_LCN_SPLITS);
+    gpuSeparable2DFilterTimes(filt_LCN_X,filt_LCN_X,true,MEAN_STEP1,MEAN_STEP2,data_buf,mean_lcn_buf,mean_lcn,0);
 	gpuMinus(data_buf->view(MEAN_POS,mean_lcn->dim()),mean_lcn,mean_lcn,stream);
 
 	gpuSquare(mean_lcn,mean_lcn_sqr,stream);
-	gpuFilterTimesLarge(filt_LCN,false,IMG_DIMZ,MEAN_STEP1,MEAN_STEP2,mean_lcn_sqr,divide_lcn,
-		mean_lcn_sqr_scratch,divide_lcn_scratch,stream,DIVIDE_LCN_SPLITS);
+	//gpuFilterTimesLarge(filt_LCN,false,IMG_DIMZ,MEAN_STEP1,MEAN_STEP2,mean_lcn_sqr,divide_lcn,
+	//	mean_lcn_sqr_scratch,divide_lcn_scratch,stream,DIVIDE_LCN_SPLITS);
+    gpuSeparable2DFilterTimes(filt_LCN_X,filt_LCN_X,true,MEAN_STEP1,MEAN_STEP2,mean_lcn_sqr,divide_lcn_buf,divide_lcn,0);
 	gpuPlusScalar(divide_lcn,DIVIDE_EPS,divide_lcn,stream);
 	gpuSqrt(divide_lcn,divide_lcn,stream);
 	gpuDivide(mean_lcn->view(DIVIDE_POS,divide_lcn->dim()),divide_lcn,divide_lcn,stream);
