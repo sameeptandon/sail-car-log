@@ -102,36 +102,10 @@ paramInit = False
 
 (ctx, cty, ctz) = \
         (-0.07, 0.325, 0.16)
+        #(-0.50, 0.31, 0.34)
 cT = np.array([ctx, cty, ctz])
-#(ctx, cty, ctz, crx, cry, crz) = \
-#        (-0.07, 0.325, 0.16, 0.0375, 0.008599999999999993, 0.01650000000000001)
-#(crx,cry,crz) = (0.04650000000000001, 0.021100000000000004, 0.01650000000000001)
-#(crx,cry,crz) = (0.045500000000000001, 0.019100000000000006, 0.00150000000000001)
-#(crx,cry,crz) = (0.047000000000000005, 0.019600000000000006, 0.01150000000000001)
-#(crx,cry,crz) = (0.04700000000000001, 0.02210000000000001, 0.01150000000000001)
-#(crx,cry,crz) = (0.05200000000000001, 0.018100000000000005, 0.01150000000000001)
-#(crx,cry,crz) = (0.04650000000000001, 0.018100000000000005, -0.00349999999999999)
-#(crx,cry,crz) = (0.046000000000000006, 0.0221, 0.01150000000000001)
-#(crx,cry,crz) = (0.046000000000000006, 0.0191, -0.013499999999999991)
 
-#(crx,cry,crz) = (0.046000000000000006, 0.012099999999999993, 0.021500000000000012)
-#cR = euler_matrix(crx, cry, crz)[0:3,0:3]
-# settings for 280N_e 
-#start_fn = 1200 
-#num_fn = 1000 
-#step = 1
-
-# settings for vail 
-#start_fn = 0
-#num_fn = 300
-#step = 5
-
-# settings for parking
-#start_fn = 0
-#num_fn = 200
-#step = 2
-
-start_fn = 2050
+start_fn = 5100
 num_fn = 25
 step = 10
 
@@ -166,9 +140,6 @@ def localMapToPixels(map_data, imu_transforms_t, cam):
     # reproject camera_t points in camera frame
     (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
 
-    print R
-    print cT
-    print cR
     return (pix, mask)
 
 def showCloudOnImage(img, t, imu_transform_t, cam):
@@ -182,6 +153,8 @@ def showCloudOnImage(img, t, imu_transform_t, cam):
 
     # draw 
     I = img.copy()
+    #I = cv2.undistort(img.copy(), cam['KK'], cam['distort'])
+
     intensity = map_data_copy[mask, 3]
     heat_colors = heatColorMapFast(intensity, 0, 100)
     for p in range(4):
@@ -210,7 +183,12 @@ def loadImages(video_reader, framenums):
 def cloudToPixels(cam, pts_wrt_cam): 
 
     width = 4
-    pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3,:], pts_wrt_cam[2, :])))
+    #pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3,:], pts_wrt_cam[2, :])))
+    #pix = pix.astype(np.int32)
+    (pix, J)  = cv2.projectPoints(pts_wrt_cam.transpose(), np.array([0.0,0.0,0.0]), np.array([0.0,0.0,0.0]), cam['KK'], cam['distort'])
+
+    pix = pix.transpose()
+    pix = np.around(pix[:, 0, :])
     pix = pix.astype(np.int32)
     mask = np.logical_and(True, pix[0,:] > 0 + width/2)
     mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
@@ -272,6 +250,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step):
         # transform data into IMU frame
         pts = data[:,0:3].transpose()
         pts = np.vstack((pts,np.ones((1,pts.shape[1]))))
+        T_from_l_to_i = np.eye(4)
         T_from_l_to_i[0:3,0:3] = R
         pts = np.dot(T_from_l_to_i, pts)
         pts = np.dot(IMUTransforms[fnum,:,:], pts);
@@ -304,6 +283,7 @@ def donothing(obj, event):
 
 
 def keypressUpdate(key):
+    print key
     global actors
     global clouds 
     global cloud_r
@@ -386,8 +366,9 @@ if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
 
     gps_reader = GPSReader(args['gps'])
-    cam1 = GetQ50CameraParams()[0] 
-    cam2 = GetQ50CameraParams()[1] 
+    params = args['params']
+    cam1 = params['cam'][0]
+    cam2 = params['cam'][1]
     video_reader1 = VideoReader(args['video'])
     video_reader2 = VideoReader(video_filename2)
     gps_reader = GPSReader(args['gps'])
