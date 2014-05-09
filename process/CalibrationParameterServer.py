@@ -8,9 +8,8 @@ global crx
 global cry
 global crz
 
-(rx,ry,rz) = (-0.005, -0.0031, -0.03350)
-(crx,cry,crz) = (0.0565,0.0201,0.0215)
-
+(rx,ry,rz) = (0.005,-0.0101,-0.029)
+(crx,cry,crz) = (0.062,0.0116,0.0115)
 global all_connected
 
 def ParametersToString():
