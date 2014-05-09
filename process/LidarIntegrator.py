@@ -8,7 +8,6 @@ from Q50_config import *
 from ArgParser import *
 import sys, os
 from GPSReader import *
-from GPSReprojection import *
 from GPSTransforms import *
 from VideoReader import *
 from LidarTransforms import *
@@ -59,8 +58,8 @@ renderWindow = vtk.vtkRenderWindow()
 #step = 2
 
 start_fn = 0 # offset in frame numbers to start exporting data
-num_fn = 100 # number of frames to export. this is changed if --full is enabled
-step = 10 # step between frames
+num_fn = 60 # number of frames to export. this is changed if --full is enabled
+step = 5 # step between frames
 
 color_mode = 'INTENSITY'
 
@@ -117,12 +116,13 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
         dist = np.sqrt(np.sum( data[:, 0:3] ** 2, axis = 1))
 
         # check out the commented out section below to figure out how this is filtering.
-        data_filter_mask = (dist > 3)                  & \
-                           (data[:,3] > 40)            & \
-                           (np.abs(data[:,1]) < 2.2)   & \
-                           (np.abs(data[:,1]) > 1.2)   & \
-                           (data[:,2] < -1.8)          & \
-                           (data[:,2] > -2.5)         
+        data_filter_mask = (dist > 3)                 & \
+                           (data[:,3] > 30)            
+                           #&\
+                           #(np.abs(data[:,1]) < 2.2)   & \
+                           #(np.abs(data[:,1]) > 1.2)   & \
+                           #(data[:,2] < -1.8)          & \
+                           #(data[:,2] > -2.5)        
         data = data[data_filter_mask, :]
         """
         # filter out on intensity
