@@ -216,7 +216,6 @@ if __name__ == '__main__':
         # visualization
         #disp = disp.astype(np.float32) / 16.0
         cv2.imshow('disp', cv2.pyrDown(disp))
-        print points
 
         cv2.waitKey(1500)     #press q on keyboard to close
     cv2.destroyAllWindows()
