@@ -33,27 +33,21 @@ class LDRGrabberCallback:
 
             frame_cloud = self.queue.get()
             lidar_pts = frame_cloud['lidar_pts']
-            gps_pts = frame_cloud['gps_pts']
             img = frame_cloud['img']
 
             global count
             count += 1
 
             self.lidarPointCloud = VtkPointCloud(lidar_pts[:, 0:3], lidar_pts[:, 3])
-            self.gpsPointCloud = VtkPointCloud(gps_pts[:,0:3],
-                    gps_pts[:,0]-gps_pts[:,0] + 10)
             self.vtkImage = VtkImage(img)
 
             if count > 2:
                 cloud_r.RemoveActor(self.lidar_actor)
-                cloud_r.RemoveActor(self.gps_actor)
                 image_r.RemoveActor(self.image_actor)
             self.lidar_actor = self.lidarPointCloud.get_vtk_cloud(zMin=0, zMax=255)
-            self.gps_actor = self.gpsPointCloud.get_vtk_cloud()
             self.image_actor = self.vtkImage.get_vtk_image()
 
             cloud_r.AddActor(self.lidar_actor)
-            cloud_r.AddActor(self.gps_actor)
             image_r.AddActor(self.image_actor)
 
             # Initially set the camera frame
@@ -83,12 +77,6 @@ class FrameCloudManager:
         self.queue = Queue.Queue()
         self.finished = False
         
-        path, vfname = os.path.split(video_file)
-        vidname = vfname.split('.')[0]
-        gps_filename = path + '/' + vidname[0:-1] + '_gps.out'
-        gps_reader = GPSReader(gps_filename)
-        self.GPSData = gps_reader.getNumericData()
-
     def loadNext(self):
         while self.finished == False:
             for t in range(5):
@@ -101,26 +89,14 @@ class FrameCloudManager:
             img = cv2.pyrDown(img)
             
             framenum = self.reader.framenum
-            if framenum >= len(self.ldr_map) or framenum >= self.GPSData.shape[0]:
+            if framenum >= len(self.ldr_map):
                 self.finished = True
                 return
-            roll_start = -deg2rad(self.GPSData[framenum,8])
-            pitch_start = deg2rad(self.GPSData[framenum,7])
-            yaw_start = -deg2rad(self.GPSData[framenum,9])
 
-            base_R_to_i_from_w = R_to_i_from_w(roll_start, pitch_start, yaw_start)
-            gps_pts = WGS84toENU(self.GPSData[framenum,1:4], self.GPSData[framenum-3*50:framenum+8*50,1:4])
-            gps_pts = np.dot(base_R_to_i_from_w, gps_pts)
-            gps_pts = np.dot(euler_matrix(0,-0.01,-0.04)[0:3,0:3], gps_pts)
-            gps_pts = gps_pts.transpose()
-            gps_pts[:,2] -= 1.5
-
-                
             ldr_file = self.ldr_map[framenum]
             lidar_pts = loadLDR(ldr_file)
 
-            self.queue.put({'img': img, 'lidar_pts': lidar_pts,
-                'gps_pts': gps_pts})
+            self.queue.put({'img': img, 'lidar_pts': lidar_pts})
 
             while self.queue.qsize() > 5:
                 time.sleep(0.1)
