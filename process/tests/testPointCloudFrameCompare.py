@@ -12,6 +12,7 @@ from VideoReader import VideoReader
 from VtkRenderer import *
 from GPSReader import * 
 from GPSTransforms import * 
+from ArgParser import *
 
 global count
 global lastTime
@@ -133,11 +134,14 @@ if __name__ == '__main__':
     if len(sys.argv) < 3:
         print """
         Usage:
-            testPointCloudFrameCompare.py <video file>.avi <map_file>.out
+            testPointCloudFrameCompare.py /path-to-data [basename][cameranum].avi
         """
     else: 
+        args = parse_args(sys.argv[1], sys.argv[2])
+        cam_num = int(sys.argv[2][-5])
+        params = args['params']
 
-        frame_cloud_manager = FrameCloudManager(sys.argv[1], sys.argv[2])
+        frame_cloud_manager = FrameCloudManager(args['video'], args['map'])
 
 
         global count
