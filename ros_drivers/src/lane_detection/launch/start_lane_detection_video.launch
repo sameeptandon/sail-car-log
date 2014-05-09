@@ -1,8 +1,8 @@
 <launch>
-    <node pkg="lane_detection" type="VideoProducer" name="VideoProducer" output="screen" args="/home/smart/jpazhaya/driving_data/split_0_280N_a1.avi" respawn="true">
+    <node pkg="lane_detection" type="VideoProducer" name="VideoProducer" output="screen" args="/home/q50/jpazhaya/driving_data/split_0_280N_a1.avi" respawn="true">
     </node>
 
-    <node pkg="lane_detection" type="LanePredictionNode" name="LanePredictionNode" output="screen" args="/home/smart/jpazhaya/driving_data/640x480_cvideo_batch192_step0.0007_moredata_fixlcn_nopad_iter86814_0.npy /VideoProducer/output_video">
+    <node pkg="lane_detection" type="LanePredictionNode" name="LanePredictionNode" output="screen" args="/home/q50/jpazhaya/driving_data/640x480_cvideo_batch192_step0.0007_moredata_fixlcn_nopad_iter86814_0.npy /VideoProducer/output_video">
     </node>
 
 </launch>

@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="lane_detection" type="VideoProducer" name="VideoProducer" output="screen" args="/home/smart/jpazhaya/q50_data/split_0_sanrafael_k2.avi" respawn="true">
+    </node>
+
+    <node pkg="lane_detection" type="LanePredictionNode" name="LanePredictionNode" output="screen" args="/home/smart/jpazhaya/q50_data/q50_635x363_stride2_network2_step0.000005_iter60368_0.npy /VideoProducer/output_video">
+    </node>
+
+</launch>
+

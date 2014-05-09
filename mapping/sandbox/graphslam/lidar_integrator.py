@@ -119,9 +119,8 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
     renderer.AddActor(actors[-1])
     for t in range(num_steps):
         fnum = offset+t*step
-        print fnum
+        #print fnum
 
-        
         data = loadLDR(ldr_map[fnum])
         # filter out the roof rack
         dist = np.sqrt(np.sum( data[:, 0:3] ** 2, axis = 1))
@@ -259,48 +258,47 @@ def keypress(obj, event):
         clouds = [ ]
         all_data = [ ]
         #start_fn = start_fn + 5
-        integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step)
+        integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
         renderWindow.Render()
     print key
     #print (rx,ry,rz)
 
 if __name__ == '__main__': 
-    export_path = sys.argv[3]
     vfname = sys.argv[2]
     vidname = vfname.split('.')[0]
     vidname2 = vidname[:-1] + '2'
     video_filename2 = sys.argv[1] + '/' + vidname2 + '.avi'
-    
+
+    opt_pos_file = sys.argv[3]
+    export_path = sys.argv[4]
+
     args = parse_args(sys.argv[1], sys.argv[2])
 
     gps_reader = GPSReader(args['gps'])
-    params = LoadParameters('q50_4_3_14_params')
+    params = args['params']
     cam1 = params['cam'][0]
     cam2 = params['cam'][1]
     video_reader1 = VideoReader(args['video'])
     video_reader2 = VideoReader(video_filename2)
-    GPSData = gps_reader.getNumericData()
-    imu_transforms = IMUTransforms(GPSData)
-
-    imu_transforms_smoothed = np.load('imu_transforms_smoothed.npz')['data']
-    print imu_transforms_smoothed.shape
-    print np.max(np.max(imu_transforms - imu_transforms_smoothed))
+    imu_transforms = np.load(opt_pos_file)['data']
+    print imu_transforms.shape
+    #GPSData = gps_reader.getNumericData()
+    #imu_transforms = IMUTransforms(GPSData)
 
     ldr_map = loadLDRCamMap(args['map'])
 
     if '--full' in sys.argv:
-        total_num_frames = GPSData.shape[0]
+        total_num_frames = imu_transforms.shape[0]
         start_fn = 0
         step = 5
         num_fn = int(total_num_frames / step)
-
 
     # this has been flipped for the q50
 
     cloud_r.SetBackground(0., 0., 0.)
     cloud_r.SetViewport(0,0,1.0,1.0)
 
-    integrateClouds(ldr_map, imu_transforms_smoothed, cloud_r, start_fn, num_fn, step, params)
+    integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
     #integrateClouds(ldr_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
 
     if '--export' in sys.argv:

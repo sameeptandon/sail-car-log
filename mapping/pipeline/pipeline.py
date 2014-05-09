@@ -46,7 +46,7 @@ def download_files(dummy, local_file):
 @follows('download_files')
 @files('./%s_gps.bag' % DSET[:-1], '%s_frames' % DSET[:-1])
 def generate_frames_and_map(input_file, output_dir):
-    cmd = 'cd %s/lidar; python generate_frames_and_map.py %s %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR, PARAMS_TO_LOAD)
+    cmd = 'cd %s/lidar; python generate_frames.py %s %s; python generate_map.py %s %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR, PARAMS_TO_LOAD, DSET_DIR, PARAMS_TO_LOAD)
     print cmd
     check_call(cmd, shell=True)
 
@@ -69,6 +69,7 @@ def convert_ldr_to_h5(dummy_file, output_file):
     cmd = 'python {exporter} {fgps} {fmap} {h5_dir}'.format(exporter=exporter, fgps=GPS_FILE, fmap=MAP_FILE, h5_dir=POINTS_H5_DIR)
     if EXPORT_FULL:
         cmd += ' --full'
+    print cmd
     check_call(cmd, shell=True)
 
 
@@ -178,13 +179,13 @@ def merge_raw_clouds(cloud_files, merged_cloud_file):
     for chunk_files in chunks:
         merged_chunk_file = os.path.dirname(MERGED_CLOUD_FILE) + '/chunk%d.pcd' % k
         # Concatenate PCD files
-        cmd = 'pcl_concatenate_points_pcd ' + ' '.join(chunk_files) + '; mv output.pcd %s' % merged_chunk_file
+        cmd = 'concatenate_points_pcd ' + ' '.join(chunk_files) + ' ' + merged_chunk_file
         print cmd
         check_call(cmd, shell=True)
         merged_chunk_files.append(merged_chunk_file)
         k += 1
 
-    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(merged_chunk_files) + '; mv output.pcd %s' % MERGED_CLOUD_FILE
+    cmd = 'concatenate_points_pcd ' + ' '.join(merged_chunk_files) + ' ' + MERGED_CLOUD_FILE
     print cmd
     check_call(cmd, shell=True)
 
@@ -213,15 +214,15 @@ def merge_color_clouds(cloud_files, merged_cloud_file):
     merged_chunk_files = list()
     k = 0
     for chunk_files in chunks:
-        merged_chunk_file = os.path.dirname(MERGED_COLOR_CLOUD_FILE) + 'chunk%d.pcd' % k
+        merged_chunk_file = os.path.dirname(MERGED_COLOR_CLOUD_FILE) + '/chunk%d.pcd' % k
         # Concatenate PCD files
-        cmd = 'pcl_concatenate_points_pcd ' + ' '.join(chunk_files) + '; mv output.pcd %s' % merged_chunk_file
+        cmd = 'concatenate_points_pcd ' + ' '.join(chunk_files) + ' ' + merged_chunk_file
         print cmd
         check_call(cmd, shell=True)
         merged_chunk_files.append(merged_chunk_file)
         k += 1
 
-    cmd = 'pcl_concatenate_points_pcd ' + ' '.join(merged_chunk_files) + '; mv output.pcd %s' % MERGED_COLOR_CLOUD_FILE
+    cmd = 'concatenate_points_pcd ' + ' '.join(merged_chunk_files) + ' ' + MERGED_COLOR_CLOUD_FILE
     print cmd
     check_call(cmd, shell=True)
 

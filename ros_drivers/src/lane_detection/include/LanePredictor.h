@@ -7,141 +7,15 @@
 #include "io/ArrayIO.h"
 #include "cuda_profiler_api.h"
 
-#define BATCH_SIZE 1
-#define IMG_DIMZ 3
-#define IMG_DIMX 640
-#define IMG_DIMY 480
-
-#define MEAN_AXIS1 2
-#define MEAN_AXIS2 3
-#define MEAN_SIZE1 9
-#define MEAN_SIZE2 9
-#define MEAN_SIGMA ((MEAN_SIZE1-1)/4.0)
-#define MEAN_STEP1 1
-#define MEAN_STEP2 1
-#define MEAN_OUTPUTZ IMG_DIMZ
-#define MEAN_OUTPUTX ((IMG_DIMX-MEAN_SIZE1)/MEAN_STEP1+1)
-#define MEAN_OUTPUTY ((IMG_DIMY-MEAN_SIZE2)/MEAN_STEP2+1)
-#define MEAN_POS DDim(0,(IMG_DIMZ-MEAN_OUTPUTZ)/2,(IMG_DIMX-MEAN_OUTPUTX)/2,(IMG_DIMY-MEAN_OUTPUTY)/2)
-#define DIVIDE_OUTPUTZ IMG_DIMZ
-#define DIVIDE_OUTPUTX ((MEAN_OUTPUTX-MEAN_SIZE1)/MEAN_STEP1+1)
-#define DIVIDE_OUTPUTY ((MEAN_OUTPUTY-MEAN_SIZE2)/MEAN_STEP2+1)
-#define DIVIDE_POS DDim(0,(MEAN_OUTPUTZ-DIVIDE_OUTPUTZ)/2,(MEAN_OUTPUTX-DIVIDE_OUTPUTX)/2,(MEAN_OUTPUTY-DIVIDE_OUTPUTY)/2)
-#define DIVIDE_EPS 500.0	
-
-#define MAPS_1 16
-#define FILT1_DIMZ 3
-#define FILT1_DIMX 10
-#define FILT1_DIMY 10
-#define FILT1_STEPZ 3
-#define FILT1_STEPX 2
-#define FILT1_STEPY 2
-#define FILT1_OUTPUTZ (((DIVIDE_OUTPUTZ-FILT1_DIMZ)/FILT1_STEPZ+1)*MAPS_1)
-#define FILT1_OUTPUTX ((DIVIDE_OUTPUTX-FILT1_DIMX)/FILT1_STEPX+1)
-#define FILT1_OUTPUTY ((DIVIDE_OUTPUTY-FILT1_DIMY)/FILT1_STEPY+1)
-#define THRESHOLD_NL "fmaxf(.1f*a,a)"
-#define SUBSAMP1_DIMZ MAPS_1
-#define SUBSAMP1_DIMX 2
-#define SUBSAMP1_DIMY 2
-#define SUBSAMP1_STEPZ MAPS_1
-#define SUBSAMP1_STEPX 2
-#define SUBSAMP1_STEPY 2
-#define SUBSAMP1_OUTPUTZ (((FILT1_OUTPUTZ-SUBSAMP1_DIMZ)/SUBSAMP1_STEPZ+1)*MAPS_1)
-#define SUBSAMP1_OUTPUTX ((FILT1_OUTPUTX-SUBSAMP1_DIMX)/SUBSAMP1_STEPX+1)
-#define SUBSAMP1_OUTPUTY ((FILT1_OUTPUTY-SUBSAMP1_DIMY)/SUBSAMP1_STEPY+1)
-
-#define MAPS_2 16
-#define FILT2_DIMZ MAPS_1
-#define FILT2_DIMX 9
-#define FILT2_DIMY 9
-#define FILT2_STEPZ MAPS_2
-#define FILT2_STEPX 1
-#define FILT2_STEPY 1
-#define FILT2_OUTPUTZ (((SUBSAMP1_OUTPUTZ-FILT2_DIMZ)/FILT2_STEPZ+1)*MAPS_2)
-#define FILT2_OUTPUTX ((SUBSAMP1_OUTPUTX-FILT2_DIMX)/FILT2_STEPX+1)
-#define FILT2_OUTPUTY ((SUBSAMP1_OUTPUTY-FILT2_DIMY)/FILT2_STEPY+1)
-#define SUBSAMP2_DIMZ MAPS_2
-#define SUBSAMP2_DIMX 2
-#define SUBSAMP2_DIMY 2
-#define SUBSAMP2_STEPZ MAPS_2
-#define SUBSAMP2_STEPX 2
-#define SUBSAMP2_STEPY 2
-#define SUBSAMP2_OUTPUTZ (((FILT2_OUTPUTZ-SUBSAMP2_DIMZ)/SUBSAMP2_STEPZ+1)*MAPS_2)
-#define SUBSAMP2_OUTPUTX ((FILT2_OUTPUTX-SUBSAMP2_DIMX)/SUBSAMP2_STEPX+1)
-#define SUBSAMP2_OUTPUTY ((FILT2_OUTPUTY-SUBSAMP2_DIMY)/SUBSAMP2_STEPY+1)
-
-#define MAPS_3 32
-#define FILT3_DIMZ MAPS_2
-#define FILT3_DIMX 8
-#define FILT3_DIMY 8
-#define FILT3_STEPZ MAPS_3
-#define FILT3_STEPX 1
-#define FILT3_STEPY 1
-#define FILT3_OUTPUTZ (((SUBSAMP2_OUTPUTZ-FILT3_DIMZ)/FILT3_STEPZ+1)*MAPS_3)
-#define FILT3_OUTPUTX ((SUBSAMP2_OUTPUTX-FILT3_DIMX)/FILT3_STEPX+1)
-#define FILT3_OUTPUTY ((SUBSAMP2_OUTPUTY-FILT3_DIMY)/FILT3_STEPY+1)
-
-#define BOTTLENECK 480
-
-#define NUM_CLASSES 80
-#define NUM_CLASSIFIERS 48
-#define MIN_ACTIVATION 1.0e-8
-#define MAX_ACTIVATION 1.0-1.0e-8
-
-#define SUBPIXEL_WINDOW 7
-
-#define MEAN_LCN_SPLITS 16
-#define DIVIDE_LCN_SPLITS 16
-#define W1_SPLITS 16
-#define W2_SPLITS 16
-#define W3_SPLITS 16
-
 class LanePredictor{
 
 public:
-	LanePredictor();
-	LanePredictor(int* argc, char** argv, int stream_num);
-	~LanePredictor();
-	Ptr<ArrayViewHandle> processImage(const Ptr<ArrayViewHandle>& img);
+	virtual Ptr<ArrayViewHandle> processImage(const Ptr<ArrayViewHandle>& img)=0;
 
-private:
+protected:
 	int stream;
 	std::string model;
 	Ptr<ArrayViewHandle> data_buf;
-	Ptr<ArrayViewHandle> mean_lcn;
-	Ptr<ArrayViewHandle> mean_lcn_sqr;
-	Ptr<ArrayViewHandle> divide_lcn;
-	Ptr<ArrayViewHandle> filt_LCN;
-	Ptr<ArrayViewHandle> W_1;
-	Ptr<ArrayViewHandle> filt_1;
-	Ptr<ArrayViewHandle> nonlin_1;
-	Ptr<ArrayViewHandle> pool_1;
-	Ptr<ArrayViewHandle> W_2;
-	Ptr<ArrayViewHandle> filt_2;
-	Ptr<ArrayViewHandle> nonlin_2;
-	Ptr<ArrayViewHandle> pool_2;
-	Ptr<ArrayViewHandle> W_3;
-	Ptr<ArrayViewHandle> feat;
-	Ptr<ArrayViewHandle> W_bn;
-	Ptr<ArrayViewHandle> B_bn;
-	Ptr<ArrayViewHandle> feat_bn;
-	Ptr<ArrayViewHandle> W_final;
-	Ptr<ArrayViewHandle> B_final;
-	Ptr<ArrayViewHandle> mult_linear;
-	Ptr<ArrayViewHandle> reduce_col;
-	Ptr<ArrayViewHandle> indexArray;
-	Ptr<ArrayViewHandle> tmpArray;
-	Ptr<ArrayViewHandle> labels;
-	Ptr<ArrayViewHandle> data_buf_scratch;
-	Ptr<ArrayViewHandle> mean_lcn_scratch;
-	Ptr<ArrayViewHandle> mean_lcn_sqr_scratch;
-	Ptr<ArrayViewHandle> divide_lcn_scratch;
-	Ptr<ArrayViewHandle> filt_1_scratch;
-	Ptr<ArrayViewHandle> divide_lcn_in_scratch;
-	Ptr<ArrayViewHandle> pool_1_scratch;
-	Ptr<ArrayViewHandle> filt_2_scratch;
-	Ptr<ArrayViewHandle> pool_2_scratch;
-	Ptr<ArrayViewHandle> feat_scratch;
     Ptr<ArrayViewHandle> host_output;
 
 	static unsigned int clp2(unsigned int x) {
@@ -154,14 +28,24 @@ private:
 		return x + 1;
 	}
 
-	void allocScratchArray(  const Ptr<ArrayViewHandle>& input,
+	static void allocScratchArray(  const Ptr<ArrayViewHandle>& input,
 	                         const Ptr<ArrayViewHandle>& output, 
 	                         const Ptr<ArrayViewHandle>& filters,
-	                         int stepx,
+	                         int stepy,
 	                         Ptr<ArrayViewHandle>& inputScratch,
 	                         Ptr<ArrayViewHandle>& outputScratch,
 	                         int stream,
-	                         int num_splits = 0);
+	                         int num_splits = 0){
+    if(num_splits==0){
+        num_splits = clp2((output->dim(2)*output->dim(3)-1)/65535+1);
+    }
+    int split_width = output->dim(3)/num_splits;
+    if(split_width*num_splits != output->dim(3)){
+        split_width += 1;
+    }
+    inputScratch =  gpuArrayAllocRM(input->dataType(),DDim(num_splits,input->dim(1),input->dim(2),filters->dim(5)+(split_width-1)*stepy),stream);
+    outputScratch = gpuArrayAllocRM(output->dataType(),DDim(num_splits,output->dim(1),output->dim(2),split_width),stream);
+};
 
 	static void gpuFilterTimesLarge(  const Ptr<ArrayViewHandle>& filters,
 	                                  bool transpose,
@@ -171,7 +55,74 @@ private:
 	                                  const Ptr<ArrayViewHandle>& inputScratch,
 	                                  const Ptr<ArrayViewHandle>& outputScratch,
 	                                  int stream,
-	                                  int num_splits = 0);
+	                                  int num_splits = 0){
+        if(num_splits==0){
+                num_splits = clp2((output->dim(2)*output->dim(3)-1)/65535+1);
+        }
+        int out_split_width = output->dim(3)/num_splits;
+        if(out_split_width*num_splits != output->dim(3)){
+                out_split_width += 1;
+        }
+        int in_split_width = filters->dim(5)+(out_split_width-1)*stepy;
+        Ptr<ArrayViewHandle> input_split;
+        for(int i=0;i<num_splits;i++){
+                int in_split_offset = i*out_split_width*stepy;
+            input_split = input->view(DDim(0,0,0,in_split_offset),DDim(input->dim(0),input->dim(1),input->dim(2),in_split_width));
+                gpuCopy(input_split,inputScratch->view(DDim(i,0,0,0),input_split->dim()),stream);
+                if((in_split_width+in_split_offset) > input->dim(3)){
+                        break;
+                }
+        }
+        gpuFilterTimes(filters,transpose,stepz,stepx,stepy,inputScratch,outputScratch,stream);
+        Ptr<ArrayViewHandle> output_split;
+        for(int i=0;i<num_splits;i++){
+                if(out_split_width*(i+1) > output->dim(3)){
+                        output_split = output->view(DDim(0,0,0,i*out_split_width),DDim(output->dim(0),output->dim(1),
+                                output->dim(2),output->dim(3)-i*out_split_width));
+                        gpuCopy(outputScratch->view(DDim(i,0,0,0),output_split->dim()),output_split,stream);
+                        break;
+                }else{
+                        output_split = output->view(DDim(0,0,0,i*out_split_width),DDim(output->dim(0),output->dim(1),
+                                output->dim(2),out_split_width));
+                        gpuCopy(outputScratch->view(DDim(i,0,0,0),output_split->dim()),output_split,stream);
+                }
+        }
+};
 
-	void init_filt_LCN();
+	static void init_filt_LCN(const Ptr<ArrayViewHandle>& filt_LCN,double mean_sigma,int stream){
+        int mean_size1 = filt_LCN->dim(4);
+        int mean_size2 = filt_LCN->dim(5);
+        int img_dimz = filt_LCN->dim(3);
+        Ptr<ArrayViewHandle> filt_vals = hostArrayAllocRM(DataType::FLOAT,DDim(mean_size1,mean_size2),stream);
+        double fsum = 0.0;
+        int hp = (mean_size1-1)/2;
+        for(int i=0;i<mean_size1;i++){
+                for(int j=0;j<mean_size2;j++){
+                        int dx = i-hp;
+                        int dy = j-hp;
+                        double c = expf(-0.5*(dx*dx+dy*dy)/(mean_sigma*mean_sigma));
+                        cpuSet(c,filt_vals->view(DDim(i,j),DDim(1,1)),stream);
+                        fsum += c;
+                }
+        }
+        cpuTimesScalar(filt_vals,1.0/fsum/img_dimz,filt_vals,stream);
+        for(int i=0;i<img_dimz;i++){
+                for(int j=0;j<img_dimz;j++){
+                        copy(filt_vals,filt_LCN->view(DDim(i,0,0,j,0,0),DDim(1,1,1,1,mean_size1,mean_size2)),stream);
+                }
+        }
+};
+
+    static void init_filt_LCN_sep(const Ptr<ArrayViewHandle>& filt_LCN,double mean_sigma,int stream){
+        int mean_size = filt_LCN->dim(0);
+        double fsum = 0.0;
+        int hp = (mean_size-1)/2;
+        for(int i=0;i<mean_size;i++){
+            int dx = i-hp;
+            double c = expf(-0.5*(dx*dx)/(mean_sigma*mean_sigma));
+            gpuSet(c,filt_LCN->view(DDim(i),DDim(1)),stream);
+            fsum+=c;
+        }
+        gpuTimesScalar(filt_LCN,1.0/fsum,filt_LCN,stream);
+    };
 };

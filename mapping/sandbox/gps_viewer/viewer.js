@@ -45,7 +45,10 @@ function drawHeatmap() {
 }
 
 function toggleHeatmap() {
-    heatmap.setMap(heatmap.getMap() ? null : map);
+    if (typeof heatmap == 'undefined')
+        drawHeatmap()
+    else
+        heatmap.setMap(heatmap.getMap() ? null : map);
 }
 
 // Load GPS
@@ -68,7 +71,7 @@ function loadGPSTracks(f) {
                     allLat.push.apply(allLat, lat);
                     allLon.push.apply(allLon, lon);
                     drawGPSTrack(lat, lon, [route, segment, split]);
-                    segmentDiv.append('<div class="trackPanel"><input type="checkbox" checked="true" onclick="toggleTrack(' + numTracks + ')" /><span style="color:' + strokeColors[numRoutes % strokeColors.length] + '">' + split + '</span></div>');
+                    segmentDiv.append('<div class="trackPanel"><input type="checkbox" checked="true" onchange="toggleTrack(' + numTracks + ')" /><span style="color:' + strokeColors[numRoutes % strokeColors.length] + '">' + split + '</span></div>');
                     numTracks++;
                 });
                 routeDiv.append(segmentDiv);
@@ -77,7 +80,19 @@ function loadGPSTracks(f) {
             numRoutes++;
         });
 
-        drawHeatmap();
+        //drawHeatmap();
+
+        $('#checkAll').click(function() {
+            if ($(this).html() == 'Check All') {
+                $('input:checkbox').prop('checked', 'checked');
+                $(this).html('Uncheck All');
+            } else {
+                $('input:checkbox').removeProp('checked');
+                $(this).html('Check All');
+            }
+            $('input:checkbox').trigger('change');
+        });
+
     });
 }
 
@@ -115,4 +130,5 @@ function drawGPSTrack(lat, lon, pathInfo) {
 $(document).ready(function() {
     initializeMap();
     loadGPSTracks('gps_tracks.json');
+
 });
