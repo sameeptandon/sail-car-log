@@ -12,16 +12,15 @@ from pipeline_config import NUM_CPUS, SAIL_CAR_LOG_PATH, CAMERA
 from pipeline_utils import print_and_call, touchf
 
 
-# TODO Find matches between runs
+def reload_config():
+    reload(pipeline_config)
+
 
 @files(None, MATCHES_FILE)
 def match_traces(dummy, output_file):
     cmd = 'python %s/match_traces.py %s' % (GRAPHSLAM_PATH, GRAPHSLAM_MATCH_DIR)
     print_and_call(cmd)
-
-
-def reload_config():
-    reload(pipeline_config)
+    reload_config()
 
 
 @follows('match_traces', reload_config)
@@ -55,11 +54,7 @@ def chunk_and_align(dummy, sentinel):
     '%s/export_lanes_sentinel' % GRAPHSLAM_LANES_DIR)
 def export_lanes(dummy, sentinel):
     cmd = 'python scripts/export_lanes.py'
-    try:
-        print_and_call(cmd)
-    except Exception as e:
-        print e
-        pass
+    print_and_call(cmd)
     touchf('%s/export_lanes_sentinel' % GRAPHSLAM_LANES_DIR)
 
 

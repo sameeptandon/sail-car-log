@@ -146,11 +146,25 @@ float pair_align (const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 }
 
 
-float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr tgt_cloud, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist, float tol, bool debug)
+// NOTE cloud_in and cloud_out can't reference the same point cloud object
+void filter_by_intensity(const PointCloudWithNormals::Ptr cloud_in, PointCloudWithNormals::Ptr cloud_out)
+{
+    cloud_out->clear();
+    BOOST_FOREACH(PointTNormal p, cloud_in->points)
+    {
+        if (p.intensity > params().icp_min_intensity)
+            cloud_out->push_back(p);
+    }
+}
+
+
+float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr cloud_tgt, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist, float tol, bool debug)
 {
     final_transform = Eigen::Matrix4f::Identity();
     PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
-    src_cloud = cloud_src;
+    PointCloudWithNormals::Ptr tgt_cloud(new PointCloudWithNormals());
+    filter_by_intensity(cloud_src, src_cloud);
+    filter_by_intensity(cloud_tgt, tgt_cloud);
     aligned_cloud = src_cloud;
 
     std::vector<float> normalized_errors;
@@ -194,14 +208,14 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
 
         BOOST_FOREACH(pcl::Correspondence c, all_correspondences)
         {
-            int idx_query = c.index_query;
-            int idx_match = c.index_match;
+            long idx_query = c.index_query;
+            long idx_match = c.index_match;
+            // TODO Not sure why this check is needed
+            if (idx_query < 0 || idx_match < 0 || idx_query >= src_cloud->size() || idx_match >= tgt_cloud->size())
+                continue;
 
             pcl::PointXYZINormal p_query = src_cloud->at(idx_query);
             pcl::PointXYZINormal p_match = tgt_cloud->at(idx_match);
-            // PARAM
-            if (p_query.intensity < params().icp_min_intensity || p_match.intensity < params().icp_min_intensity)
-                continue;
 
             Eigen::Vector3f translation;
             translation << p_match.x - p_query.x, p_match.y - p_query.y, p_match.z - p_query.z;
@@ -212,7 +226,6 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
             y_translations.push_back(p_match.y - p_query.y);
             z_translations.push_back(p_match.z - p_query.z);
         }
-        //std::cout << translations.size() << "/" << all_correspondences.size() << " correspondences with high enough intensity" << std::endl;
         assert (translations.size() > 0);
 
         normalized_error = normalized_error / all_correspondences.size();

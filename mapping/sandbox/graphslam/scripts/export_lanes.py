@@ -20,9 +20,14 @@ def export_lane_data(gps_file, rss):
 
 
 if __name__ == '__main__':
+    '''
     try:
         # Not sure why throws an error
         Parallel(n_jobs=NUM_CPUS-1)(delayed(export_lane_data)(gps_file, rss) for gps_file, rss in zip(GPS_FILES, RSS_LIST))
     except Exception as e:
         print e
         pass
+    '''
+    #for gps_file, rss in zip(GPS_FILES, RSS_LIST):
+        #export_lane_data(gps_file, rss)
+    Parallel(n_jobs=3)(delayed(export_lane_data)(gps_file, rss) for gps_file, rss in zip(GPS_FILES, RSS_LIST))

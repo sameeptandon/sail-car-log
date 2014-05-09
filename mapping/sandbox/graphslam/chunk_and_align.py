@@ -12,8 +12,9 @@ from joblib import Parallel, delayed
 '''
 For every alignment, we need to create two small chunks of the
 full maps that we want to align. These chunks are selected by
-looking at the best NN matches. The alignment computed for these
-two chunks is then applied for the rest of the full maps
+looking at the best NN matches.
+
+We compute a new alignment every REALIGN_EVERY steps
 
 Since the chunks are stored relative to IMU 0, we need to first
 transform them by the global position of IMU 0
@@ -39,17 +40,17 @@ def vtk_filename(pcd_file):
 
 
 # Helper function for chunk_and_align all
-def chunk_and_align(start1, start2, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, chunk_num):
+def chunk_and_align(start1, start2, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, chunk_num, debug=False):
     chunk1_files = list()
     chunk2_files = list()
     for k in range(0, CHUNK_SIZE):
         ind1 = start1 + k
         chunk1_files.append('%s/%d.pcd' % (pcd_dir1, ind1))
-        print chunk1_files[-1]
+        print k, chunk1_files[-1]
         assert os.path.exists(chunk1_files[-1])
         ind2 = start2 + k
         chunk2_files.append('%s/%d.pcd' % (pcd_dir2, ind2))
-        print chunk2_files[-1]
+        print k, chunk2_files[-1]
         assert os.path.exists(chunk2_files[-1])
 
     merged_chunks1 = '%s/%s' % (GRAPHSLAM_CHUNK_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '%d_1.pcd' % chunk_num)
@@ -72,10 +73,11 @@ def chunk_and_align(start1, start2, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, 
 
     # Generate VTK files so we can easily visualize to debug
 
-    cmd = 'pcl_pcd2vtk %s %s' % (merged_chunks1, vtk_filename(merged_chunks1))
-    print_and_call(cmd)
-    cmd = 'pcl_pcd2vtk %s %s' % (merged_chunks2, vtk_filename(merged_chunks2))
-    print_and_call(cmd)
+    if debug:
+        cmd = 'pcl_pcd2vtk %s %s' % (merged_chunks1, vtk_filename(merged_chunks1))
+        print_and_call(cmd)
+        cmd = 'pcl_pcd2vtk %s %s' % (merged_chunks2, vtk_filename(merged_chunks2))
+        print_and_call(cmd)
 
     # Finally perform alignment
 
@@ -92,7 +94,7 @@ def get_closest_key_value(k, d, max_shift=5):
     while k not in d:
         k = k + shift
         shift = -1 * (abs(shift) + 1) * cmp(shift, 0)
-        assert abs(shift) < max_shift
+        assert abs(shift) < max_shift, 'Index %d shift %d' % (k, shift)
     return d[k]
 
 
@@ -117,13 +119,26 @@ def chunk_and_align_all(d):
 
     args_all = list()
     chunk_num = 0
-    for k in range(start1, start1 + nn_matches.shape[0] / EXPORT_STEP, REALIGN_EVERY):
+    for k in range(start1, nn_matches[-1, 1] / EXPORT_STEP - CHUNK_SIZE, REALIGN_EVERY):
         #def chunk_and_align(start1, start2, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, chunk_num):
-        k2 = get_closest_key_value(k * EXPORT_STEP, nn_dict, max_shift=10)
+        try:
+            k2 = get_closest_key_value(k * EXPORT_STEP, nn_dict, max_shift=10)
+        except:
+            # TODO Think this sometimes occurs near end of alignments
+            break
         args_all.append((k, k2 / EXPORT_STEP, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, chunk_num))
         chunk_num += 1
 
     Parallel(n_jobs=NUM_CPUS)(delayed(chunk_and_align)(*args) for args in args_all)
+    # For debugging
+    '''
+    for args in args_all:
+        _, _, _, _, rss1, rss2, _, _, chunk_num = args
+        h5f = '%s/%s' % (GRAPHSLAM_ALIGN_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '--%d' % chunk_num + '.h5')
+        if os.path.exists(h5f):
+            continue
+        chunk_and_align(*args)
+    '''
 
 
 if __name__ == '__main__':
