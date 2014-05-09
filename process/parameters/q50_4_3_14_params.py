@@ -42,7 +42,9 @@ def GetQ50CameraParams():
             T = T.reshape((3,1))
             E = np.hstack((R.transpose(), np.dot(-R.transpose(),T)))
             E = np.vstack((E,np.array([0,0,0,1])))
-            cam[i]['E'] = E 
+            cam[i]['E'] = E
+            cam[i]['E_t'] = T
+            cam[i]['E_R'] = R 
             
 
             cam[i]['fx'] = 2254.76 
