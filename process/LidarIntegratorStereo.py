@@ -62,8 +62,6 @@ renderWindow = vtk.vtkRenderWindow()
 #num_fn = 200
 #step = 2
 
-
-
 start_fn = 0 # offset in frame numbers to start exporting data
 num_fn = 60 # number of frames to export. this is changed if --full is enabled; how many lidar frames to export
 step = 10 # step between frames
@@ -129,7 +127,6 @@ def integrateClouds(ldr_map, stereo_map, IMUTransforms, renderer, offset, num_st
 
 
 	if exportStereo == True:
-#		pdb.set_trace()
                 pts_stereo_copy = array(pts_stereo[:,0:3])
                 pts_stereo_copy = np.column_stack((pts_stereo_copy, -10 + 0*array(stereo_data[:,2])))
                 pts_stereo_copy = np.column_stack((pts_stereo_copy, fnum*np.ones((pts_stereo.shape[0],1))))
@@ -167,12 +164,11 @@ def integrateClouds(ldr_map, stereo_map, IMUTransforms, renderer, offset, num_st
         T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i'] #transform from lidar to imu                                       
         pts_lidar = np.dot(T_from_l_to_i, pts_lidar)
         # transform data into imu_0 frame                                                                                                  
-        pts_lidar = np.dot(IMUTransforms[fnum,:,:], pts_lidar); #Tx4x4. T is timesteps, and 4x4 matrix is rotation/translation of IMU from time0       
+        pts_lidar = np.dot(IMUTransforms[fnum,:,:], pts_lidar);
         pts_lidar = pts_lidar.transpose()
 
 
 	if exportLidar == True:
-#		pdb.set_trace()
 		pts_lidar_copy = array(pts_lidar[:,0:3])
 		pts_lidar_copy = np.column_stack((pts_lidar_copy, array(lidar_data[:,3])))
 		pts_lidar_copy = np.column_stack((pts_lidar_copy, fnum*np.ones((pts_lidar.shape[0],1))))
@@ -270,7 +266,7 @@ if __name__ == '__main__':
 
     while finished == False:
 
-	 (disp, Q, R1, R2) = doStereo(imgL, imgR, params)
+	 (disp, Q, R1, R2) = siftStereo(imgL, imgR, params)
 	 #cv2.imshow('disp', disp)
          #print Q
 	 stereo_points = get3dPoints(disp,Q)

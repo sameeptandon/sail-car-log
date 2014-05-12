@@ -64,6 +64,7 @@ def doStereo(imgL, imgR, params):
                 borderMode=cv2.BORDER_CONSTANT,
                 borderValue = (0,0,0,0))
 
+
     window_size = 1
     min_disp = 0
     num_disp = 64
@@ -83,7 +84,7 @@ def doStereo(imgL, imgR, params):
     imgRectR = cv2.cvtColor(imgRectR, cv2.COLOR_RGB2GRAY)
     stereo = cv2.StereoBM(preset=cv.CV_STEREO_BM_NARROW,
             SADWindowSize=35)
-    """   
+    """
     print 'computing stereo...'
     disp = stereo.compute(imgRectL, imgRectR).astype(np.float32) / 16.0
     return (disp, Q, R1, R2)
@@ -108,7 +109,7 @@ def siftStereo(imgL, imgR, params):
     kpL, desL = sift.detectAndCompute(grayL,None)
     kpR, desR = sift.detectAndCompute(grayR,None)
     imgRectL = cv2.drawKeypoints(imgRectL, kpL, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    cv2.imshow('rect', imgRectL)
+    #cv2.imshow('rect', imgRectL)
 
     FLANN_INDEX_KDTREE = 0
     index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
@@ -148,7 +149,7 @@ def siftStereo(imgL, imgR, params):
         cv2.line(view, (int(kpL[m.queryIdx].pt[0]), int(kpL[m.queryIdx].pt[1])) , (int(kpR[m.trainIdx].pt[0] + w1), int(kpR[m.trainIdx].pt[1])), color)
 
     #imgL = cv2.drawKeypoints(imgL, kp, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    cv2.imshow('imgLR', cv2.pyrDown(view))
+    #cv2.imshow('imgLR', cv2.pyrDown(view))
 
     return (disp, Q, R1, R2)
 
