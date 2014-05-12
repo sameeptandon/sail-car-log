@@ -1,6 +1,6 @@
 # LidarStereoIntegrator.py
 # ------------------------
-# Given driving video and corresponding directory, creates Stereo and Lidar point clouds. Saves stereo data in a corresponding .pkl (Pickle) file, automatically imports corresponding .pkl file if one exists in ./pkl/, and optionally exports Stereo and Lidar point clouds as .npz files (currently only exports only one at a time). To change the type of data exported, see the function integrateClouds. Change start frame, end frame, and step size below or use flag '--full' to integrate on whole video. Usage:
+# Given driving video and corresponding directory, creates Stereo and Lidar point clouds. Saves stereo data in a corresponding .pkl (Pickle) file, automatically imports corresponding .pkl file if one exists in ./pkl/, and optionally exports Stereo and Lidar point clouds as .npz files (currently only exports only one at a time). Note that the only pkl version curently supported is for OpenCV's sift stereo. To change the type of data exported, see the function integrateClouds. Change start frame, end frame, and step size below or use flag '--full' to integrate on whole video. Usage:
 # python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <optional flag --full>
 # python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <export name>.npz --export <either --stereo or --lidar> <optional flags such as --full>
 
@@ -273,7 +273,7 @@ if __name__ == '__main__':
 
         while finished == False:
 
-            (disp, Q, R1, R2) = doStereo(imgL, imgR, params)
+            (disp, Q, R1, R2) = siftStereo(imgL, imgR, params)
       	       #cv2.imshow('disp', disp)
                #print Q
             stereo_points = get3dPoints(disp,Q)
