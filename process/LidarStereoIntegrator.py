@@ -1,7 +1,7 @@
 # LidarStereoIntegrator.py
 # ------------------------
 # Given driving video and corresponding directory, creates Stereo and Lidar point clouds. Saves stereo data in a corresponding .pkl
-# (Pickle) file, automatically imports corresponding .pkl file if one exists in current directory, and optionally exports Stereo and #
+# (Pickle) file, automatically imports corresponding .pkl file if one exists in ./pkl/, and optionally exports Stereo and #
 # Lidar point clouds as .npz files (currently only exports only one at a time). To change the type of data exported, see the function
 # integrateClouds. Change start frame, end frame, and step size below or use flag '--full' to integrate on whole video. Usage:
 # python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <optional flag --full>
@@ -73,12 +73,15 @@ exportStereo = False
 exportLidar = False
 
 def exportData():
-    print 'exporting data'
+    if exportStereo == True:
+      print 'Exporting Stereo Data'
+    if exportLidar == True:
+        print 'Exporting Lidar Data'
     export_data = np.row_stack(all_data)
     print export_data
     print export_data.shape
     np.savez(sys.argv[3], data=export_data)
-    print 'export complete'
+    print 'Export Complete'
 
 def cloudToPixels(cam, pts_wrt_cam):
 
@@ -250,6 +253,8 @@ if __name__ == '__main__':
 	    step = 10
 	    num_fn = int(total_num_frames / step)
 
+
+    print "Stereo Processing"
     #Loading Stereo
 
     stereo_map = []
@@ -257,9 +262,10 @@ if __name__ == '__main__':
     reader_right = VideoReader(args['opposite_video'])
     finished = False
 
-    pklName = vidName[:-1] + ".pkl"
+    pklName = "./pkl/" + vidName[:-1] + ".pkl"
     if (os.path.isFile(pklName)):
 	    pkl_file = open(pklName,'rb')
+      print "Importing stereo data from " + pkl_file
 	    stereo_map = pickle.load(pkl_file)
       pkl_file.close()
     elif:
@@ -308,6 +314,7 @@ if __name__ == '__main__':
       		 finished = True
       		 break
       pkl_file = open(pklName,'wb')
+      print "Saving stereo data to " + pkl_file
       pickle.dump(stereo_map,pkl_file)
       pkl_file.close()
 
