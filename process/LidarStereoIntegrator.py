@@ -1,14 +1,11 @@
 # LidarStereoIntegrator.py
 # ------------------------
-# Given driving video and corresponding directory, creates Stereo and Lidar point clouds. Saves stereo data in a corresponding .pkl
-# (Pickle) file, automatically imports corresponding .pkl file if one exists in ./pkl/, and optionally exports Stereo and #
-# Lidar point clouds as .npz files (currently only exports only one at a time). To change the type of data exported, see the function
-# integrateClouds. Change start frame, end frame, and step size below or use flag '--full' to integrate on whole video. Usage:
+# Given driving video and corresponding directory, creates Stereo and Lidar point clouds. Saves stereo data in a corresponding .pkl (Pickle) file, automatically imports corresponding .pkl file if one exists in ./pkl/, and optionally exports Stereo and Lidar point clouds as .npz files (currently only exports only one at a time). To change the type of data exported, see the function integrateClouds. Change start frame, end frame, and step size below or use flag '--full' to integrate on whole video. Usage:
 # python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <optional flag --full>
-# python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <export name>.npz --export <either --stereo or --lidar> <optional flags
-# such as --full>
+# python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <export name>.npz --export <either --stereo or --lidar> <optional flags such as --full>
 
 import sys, os, pickle
+import os.path
 import numpy as np
 import vtk
 import copy
@@ -66,7 +63,7 @@ renderWindow = vtk.vtkRenderWindow()
 #step = 2
 
 start_fn = 0 # offset in frame numbers to start exporting data
-num_fn = 60 # number of frames to export. this is changed if --full is enabled; how many lidar frames to export
+num_fn = 10 # number of frames to export. this is changed if --full is enabled; how many lidar frames to export
 step = 10 # step between frames
 color_mode = 'INTENSITY'
 exportStereo = False
@@ -122,68 +119,68 @@ def integrateClouds(ldr_map, stereo_map, IMUTransforms, renderer, offset, num_st
 
 	#stereo mapping
 
-    stereo_data = stereo_map[t]
+        stereo_data = stereo_map[t]
 
-	  pts_stereo = stereo_data[:,0:3].transpose()
-    pts_stereo = np.vstack((pts_stereo,np.ones((1,pts_stereo.shape[1]))))
-    T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i']
-    pts_stereo = np.dot(T_from_l_to_i, pts_stereo)
-    pts_stereo = np.dot(IMUTransforms[fnum,:,:], pts_stereo);
-    pts_stereo = pts_stereo.transpose()
+        pts_stereo = stereo_data[:,0:3].transpose()
+        pts_stereo = np.vstack((pts_stereo,np.ones((1,pts_stereo.shape[1]))))
+        T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i']
+        pts_stereo = np.dot(T_from_l_to_i, pts_stereo)
+        pts_stereo = np.dot(IMUTransforms[fnum,:,:], pts_stereo);
+        pts_stereo = pts_stereo.transpose()
+        
+        if exportStereo == True:
+            pts_stereo_copy = array(pts_stereo[:,0:3])
+            pts_stereo_copy = np.column_stack((pts_stereo_copy, -10 + 0*array(stereo_data[:,2])))
+            pts_stereo_copy = np.column_stack((pts_stereo_copy, fnum*np.ones((pts_stereo.shape[0],1))))
+            all_data.append(pts_stereo_copy)
+            
+        if color_mode == 'CAMERA':
+            stereoCloud = VtkPointCloud(pts_stereo[ mask2 ,0:3], colors[ mask2,:])
+            actors.append(stereoCloud.get_vtk_color_cloud())
+        elif color_mode == 'INTENSITY':
+            stereoCloud = VtkPointCloud(pts_stereo[:,0:3], -10 + 0*stereo_data[:,2])
+            actors.append(stereoCloud.get_vtk_cloud(zMin=-10, zMax=10))
 
-	  if exportStereo == True:
-        pts_stereo_copy = array(pts_stereo[:,0:3])
-        pts_stereo_copy = np.column_stack((pts_stereo_copy, -10 + 0*array(stereo_data[:,2])))
-        pts_stereo_copy = np.column_stack((pts_stereo_copy, fnum*np.ones((pts_stereo.shape[0],1))))
-        all_data.append(pts_stereo_copy)
+        clouds.append(stereoCloud)
+        renderer.AddActor(actors[-1])
 
-    if color_mode == 'CAMERA':
-        stereoCloud = VtkPointCloud(pts_stereo[ mask2 ,0:3], colors[ mask2,:])
-        actors.append(stereoCloud.get_vtk_color_cloud())
-    elif color_mode == 'INTENSITY':
-        stereoCloud = VtkPointCloud(pts_stereo[:,0:3], -10 + 0*stereo_data[:,2])
-        actors.append(stereoCloud.get_vtk_cloud(zMin=-10, zMax=10))
+        #lidar mapping
 
-    clouds.append(stereoCloud)
-    renderer.AddActor(actors[-1])
+        lidar_data = loadLDR(ldr_map[fnum])
+        dist = np.sqrt(np.sum( lidar_data[:, 0:3] ** 2, axis = 1))
 
-	#lidar mapping
-
-  	lidar_data = loadLDR(ldr_map[fnum])
-  	dist = np.sqrt(np.sum( lidar_data[:, 0:3] ** 2, axis = 1))
-
-    # check out the commented out section below to figure out how this is filtering.
-    lidar_data_filter_mask = (dist > 3) & (lidar_data[:,3] > 30)
+        # check out the commented out section below to figure out how this is filtering.
+        lidar_data_filter_mask = (dist > 3) & (lidar_data[:,3] > 30)
                        #&\
-                       #(np.abs(data[:,1]) < 2.2)   & \
-                       #(np.abs(data[:,1]) > 1.2)   & \
-                       #(data[:,2] < -1.8)          & \
-                       #(data[:,2] > -2.5)
-    lidar_data = lidar_data[lidar_data_filter_mask, :]
+                           #(np.abs(data[:,1]) < 2.2)   & \
+                           #(np.abs(data[:,1]) > 1.2)   & \
+                           #(data[:,2] < -1.8)          & \
+                           #(data[:,2] > -2.5)
+        lidar_data = lidar_data[lidar_data_filter_mask, :]
+        
+        pts_lidar = lidar_data[:,0:3].transpose()
+        pts_lidar = np.vstack((pts_lidar,np.ones((1,pts_lidar.shape[1]))))
+        T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i'] #transform from lidar to imu
+        pts_lidar = np.dot(T_from_l_to_i, pts_lidar)
+        
+        # transform data into imu_0 frame
+        pts_lidar = np.dot(IMUTransforms[fnum,:,:], pts_lidar);
+        pts_lidar = pts_lidar.transpose()
 
-	  pts_lidar = lidar_data[:,0:3].transpose()
-    pts_lidar = np.vstack((pts_lidar,np.ones((1,pts_lidar.shape[1]))))
-    T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i'] #transform from lidar to imu
-    pts_lidar = np.dot(T_from_l_to_i, pts_lidar)
+        if exportLidar == True:
+            pts_lidar_copy = array(pts_lidar[:,0:3])
+            pts_lidar_copy = np.column_stack((pts_lidar_copy, array(lidar_data[:,3])))
+            pts_lidar_copy = np.column_stack((pts_lidar_copy, fnum*np.ones((pts_lidar.shape[0],1))))
+            all_data.append(pts_lidar_copy)
 
-    # transform data into imu_0 frame
-    pts_lidar = np.dot(IMUTransforms[fnum,:,:], pts_lidar);
-    pts_lidar = pts_lidar.transpose()
-
-	  if exportLidar == True:
-      	pts_lidar_copy = array(pts_lidar[:,0:3])
-      	pts_lidar_copy = np.column_stack((pts_lidar_copy, array(lidar_data[:,3])))
-      	pts_lidar_copy = np.column_stack((pts_lidar_copy, fnum*np.ones((pts_lidar.shape[0],1))))
-      	all_data.append(pts_lidar_copy)
-
-    if color_mode == 'CAMERA':
-        lidarCloud = VtkPointCloud(pts_lidar[ mask2 ,0:3], colors[ mask2,:])
-        actors.append(lidarCloud.get_vtk_color_cloud())
-    elif color_mode == 'INTENSITY':
-        lidarCloud = VtkPointCloud(pts_lidar[:,0:3], lidar_data[:,3])
-        actors.append(lidarCloud.get_vtk_cloud(zMin=0, zMax=255))
-    clouds.append(lidarCloud)
-    renderer.AddActor(actors[-1])
+        if color_mode == 'CAMERA':
+            lidarCloud = VtkPointCloud(pts_lidar[ mask2 ,0:3], colors[ mask2,:])
+            actors.append(lidarCloud.get_vtk_color_cloud())
+        elif color_mode == 'INTENSITY':
+            lidarCloud = VtkPointCloud(pts_lidar[:,0:3], lidar_data[:,3])
+            actors.append(lidarCloud.get_vtk_cloud(zMin=0, zMax=255))
+        clouds.append(lidarCloud)
+        renderer.AddActor(actors[-1])
 
 def keypress(obj, event):
     global actors
@@ -248,11 +245,10 @@ if __name__ == '__main__':
     ldr_map = loadLDRCamMap(args['map'])
 
     if '--full' in sys.argv:
-	    total_num_frames = GPSData.shape[0]
-	    start_fn = 0
-	    step = 10
-	    num_fn = int(total_num_frames / step)
-
+        total_num_frames = GPSData.shape[0]
+        start_fn = 0
+        step = 10
+        num_fn = int(total_num_frames / step)
 
     print "Stereo Processing"
     #Loading Stereo
@@ -262,61 +258,63 @@ if __name__ == '__main__':
     reader_right = VideoReader(args['opposite_video'])
     finished = False
 
-    pklName = "./pkl/" + vidName[:-1] + ".pkl"
-    if (os.path.isFile(pklName)):
-	    pkl_file = open(pklName,'rb')
-      print "Importing stereo data from " + pkl_file
-	    stereo_map = pickle.load(pkl_file)
-      pkl_file.close()
-    elif:
-      reader_left.setFrame(start_fn)
-      reader_right.setFrame(start_fn)
-      (success, imgL) = reader_left.getNextFrame()
-      (success, imgR) = reader_right.getNextFrame()
+    pklName = "./pkl/" + vidname[:-1] + ".pkl"
 
-      while finished == False:
+    if (os.path.isfile(pklName)):
+        pkl_file = open(pklName,'rb')
+        print "Importing stereo data from " + pklName
+        stereo_map = pickle.load(pkl_file)
+        pkl_file.close()
+    else:
+        reader_left.setFrame(start_fn)
+        reader_right.setFrame(start_fn)
+        (success, imgL) = reader_left.getNextFrame()
+        (success, imgR) = reader_right.getNextFrame()
 
-      	 (disp, Q, R1, R2) = doStereo(imgL, imgR, params)
-      	 #cv2.imshow('disp', disp)
+        while finished == False:
+
+            (disp, Q, R1, R2) = doStereo(imgL, imgR, params)
+      	       #cv2.imshow('disp', disp)
                #print Q
-      	 stereo_points = get3dPoints(disp,Q)
-      	 stereo_points = stereo_points[disp > 5, :]
+            stereo_points = get3dPoints(disp,Q)
+            stereo_points = stereo_points[disp > 5, :]
                #print stereo_points
-      	 stereo_points = stereo_points.transpose()
-      	 stereo_points = np.dot(R1.transpose(), stereo_points)
+            stereo_points = stereo_points.transpose()
+            stereo_points = np.dot(R1.transpose(), stereo_points)
                #print np.amax(stereo_points, axis=1)
                #print np.amin(stereo_points, axis=1)
-      	 stereo_points = np.vstack((stereo_points, np.ones((1,stereo_points.shape[1]))))
+            stereo_points = np.vstack((stereo_points, np.ones((1,stereo_points.shape[1]))))
                #by here, you have 3D stereo points wrt camera
                #print stereo_points.shape
-      	 stereo_points = dot(np.linalg.inv(params['cam'][0]['E']), stereo_points)
-      	 stereo_wrt_lidar = np.dot(R_to_c_from_l(params['cam'][0]).transpose(), stereo_points[0:3,:])
-      	 stereo_wrt_lidar = stereo_wrt_lidar.transpose()
-      	 stereo_wrt_lidar = stereo_wrt_lidar[:,0:3] - params['cam'][0]['displacement_from_l_to_c_in_lidar_frame']
+            stereo_points = dot(np.linalg.inv(params['cam'][0]['E']), stereo_points)
+            stereo_wrt_lidar = np.dot(R_to_c_from_l(params['cam'][0]).transpose(), stereo_points[0:3,:])
+            stereo_wrt_lidar = stereo_wrt_lidar.transpose()
+            stereo_wrt_lidar = stereo_wrt_lidar[:,0:3] - params['cam'][0]['displacement_from_l_to_c_in_lidar_frame']
                #by here, same camera points but to lidar frame at time t
       	 #img = cv2.resize(img, (640, 480))
-      	 imgL = cv2.pyrDown(imgL)
+            imgL = cv2.pyrDown(imgL)
                #cv2.imshow('disparity', cv2.pyrDown(disp)/64.0)
-      	 stereo_map.append(stereo_wrt_lidar)
-
-      	 framenum = reader_left.framenum
-      	 print framenum
-
-      	 if framenum >= start_fn + num_fn*step:
+            stereo_map.append(stereo_wrt_lidar)
+            
+            framenum = reader_left.framenum
+            print framenum
+            
+            if framenum >= start_fn + num_fn*step:
       		 finished = True
       		 break
 
-      	 for t in range(step):
+            for t in range(step):
       		 (success, imgL) = reader_left.getNextFrame()
       		 (success, imgR) = reader_right.getNextFrame()
 
-      	 if success == False:
+            if success == False:
       		 finished = True
       		 break
-      pkl_file = open(pklName,'wb')
-      print "Saving stereo data to " + pkl_file
-      pickle.dump(stereo_map,pkl_file)
-      pkl_file.close()
+
+        pkl_file = open(pklName,'wb')
+        print "Saving stereo data to " + pklName
+        pickle.dump(stereo_map,pkl_file)
+        pkl_file.close()
 
     # this has been flipped for the q50
 
@@ -324,18 +322,18 @@ if __name__ == '__main__':
     cloud_r.SetViewport(0,0,1.0,1.0)
 
     if '--lidar' in sys.argv:
-	    exportLidar = True
-	    exportStereo = False
+        exportLidar = True
+        exportStereo = False
 
     if '--stereo' in sys.argv:
-	    exportStereo = True
-	    exportLidar = False
+        exportStereo = True
+        exportLidar = False
 
     integrateClouds(ldr_map, stereo_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
 
     if '--export' in sys.argv:
-      exportData()
-      sys.exit(0)
+        exportData()
+        sys.exit(0)
 
     # Render Window
     renderWindow = vtk.vtkRenderWindow()
