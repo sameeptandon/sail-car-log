@@ -58,8 +58,10 @@ renderWindow = vtk.vtkRenderWindow()
 #step = 2
 
 start_fn = 0 # offset in frame numbers to start exporting data
-num_fn = 60 # number of frames to export. this is changed if --full is enabled
+num_fn = 60 # number of frames to export. this is changed if --full is enabled; how many lidar frames to export
 step = 5 # step between frames
+
+#lidar at 10fps, camera 50fps
 
 color_mode = 'INTENSITY'
 
@@ -101,7 +103,7 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
         video_reader1.setFrame(start)
         video_reader2.setFrame(start)
 
-    trans_wrt_imu = IMUTransforms[start:end,0:3,3]
+    trans_wrt_imu = IMUTransforms[start:end,0:3,3] #first param: time
     gpsPointCloud = VtkPointCloud(trans_wrt_imu[:,0:3], 0*trans_wrt_imu[:,0])
     clouds.append(gpsPointCloud)
     actors.append(gpsPointCloud.get_vtk_cloud())
@@ -180,13 +182,14 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
             #cv2.imshow('vid', I2)
             #cv2.waitKey(5)
 
+#turn from relative to absolute 
         # transform data into IMU frame at time t
         pts = data[:,0:3].transpose()
         pts = np.vstack((pts,np.ones((1,pts.shape[1]))))
-        T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i']
+        T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i'] #transform from lidar to imu
         pts = np.dot(T_from_l_to_i, pts)
         # transform data into imu_0 frame
-        pts = np.dot(IMUTransforms[fnum,:,:], pts);
+        pts = np.dot(IMUTransforms[fnum,:,:], pts); #Tx4x4. T is timesteps, and 4x4 matrix is rotation/translation of IMU from time0
         pts = pts.transpose()
 
         # for exporting purposes

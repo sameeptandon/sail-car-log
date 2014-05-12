@@ -270,7 +270,7 @@ if __name__ == '__main__':
 
     while finished == False:
 
-	 (disp, Q, R1, R2) = siftStereo(imgL, imgR, params)
+	 (disp, Q, R1, R2) = doStereo(imgL, imgR, params)
 	 #cv2.imshow('disp', disp)
          #print Q
 	 stereo_points = get3dPoints(disp,Q)

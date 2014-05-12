@@ -72,29 +72,29 @@ class LDRGrabberCallback:
 class FrameCloudManager:
 
     def __init__(self, video_file, map_file):
-        self.reader = VideoReader(video_file)
-        self.ldr_map = loadLDRCamMap(map_file)
+        self.reader = VideoReader(video_file) #loads video frames
+        self.ldr_map = loadLDRCamMap(map_file) #frame to ldr file
         self.queue = Queue.Queue()
         self.finished = False
         
     def loadNext(self):
         while self.finished == False:
-            for t in range(5):
+            for t in range(5): #5 tims for speed
                 (success, img) = self.reader.getNextFrame()
             if success == False:
                 self.finished = True
                 return
 
             #img = cv2.resize(img, (640, 480))
-            img = cv2.pyrDown(img)
+            img = cv2.pyrDown(img) #resize, 1280x960 to 640x480
             
-            framenum = self.reader.framenum
+            framenum = self.reader.framenum #50fps
             if framenum >= len(self.ldr_map):
                 self.finished = True
                 return
 
-            ldr_file = self.ldr_map[framenum]
-            lidar_pts = loadLDR(ldr_file)
+            ldr_file = self.ldr_map[framenum] #frame -> ldr
+            lidar_pts = loadLDR(ldr_file) #xyz intensity lidar ponts loaded... array pointsx6 fields
 
             self.queue.put({'img': img, 'lidar_pts': lidar_pts})
 

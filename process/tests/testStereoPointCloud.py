@@ -85,7 +85,8 @@ class FrameCloudManager:
         self.ldr_map = loadLDRCamMap(args['map'])
         self.queue = Queue.Queue()
         self.finished = False
-        
+
+        #loading thread, get 3D stereo points from frame, 
     def loadNext(self):
         while self.finished == False:
             for t in range(5):
@@ -95,6 +96,7 @@ class FrameCloudManager:
                 self.finished = True
                 return
 
+            #can change to call different stereo function
             (disp, Q, R1, R2) = siftStereo(imgL, imgR, self.params)
             cv2.imshow('disp', disp)
             print Q
@@ -106,13 +108,14 @@ class FrameCloudManager:
             print np.amax(stereo_points, axis=1)
             print np.amin(stereo_points, axis=1)
             stereo_points = np.vstack((stereo_points,
-                np.ones((1,stereo_points.shape[1]))))
+                np.ones((1,stereo_points.shape[1])))) #by here, you have 3D stereo points wrt camera
             print stereo_points.shape
             stereo_points = dot(np.linalg.inv(self.params['cam'][0]['E']), stereo_points)
+            
             stereo_wrt_lidar = np.dot(R_to_c_from_l(self.params['cam'][0]).transpose(), stereo_points[0:3,:])
             stereo_wrt_lidar = stereo_wrt_lidar.transpose()
             stereo_wrt_lidar = stereo_wrt_lidar[:,0:3] - self.params['cam'][0]['displacement_from_l_to_c_in_lidar_frame']
-
+            #by here, same camera points but to lidar frame at time t
 
             #img = cv2.resize(img, (640, 480))
             imgL = cv2.pyrDown(imgL)

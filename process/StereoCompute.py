@@ -83,7 +83,7 @@ def doStereo(imgL, imgR, params):
     imgRectR = cv2.cvtColor(imgRectR, cv2.COLOR_RGB2GRAY)
     stereo = cv2.StereoBM(preset=cv.CV_STEREO_BM_NARROW,
             SADWindowSize=35)
-    """
+    """   
     print 'computing stereo...'
     disp = stereo.compute(imgRectL, imgRectR).astype(np.float32) / 16.0
     return (disp, Q, R1, R2)

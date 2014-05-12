@@ -83,7 +83,7 @@ if __name__ == '__main__':
     print "Hit 'q' to quit"
     trackbarInit = False
     while True:
-        for count in range(20):
+        for count in range(1):
             (success, I) = video_reader.getNextFrame()
 
         if not success:
@@ -106,14 +106,14 @@ if __name__ == '__main__':
             I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
 
-        cv2.imshow(video_file, cv2.pyrDown(I))
+        cv2.imshow(video_file, I)
         if not trackbarInit:
             cv2.createTrackbar('trackbar', video_file, 0, int(video_reader.total_frame_count), lambda x: trackbarOnchange(x, t))
             trackbarInit = True
         else:
             cv2.setTrackbarPos('trackbar', video_file, t)
 
-        keycode = cv2.waitKey(1)
+        keycode = cv2.waitKey(50)
         if keycode == 113:
             break
 
