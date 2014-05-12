@@ -1,8 +1,8 @@
 # LidarStereoIntegrator.py
 # ------------------------
-# Given driving video and corresponding directory, creates Stereo and Lidar point clouds. Saves stereo data in a corresponding .pkl (Pickle) file, automatically imports corresponding .pkl file if one exists in ./pkl/, and optionally exports Stereo and Lidar point clouds as .npz files (currently only exports only one at a time). Note that the only pkl version curently supported is for OpenCV's sift stereo. To change the type of data exported, see the function integrateClouds. Change start frame, end frame, and step size below or use flag '--full' to integrate on whole video. Usage:
-# python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <optional flag --full>
-# python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <export name>.npz --export <either --stereo or --lidar> <optional flags such as --full>
+# Given driving video and corresponding directory, creates Stereo and Lidar point clouds. Saves stereo data in a corresponding .pkl (Pickle) file, optionally imports/exports corresponding .pkl file, and optionally exports Stereo and Lidar point clouds as .npz files (currently only exports only one at a time. If --export flag is passed without specifying --lidar automatically exports stereo). Note that the only pkl version curently supported is for OpenCV's sift stereo. To change the type of data exported, see the function integrateClouds. Change start frame, end frame, and step size below or use flag '--full' to integrate on whole video. Usage:
+# python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <optional flag --full --pkl <fileName>>
+# python LidarStereoIntegrator.py <dir> <basename><camnum>.avi <export name>.npz --export <either --stereo or --lidar> <optional flags such as --full --pkl <fileName>>
 
 import sys, os, pickle
 import os.path
@@ -68,6 +68,7 @@ step = 10 # step between frames
 color_mode = 'INTENSITY'
 exportStereo = False
 exportLidar = False
+pkl = False
 
 def exportData():
     if exportStereo == True:
@@ -250,6 +251,10 @@ if __name__ == '__main__':
         step = 10
         num_fn = int(total_num_frames / step)
 
+    if '--pkl' in sys.argv:
+        pkl = True
+        pklName = sys.argv[-1]
+
     print "Stereo Processing"
     #Loading Stereo
 
@@ -258,9 +263,7 @@ if __name__ == '__main__':
     reader_right = VideoReader(args['opposite_video'])
     finished = False
 
-    pklName = "./pkl/" + vidname[:-1] + ".pkl"
-
-    if (os.path.isfile(pklName)):
+    if (pkl and os.path.isfile(pklName)):
         pkl_file = open(pklName,'rb')
         print "Importing stereo data from " + pklName
         stereo_map = pickle.load(pkl_file)
@@ -311,23 +314,26 @@ if __name__ == '__main__':
       		 finished = True
       		 break
 
-        pkl_file = open(pklName,'wb')
-        print "Saving stereo data to " + pklName
-        pickle.dump(stereo_map,pkl_file)
-        pkl_file.close()
+        
+        if pkl == True:
+            pkl_file = open(pklName,'wb')
+            print "Saving stereo data to " + pklName
+            pickle.dump(stereo_map,pkl_file)
+            pkl_file.close()
 
     # this has been flipped for the q50
 
     cloud_r.SetBackground(0., 0., 0.)
     cloud_r.SetViewport(0,0,1.0,1.0)
 
-    if '--lidar' in sys.argv:
-        exportLidar = True
-        exportStereo = False
-
-    if '--stereo' in sys.argv:
-        exportStereo = True
-        exportLidar = False
+    if '--export' in sys.argv:
+        if '--lidar' in sys.argv:
+            exportLidar = True
+            exportStereo = False
+        else:
+            print "Export preference not specified, stereo chosen."
+            exportStereo = True
+            exportLidar = False
 
     integrateClouds(ldr_map, stereo_map, imu_transforms, cloud_r, start_fn, num_fn, step, params)
 
