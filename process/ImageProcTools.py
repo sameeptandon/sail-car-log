@@ -30,7 +30,7 @@ def computeLogDistanceTransform(D, gamma):
     # assume that D is logarithmic in the edges
     width = D.shape[0]
     height = D.shape[1]
-    lg = log(gamma)
+    lg = np.log(gamma)
     code = \
     """
     using namespace std;
