@@ -9,11 +9,12 @@
 #include <vector>
 #include <queue>
 #include "lane_detection/Delay.h"
+#include "lane_detection/LaneOutput.h"
 
 static const std::string OPENCV_WINDOW = "Image window";
 LanePredictor* predictor;
 std::queue<std::vector<float> > mData;
-ros::Publisher delay_pub;
+ros::Publisher delay_pub,laneOutput_pub;
 float invKK[9] = {  4.43506182e-04f, 0.0f, -2.90740478e-01f,
                     0.0f, 4.41247849e-04f, -2.15704011e-01f,
                     0.0f,0.0f,1.0f};
@@ -22,8 +23,8 @@ float R[9] = {  0.99951053f,-0.01020889f,0.02957164f,
                 -0.02909589f,0.04396718f,0.99860919f};
 float leftPixels[30];
 float rightPixels[30];
-float leftPos[30];
-float rightPos[30];
+boost::array<float,30> leftPos;
+boost::array<float,30> rightPos;
 float zPos[10] = {8.0,16.0,24.0,32.0,40.0,48.0,56.0,64.0,72.0,80.0};
 
 void push_data(const std::vector<float>& data){
@@ -37,6 +38,7 @@ void lanePredictorCb(const sensor_msgs::ImageConstPtr& msg){
         return;
     }
     lane_detection::Delay delay_msg;
+    lane_detection::LaneOutput lane_msg;
     delay_msg.cam_frame = msg->header.stamp;
     //delay_pub.publish(delay_msg);
     //return;
@@ -128,6 +130,11 @@ void lanePredictorCb(const sensor_msgs::ImageConstPtr& msg){
         cv::circle(frame,cv::Point(rightPixels[i*3],rightPixels[i*3+1]),2,cv::Scalar(255-i*25,i*25,0),-1,8);
     }
    
+    lane_msg.cam_frame_delay = ros::Time::now()-msg->header.stamp;
+    lane_msg.header.stamp = ros::Time::now();
+    lane_msg.left = leftPos;
+    lane_msg.right = rightPos;
+    laneOutput_pub.publish(lane_msg);
 	// Update GUI Window
 	//cv::imshow(OPENCV_WINDOW, frame);
 	//cv::waitKey(3);
@@ -143,6 +150,7 @@ int main(int argc,char** argv){
     predictor = new LanePredictor_Q50(&argc,argv,0);
 	ros::Subscriber sub = nh_.subscribe(argv[2],1,lanePredictorCb);
 	delay_pub = nh_.advertise<lane_detection::Delay>("lane_detection/Delay",100);
+    laneOutput_pub = nh_.advertise<lane_detection::LaneOutput>("lane_detection/LaneOutput",100);
 	ros::spin();
 	cv::destroyWindow(OPENCV_WINDOW);
     fastCppShutdown();
