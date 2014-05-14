@@ -3,7 +3,6 @@
 from Q50_config import *
 import sys, os
 from GPSReader import *
-from GPSReprojection import *
 from GPSTransforms import *
 from VideoReader import *
 from RadarTransforms import *

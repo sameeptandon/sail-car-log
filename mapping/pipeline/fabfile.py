@@ -1,8 +1,7 @@
 import os
 from os.path import join as pjoin
 from fabric.api import env, run, task
-from pipeline_config import CLUSTER_DSET_DIR, FABRIC_PASS_FILE, CLUSTER_HOSTS,\
-        LDR_DIR
+from pipeline_config import CLUSTER_DSET_DIR, FABRIC_PASS_FILE, CLUSTER_HOSTS
 
 # PARAM
 env.hosts = CLUSTER_HOSTS
