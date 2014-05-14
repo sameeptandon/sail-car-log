@@ -63,7 +63,7 @@ if __name__ == "__main__":
             a.imageName = annolist_basedir + "/" + a.imageName
 	    print "New->"+a.imageName;
 
-    assert(os.path.isfile(a.imageName))
+    #assert(os.path.isfile(a.imageName))
 
     annolist = annolist[firstidx:lastidx+1];
 
@@ -110,6 +110,8 @@ if __name__ == "__main__":
         # track backward
         if idx < len(annolist) - 1:
             stop_imgname = annolist[idx].imageName;
+	    I = cv2.imread(stop_imgname);
+	    
             annolist_track_back = track_frame(annolist[idx+1], stop_imgname, trackMaxFrames, -1);
 
             # merge two lists            
@@ -122,8 +124,8 @@ if __name__ == "__main__":
 		midIdx = annolist_len/2;
 		annolist_track_main = annolist_track_fwd[:midIdx+1] + annolist_track_back[midIdx:annolist_len-1];
 		annolist_track_more = [annolist_track_fwd[0]] + annolist_track_back[0:midIdx] + annolist_track_fwd[midIdx+1:annolist_len]; 
-
-                for idx2 in range(1, len(annolist_track_fwd)-1):
+		
+                for idx2 in range(1, len(annolist_track_fwd)):
                     #print annolist_track_main[idx2].imageName
                     #print annolist_track_more[idx2].imageName
 
@@ -143,6 +145,19 @@ if __name__ == "__main__":
                             if isTheSame(r_main, r_more):
 				if r_ind > midIdx: r_main.classID = r_more.classID;
                                 found_similar = True;
+				if(r_ind < len(annolist_track_fwd)-2 and (r_main.x1 < 10 or r_main.x2 > I.shape[1]-10)):
+					same_box_fouund = False;
+					for next_frame_rect in annolist_track_main[r_ind+1].rects:
+						if next_frame_rect.classID == r_main.classID:
+							same_box_found = True;
+							break;
+					if same_box_found:
+						if ((r_main.x1 < 10 and r_main.x1 < next_frame_rect.x1) or 
+							(r_main.x2 > I.shape[1]-10 and r_main.x2 > next_frame_rect.x2)):
+							r_main.x1 = r_more.x1;	
+							r_main.x2 = r_more.x2;	
+							r_main.y1 = r_more.y1;	
+							r_main.y2 = r_more.y2;	
                                 break;
 
                         if not found_similar:
@@ -157,7 +172,7 @@ if __name__ == "__main__":
         annolist_track += annolist_track_main;
         
         # save results ones in a while 
-        if idx % 100 == 0:
+        if idx % 10 == 0:
             print "saving " + save_filename_partiall;
             saveXML(save_filename_partiall, annolist_track);
 

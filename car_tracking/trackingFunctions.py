@@ -531,9 +531,20 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
                         # MA: for now tracks that start on the boundary should remain on the boundary (otherwise we don't know the correct extent)
                         BORDER_THRESHOLD = 10;
-                        if (rect.x1 < BORDER_THRESHOLD and new_rect.x1 > rect.x1) or (rect.x2 > Img2.shape[1] - BORDER_THRESHOLD and new_rect.x2 < rect.x2):
-                            verification_ok = False;
-                            num_ignore_border += 1;
+			car_dim_ratio = 1.5
+			if rect.height() > .3 * Img2.shape[0]:
+				car_dim_ratio = 1.2
+			if(rect.x1 < BORDER_THRESHOLD and new_rect.x1 > rect.x1):
+			   if(new_rect.height()<50):
+				new_rect.y1 -= 10;
+			   if (1.0 * new_rect.width()/new_rect.height()) < car_dim_ratio:
+				new_rect.x1 = 0
+		
+			if(rect.x2 > Img2.shape[1] - BORDER_THRESHOLD and new_rect.x2 < rect.x2):
+			   if(new_rect.height()<50):
+				new_rect.y1 -= 10;
+			   if (1.0 * new_rect.width()/new_rect.height()) < car_dim_ratio:
+				new_rect.x2 = Img2.shape[1]-1;
                              
 			# MA: accept first frame (use it as baseline number of matches for SIFT)
                         if verification_ok:

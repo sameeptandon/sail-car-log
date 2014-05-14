@@ -1,5 +1,6 @@
 import cv
 import sys, os
+import copy
 from AnnotationLib import *
 process_dir = '/'.join(os.path.abspath('radar_tracker.py').split('/')[:-2])+'/process/';
 sys.path.append(process_dir);
@@ -19,6 +20,21 @@ from ProjectRadarOnVideo import *
 
 from collections import defaultdict
 from collections import Counter
+
+def does_overlap(_rect, annotation): 
+   Thr = .7; 
+   rect1 = copy.deepcopy(_rect);
+   for _rect2 in annotation.rects:
+	   rect2 = copy.deepcopy(_rect2); 
+	 
+	   intersection_rect = rect1.intersection(rect2) 
+	   a1 = rect1.width() * rect1.height(); 
+	   a2 = rect2.width() * rect2.height(); 
+	   a0 = intersection_rect[0] * intersection_rect[1]; 
+	   if (a0 * 1.0) / a1 > Thr or (a0 * 1.0) / a2 > Thr: 
+		return True; 
+ 
+   return False 
 
 def set_ids(annotations):
 	gap_between_the_same_id_usage = 50;
@@ -262,10 +278,11 @@ def fill_gaps(annotations, rdr_map):
 						n_y2 = b_y2*(1-ratio) + f_y2*ratio;
 						
 						new_rect = AnnoRect(int(n_x1), int(n_y1), int(n_x2), int(n_y2));
-						new_rect.classID = rId;
+						new_rect.classID = int(rId);
 						new_rect.score = 0;
-						annotations[ind].rects.append(new_rect)
-						print('Added');
+						if not does_overlap(new_rect, annotations[ind]):
+							annotations[ind].rects.append(new_rect)
+							print('Added');
 					elif flagb and jb > 0 and False:
 						back_rects = back_anno.rects;
 						for rect in back_rects:
@@ -293,8 +310,9 @@ def fill_gaps(annotations, rdr_map):
 							new_rect = AnnoRect(int(n_x1), int(n_y1), int(n_x2), int(n_y2));
 							new_rect.classID = rId;
 							new_rect.score = 0;
-							annotations[ind].rects.append(new_rect)
-							print('Added');
+							if does_overlap(new_rect, annotations[ind]):
+								annotations[ind].rects.append(new_rect)
+								print('Added');
 
 					elif flagf and jf < anno_size - 2 and False:
 						forward_rects = forward_anno.rects;
@@ -322,8 +340,9 @@ def fill_gaps(annotations, rdr_map):
 							new_rect = AnnoRect(int(n_x1), int(n_y1), int(n_x2), int(n_y2));
 							new_rect.classID = rId;
 	#						new_rect.score =
-							annotations[ind].rects.append(new_rect)
-							print('Added');
+							if does_overlap(new_rect, annotations[ind]):
+								annotations[ind].rects.append(new_rect)
+								print('Added');
 		
 		ind += 1;
 		
@@ -569,10 +588,13 @@ if __name__ == "__main__":
    	rdr_map = loadRDRCamMap(args['map'])
 	
 	set_annotations_ids_using_radar(annotations, rdr_map, args);   
-#	fill_gaps(annotations, rdr_map);
+	fill_gaps(annotations, rdr_map);
+	for annotation in annotations:
+		for rect in annotation.rects:
+			rect.classID = int(rect.classID);
 	save_filename = filename.split('.')[0] + "_new.al";
 	saveXML(save_filename, annotations);
 #	compute_statistics(annotations, rdr_map);
-#	show_3D(annotations, rdr_map,args, False, False, False);
+#	show_3D(annotations, rdr_map,args, True, False, True);
 #	print "Writing new annotations into a file..."
-#	saveXML(filename.split('.')[0] + "_with_distance.al", annotations);
+#	saveXML(filename.split('.')[1] + "_with_distance.al", annotations);
