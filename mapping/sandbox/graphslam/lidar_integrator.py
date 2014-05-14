@@ -23,6 +23,7 @@ import h5py
 import os
 # TODO should be passed in as arguments
 from pipeline_config import EXPORT_START, EXPORT_NUM, EXPORT_STEP
+from ldr_to_h5 import transform_points_in_sweep
 
 
 global actors
@@ -104,7 +105,7 @@ def stepVideo(video_reader, step):
         (success, I) = video_reader.getNextFrame()
     return success
 
-def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, calibrationParameters):
+def integrateClouds(ldr_map, imu_transforms, renderer, offset, num_steps, step, calibrationParameters):
     start = offset
     end = offset + num_steps*step
     
@@ -112,14 +113,14 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
         video_reader1.setFrame(start)
         video_reader2.setFrame(start)
 
-    trans_wrt_imu = IMUTransforms[start:end,0:3,3]
+    trans_wrt_imu = imu_transforms[start:end,0:3,3]
     gpsPointCloud = VtkPointCloud(trans_wrt_imu[:,0:3], 0*trans_wrt_imu[:,0])
     clouds.append(gpsPointCloud)
     actors.append(gpsPointCloud.get_vtk_cloud())
     renderer.AddActor(actors[-1])
     for t in range(num_steps):
         fnum = offset+t*step
-        #print fnum
+        print fnum
 
         data = loadLDR(ldr_map[fnum])
         # filter out the roof rack
@@ -195,8 +196,13 @@ def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, c
         pts = np.vstack((pts,np.ones((1,pts.shape[1]))))
         T_from_l_to_i = calibrationParameters['lidar']['T_from_l_to_i']
         pts = np.dot(T_from_l_to_i, pts)
+
         # transform data into imu_0 frame
-        pts = np.dot(IMUTransforms[fnum,:,:], pts);
+
+        # Microseconds till end of the sweep
+        times = data[:, 5]
+        transform_points_in_sweep(pts, times, fnum, imu_transforms)
+
         pts = pts.transpose()
 
         # for exporting purposes

@@ -64,19 +64,19 @@ namespace pcl
        */
       typedef void (sig_cb_velodyne_hdl_scan_point_cloud_xyz) (
           const boost::shared_ptr<const pcl::PointCloud<pcl::PointXYZ> >&,
-          float, float);
+          float, float, bool);
       /** \brief Signal used for a single sector
        *         Represents 1 corrected packet from the HDL Velodyne.  Each laser has a different RGB
        */
       typedef void (sig_cb_velodyne_hdl_scan_point_cloud_xyzrgb) (
           const boost::shared_ptr<const pcl::PointCloud<pcl::PointXYZRGBA> >&,
-          float, float);
+          float, float, bool);
       /** \brief Signal used for a single sector
        *         Represents 1 corrected packet from the HDL Velodyne with the returned intensity.
        */
       typedef void (sig_cb_velodyne_hdl_scan_point_cloud_xyzi) (
           const boost::shared_ptr<const pcl::PointCloud<pcl::PointXYZI> >&,
-          float startAngle, float);
+          float startAngle, float, bool);
       /** \brief Signal used for a 360 degree sweep
        *         Represents multiple corrected packets from the HDL Velodyne
        *         This signal is sent when the Velodyne passes angle "0"
@@ -288,7 +288,7 @@ namespace pcl
       void setPosInfo (HDLPosPacket *dataPacket);
       void fireCurrentSweep ();
       void fireCurrentScan (const unsigned short startAngle,
-          const unsigned short endAngle);
+          const unsigned short endAngle, bool restart);
       void computeXYZI (pcl::PointXYZI& pointXYZI, int azimuth,
           HDLLaserReturn laserReturn, HDLLaserCorrection correction);
       bool isAddressUnspecified (const boost::asio::ip::address& ip_address);

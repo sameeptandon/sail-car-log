@@ -147,6 +147,7 @@ if __name__ == '__main__':
     # BGR
 
     red = [0, 0, 255]
+    blue = [255, 0, 0]
     green = [0, 255, 0]
 
     # Set up video writer
@@ -192,7 +193,7 @@ if __name__ == '__main__':
         intensity1 = all_data1_copy[mask1, 3]
         intensity2 = all_data2_copy[mask2, 3]
         heat_colors1 = np.tile(red, (intensity1.shape[0], 1))
-        heat_colors2 = np.tile(green, (intensity2.shape[0], 1))
+        heat_colors2 = np.tile(blue, (intensity2.shape[0], 1))
 
         for p in range(2):
             I[pix1[1, mask1]+p, pix1[0, mask1], :] = heat_colors1

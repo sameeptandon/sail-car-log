@@ -46,11 +46,9 @@ def chunk_and_align(start1, start2, enu1, enu2, rss1, rss2, pcd_dir1, pcd_dir2, 
     for k in range(0, CHUNK_SIZE):
         ind1 = start1 + k
         chunk1_files.append('%s/%d.pcd' % (pcd_dir1, ind1))
-        print k, chunk1_files[-1]
         assert os.path.exists(chunk1_files[-1])
         ind2 = start2 + k
         chunk2_files.append('%s/%d.pcd' % (pcd_dir2, ind2))
-        print k, chunk2_files[-1]
         assert os.path.exists(chunk2_files[-1])
 
     merged_chunks1 = '%s/%s' % (GRAPHSLAM_CHUNK_DIR, '--'.join(rss1) + '+' + '--'.join(rss2) + '%d_1.pcd' % chunk_num)

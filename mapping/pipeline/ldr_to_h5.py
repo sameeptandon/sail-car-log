@@ -1,3 +1,4 @@
+import math
 import os
 import argparse
 import numpy as np
@@ -15,6 +16,34 @@ storing the data for all time steps in memory
 
 Writes full point clouds for scan matching later
 '''
+
+def interp_transforms(T1, T2, alpha):
+    assert alpha <= 1
+    T_avg = alpha * T1 + (1 - alpha) * T2
+    ## Need to orthonormalize transform
+    R = T_avg[0:3, 0:3]
+    R = np.linalg.qr(R, mode='complete')[0]
+    T_avg[0:3, 0:3] = R
+    return T_avg
+
+
+def transform_points_in_sweep(pts, times, fnum, imu_transforms):
+    for time in set(times):
+        mask = times == time
+
+        # FIXME PARAM
+        offset = (time / float(1e6)) / 0.02
+        #assert offset <= 5.1, offset   # FIXME HACK
+        offset = min(5, offset)
+
+        ind1 = int(fnum - math.ceil(offset))
+        ind2 = int(fnum - math.floor(offset))
+        # FIXME Can't interpolate before 0 so first frame not shifted properly
+        ind1, ind2 = max(ind1, 0), max(ind2, 0)
+        transform = interp_transforms(imu_transforms[ind1, :, :], imu_transforms[ind2, :, :], offset / 5.0)
+
+        # transform data into imu_0 frame
+        pts[:, mask] = np.dot(transform, pts[:, mask])
 
 
 if __name__ == '__main__':
@@ -88,8 +117,11 @@ if __name__ == '__main__':
         pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
         T_from_l_to_i = params['lidar']['T_from_l_to_i']
         pts = np.dot(T_from_l_to_i, pts)
-        # transform data into imu_0 frame
-        pts = np.dot(imu_transforms[fnum, :, :], pts)
+
+        # Microseconds till end of the sweep
+        times = data[:, 5]
+        transform_points_in_sweep(pts, times, fnum, imu_transforms)
+
         pts = pts.transpose()
 
         # for exporting purposes
@@ -103,9 +135,11 @@ if __name__ == '__main__':
         dset[...] = pts_copy
         h5f.close()
 
+        '''
         # Also write the transform at that time
         transform = imu_transforms[fnum, :, :]
         h5f = h5py.File(os.path.join(args.h5_dir, '%d.transform' % t), 'w')
         dset = h5f.create_dataset('transform', transform.shape, dtype='f')
         dset[...] = transform
         h5f.close()
+        '''
