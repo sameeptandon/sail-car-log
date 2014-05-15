@@ -63,8 +63,7 @@ def doStereo(imgL, imgR, params):
                 interpolation=cv.CV_INTER_LINEAR,
                 borderMode=cv2.BORDER_CONSTANT,
                 borderValue = (0,0,0,0))
-
-
+    """
     window_size = 1
     min_disp = 0
     num_disp = 64
@@ -84,7 +83,6 @@ def doStereo(imgL, imgR, params):
     imgRectR = cv2.cvtColor(imgRectR, cv2.COLOR_RGB2GRAY)
     stereo = cv2.StereoBM(preset=cv.CV_STEREO_BM_NARROW,
             SADWindowSize=35)
-    """
     print 'computing stereo...'
     disp = stereo.compute(imgRectL, imgRectR).astype(np.float32) / 16.0
     return (disp, Q, R1, R2)
@@ -180,20 +178,22 @@ if __name__ == '__main__':
     video_reader_right = VideoReader(video_file_right)
 
 
+    fnum = 0 
     while True:
         for t in range(10):
             (successL, imgL) = video_reader_left.getNextFrame()
             (successR, imgR) = video_reader_right.getNextFrame()
         
 
-        #fnum = video_reader_left.framenum
-        #WRITEDIR = 'data/'
-        #cv2.imwrite(WRITEDIR+ 'left_%04d.png' % fnum, imgL)
-        #cv2.imwrite(WRITEDIR+ 'right_%04d.png' % fnum, imgR)
+        """
+        WRITEDIR = 'data/'
+        imgL = cv2.cvtColor(imgL, cv2.COLOR_RGB2GRAY)
+        imgR = cv2.cvtColor(imgR, cv2.COLOR_RGB2GRAY)
+        cv2.imwrite(WRITEDIR+ 'left_%06d.png' % fnum, imgL)
+        cv2.imwrite(WRITEDIR+ 'right_%06d.png' % fnum, imgR)
+        fnum+=1;
 
-        #imgL = cv2.pyrDown(imgL)
-        #imgR = cv2.pyrDown(imgR)
-        """    
+        """   
         (disp, Q, R1, R2) = doStereo(imgL, imgR, params)
         points = get3dPoints(disp, Q)
         points = points[disp > 5, :]
@@ -204,19 +204,19 @@ if __name__ == '__main__':
         cv2.imshow('imgL', cv2.pyrDown(imgL))
         cv2.imshow('imgR', cv2.pyrDown(imgR))
         cv2.imshow('disparity', cv2.pyrDown((disp)/64.0))
-        """
+        cv2.waitKey(10);
         #(imgL, imgR) = doStereo(imgL, imgR, params)
 
         #bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         #matches = bf.match(desL, desR)
         #matches = sorted(matches, key = lambda x: x.distance)
         #imgLR = cv2.drawMatches(imgL,kpL,imgR,kpR,matches[:10],flags=2)
-        
-       
+        """        
         (disp, Q, R1, R2) = siftStereo(imgL, imgR, params)        
         # visualization
         #disp = disp.astype(np.float32) / 16.0
         cv2.imshow('disp', cv2.pyrDown(disp))
 
         cv2.waitKey(1500)     #press q on keyboard to close
+        """
     cv2.destroyAllWindows()

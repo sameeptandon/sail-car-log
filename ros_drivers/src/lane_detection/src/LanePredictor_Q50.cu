@@ -90,7 +90,6 @@
 LanePredictor_Q50::LanePredictor_Q50(int* argc, char* argv[],int stream_num){
 	stream = stream_num;
 	model = argv[1];
-	fastCppInit(argc,&argv,stream);
 
 	data_buf = gpuArrayAllocRM(DataType::FLOAT, DDim(BATCH_SIZE,IMG_DIMZ,IMG_DIMX,IMG_DIMY), stream);
 	mean_lcn = gpuArrayAllocRM(DataType::FLOAT, DDim(BATCH_SIZE,MEAN_OUTPUTZ,MEAN_OUTPUTX,MEAN_OUTPUTY),stream);
@@ -151,7 +150,6 @@ LanePredictor_Q50::LanePredictor_Q50(int* argc, char* argv[],int stream_num){
 	synchronizeStream(stream);
 }
 LanePredictor_Q50::~LanePredictor_Q50(){
-	fastCppShutdown();
 }
 
 Ptr<ArrayViewHandle> LanePredictor_Q50::processImage(const Ptr<ArrayViewHandle>& img){

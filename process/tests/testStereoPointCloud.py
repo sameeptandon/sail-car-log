@@ -96,12 +96,23 @@ class FrameCloudManager:
                 self.finished = True
                 return
 
+            #prev code
             #can change to call different stereo function
-            (disp, Q, R1, R2) = siftStereo(imgL, imgR, self.params)
-            cv2.imshow('disp', disp)
-            print Q
-            stereo_points = get3dPoints(disp,Q)
-            stereo_points = stereo_points[disp > 5, :]
+            #(disp, Q, R1, R2) = siftStereo(imgL, imgR, self.params)
+            #cv2.imshow('disp', disp)
+            #print Q
+            #stereo_points = get3dPoints(disp,Q)
+            #stereo_points = stereo_points[disp > 5, :]
+
+            #new code
+            #(disp, Q, R1, R2) = doStereo(imgL, imgR, self.params)
+            #cv2.imshow('disp', disp)
+            #print Q
+            #stereo_points = get3dPoints(disp,Q)
+            #stereo_points = stereo_points[disp > 5, :]
+            (R1, R2, P1, P2, Q, size1, size2, map1x, map1y, map2x, map2y) = computeStereoRectify(self.params)
+            stereo_points = np.load(sys.argv[3] + '/3d_' + str(self.reader_left.framenum) + '.npz')['data']
+
             print stereo_points
             stereo_points = stereo_points.transpose()
             stereo_points = np.dot(R1.transpose(), stereo_points)

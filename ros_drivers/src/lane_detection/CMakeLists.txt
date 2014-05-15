@@ -81,6 +81,7 @@ set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
  add_message_files(
    FILES
    Delay.msg
+   LaneOutput.msg
 #   Message2.msg
  )
 
