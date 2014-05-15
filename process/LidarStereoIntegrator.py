@@ -294,7 +294,7 @@ if __name__ == '__main__':
             stereo_wrt_lidar = stereo_wrt_lidar.transpose()
             stereo_wrt_lidar = stereo_wrt_lidar[:,0:3] - params['cam'][0]['displacement_from_l_to_c_in_lidar_frame']
                #by here, same camera points but to lidar frame at time t
-      	 #img = cv2.resize(img, (640, 480))
+      	       #img = cv2.resize(img, (640, 480))
             imgL = cv2.pyrDown(imgL)
                #cv2.imshow('disparity', cv2.pyrDown(disp)/64.0)
             stereo_map.append(stereo_wrt_lidar)
