@@ -145,6 +145,7 @@ if __name__ == '__main__':
     json_data = dict()
     json_data['matches'] = list()
 
+    # TODO FIXME Could be excluding some matches here
     seen = np.zeros((N, N), dtype=np.bool8)
 
     for j in range(N):
@@ -160,7 +161,7 @@ if __name__ == '__main__':
         deg = deg_between(trace_dir(xyz1), trace_dir(xyz2))
 
         # We'll only look at paths that overlap by more than a threshold for now
-        # and also go in the same direction
+        # and also go in the same direction # PARAM
         if max_overlap < MIN_OVERLAP_THRESH or deg > 90:
             continue
 

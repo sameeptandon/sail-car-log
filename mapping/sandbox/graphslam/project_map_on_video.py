@@ -103,17 +103,22 @@ if __name__ == '__main__':
     for t in range(nn_matches.shape[0]):
         nn_dict[nn_matches[t, 1]] = nn_matches[t, 0]
 
-    tbs = list()
+    Ts = list()
     chunk_num = 0
     for k in range(start1, start1 + nn_matches.shape[0] / EXPORT_STEP, REALIGN_EVERY):
         f = os.path.splitext(args.tb)[0] + '--%d' % chunk_num + '.h5'
+        print f
         if not os.path.exists(f):
             break
-        h5f = h5py.File(f, 'r')
-        tb = h5f['transform'][...]
-        tbs.append(tb)
+        try:
+            h5f = h5py.File(f, 'r')
+        except IOError, e:
+            print 'Failed opening:', f
+            raise
+        T = h5f['transform'][...]
+        Ts.append(T)
         chunk_num += 1
-    h5f.close()
+        h5f.close()
 
     # Apply transform in global coordinates
 
@@ -128,10 +133,10 @@ if __name__ == '__main__':
         t_start = get_closest_key_value(k * EXPORT_STEP, nn_dict, max_shift=10)
         t_final = get_closest_key_value(k * EXPORT_STEP + REALIGN_EVERY * EXPORT_STEP, nn_dict, max_shift=10)
         mask_window = (all_data2[:, 4] < t_final) & (all_data2[:, 4] >= t_start)
-        all_data2[mask_window, 0:3] = all_data2[mask_window, 0:3] + tbs[chunk_num][0:3, 3]
+        all_data2[mask_window, 0:3] = np.dot(Ts[chunk_num][0:3, 0:3], all_data2[mask_window, 0:3].T).T + Ts[chunk_num][0:3, 3]
         '''
         for t in range(t_start, t_final):
-            if chunk_num == len(tbs) - 1:
+            if chunk_num == len(Ts) - 1:
                 # Can't interpolate
                 tb = tbs[chunk_num][0:3, 3]
             else:
@@ -141,7 +146,7 @@ if __name__ == '__main__':
             all_data2[mask, 0:3] = all_data2[mask, 0:3] + tb
         '''
         chunk_num += 1
-        if chunk_num >= len(tbs):
+        if chunk_num >= len(Ts):
             break
 
     # BGR

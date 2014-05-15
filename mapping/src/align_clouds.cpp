@@ -10,6 +10,7 @@
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
 #include <pcl/registration/correspondence_estimation.h>
+#include <pcl/registration/transformation_estimation_svd.h>
 
 #include "point_defs.h"
 #include "utils/hdf_utils.h"
@@ -82,6 +83,7 @@ class XYZINormalPointRepresentation : public pcl::PointRepresentation <pcl::Poin
 };
 
 
+/*
 float pair_align (const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr tgt_cloud, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &transform, int icp_iters, float max_dist)
 {
     // TODO Determine whether need to set a custom point representation
@@ -144,6 +146,7 @@ float pair_align (const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
     transform = T_i;
     return reg.getFitnessScore();
 }
+*/
 
 
 // NOTE cloud_in and cloud_out can't reference the same point cloud object
@@ -158,9 +161,12 @@ void filter_by_intensity(const PointCloudWithNormals::Ptr cloud_in, PointCloudWi
 }
 
 
-float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr cloud_tgt, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist, float tol, bool debug)
+float align_clouds(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWithNormals::Ptr cloud_tgt, PointCloudWithNormals::Ptr aligned_cloud, Eigen::Matrix4f &final_transform, int iters, float max_dist, float tol, bool debug)
 {
     final_transform = Eigen::Matrix4f::Identity();
+
+    // Setup
+
     PointCloudWithNormals::Ptr src_cloud(new PointCloudWithNormals());
     PointCloudWithNormals::Ptr tgt_cloud(new PointCloudWithNormals());
     filter_by_intensity(cloud_src, src_cloud);
@@ -174,6 +180,8 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
     std::cout << "weight: " << av[0] << " " << av[1] << " " << av[2] << " " << av[3] << " " << av[4] << std::endl;
     float alpha[5] = {av[0], av[1], av[2], av[3], av[4]};
     point_representation.setRescaleValues (alpha);
+
+    // First just estimate translation
 
     for (int k = 0; k < iters; k++)
     {
@@ -267,9 +275,41 @@ float trans_align(const PointCloudWithNormals::Ptr cloud_src, const PointCloudWi
             //max_dist = max_dist / 2.0;
     }
 
+    /*
+    // Now that we've estimated the translation, estimate
+    // a full transformation matrix using SVD
+
+    pcl::registration::TransformationEstimationSVD<pcl::PointXYZ, pcl::PointXYZ> est;
+
+    pcl::registration::CorrespondenceEstimation<pcl::PointXYZINormal, pcl::PointXYZINormal> correspondence_est;
+    correspondence_est.setPointRepresentation(boost::make_shared<const XYZINormalPointRepresentation> (point_representation));
+    correspondence_est.setInputSource(src_cloud);
+    correspondence_est.setInputTarget(tgt_cloud);
+    pcl::Correspondences all_correspondences;
+    correspondence_est.determineCorrespondences(all_correspondences, 0.1);  // FIXME PARAM
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr xyz_cloud_src(new pcl::PointCloud<PointXYZ>());;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr xyz_cloud_tgt(new pcl::PointCloud<PointXYZ>());;
+    pcl::copyPointCloud(*src_cloud, *xyz_cloud_src);
+    pcl::copyPointCloud(*tgt_cloud, *xyz_cloud_tgt);
+
+    Eigen::Matrix4f transform;
+    est.estimateRigidTransformation(*xyz_cloud_src, *xyz_cloud_tgt, all_correspondences, transform);
+
+    // Combine the two transforms
+
+    //std::cout << "unrotated transform:" << std::endl;
+    //std::cout << final_transform << std::endl;
+    //final_transform = transform * final_transform;
+    //std::cout << "final transform:" << std::endl;
+    //std::cout << final_transform << std::endl;
+    final_transform.block<3, 3>(0, 0) = transform.block<3, 3>(0, 0).householderQr().householderQ();
+
+    // FIXME normalized_errors only error after translation
+    */
+
     return normalized_errors.back();
 }
-
 
 
 int main(int argc, char** argv)
@@ -290,8 +330,7 @@ int main(int argc, char** argv)
     PointCloudWithNormals::Ptr aligned_cloud(new PointCloudWithNormals());
     Eigen::Matrix4f transform;
 
-    //float score = pair_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist);
-    float score = trans_align(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist, params().icp_tol, opts.debug);
+    float score = align_clouds(src_cloud, tgt_cloud, aligned_cloud, transform, opts.icp_iters, opts.max_dist, params().icp_tol, opts.debug);
 
     if (opts.debug)
     {
