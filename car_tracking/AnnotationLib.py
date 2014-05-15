@@ -6,6 +6,8 @@ import gzip
 import bz2
 import sys
 
+import PalLib;
+
 import xml.dom.minidom
 from xml.dom.minidom import Node
 xml_dom_ext_available=False
@@ -527,6 +529,9 @@ def parse(filename):
 	if(ext == ".al"):
 		return parseXML(filename)
 	
+	if(ext == ".pal"):
+		return PalLib.pal2al(PalLib.loadPal(filename));
+
 	return []
 
 
@@ -624,8 +629,30 @@ def parseIDL(filename):
 	return annotations
 
 
+
+	
+
 #####################################################################
 ### Saving
+
+def save(filename, annotations):
+	name, ext = os.path.splitext(filename)
+
+	if (ext == ".gz" or ext == ".bz2"):
+		name, ext = os.path.splitext(name)
+	
+	if(ext == ".idl"):
+		return saveIDL(filename, annotations)		
+
+	elif(ext == ".al"):
+		return saveXML(filename, annotations)
+
+	elif(ext == ".pal"):
+		return PalLib.savePal(filename, PalLib.al2pal(annotations));
+
+	else:
+		assert(False);
+		return False;
 
 def saveIDL(filename, annotations):
 	[name, ext] = os.path.splitext(filename)
@@ -976,3 +1003,5 @@ def annoAnalyze(detIDL):
 		filteredIDL.append(a)
 		
 	return filteredIDL
+
+
