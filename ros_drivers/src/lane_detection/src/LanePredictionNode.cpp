@@ -136,8 +136,8 @@ void lanePredictorCb(const sensor_msgs::ImageConstPtr& msg){
     lane_msg.right = rightPos;
     laneOutput_pub.publish(lane_msg);
 	// Update GUI Window
-	//cv::imshow(OPENCV_WINDOW, frame);
-	//cv::waitKey(3);
+	cv::imshow(OPENCV_WINDOW, frame);
+	cv::waitKey(3);
 }
 
 
