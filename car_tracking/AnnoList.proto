@@ -17,10 +17,10 @@ message AnnoRect {
   optional int32 id = 6;
 
   // 3d attributes
-  optional float distance = 7;
-  optional float width = 8;
-  optional float height = 9;
-  optional float length = 10;
+  optional float distance3d = 7;
+  optional float width3d = 8;
+  optional float height3d = 9;
+  optional float length3d = 10;
 }
 
 message Annotation {

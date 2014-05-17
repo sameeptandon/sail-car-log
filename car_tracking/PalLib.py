@@ -31,17 +31,17 @@ def al2pal(annotations):
             _r.y2 = r.y2;
             _r.score = r.score;
 
-            if hasattr(r, 'pal_distance'):
-                _r.distance = r.pal_distance;
+            if hasattr(r, 'distance3d'):
+                _r.distance3d = r.distance3d;
 
-            if hasattr(r, 'pal_width'):
-                _r.width = r.pal_width;
+            if hasattr(r, 'width3d'):
+                _r.width3d = r.width3d;
 
-            if hasattr(r, 'pal_height'):
-                _r.height = r.pal_height;
+            if hasattr(r, 'height3d'):
+                _r.height3d = r.height3d;
 
-            if hasattr(r, 'pal_length'):
-                _r.length = r.pal_length;
+            if hasattr(r, 'length3d'):
+                _r.length3d = r.length3d;
 
     return _annolist;
 
@@ -66,17 +66,17 @@ def pal2al(_annolist):
             if _r.HasField("score"):
                 rect.score = _r.score;
 
-            if _r.HasField("distance"):
-                rect.pal_distance = _r.distance;
+            if _r.HasField("distance3d"):
+                rect.distance3d = _r.distance3d;
 
-            if _r.HasField("width"):
-                rect.pal_width = _r.width;
+            if _r.HasField("width3d"):
+                rect.width3d = _r.width3d;
 
-            if _r.HasField("height"):
-                rect.pal_height = _r.height;
+            if _r.HasField("height3d"):
+                rect.height3d = _r.height3d;
 
-            if _r.HasField("length"):
-                rect.pal_length = _r.length;
+            if _r.HasField("length3d"):
+                rect.length3d = _r.length3d;
 
             anno.rects.append(rect);
 
