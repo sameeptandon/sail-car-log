@@ -5,7 +5,7 @@ from ruffus import files, follows, pipeline_run, pipeline_printout, pipeline_pri
 from graphslam_config import GRAPHSLAM_PATH,\
         GRAPHSLAM_MATCH_DIR, GRAPHSLAM_OPT_POS_DIR, GRAPHSLAM_ALIGN_DIR,\
         MATCHES_FILE, GPS_FILES, RSS_LIST, GRAPHSLAM_OUT_DIR, GRAPHSLAM_DIRS,\
-        GRAPHSLAM_LANES_DIR, GRAPHSLAM_VIDEOS_DIR
+        GRAPHSLAM_MAPS_DIR, GRAPHSLAM_VIDEOS_DIR, GRAPHSLAM_EVAL_DIR
 from pipeline_config import NUM_CPUS, SAIL_CAR_LOG_PATH
 from pipeline_utils import print_and_call, touchf
 
@@ -51,15 +51,33 @@ def chunk_and_align(dummy, sentinel):
 
 @follows('chunk_and_align')
 @files('%s/chunk_and_align_sentinel' % GRAPHSLAM_ALIGN_DIR,
-    '%s/export_lanes_sentinel' % GRAPHSLAM_LANES_DIR)
-def export_lanes(dummy, sentinel):
-    cmd = 'python scripts/export_lanes.py'
+    '%s/export_maps_sentinel' % GRAPHSLAM_MAPS_DIR)
+def export_maps(dummy, sentinel):
+    cmd = 'python scripts/export_maps.py'
     print_and_call(cmd)
-    touchf('%s/export_lanes_sentinel' % GRAPHSLAM_LANES_DIR)
+    touchf('%s/export_maps_sentinel' % GRAPHSLAM_MAPS_DIR)
 
 
-@follows('export_lanes')
-@files('%s/export_lanes_sentinel' % GRAPHSLAM_LANES_DIR,
+@follows('export_maps')
+@files('%s/export_maps_sentinel' % GRAPHSLAM_MAPS_DIR,
+       '%s/align_maps_sentinel' % GRAPHSLAM_MAPS_DIR)
+def align_maps(dummy, sentinel):
+    cmd = 'python scripts/align_maps_all.py'
+    print_and_call(cmd)
+    touchf('%s/align_maps_sentinel' % GRAPHSLAM_MAPS_DIR)
+
+
+@follows('align_maps')
+@files('%s/align_maps_sentinel' % GRAPHSLAM_MAPS_DIR,
+    '%s/eval_maps_sentinel' % GRAPHSLAM_EVAL_DIR)
+def eval_maps(dummy, sentinel):
+    cmd = 'python scripts/eval_maps.py'
+    print_and_call(cmd)
+    touchf('%s/eval_maps_sentinel' % GRAPHSLAM_EVAL_DIR)
+
+
+@follows('eval_maps')
+@files('%s/align_maps_sentinel' % GRAPHSLAM_MAPS_DIR,
     '%s/generate_videos_sentinel' % GRAPHSLAM_VIDEOS_DIR)
 def generate_videos(dummy, sentinel):
     cmd = 'python scripts/generate_videos.py'

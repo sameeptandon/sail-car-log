@@ -6,7 +6,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set(CLUSTER OFF)
 
-find_package(PCL 1.7.1 EXACT COMPONENTS common io filters visualization surface features)
+find_package(PCL 1.7.1 EXACT COMPONENTS common io filters visualization surface features segmentation)
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})

@@ -83,21 +83,20 @@ if __name__ == '__main__':
     vidname2 = vidname[:-1] + '2'
     video_filename2 = sys.argv[1] + '/' + vidname2 + '.avi'
 
+    args = parse_args(sys.argv[1], sys.argv[2])
     opt_pos_file = sys.argv[3]
     export_path = sys.argv[4]
-
-    args = parse_args(sys.argv[1], sys.argv[2])
 
     params = args['params']
     cam1 = params['cam'][0]
     cam2 = params['cam'][1]
-    imu_transforms = np.load(opt_pos_file)['data']
-    print imu_transforms.shape
     #gps_reader = GPSReader(args['gps'])
     #GPSData = gps_reader.getNumericData()
     #imu_transforms = IMUTransforms(GPSData)
+    imu_transforms = np.load(opt_pos_file)['data']
 
     ldr_map = loadLDRCamMap(args['map'])
+
 
     if '--full' in sys.argv:
         total_num_frames = imu_transforms.shape[0]
@@ -107,18 +106,5 @@ if __name__ == '__main__':
 
     integrateClouds(ldr_map, imu_transforms, start_fn, num_fn, step, params)
 
-    if '--export' in sys.argv:
-        h5 = '--h5' in sys.argv
-        if '--all' in sys.argv:
-            for k in range(len(all_data)):
-                if all_data[k].shape[0] == 0:
-                    print '%d data empty' % k
-                    raise
-                    continue
-                # FIXME Should allow specify cloud prefix
-                fname = os.path.join(export_path, '%d.%s' % (k, 'h5' if h5 else 'npz'))
-                print 'Exporting to %s' % fname
-                exportData(all_data[k], fname, h5=h5)
-        else:
-            data = np.row_stack(all_data)
-            exportData(data, export_path, h5=h5)
+    data = np.row_stack(all_data)
+    exportData(data, export_path, h5=False)
