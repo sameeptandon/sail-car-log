@@ -275,7 +275,6 @@ float align_clouds(const PointCloudWithNormals::Ptr cloud_src, const PointCloudW
             //max_dist = max_dist / 2.0;
     }
 
-    /*
     // Now that we've estimated the translation, estimate
     // a full transformation matrix using SVD
 
@@ -293,20 +292,20 @@ float align_clouds(const PointCloudWithNormals::Ptr cloud_src, const PointCloudW
     pcl::copyPointCloud(*src_cloud, *xyz_cloud_src);
     pcl::copyPointCloud(*tgt_cloud, *xyz_cloud_tgt);
 
+    // Shift point clouds to origin 
+    Eigen::Vector4f centroid;
+    pcl::compute3DCentroid(*xyz_cloud_src, centroid);
+    pcl::demeanPointCloud<pcl::PointXYZ>(*xyz_cloud_src, centroid, *xyz_cloud_src);
+    pcl::demeanPointCloud<pcl::PointXYZ>(*xyz_cloud_tgt, centroid, *xyz_cloud_tgt);
+
     Eigen::Matrix4f transform;
     est.estimateRigidTransformation(*xyz_cloud_src, *xyz_cloud_tgt, all_correspondences, transform);
 
     // Combine the two transforms
 
-    //std::cout << "unrotated transform:" << std::endl;
-    //std::cout << final_transform << std::endl;
-    //final_transform = transform * final_transform;
-    //std::cout << "final transform:" << std::endl;
-    //std::cout << final_transform << std::endl;
-    final_transform.block<3, 3>(0, 0) = transform.block<3, 3>(0, 0).householderQr().householderQ();
+    final_transform = transform * final_transform;
 
     // FIXME normalized_errors only error after translation
-    */
 
     return normalized_errors.back();
 }

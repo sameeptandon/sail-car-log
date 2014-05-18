@@ -81,7 +81,11 @@ if __name__ == '__main__':
         t_start = get_closest_key_value(k * EXPORT_STEP, nn_dict, max_shift=10)
         t_final = get_closest_key_value(k * EXPORT_STEP + REALIGN_EVERY * EXPORT_STEP, nn_dict, max_shift=10)
         mask_window = (all_data2[:, 4] < t_final) & (all_data2[:, 4] >= t_start)
-        all_data2[mask_window, 0:3] = np.dot(Ts[chunk_num][0:3, 0:3], all_data2[mask_window, 0:3].T).T + Ts[chunk_num][0:3, 3]
+        all_data2_mean = np.mean(all_data2[mask_window, 0:3], axis=0)
+        all_data2[mask_window, 0:3] = np.dot(Ts[chunk_num][0:3, 0:3],
+                (all_data2[mask_window, 0:3] - all_data2_mean).T).T + all_data2_mean + Ts[chunk_num][0:3, 3]
+        #all_data2[mask_window, 0:3] = np.dot(np.eye(3),
+                #(all_data2[mask_window, 0:3] - all_data2_mean).T).T + all_data2_mean + Ts[chunk_num][0:3, 3]
         '''
         for t in range(t_start, t_final):
             if chunk_num == len(Ts) - 1:

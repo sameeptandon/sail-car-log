@@ -7,7 +7,7 @@ from graphslam_config import GRAPHSLAM_PATH, GRAPHSLAM_MAPS_DIR, GRAPHSLAM_OPT_P
 from joblib import Parallel, delayed
 
 
-def export_lane_data(gps_file, rss):
+def export_map_data(gps_file, rss):
     route, segment, split = rss
     dset = '%s_%s%d' % (segment, split, CAMERA)
     dset_dir = pjoin(pjoin(DATA_DIR, route), dset)
@@ -28,6 +28,4 @@ if __name__ == '__main__':
         print e
         pass
     '''
-    #for gps_file, rss in zip(GPS_FILES, RSS_LIST):
-        #export_lane_data(gps_file, rss)
-    Parallel(n_jobs=3)(delayed(export_lane_data)(gps_file, rss) for gps_file, rss in zip(GPS_FILES, RSS_LIST))
+    Parallel(n_jobs=3)(delayed(export_map_data)(gps_file, rss) for gps_file, rss in zip(GPS_FILES, RSS_LIST))

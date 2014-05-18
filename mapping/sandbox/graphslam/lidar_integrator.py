@@ -1,8 +1,7 @@
-# usage: 
-# python lidar_integrator.py <dir> <basename><camnum>.avi <export name>.npz <optional additional flags such as --export or --full>
+# usage:
+# python lidar_integrator.py <dir> <basename><camnum>.avi <export name>.npz <optional additional flags such as --full>
 
 # to change the type of data exported, see the function integrateClouds
-
 
 import os
 import sys

@@ -48,7 +48,7 @@ GPS_MATCH_DIST_TOL = 20.0
 GPS_BBOX_OVERLAP_PADDING = 5.0
 
 # Chunk of 10 => 1s of data
-CHUNK_SIZE = 20  # Size of chunks to do ICP with
+CHUNK_SIZE = 40  # Size of chunks to do ICP with
 REALIGN_EVERY = CHUNK_SIZE  # Compute alignment again every this number of clouds
 
 BIAS_GAMMA = 0.999
@@ -56,4 +56,4 @@ dt = 1/50.0
 
 MIN_OVERLAP_THRESH = 0.25
 
-MAX_VIDEO_FRAMES = 500
+MAX_VIDEO_FRAMES = 5000
