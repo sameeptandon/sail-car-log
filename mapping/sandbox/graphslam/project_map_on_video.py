@@ -49,11 +49,12 @@ def localMapToPixels(all_data, imu_transforms_t, T_from_i_to_l, cam):
 
 
 def draw_points(I, pix, mask, colors, rad=2):
+    N = np.sum(mask)
     for p in range(rad):
-        I[pix[1, mask]+p, pix[0, mask], :] = colors
-        I[pix[1, mask], pix[0, mask]+p, :] = colors
-        I[pix[1, mask]+p, pix[0, mask], :] = colors
-        I[pix[1, mask], pix[0, mask]+p, :] = colors
+        i0 = np.minimum(pix[1, mask]+p, I.shape[0] - 1)
+        i1 = np.minimum(pix[0, mask]+p, I.shape[1] - 1)
+        I[i0, pix[0, mask], :] = colors
+        I[pix[1, mask], i1, :] = colors
 
 
 def draw_hulls(I, cluster_labels, pxs, mask, color, thickness):

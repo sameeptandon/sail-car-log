@@ -28,6 +28,25 @@ void extract_clusters_euclidean(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, 
 }
 
 
+void compute3DMedian(const pcl::PointCloud<pcl::PointXYZ>& cloud, const std::vector<int>& indices, Eigen::Matrix<float, 4, 1>& median)
+{
+    std::vector<float> xs;
+    std::vector<float> ys;
+    std::vector<float> zs;
+    BOOST_FOREACH(int ind, indices)
+    {
+        pcl::PointXYZ pt = cloud.at(ind);
+        xs.push_back(pt.x);
+        ys.push_back(pt.y);
+        zs.push_back(pt.z);
+    }
+    std::sort(xs.begin(), xs.end());
+    std::sort(ys.begin(), ys.end());
+    std::sort(zs.begin(), zs.end());
+    median << xs[xs.size() / 2], ys[ys.size() / 2], zs[zs.size() / 2], 0.0f;
+}
+
+
 int main(int argc, char** argv)
 {
     std::string pcd_file = argv[1];
@@ -55,6 +74,7 @@ int main(int argc, char** argv)
         pcl::PointIndices indices = cluster_indices[k];
         Eigen::Matrix<float, 4, 1> centroid;
         pcl::compute3DCentroid(*cloud, indices.indices, centroid);
+        //compute3DMedian(*cloud, indices.indices, centroid);
         cluster_centers.row(k) = centroid.block<3, 1>(0, 0);
     }
 
