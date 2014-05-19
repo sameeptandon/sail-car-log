@@ -6,6 +6,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "Consumer_CV.h"
+#include <iostream>
+#include <fstream>
 
 // FlyCapture SDK from Point Grey
 #include "flycapture/FlyCapture2.h"
@@ -18,7 +20,8 @@ class ThreadedImageWriter
   image_transport::Subscriber image_sub_;
   SyncBuffer<cv::Mat> buffer[NUM_SPLITS];
   Consumer<cv::Mat>* consumer[NUM_SPLITS];
-  uint64_t numframes; 
+  uint64_t numframes;
+  std::ofstream img_ros_acq_time_file;
   
 public:
     ThreadedImageWriter(ros::NodeHandle nh)
@@ -42,7 +45,10 @@ public:
                 thread_fname, buffer[thread_num].getMutex(),
                 50.0f, 1280, 960, nh); 
     }
-    numframes = 0; 
+    numframes = 0;
+    stringstream sstm;
+    sstm << basename << camera_num << "_rostime.txt";
+    img_ros_acq_time_file.open(sstm.str().c_str());
     ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
     // Subscribe to input video feed and publish output video feed
     image_sub_ = it_.subscribe(topic, 10000, 
@@ -82,6 +88,8 @@ public:
         boost::mutex::scoped_lock( *(buffer[numframes % NUM_SPLITS].getMutex()));
         ROS_ERROR("Warning! Buffer full, overwriting data!");
     }
+
+    img_ros_acq_time_file << msg->header.stamp << std::endl;
   }
 };
 
