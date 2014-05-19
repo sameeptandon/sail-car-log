@@ -12,73 +12,10 @@
 #include "utils/hdf_utils.h"
 
 
-struct bbox_3d
-{
-    float x_min; float x_max;
-    float y_min; float y_max;
-    float z_min; float z_max;
-
-    bbox_3d(float x1, float y1, float z1,
-            float x2, float y2, float z2)
-            : x_min(x1),
-              y_min(y1),
-              z_min(z1),
-              x_max(x2),
-              y_max(y2),
-              z_max(z2)
-    {
-    }
-
-    Eigen::VectorXf toVector()
-    {
-        Eigen::VectorXf vec(6);
-        vec << x_min, y_min, z_min, x_max, y_max, z_max;
-        return vec;
-    }
-};
-
-
-bbox_3d compute_bbox(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, const std::vector<int>& cloud_indices)
-{
-    bbox_3d bbox( std::numeric_limits<float>::max(),
-                  std::numeric_limits<float>::max(),
-                  std::numeric_limits<float>::max(),
-                 -std::numeric_limits<float>::max(),
-                 -std::numeric_limits<float>::max(),
-                 -std::numeric_limits<float>::max());
-
-    /*
-    Eigen::Matrix<float, 3, 3> cov;
-    Eigen::Matrix<float, 4, 1> centroid;
-
-    pcl::computeMeanAndCovarianceMatrix(*cloud, cloud_indices, cov, centroid);
-
-    bbox_3d bbox(centroid(0) - cov(0, 0),
-                 centroid(1) - cov(1, 1),
-                 centroid(2) - cov(2, 2),
-                 centroid(0) + cov(0, 0),
-                 centroid(1) + cov(1, 1),
-                 centroid(2) + cov(2, 2));
-    */
-
-    BOOST_FOREACH(int ind, cloud_indices)
-    {
-        pcl::PointXYZ p = cloud->at(ind);
-        bbox.x_min = std::min(p.x, bbox.x_min);
-        bbox.y_min = std::min(p.y, bbox.y_min);
-        bbox.z_min = std::min(p.z, bbox.z_min);
-        bbox.x_max = std::max(p.x, bbox.x_max);
-        bbox.y_max = std::max(p.y, bbox.y_max);
-        bbox.z_max = std::max(p.z, bbox.z_max);
-    }
-
-    return bbox;
-}
-
-
 void extract_clusters_euclidean(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, std::vector<pcl::PointIndices>& cluster_indices, float cluster_tol, int min_cluster_size, int max_cluster_size)
 {
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+    tree->setEpsilon(0.0);
     tree->setInputCloud (cloud);
 
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
@@ -108,17 +45,37 @@ int main(int argc, char** argv)
     extract_clusters_euclidean(cloud, cluster_indices,
             params().cluster_tol, params().min_cluster_size, params().max_cluster_size);
 
+
+    // Store the centers of the clusters for comparison
+
     int num_clusters = cluster_indices.size();
-    Eigen::MatrixXf bboxes(num_clusters, 6);
+    Eigen::MatrixXf cluster_centers(num_clusters, 3);
     for (int k = 0; k < num_clusters; k++)
     {
         pcl::PointIndices indices = cluster_indices[k];
-        bbox_3d bbox = compute_bbox(cloud, indices.indices);
-        bboxes.row(k) = bbox.toVector();
+        Eigen::Matrix<float, 4, 1> centroid;
+        pcl::compute3DCentroid(*cloud, indices.indices, centroid);
+        cluster_centers.row(k) = centroid.block<3, 1>(0, 0);
     }
 
-    MatrixXfRowMajor row_major(bboxes);
+
+    // Store the cluster that each point corresponds to
+    Eigen::VectorXi cluster_labels = Eigen::VectorXi::Ones(cloud->size()) * -1;
+    // NOTE Assuming number of clusters is < INT_MAX
+    for (int i = 0; i < num_clusters; i++)
+    {
+        for (int j = 0; j < cluster_indices[i].indices.size(); j++)
+        {
+            cluster_labels(cluster_indices[i].indices[j]) = i;
+        }
+    }
+
     H5::H5File file(h5_file, H5F_ACC_TRUNC);
-    write_hdf_dataset(file, "/bboxes", row_major, H5::PredType::NATIVE_FLOAT);
+    write_hdf_dataset(file, "/cluster_labels", cluster_labels, H5::PredType::NATIVE_INT);
+
+    MatrixXfRowMajor row_major(cluster_centers);
+    write_hdf_dataset(file, "/cluster_centers", row_major, H5::PredType::NATIVE_FLOAT);
+    file.close();
+
     file.close();
 }

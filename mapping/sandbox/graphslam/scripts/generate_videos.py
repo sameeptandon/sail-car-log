@@ -16,11 +16,11 @@ if __name__ == '__main__':
         fstem2 = '--'.join(match['rss2'])
         outvideo = pjoin(GRAPHSLAM_VIDEOS_DIR, '+'.join((fstem1, fstem2)) + '.avi')
         align_data = pjoin(GRAPHSLAM_MAPS_DIR, '+'.join((fstem1, fstem2)) + '.npz')
-        bounds1 = pjoin(GRAPHSLAM_EVAL_DIR, fstem1 + '.h5')
-        bounds2 = pjoin(GRAPHSLAM_EVAL_DIR, fstem2 + '.h5')
-        cmd = 'python project_map_on_video.py {vid} {align_data} {bounds1} {bounds2} {out} --cam {cam}'.format(
+        labels1 = pjoin(GRAPHSLAM_EVAL_DIR, fstem1 + '.h5')
+        labels2 = pjoin(GRAPHSLAM_EVAL_DIR, fstem2 + '.h5')
+        cmd = 'python project_map_on_video.py {vid} {align_data} {labels1} {labels2} {out} --cam {cam}'.format(
                 vid=video_file, align_data=align_data, out=outvideo,
-                bounds1=bounds1, bounds2=bounds2, cam=CAMERA)
+                labels1=labels1, labels2=labels2, cam=CAMERA)
         cmds.append(cmd)
     #print cmds
     Parallel(n_jobs=NUM_CPUS-1)(delayed(print_and_call)(cmd) for cmd in cmds)

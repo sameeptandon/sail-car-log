@@ -56,12 +56,16 @@ def draw_points(I, pix, mask, colors, rad=2):
         I[pix[1, mask], pix[0, mask]+p, :] = colors
 
 
-def draw_boxes(I, pts1, pts2, mask1, mask2, color, thickness):
-    assert len(mask1) == len(mask2)
-    for k in range(len(mask1)):
-        if mask1[k] and mask2[k]:
-            cv2.line(I, (pts1[0, k], pts1[1, k]),
-                    (pts2[0, k], pts2[1, k]), color, thickness)
+def draw_hulls(I, cluster_labels, pxs, mask, color, thickness):
+    pxs = pxs[:, mask]
+    cluster_labels = cluster_labels[mask]
+    for label in set(cluster_labels.tolist()):
+        if label == -1:
+            continue
+        mask = cluster_labels == label
+        masked_pxs = pxs[:, mask]
+        hull_pxs = cv2.convexHull(masked_pxs.T)
+        cv2.polylines(I, [hull_pxs], True, color, thickness)
 
 
 if __name__ == '__main__':
@@ -87,26 +91,16 @@ if __name__ == '__main__':
     for t in range(nn_matches.shape[0]):
         nn_dict[nn_matches[t, 1]] = nn_matches[t, 0]
 
-    # Read in bounding box data
+    # Read in cluster label data
 
     h5f = h5py.File(args.bounds1, 'r')
-    bounds1 = h5f['bboxes'][...]
+    cluster_labels1 = h5f['cluster_labels'][...]
+    cluster_centers1 = h5f['cluster_centers'][...]
     h5f.close()
     h5f = h5py.File(args.bounds2, 'r')
-    bounds2 = h5f['bboxes'][...]
+    cluster_labels2 = h5f['cluster_labels'][...]
+    cluster_centers2 = h5f['cluster_centers'][...]
     h5f.close()
-
-    # Compute centers of bboxes
-
-    bounds1_min = bounds1[:, [0, 1, 2]]
-    bounds1_max = bounds1[:, [3, 4, 5]]
-    print np.mean(bounds1_max[:, 0] - bounds1_min[:, 0])
-    print np.mean(bounds1_max[:, 1] - bounds1_min[:, 1])
-    print np.mean(bounds1_max[:, 2] - bounds1_min[:, 2])
-    bounds2_min = bounds2[:, [0, 1, 2]]
-    bounds2_max = bounds2[:, [3, 4, 5]]
-    centers1 = (bounds1_min + bounds1_max) / 2
-    centers2 = (bounds2_min + bounds2_max) / 2
 
     # Set up video and shared parameters
 
@@ -152,13 +146,21 @@ if __name__ == '__main__':
 
         # Filter points over a brief time window
 
-        mask_window = (all_data1[:, 4] < t + PROJECT_MAP_WINDOW) &\
+        mask_window1 = (all_data1[:, 4] < t + PROJECT_MAP_WINDOW) &\
             (all_data1[:, 4] > t)
-        all_data1_copy = np.array(all_data1[mask_window, :])
+        all_data1_copy = np.array(all_data1[mask_window1, :])
 
-        mask_window = (all_data2[:, 4] < nn_dict[t + PROJECT_MAP_WINDOW]) &\
+        mask_window2 = (all_data2[:, 4] < nn_dict[t + PROJECT_MAP_WINDOW]) &\
             (all_data2[:, 4] > nn_dict[t])
-        all_data2_copy = np.array(all_data2[mask_window, :])
+        all_data2_copy = np.array(all_data2[mask_window2, :])
+
+        # Filter centers based on distance since no associated times
+
+        BOUNDS_DIST_TOL = 100  # PARAM
+        centers1_mask = np.sqrt(np.sum(
+            np.square(cluster_centers1 - imu_transforms1[t, 0:3, 3]), axis=1)) < BOUNDS_DIST_TOL
+        centers2_mask = np.sqrt(np.sum(
+            np.square(cluster_centers2 - imu_transforms1[t, 0:3, 3]), axis=1)) < BOUNDS_DIST_TOL
 
         # Reproject and draw points from map
 
@@ -170,42 +172,32 @@ if __name__ == '__main__':
         draw_points(I, pix1, mask1, colors1)
         draw_points(I, pix2, mask2, colors2)
 
-        # Filter bounding box points based on distance since no associated times
+        # Get the cluster labels of points in the time window as well
 
-        BOUNDS_DIST_TOL = 100  # PARAM
-        centers1_mask = np.sqrt(np.sum(
-            np.square(centers1 - imu_transforms1[t, 0:3, 3]), axis=1)) < BOUNDS_DIST_TOL
-        centers2_mask = np.sqrt(np.sum(
-            np.square(centers2 - imu_transforms1[t, 0:3, 3]), axis=1)) < BOUNDS_DIST_TOL
+        cluster_labels1_copy = cluster_labels1.ravel()[mask_window1]
+        cluster_labels2_copy = cluster_labels2.ravel()[mask_window2]
 
-        # Reproject and draw bounding boxes
+        # Reproject and convex hulls
 
-        pts_min_1 = bounds1_min[centers1_mask, :]
-        pts_max_1 = bounds1_max[centers1_mask, :]
-        pts_min_2 = bounds2_min[centers2_mask, :]
-        pts_max_2 = bounds2_max[centers2_mask, :]
-        centers1_t = centers1[centers1_mask, :]
-        centers2_t = centers2[centers2_mask, :]
-        if np.sum(centers1_mask) > 0:
-            #(pix1, mask1) = localMapToPixels(centers1_t, imu_transforms1[t, :, :], T_from_i_to_l, cam)
-            #colors1 = np.tile(green, (np.sum(mask1), 1))
-            #draw_points(I, pix1, mask1, colors1, rad=5)
-            (pix1, mask1) = localMapToPixels(pts_min_1, imu_transforms1[t, :, :], T_from_i_to_l, cam)
-            (pix2, mask2) = localMapToPixels(pts_max_1, imu_transforms1[t, :, :], T_from_i_to_l, cam)
-            draw_boxes(I, pix1, pix2, mask1, mask2, red, 3)
-        if np.sum(centers2_mask) > 0:
-            #(pix2, mask2) = localMapToPixels(centers2_t, imu_transforms1[t, :, :], T_from_i_to_l, cam)
-            #colors2 = np.tile(green, (np.sum(mask2), 1))
-            #draw_points(I, pix2, mask2, colors2, rad=5)
-            (pix1, mask1) = localMapToPixels(pts_min_2, imu_transforms1[t, :, :], T_from_i_to_l, cam)
-            (pix2, mask2) = localMapToPixels(pts_max_2, imu_transforms1[t, :, :], T_from_i_to_l, cam)
-            draw_boxes(I, pix1, pix2, mask1, mask2, blue, 3)
+        draw_hulls(I, cluster_labels1_copy, pix1, mask1, red, 2)
+        draw_hulls(I, cluster_labels2_copy, pix2, mask2, blue, 2)
+
+        # Draw centers
+
+        (pix1, mask1) = localMapToPixels(cluster_centers1[centers1_mask, :], imu_transforms1[t, :, :], T_from_i_to_l, cam)
+        colors1 = np.tile(green, (np.sum(mask1), 1))
+        draw_points(I, pix1, mask1, colors1, rad=5)
+
+        (pix2, mask2) = localMapToPixels(cluster_centers2[centers2_mask, :], imu_transforms1[t, :, :], T_from_i_to_l, cam)
+        colors2 = np.tile(green, (np.sum(mask2), 1))
+        draw_points(I, pix2, mask2, colors2, rad=5)
+
 
         # Finally write to video
 
         if args.debug:
             cv2.imwrite('project_map_on_video_%d.png' % t, I)
-            if t > 10:
+            if t > 30:
                 break
         else:
             video_writer.write(I)
