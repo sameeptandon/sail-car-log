@@ -133,6 +133,12 @@ STATIC_VTK_FILE = os.path.splitext(STATIC_CLOUD_FILE)[0] + '.vtk'
 DYNAMIC_CLOUD_FILE = pjoin(MERGED_COLOR_CLOUDS_DIR, 'dynamic_%d.pcd' % MAP_COLOR_WINDOW)
 DYNAMIC_VTK_FILE = os.path.splitext(DYNAMIC_CLOUD_FILE)[0] + '.vtk'
 
+CLUSTER_TOL = 0.5
+MIN_CLUSTER_SIZE = 25
+MAX_CLUSTER_SIZE = 2500
+
+PROJECT_MAP_WINDOW = 50 * 2.5  # 50 Hz * # seconds
+
 '''
 Print out variable values
 '''

@@ -4,7 +4,7 @@ import os
 
 def loadLDR(ldrfile):
     z = np.fromfile(ldrfile, dtype=np.float32)
-    z = z.reshape((z.shape[0] / 5, 5))
+    z = z.reshape((z.shape[0] / 6, 6))
     return z
 
 def loadPCD(pcdfile): 

@@ -33,11 +33,8 @@ def run_command(args):
     cmd = FF_COMMAND + "{t}/{gps} {t}/{frames} {t}/{rdr}".format(
         t=target_dir, gps=gps_file, frames=frames_folder, rdr=rdr_bag)
     print cmd
-    try:
-        import rosbag
-        subprocess.call(cmd, shell=True)
-    except ImportError, e:
-        pass
+    subprocess.call(cmd, shell=True)
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
