@@ -13,7 +13,7 @@ import numpy as np
 import h5py
 # TODO should be passed in as arguments
 from pipeline_config import EXPORT_START, EXPORT_NUM, EXPORT_STEP
-from ldr_to_h5 import transform_points_in_sweep
+from LidarIntegrator import transform_points_in_sweep
 
 
 all_data = list()
