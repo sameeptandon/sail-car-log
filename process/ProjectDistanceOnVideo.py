@@ -132,7 +132,7 @@ if __name__ == '__main__':
             np.ones((1, map_data_copy.shape[0]))))
         transformed_map_data = np.dot(np.linalg.inv(imu_transforms[t, :, :]), pts_wrt_imu_0)
 
-        far_mask = (np.sqrt(np.sum(np.square(transformed_map_data[0:3,:]), axis=0)) > 150) &  (np.sqrt(np.sum(np.square(transformed_map_data[0:3,:]), axis=0)) < 160)
+        far_mask = (np.sqrt(np.sum(np.square(transformed_map_data[0:3,:]), axis=0)) > 165) & (np.sqrt(np.sum(np.square(transformed_map_data[0:3,:]), axis=0)) < 175)
         far_map_data = map_data_copy[far_mask, :]
         close_map_data = map_data_copy[np.logical_not(far_mask), :]
 
@@ -152,22 +152,28 @@ if __name__ == '__main__':
             print 'skipping right', t
             num_skipped += 1
             continue
+
+        far_map_data_left = np.median(far_map_data_left[:, 0:3], axis=0).reshape((1, 3))
+        far_map_data_right = np.median(far_map_data_right[:, 0:3], axis=0).reshape((1, 3))
+
         (far_pix_left, far_mask_left) = localMapToPixels(far_map_data_left, imu_transforms[t,:,:], T_from_i_to_l, cam)
         (far_pix_right, far_mask_right) = localMapToPixels(far_map_data_right, imu_transforms[t,:,:], T_from_i_to_l, cam)
 
         # Find the closest far pix and get 3d and pixel information
 
         #closest_left = np.sqrt(np.sum(np.square(far_map_data_left[:, 0:3]), axis=1)).argmin()
-        closest_left = far_map_data_left[:, 4].argmax()
+        #closest_left = far_map_data_left[:, 4].argmax()
         #closest_right = far_map_data_right[:, 4].argmin()
-        closest_right = np.sum(np.square(far_map_data_right[:, 0:2] - far_map_data_left[closest_left, 0:2])).argmin()
+        #closest_right = np.sum(np.square(far_map_data_right[:, 0:2] - far_map_data_left[closest_left, 0:2])).argmin()
 
-        pts_3d_left.append(far_map_data_left[closest_left, 0:3])
-        pts_3d_right.append(far_map_data_right[closest_right, 0:3])
+        #pts_3d_left.append(far_map_data_left[closest_left, 0:3])
+        #pts_3d_right.append(far_map_data_right[closest_right, 0:3])
+        pts_3d_left.append(far_map_data_left.ravel())
+        pts_3d_right.append(far_map_data_right.ravel())
 
         #print far_mask.shape
-        far_mask_left = np.array([far_mask_left[closest_left]])
-        far_mask_right = np.array([far_mask_right[closest_right]])
+        #far_mask_left = np.array([far_mask_left[closest_left]])
+        #far_mask_right = np.array([far_mask_right[closest_right]])
         #print far_mask.shape
 
         # draw 
@@ -177,8 +183,10 @@ if __name__ == '__main__':
         green_colors = np.tile(green, (np.sum(far_mask_left), 1))
         blue_colors = np.tile(blue, (np.sum(far_mask_right), 1))
 
-        pt_left = tuple(far_pix_left[:, far_mask_left].ravel())
-        pt_right = tuple(far_pix_right[:, far_mask_right].ravel())
+        #pt_left = tuple(far_pix_left[:, far_mask_left].ravel())
+        #pt_right = tuple(far_pix_right[:, far_mask_right].ravel())
+        pt_left = tuple(far_pix_left.ravel())
+        pt_right = tuple(far_pix_right.ravel())
 
         pix_2d_left.append(pt_left)
         pix_2d_right.append(pt_right)
