@@ -30,6 +30,10 @@ int main(int argc, char **argv){
 
     cout << "connection success!" << endl;
 
+    // What type of camera is it? Wide angle or narrow angle?
+    string camera_type;
+    nh.param<string>("camera_type", camera_type, "");
+
     // Connection successful! lets setup the ros topic. 
     
     // Get the location of our camera config yaml
@@ -56,7 +60,12 @@ int main(int argc, char **argv){
     uint64_t num_frames = 0; 
     
     // Now configure the camera and put it in run mode
-    RunCamera(cam);
+
+    if (camera_type.compare("narrow") == 0)
+        RunCamera(cam);
+    else if (camera_type.compare("wide") == 0)
+        RunWideAngleCamera(cam);
+    else throw std::runtime_error("Camera type not specified");
 
     // capture loop
     while (ros::ok()) {
@@ -94,5 +103,4 @@ int main(int argc, char **argv){
     // node asked to terminate
     CloseCamera(cam);
     delete cam; 
-
 }

@@ -133,26 +133,8 @@ float getFrameRate(Camera *cam) {
     return getProperty(cam, FRAME_RATE);
 }
 
-int RunCamera(Camera* cam) { 
+int configureImageSettings(Camera* cam) {
     Error error;
-
-    // Get the camera information
-    CameraInfo camInfo;
-    error = cam->GetCameraInfo(&camInfo);
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-
-    PrintCameraInfo(&camInfo);
-  
-    error = cam->SetVideoModeAndFrameRate(VIDEOMODE_1280x960YUV422,
-            FRAMERATE_60); 
-    if (error != PGRERROR_OK) {
-        PrintError(error);
-        return -1;
-    }
 
     unsigned int bytes = readRegister(cam, 0x1098);
     bytes = bytes & (-1 << 12);
@@ -163,13 +145,19 @@ int RunCamera(Camera* cam) {
 
     setWhiteBalance(cam, 511, 815);
 
+    return 1;
+}
+
+int configureBusAndTrigger(Camera* cam) { 
+    Error error; 
+
     FC2Config pConfig;
     cam->GetConfiguration(&pConfig);
     pConfig.grabMode = BUFFER_FRAMES;
-    pConfig.numBuffers = 100;
+    pConfig.numBuffers = 10;
     //pConfig.isochBusSpeed = BUSSPEED_S5000;
     //pConfig.asyncBusSpeed = BUSSPEED_S5000;
-    pConfig.highPerformanceRetrieveBuffer = true;
+    //pConfig.highPerformanceRetrieveBuffer = true;
     pConfig.grabTimeout = (int)(1000.0); // Needs to be in ms
     cam->SetConfiguration(&pConfig);
 
@@ -187,6 +175,76 @@ int RunCamera(Camera* cam) {
         return -1;
     }
 #endif
+}
+
+int RunWideAngleCamera(Camera* cam) {
+    Error error;
+
+    // Get the camera information
+    CameraInfo camInfo;
+    error = cam->GetCameraInfo(&camInfo);
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return -1;
+    }
+
+    PrintCameraInfo(&camInfo);
+
+    Format7ImageSettings settings;
+    settings.width = 2080;
+    settings.height = 1552;
+    settings.mode = MODE_0;
+    settings.offsetX = 0;
+    settings.offsetY = 0;
+    settings.pixelFormat = PIXEL_FORMAT_422YUV8;
+
+    bool settings_valid;
+    Format7PacketInfo packet_info; 
+    error = cam->ValidateFormat7Settings(&settings, &settings_valid,
+            &packet_info);
+
+    error = cam->SetFormat7Configuration(&settings, packet_info.recommendedBytesPerPacket);
+    if (error != PGRERROR_OK) {
+        PrintError(error);
+        return -1;
+    }
+  
+    configureImageSettings(cam);
+    configureBusAndTrigger(cam); 
+
+    // Start capturing images
+    printf( "Starting capture... \n" );
+    error = cam->StartCapture();
+    printf( "Started capture... \n" );
+
+    return 0;
+}
+
+
+int RunCamera(Camera* cam) { 
+    Error error;
+
+    // Get the camera information
+    CameraInfo camInfo;
+    error = cam->GetCameraInfo(&camInfo);
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return -1;
+    }
+
+    PrintCameraInfo(&camInfo);
+
+    error = cam->SetVideoModeAndFrameRate(VIDEOMODE_1280x960YUV422,
+            FRAMERATE_60); 
+    if (error != PGRERROR_OK) {
+        PrintError(error);
+        return -1;
+    }
+
+    configureImageSettings(cam);
+    configureBusAndTrigger(cam); 
 
     // Start capturing images
     printf( "Starting capture... \n" );
