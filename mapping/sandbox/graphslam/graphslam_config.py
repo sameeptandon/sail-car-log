@@ -3,24 +3,27 @@ import json
 from os.path import dirname, join as pjoin
 import datetime
 
+FREEWAY = os.getenv('GRAPHSLAM_FREEWAY', '280N')
+
 GRAPHSLAM_PATH = dirname(os.path.abspath(__file__))
-GRAPHSLAM_OUT_DIR = '/scail/group/deeplearning/driving_data/zxie/graphslam'
+#GRAPHSLAM_OUT_DIR = '/scail/group/deeplearning/driving_data/zxie/graphslam'
+GRAPHSLAM_OUT_DIR = '/scr/scl/graphslam/%s' % FREEWAY
 GRAPHSLAM_MATCH_DIR = '%s/matches' % GRAPHSLAM_OUT_DIR
 MATCHES_FILE = '%s/matches.json' % GRAPHSLAM_MATCH_DIR
 GRAPHSLAM_OPT_POS_DIR = '%s/opt_pos' % GRAPHSLAM_OUT_DIR
 GRAPHSLAM_ALIGN_DIR = '%s/align' % GRAPHSLAM_OUT_DIR
 GRAPHSLAM_CHUNK_DIR = '%s/chunks' % GRAPHSLAM_OUT_DIR
-GRAPHSLAM_LANES_DIR = '%s/lanes' % GRAPHSLAM_OUT_DIR
+GRAPHSLAM_MAPS_DIR = '%s/maps' % GRAPHSLAM_OUT_DIR
 GRAPHSLAM_VIDEOS_DIR = '%s/videos' % GRAPHSLAM_OUT_DIR
+GRAPHSLAM_EVAL_DIR = '%s/eval' % GRAPHSLAM_OUT_DIR
 
 GRAPHSLAM_DIRS = [GRAPHSLAM_OUT_DIR, GRAPHSLAM_MATCH_DIR,
         GRAPHSLAM_OPT_POS_DIR, GRAPHSLAM_ALIGN_DIR, GRAPHSLAM_CHUNK_DIR,
-        GRAPHSLAM_LANES_DIR, GRAPHSLAM_VIDEOS_DIR]
+        GRAPHSLAM_MAPS_DIR, GRAPHSLAM_VIDEOS_DIR, GRAPHSLAM_EVAL_DIR]
 for p in GRAPHSLAM_DIRS:
     if not os.path.exists(p):
         os.mkdir(p)
 
-FREEWAY = '280N'
 DATE_RANGE = [datetime.date(2014, 4, 3), datetime.date(2014, 4, 29)]
 
 seen_gps_files = set()
@@ -44,12 +47,13 @@ if os.path.exists(MATCHES_FILE):
 GPS_MATCH_DIST_TOL = 20.0
 GPS_BBOX_OVERLAP_PADDING = 5.0
 
-# pipeline_config EXPORT_STEP of 5 => 10Hz
 # Chunk of 10 => 1s of data
-CHUNK_SIZE = 10  # Size of chunks to do ICP with
-REALIGN_EVERY = 50  # Compute alignment again every this number of clouds
+CHUNK_SIZE = 25  # Size of chunks to do ICP with
+REALIGN_EVERY = CHUNK_SIZE  # Compute alignment again every this number of clouds
 
 BIAS_GAMMA = 0.999
 dt = 1/50.0
 
 MIN_OVERLAP_THRESH = 0.25
+
+MAX_VIDEO_FRAMES = 5000

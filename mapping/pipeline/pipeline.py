@@ -259,6 +259,7 @@ def estimate_normals(input_file, output_file):
     check_call(cmd, shell=True)
 
 
+''' Currently unused
 @follows('estimate_normals')
 @transform('%s/*.pcd' % PCD_DOWNSAMPLED_NORMALS_DIR,
            regex('%s/(.*?).pcd' % PCD_DOWNSAMPLED_NORMALS_DIR),
@@ -276,6 +277,7 @@ def align_clouds(input_file, output_file):
             icp_reg=icp_reg, tgt=tgt, src=src, h5f=output_file, iters=ICP_ITERS, dist=ICP_MAX_DIST)
     print cmd
     check_call(cmd, shell=True)
+'''
 
 
 def clean():
