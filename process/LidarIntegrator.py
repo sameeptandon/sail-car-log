@@ -121,7 +121,6 @@ def transform_points_in_sweep(pts, times, fnum, imu_transforms):
 
         # FIXME PARAM
         offset = (time / float(1e6)) / 0.02
-        print 'offset', offset
         offset = min(5, offset)
 
         ind1 = int(fnum - math.ceil(offset))
