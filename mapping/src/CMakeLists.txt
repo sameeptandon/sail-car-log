@@ -87,3 +87,8 @@ include_directories(${OCTOMAP_INCLUDE_DIRS})
 link_directories(${OCTOMAP_LIBRARY_DIRS})
 
 add_subdirectory(octomap)
+
+# Evaluation stuff
+
+add_executable(compute_bounds compute_bounds.cpp)
+target_link_libraries(compute_bounds ${Boost_LIBRARIES} h5 cloud_utils params)
