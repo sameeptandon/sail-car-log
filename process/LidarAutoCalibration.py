@@ -90,7 +90,7 @@ def processPointCloud(raw_pts):
     pts[:,-2] = np.arctan2(pts[:,1], pts[:,0]) + np.pi
     pts[:,-1] = np.sqrt(np.sum( pts[:, 0:3] ** 2, axis=1 )) 
 
-    pts = pts[ pts[:,5].argsort() ] # sort on rotational angle
+    pts = pts[ pts[:,-2].argsort() ] # sort on rotational angle
     pts = pts[ pts[:,4].argsort(kind='mergesort') ] # stable sort on laser num
 
 
@@ -324,16 +324,14 @@ if __name__ == '__main__':
 
                 pts = batch_data[idx][1]
 
-                drawReprojection(C_current, pts, batch_data[idx][0].copy(), cam)
-                """
-                E_show = batch_data[idx][0].copy()
+                #drawReprojection(C_current, pts, batch_data[idx][0].copy(), cam)
+                E_show = batch_data[idx][2].copy()
                 for p in range(4):
-                    E_show[px+p,py,:] = 255
-                    E_show[px,py+p,:] = 255
-                    E_show[px-p,py,:] = 255
-                    E_show[px,py-p,:] = 255
+                    E_show[px+p,py] = 255
+                    E_show[px,py+p] = 255
+                    E_show[px-p,py] = 255
+                    E_show[px,py-p] = 255
                 imshow('viz', cv2.pyrDown(E_show/255.0))
-                """
                 waitKey(5)
             
     
