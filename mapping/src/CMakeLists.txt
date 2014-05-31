@@ -78,6 +78,10 @@ target_link_libraries(color_intensity ${Boost_LIBRARIES} cloud_utils h5 ${OpenCV
 add_executable(color_cloud color_cloud.cpp utils/color_utils.cpp)
 target_link_libraries(color_cloud ${Boost_LIBRARIES} cloud_utils h5 ${OpenCV_LIBS} ${PYTHON_LIBRARIES})
 
+add_executable(project_map_on_video project_map_on_video.cpp)
+target_link_libraries(project_map_on_video cloud_utils cv_utils VideoReader
+    params)
+
 # Octomap stuff
 
 find_package(octomap 1.6.5 EXACT)
