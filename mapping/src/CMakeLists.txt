@@ -67,6 +67,9 @@ target_link_libraries(pairwise_align ${PCL_LIBRARIES})
 add_executable(downsample_cloud downsample_cloud.cpp)
 target_link_libraries(downsample_cloud ${PCL_LIBRARIES} ${Boost_PROGRAM_OPTIONS_LIBRARY})
 
+add_executable(upsample_cloud upsample_cloud.cpp utils/ldr_utils.cpp)
+target_link_libraries(upsample_cloud ${PCL_LIBRARIES} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+
 add_executable(estimate_normals estimate_normals.cpp)
 target_link_libraries(estimate_normals ${PCL_LIBRARIES} ${Boost_PROGRAM_OPTIONS_LIBRARY})
 
