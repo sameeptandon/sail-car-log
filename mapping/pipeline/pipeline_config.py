@@ -53,6 +53,7 @@ OPT_POS_FILE = '%s/%s' % (GRAPHSLAM_OPT_POS_DIR, '--'.join([ROUTE, SEGMENT, SPLI
 
 PARAMS_H5_FILE = pjoin(DSET_DIR, 'params.h5')
 LDR_DIR = pjoin(DSET_DIR, '%s_frames' % DSET[:-1])
+LDR_UPSAMPLED_DIR = LDR_DIR + '_upsampled'
 POINTS_H5_DIR = pjoin(DSET_DIR, 'h5')
 PCD_DIR = pjoin(DSET_DIR, 'pcd')
 PCD_DOWNSAMPLED_DIR = pjoin(DSET_DIR, 'pcd_downsampled')

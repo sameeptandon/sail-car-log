@@ -18,11 +18,11 @@ from pipeline_config import POINTS_H5_DIR,\
         STATIC_VTK_FILE, DYNAMIC_CLOUD_FILE, DYNAMIC_VTK_FILE,\
         FILTERED_CLOUDS_DIR, PARAMS_TO_LOAD,\
         MERGED_COLOR_CLOUDS_DIR, MERGED_COLOR_CLOUD_FILE,\
-        MERGED_COLOR_VTK_FILE
+        MERGED_COLOR_VTK_FILE, LDR_UPSAMPLED_DIR, LDR_DIR
 from pipeline_utils import file_num
 
 
-dirs = [POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
+dirs = [LDR_UPSAMPLED_DIR, POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
         PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR, COLOR_DIR,
         COLOR_CLOUDS_DIR, MERGED_CLOUDS_DIR, MERGED_COLOR_CLOUDS_DIR,
         OCTOMAP_DIR, COLOR_OCTOMAP_DIR, FILTERED_CLOUDS_DIR]
@@ -47,6 +47,17 @@ def download_files(dummy, local_file):
 @files('./%s_gps.bag' % DSET[:-1], '%s_frames' % DSET[:-1])
 def generate_frames_and_map(input_file, output_dir):
     cmd = 'cd %s/lidar; python generate_frames.py %s %s; python generate_map.py %s %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR, PARAMS_TO_LOAD, DSET_DIR, PARAMS_TO_LOAD)
+    print cmd
+    check_call(cmd, shell=True)
+
+
+@follows('generate_frames_and_map')
+@transform('%s/*.ldr' % LDR_DIR,
+           regex('%s/(.*?).ldr' % LDR_DIR),
+           r'%s/\1.ldr' % LDR_UPSAMPLED_DIR)
+def upsample_ldrs(input_file, output_file):
+    upsampler = '%s/bin/upsample_cloud' % MAPPING_PATH
+    cmd = '%s --src_ldr %s --out_ldr %s' % (upsampler, input_file, output_file)
     print cmd
     check_call(cmd, shell=True)
 
