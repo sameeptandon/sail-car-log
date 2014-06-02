@@ -50,7 +50,8 @@ def integrateClouds(ldr_map, imuTransforms, offset, num_steps, step, T_from_l_to
                            (data[:,2] > -(lidar_height+0.05))          
         left_mask = data_filter_mask & (data[:,1] < 2.2) & (data[:,1] > 1.2)
         #left_mask = data_filter_mask & (data[:,1] < 2.6) & (data[:,1] > 1.2)
-        right_mask = data_filter_mask & (data[:,1] > -2.5) & (data[:,1] < -1.0)
+        right_mask = data_filter_mask & (data[:,1] > -2.4) & (data[:,1] < -1.4)
+        #right_mask = data_filter_mask & (data[:,1] > -2.5) & (data[:,1] < -1.0)
         #right_mask = data_filter_mask & (data[:,1] > -2.6) & (data[:,1] < -1.2)
         left = data[left_mask, :]
         right = data[right_mask, :]
