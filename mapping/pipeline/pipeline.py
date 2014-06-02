@@ -51,13 +51,14 @@ def generate_frames_and_map(input_file, output_dir):
     check_call(cmd, shell=True)
 
 
-@follows('generate_frames_and_map')
+#@follows('generate_frames_and_map')
 @transform('%s/*.ldr' % LDR_DIR,
            regex('%s/(.*?).ldr' % LDR_DIR),
            r'%s/\1.ldr' % LDR_UPSAMPLED_DIR)
 def upsample_ldrs(input_file, output_file):
-    upsampler = '%s/bin/upsample_cloud' % MAPPING_PATH
-    cmd = '%s --src_ldr %s --out_ldr %s' % (upsampler, input_file, output_file)
+    ni = 2  # FIXME PARAM
+    upsampler = 'python %s/../process/upsample_ldr.py' % MAPPING_PATH
+    cmd = '%s %s %s %d' % (upsampler, input_file, output_file, ni)
     print cmd
     check_call(cmd, shell=True)
 
