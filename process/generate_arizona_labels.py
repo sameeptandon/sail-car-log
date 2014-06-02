@@ -56,20 +56,47 @@ else:
    
     # thresholding for lane detection
     #white_lane_detect = np.sum(O,axis=2) > 350
-    white_lane_detect = np.logical_and(O[:,:,0] > 150, np.logical_and(O[:,:,1] > 150, O[:,:,2] > 150))
+    white_lane_detect = np.logical_and(O[:,:,0] > 200, np.logical_and(O[:,:,1] > 200, O[:,:,2] > 200))
     #yellow_lane_detect = np.logical_and(O[:,:,1] + O[:,:,2] > 90, O[:,:,0] < 20)
     eps = 0.000001
     #yellow_lane_detect = np.logical_and(((O[:,:,1] + O[:,:,2]) / (eps + O[:,:,0]) ) > 5, O[:,:,1] + O[:,:,2] > 150)
     #low_vals = np.logical_and(np.logical_not(white_lane_detect), np.logical_not(yellow_lane_detect))
     low_vals = np.logical_not(white_lane_detect)
     O[low_vals,:] = 0
+    O[np.logical_not(low_vals), :] = 1
+    O = np.mean(O, axis=2)
+    O = np.array(O, dtype=np.uint8)
+
+    #mask = np.ones(O.shape, dtype=np.bool)
+    #for r in range(mask.shape[0]):
+        #for c in range(mask.shape[0] - r - 350):  # PARAM
+            #mask[r, c] = 0
+            #mask[r, -c] = 0
+
+    #import matplotlib.pyplot as plt
+    #plt.imshow(mask)
+    #plt.show()
+
+    for r in range(O.shape[0]):
+        for c in range(O.shape[0] - int(1.3 * r) + 100):
+            O[r, c] = 0
+            O[r, -c] = 0
+
+    contours, hierarchy = cv2.findContours(np.array(O), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    thresh = 20  # PARAM
+    small_contours = list()
+    for contour in contours:
+        if cv2.contourArea(contour) < thresh:
+            small_contours.append(contour)
+    print '%d / %d small contours' % (len(small_contours), len(contours))
+    cv2.drawContours(O, small_contours, -1, 0, -1)
 
     # increase yellow lane detection score
     #O[yellow_lane_detect,:] *= 5
 
-    column_O = np.sum(np.sum(O,axis=2),axis=0);
-    column_O[column_O < 1000] = 0
-    O[:,column_O < 1000,:] = 0
+    #column_O = np.sum(np.sum(O,axis=2),axis=0);
+    #column_O[column_O < 1000] = 0
+    #O[:,column_O < 1000,:] = 0
 
     #O = cv2.warpPerspective(O, P, (cols, rows), flags=cv.CV_WARP_INVERSE_MAP)
     return O
