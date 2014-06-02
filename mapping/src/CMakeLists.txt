@@ -58,6 +58,9 @@ target_link_libraries(concatenate_points_pcd ${PCL_LIBRARIES})
 add_executable(h5_to_pcd h5_to_pcd.cpp)
 target_link_libraries(h5_to_pcd ${PCL_LIBRARIES} h5 ${Boost_PROGRAM_OPTIONS_LIBRARY})
 
+add_executable(ldr_to_pcd ldr_to_pcd.cpp utils/ldr_utils.cpp)
+target_link_libraries(ldr_to_pcd ${PCL_LIBRARIES} h5 ${Boost_PROGRAM_OPTIONS_LIBRARY})
+
 add_executable(align_clouds align_clouds.cpp)
 target_link_libraries(align_clouds cloud_utils ${Boost_PROGRAM_OPTIONS_LIBRARY} h5 params)
 
