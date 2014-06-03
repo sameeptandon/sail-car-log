@@ -17,7 +17,7 @@ import subprocess
 import scipy.interpolate
 from generate_arizona_labels import *
 WINDOW = 50*5
-STEP = 20
+STEP = 400
 
 
 
@@ -208,7 +208,7 @@ if __name__ == '__main__':
           # draw horizon
           #I[horizon-1:horizon+2, :, :]=red
           '''
-          I[O[:,:,0] > 0, :] = red
+          I[O > 0, :] = red
           I = cv2.resize(I, (640, 480))
           #writer.write(I)
           #cv2.imshow('vid', I)
