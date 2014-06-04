@@ -24,8 +24,8 @@ def GetQ50LidarParams():
 ##### LIDAR to Camera Calibration parameters #####
 
 def GetQ50CameraParams():
-    cam = [{}, {}]
-    for i in [1, 0]:
+    cam = [{}, {}, {}]
+    for i in [1, 0, 2]:
         cam[i]['R_to_c_from_i'] = np.array([[-1, 0, 0],
                                          [0, 0, -1],
                                          [0, -1, 0]])
@@ -64,6 +64,19 @@ def GetQ50CameraParams():
             cam[i]['cu'] = 648.95
             cam[i]['cv'] = 450.24
             cam[i]['distort'] = np.array([-0.16879238412882028, 0.11971166628565273, -0.0017457365846050555, 0.0001853749033525837, 0.0])
+
+        elif i == 2:
+            # FIXME
+            R_to_c_from_l_in_camera_frame = euler_matrix(0.044, -0.00580659, 0.0115)[0:3,0:3]
+            cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
+            cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.5, 0.21, 0.34])
+            cam[i]['E'] = np.eye(4)
+
+            cam[i]['fx'] = 677.052458
+            cam[i]['fy'] = 680.490626
+            cam[i]['cu'] = 1055.145589
+            cam[i]['cv'] = 780.475355
+            cam[i]['distort'] = np.array([-0.006067, 0.001167, 0.000275, 0.000828, 0.000000])
 
         cam[i]['KK'] = np.array([[cam[i]['fx'], 0.0, cam[i]['cu']],
                               [0.0, cam[i]['fy'], cam[i]['cv']],
