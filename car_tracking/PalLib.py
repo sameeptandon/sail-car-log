@@ -31,6 +31,9 @@ def al2pal(annotations):
             _r.y2 = r.y2;
             _r.score = r.score;
 
+            if hasattr(r, 'id'):
+                _r.id = r.id;
+
             if hasattr(r, 'distance3d'):
                 _r.distance3d = r.distance3d;
 
@@ -62,6 +65,9 @@ def pal2al(_annolist):
             rect.x2 = _r.x2;
             rect.y1 = _r.y1;
             rect.y2 = _r.y2;
+
+            if _r.HasField("id"):
+                rect.id = _r.id;
 
             if _r.HasField("score"):
                 rect.score = _r.score;
