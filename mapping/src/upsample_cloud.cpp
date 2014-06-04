@@ -103,13 +103,15 @@ int main(int argc, char** argv)
     mls_upsampling.setComputeNormals (true);
     mls_upsampling.setPolynomialFit (true);
     mls_upsampling.setSearchMethod (tree);
-    mls_upsampling.setSearchRadius (1.0);
-    mls_upsampling.setUpsamplingMethod (pcl::MovingLeastSquares<pcl::PointXYZ, pcl::PointNormal>::VOXEL_GRID_DILATION);
-    mls_upsampling.setUpsamplingRadius (1.0);
-    mls_upsampling.setUpsamplingStepSize (0.5);
-    mls_upsampling.setDilationVoxelSize(0.25);
-    mls_upsampling.setDilationIterations(1);
-    mls_upsampling.setPointDensity(3);
+    mls_upsampling.setSearchRadius (0.25);
+    //mls_upsampling.setUpsamplingMethod (pcl::MovingLeastSquares<pcl::PointXYZ, pcl::PointNormal>::VOXEL_GRID_DILATION);
+    //mls_upsampling.setUpsamplingMethod (pcl::MovingLeastSquares<pcl::PointXYZ, pcl::PointNormal>::SAMPLE_LOCAL_PLANE);
+    mls_upsampling.setUpsamplingMethod (pcl::MovingLeastSquares<pcl::PointXYZ, pcl::PointNormal>::NONE);
+    mls_upsampling.setUpsamplingRadius (0.25);
+    mls_upsampling.setUpsamplingStepSize (0.125);
+    //mls_upsampling.setDilationVoxelSize(0.25);
+    //mls_upsampling.setDilationIterations(1);
+    mls_upsampling.setPointDensity(1);
 
     NormalCloud::Ptr out_cloud(new NormalCloud());
     std::cout << "Running upsampling" << std::endl;
