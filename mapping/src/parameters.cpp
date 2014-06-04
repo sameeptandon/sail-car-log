@@ -55,6 +55,10 @@ void Parameters::initialize()
 
     pyListToVector(pycfg.attr("OCTOMAP_SINGLE_FILES"), octomap_single_files);
 
+    cluster_tol = py::extract<float>(pycfg.attr("CLUSTER_TOL"));
+    min_cluster_size = py::extract<int>(pycfg.attr("MIN_CLUSTER_SIZE"));
+    max_cluster_size = py::extract<int>(pycfg.attr("MAX_CLUSTER_SIZE"));
+
    // Loading calibration parameters
 
     H5::H5File params_h5f(params_file, H5F_ACC_RDONLY);

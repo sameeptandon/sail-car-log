@@ -1,7 +1,6 @@
 from LidarTransforms import * 
 import sys, os
 from VideoReader import *
-from CameraParams import * 
 import cv2
 from cv2 import imshow, waitKey
 from numpy.linalg import norm
@@ -78,8 +77,8 @@ def generateEdgeFilterKernels():
     for x in range(3):
         for y in range(3):
             K = np.zeros((3,3))
-            K[1,1] = 10.0
-            K[x,y] = -10.0
+            K[1,1] = 1.0
+            K[x,y] = -1.0
             if (x != 1 and y != 1):
                 kernels.append(K)
     return kernels
@@ -91,7 +90,7 @@ def processPointCloud(raw_pts):
     pts[:,-2] = np.arctan2(pts[:,1], pts[:,0]) + np.pi
     pts[:,-1] = np.sqrt(np.sum( pts[:, 0:3] ** 2, axis=1 )) 
 
-    pts = pts[ pts[:,5].argsort() ] # sort on rotational angle
+    pts = pts[ pts[:,-2].argsort() ] # sort on rotational angle
     pts = pts[ pts[:,4].argsort(kind='mergesort') ] # stable sort on laser num
 
 
@@ -110,8 +109,8 @@ def processPointCloud(raw_pts):
                              0)
         else:
             pts[idx,3] = 0.0
-    pts = pts[pts[:,0] > 0, :]
-    #pts = pts[pts[:,3] > 2.0, :]
+    #pts = pts[pts[:,0] > 0, :]
+    pts = pts[pts[:,3] > 2.0, :]
     return pts
 
 def computeReprojection(C, raw_pts, cam):
@@ -120,7 +119,7 @@ def computeReprojection(C, raw_pts, cam):
     pts[:, 1] += C[1]
     pts[:, 2] += C[2]
     R = euler_matrix(C[3], C[4], C[5])[0:3,0:3]
-    pts_wrt_cam = np.dot(R, dot(R_to_c_from_l_old(cam), pts.transpose()))
+    pts_wrt_cam = np.dot(R, np.dot(R_to_c_from_l_old(cam), pts.transpose()))
     pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3,:], pts_wrt_cam[2, :])))
     pix = pix.astype(np.int32)
     return (pix, pts_wrt_cam)
@@ -129,8 +128,8 @@ def computeMask(pix, pts_wrt_cam):
     width = 8
     mask = np.logical_and(True, pix[0,:] > 0 + width / 2)
     mask = np.logical_and(mask, pix[1,:] > 0 + width / 2)
-    mask = np.logical_and(mask, pix[0,:] < 1279 - width / 2)
-    mask = np.logical_and(mask, pix[1,:] < 959 - width / 2)
+    mask = np.logical_and(mask, pix[0,:] < 2080 - width / 2)
+    mask = np.logical_and(mask, pix[1,:] < 1552 - width / 2)
     mask = np.logical_and(mask, pts_wrt_cam[2,:] > 0)
     return mask
 
@@ -176,38 +175,31 @@ def gridsearch(C, batch, cam):
     
     print scores
     print current_score
-    if np.sum( scores > current_score ) >= 3**3 / 3**3:
+    if np.sum( scores > current_score ) >= 3**3 / 2:
         return (best_C, best_score)
     else:
         return (C, current_score)
 
 
-def drawReprojection(C, pts, I, cam, colorMap=False):
+def drawReprojection(C, pts, I, cam):
     (pix, pts_wrt_cam) = computeReprojection(C, pts, cam)
     mask = computeMask(pix, pts_wrt_cam)
 
     px = pix[1,mask]
     py = pix[0,mask]
-    if colorMap: 
-        intensity = pts[mask, 3]
-        colors = heatColorMapFast(intensity, 0, 255)
-        I[px,py,:] = colors[0,:,:]
-    else:
-        I[px,py] = 255 
-        for p in range(2):
-            I[np.minimum(px+p,959),py] = 255 
-            I[np.maximum(px-p,0),py] = 255
-            I[px,np.minimum(py+p,1279)] = 255 
-            I[px,np.maximum(py-p,0)] = 255
+    intensity = pts[mask, 3]
+    colors = heatColorMapFast(intensity, 0, 100)
+    I[px,py,:] = colors[0,:,:]
         
     imshow('display', I)
     waitKey(10)
 
 def getNextData(reader, LDRFrameMap):
-    for idx in range(25):
+    for idx in range(15):
         (success, img) = reader.getNextFrame()
+        #img = cv2.flip(img,-1)
         if not success:
-            reader.setFrame(5)
+            reader.setFrame(3)
     ldr_frame = loadLDR(LDRFrameMap[reader.framenum])
     return (success, img, ldr_frame)
   
@@ -218,7 +210,7 @@ def processData(data):
     proc_pts = processPointCloud(pts)
     dist = np.sqrt(np.sum( proc_pts[:, 0:3] ** 2, axis = 1))
     proc_pts = proc_pts[ dist > 3, : ] 
-    proc_pts = proc_pts[ proc_pts[:, 3] > 2.0, :]
+    #proc_pts = proc_pts[ proc_pts[:, 3] > 2.0, :]
     return [I, pts, E, proc_pts]
 
 def processBatch(batch):
@@ -253,18 +245,19 @@ def dgauss_filt(sigma):
 
     return G_x, G_y
 
+"""
 def processImage(I):
     from scipy.signal import convolve2d
     
     E = cv2.cvtColor(I, cv2.COLOR_BGR2GRAY)
-    G_x, G_y = dgauss_filt(4.0)
+    G_x, G_y = dgauss_filt(0.02)
     I_x = -convolve2d(E, G_x, mode='same')
     I_y = -convolve2d(E, G_y, mode='same')
     I_mag = np.sqrt(I_x ** 2 + I_y ** 2) 
     edges = computeDistanceTransform(I_mag, 0.98, 1.0/2.0)
     return edges
-
 """
+
 def processImage(I):
     kernels = generateEdgeFilterKernels()
 
@@ -279,8 +272,6 @@ def processImage(I):
 
     edges = computeDistanceTransform(edges+1, 0.98, 1.0/1.8)
     return edges
-"""
- 
 if __name__ == '__main__': 
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
@@ -291,10 +282,10 @@ if __name__ == '__main__':
     ldr_map = loadLDRCamMap(args['map'])
 
     #(tx,ty,tz) = (-0.50000000000000004, -0.2875, 0.34)
-    (tx,ty,tz) = (-0.50000000000000004, 0.31, 0.34)
-    (rx,ry,rz) = (0.044,0.0291,0.0115)
-    C_current = array([tx,ty,tz,rx,ry,rz])
-    BATCH_SIZE = 1 
+    (tx,ty,tz) = (-0.50000000000000004, 0.03, 0.34)
+    (rx,ry,rz) = (0.0,0.0,0.0)
+    C_current = np.array([tx,ty,tz,rx,ry,rz])
+    BATCH_SIZE = 30 
 
     from multiprocessing import Pool
     pool = Pool(10)
@@ -312,7 +303,7 @@ if __name__ == '__main__':
         #batch_data = processBatch(batch_data)
          
         count = 0
-        while count < 30:
+        while count < 20:
             count +=1
 
 
@@ -330,6 +321,10 @@ if __name__ == '__main__':
                 mask = computeMask(pix, pts_wrt_cam)
                 px = pix[1,mask]
                 py = pix[0,mask]
+
+                pts = batch_data[idx][1]
+
+                #drawReprojection(C_current, pts, batch_data[idx][0].copy(), cam)
                 E_show = batch_data[idx][2].copy()
                 for p in range(4):
                     E_show[px+p,py] = 255

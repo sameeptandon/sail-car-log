@@ -4,7 +4,12 @@
 import bisect
 import os
 import sys
-import rosbag
+EXPORT_RDR = True
+try:
+    import rosbag
+except ImportError, e:
+    print 'Failed to import rosbag, not exporting radar'
+    EXPORT_RDR = False
 
 sys.path.append('../process')
 from GPSReader import GPSReader
@@ -40,23 +45,30 @@ class FrameFinder:
         # Need to sort the ldr_times because listdir returns undefined ordering
         ldr_times.sort()
 
-        rdr_times = unpack_bag(basename, radar_bag_file)
+        if EXPORT_RDR:
+            rdr_times = unpack_bag(basename, radar_bag_file)
 
         for frame_number, camera_time in enumerate(camera_times):
             # Find the closest time in ldr times
             nearest_index_ldr = bisect.bisect(ldr_times, camera_time)
-            nearest_index_rdr = bisect.bisect(rdr_times, camera_time)
+            nearest_index_rdr = -1
+            if EXPORT_RDR:
+                nearest_index_rdr = bisect.bisect(rdr_times, camera_time)
 
-            if nearest_index_ldr >= 1 and nearest_index_rdr >=1:
+            if nearest_index_ldr >= 1 and (not EXPORT_RDR or nearest_index_rdr >=1):
                 lidr_file = str(ldr_times[nearest_index_ldr - 1]) + '.ldr'
-                radar_seq = str(rdr_times[nearest_index_rdr - 1]) + '.rdr'
+                if EXPORT_RDR:
+                    radar_seq = str(rdr_times[nearest_index_rdr - 1]) + '.rdr'
 
                 # Frames are indexed by 1, not
                 real_frame = frame_number + 1
 
-                self.frame_to_cloud_map[real_frame] = (lidr_file, radar_seq)
+                if EXPORT_RDR:
+                    self.frame_to_cloud_map[real_frame] = (lidr_file, radar_seq)
+                else:
+                    self.frame_to_cloud_map[real_frame] = lidr_file
                 #print real_frame, (lidr_file, radar_seq)
-        if write_to_file == True:
+        if write_to_file:
             self.__write_frame_map()
 
 
@@ -68,7 +80,12 @@ class FrameFinder:
         """ Writes the camera frame to ldr file mapping to a file """
         out_file = open(self.map_file_name, 'w')
         for frame, data in self.get_map().iteritems():
-            line = str(frame) + ' ' + str(data[0]) + ' ' + str(data[1]) + '\n'
+            line = str(frame) + ' ' + str(data[0])
+            if EXPORT_RDR:
+                line = str(frame) + ' ' + str(data[0]) + ' ' + str(data[1])
+            else:
+                line = str(frame) + ' ' + data
+            line += '\n'
             out_file.write(line)
         out_file.close()
 

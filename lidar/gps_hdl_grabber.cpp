@@ -382,6 +382,7 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
   current_scan_xyzrgb_->header.seq = scanCounter;
   current_scan_xyzi_->header.seq = scanCounter;
   scanCounter++;
+  bool restart = false;
 
   for (int i = 0; i < HDL_FIRING_PER_PKT; ++i)
   {
@@ -403,6 +404,7 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
           current_sweep_xyzi_->header.seq = sweepCounter;
 
           sweepCounter++;
+          restart = true;
 
           fireCurrentSweep ();
         }
@@ -448,8 +450,9 @@ pcl::GPSHDLGrabber::toPointClouds (HDLDataPacket *dataPacket)
   }
 
   current_scan_xyz_->is_dense = current_scan_xyzrgb_->is_dense = current_scan_xyzi_->is_dense = true;
-  fireCurrentScan (dataPacket->firingData[0].rotationalPosition, 
-                   dataPacket->firingData[11].rotationalPosition);
+  fireCurrentScan (dataPacket->firingData[0].rotationalPosition,
+                   dataPacket->firingData[11].rotationalPosition,
+                   restart);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -506,19 +509,19 @@ pcl::GPSHDLGrabber::fireCurrentSweep ()
 /////////////////////////////////////////////////////////////////////////////
 void
 pcl::GPSHDLGrabber::fireCurrentScan (const unsigned short startAngle,
-    const unsigned short endAngle)
+    const unsigned short endAngle, bool restart)
 {
   const float start = static_cast<float> (startAngle) / 100.0f;
   const float end = static_cast<float> (endAngle) / 100.0f;
 
   if (scan_xyz_signal_->num_slots () > 0)
-    scan_xyz_signal_->operator () (current_scan_xyz_, start, end);
+    scan_xyz_signal_->operator () (current_scan_xyz_, start, end, restart);
 
   if (scan_xyzrgb_signal_->num_slots () > 0)
-    scan_xyzrgb_signal_->operator () (current_scan_xyzrgb_, start, end);
+    scan_xyzrgb_signal_->operator () (current_scan_xyzrgb_, start, end, restart);
 
   if (scan_xyzi_signal_->num_slots () > 0)
-    scan_xyzi_signal_->operator() (current_scan_xyzi_, start, end);
+    scan_xyzi_signal_->operator() (current_scan_xyzi_, start, end, restart);
 }
 
 /////////////////////////////////////////////////////////////////////////////

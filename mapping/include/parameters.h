@@ -19,6 +19,8 @@ class Parameters
 
     // General settings / config
 
+    // Directories
+
     std::string dset_dir;
     std::string dset_avi;
     std::string h5_dir;
@@ -36,9 +38,13 @@ class Parameters
     int cam_ind;
     float lidar_project_min_dist;
 
+    // ICP stuff
+
     float icp_tol;
     std::vector<float> icp_coord_weights;
     float icp_min_intensity;
+
+    // Octomap / coloring stuff
 
     int map_color_window;
     int cloud_max_store;
@@ -54,6 +60,14 @@ class Parameters
     float raycast_tol;
     bool cast_once;
     bool cast_octomap_single;
+
+    // Clustering / evaluation
+
+    float cluster_tol;
+    int min_cluster_size;
+    int max_cluster_size;
+
+    // Files
 
     std::string octomap_file;
     std::string centered_octomap_file;

@@ -1,3 +1,4 @@
+import math
 import os
 import argparse
 import numpy as np
@@ -8,6 +9,7 @@ from GPSTransforms import IMUTransforms
 from LidarTransforms import loadLDR, loadLDRCamMap
 from pipeline_config import EXPORT_STEP, EXPORT_START, EXPORT_NUM, LANE_FILTER,\
     PARAMS_TO_LOAD, OPT_POS_FILE, EXPORT_FULL_NUM_FILE
+from LidarIntegrator import transform_points_in_sweep
 
 '''
 Essentially just pieces from LidarIntegrator except avoids
@@ -15,7 +17,6 @@ storing the data for all time steps in memory
 
 Writes full point clouds for scan matching later
 '''
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Convert ldr files to h5 files containing points')
@@ -88,8 +89,11 @@ if __name__ == '__main__':
         pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
         T_from_l_to_i = params['lidar']['T_from_l_to_i']
         pts = np.dot(T_from_l_to_i, pts)
-        # transform data into imu_0 frame
-        pts = np.dot(imu_transforms[fnum, :, :], pts)
+
+        # Microseconds till end of the sweep
+        times = data[:, 5]
+        transform_points_in_sweep(pts, times, fnum, imu_transforms)
+
         pts = pts.transpose()
 
         # for exporting purposes
@@ -103,9 +107,11 @@ if __name__ == '__main__':
         dset[...] = pts_copy
         h5f.close()
 
+        '''
         # Also write the transform at that time
         transform = imu_transforms[fnum, :, :]
         h5f = h5py.File(os.path.join(args.h5_dir, '%d.transform' % t), 'w')
         dset = h5f.create_dataset('transform', transform.shape, dtype='f')
         dset[...] = transform
         h5f.close()
+        '''

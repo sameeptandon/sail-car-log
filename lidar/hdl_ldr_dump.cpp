@@ -79,20 +79,30 @@ class LDRConverter
 {
   public:
     typedef PointCloud<PointXYZRGBA> Cloud;
+    typedef Cloud::Ptr CloudPtr;
     typedef Cloud::ConstPtr CloudConstPtr;
 
     LDRConverter(Grabber& grabber) 
       : grabber_(grabber) 
     {
+      cloud_.reset(new pcl::PointCloud<pcl::PointXYZRGBA>());
     }
 
     void 
-    cloud_callback(const CloudConstPtr& cloud)
+    cloud_callback(const CloudConstPtr& cloud, float start, float end, bool restart)
     {
       FPS_CALC("cloud callback");
       boost::mutex::scoped_lock lock(cloud_mutex_);
-      writeLDRFile(_dir, cloud);
-      //cloud_ = cloud;
+      if (restart)
+      {
+          writeLDRFile(_dir, cloud_);
+          cloud_.reset(new pcl::PointCloud<pcl::PointXYZRGBA>());
+          cloud_->header.stamp = cloud->header.stamp;
+          cloud_times_.clear();
+      }
+      (*cloud_) += *cloud;
+      for (int k = 0; k < cloud->size(); k++)
+          cloud_times_.push_back(cloud->header.stamp);
     }
 
     void 
@@ -103,8 +113,8 @@ class LDRConverter
       cout << folder_name << " was created" << endl;
 
 
-      boost::function<void(const CloudConstPtr&)> cloud_cb = boost::bind(
-              &LDRConverter::cloud_callback, this, _1);
+      boost::function<void(const CloudConstPtr&, float, float, bool)> cloud_cb = boost::bind(
+              &LDRConverter::cloud_callback, this, _1, _2, _3, _4);
       boost::signals2::connection cloud_connection = grabber_.registerCallback(
               cloud_cb);
       grabber_.start();
@@ -132,13 +142,17 @@ class LDRConverter
       ss << dir << timeStamp << ".ldr";
 
       FILE *ldrFile = fopen(ss.str().c_str(), "wb");
+      uint32_t k = 0;
       for(PointCloud<PointXYZRGBA>::iterator iter = dataCloud.begin(); iter != dataCloud.end(); ++iter)
       {
           //File format is little endian, 3 floats, 1 short, 1 short (16 bytes) per entry
           float intensity = (float) ( (iter->rgba & 0xffff0000) >> 16);
           float laser_num = (float) ( (iter->rgba & 0x0000ffff) );
-          float pBuffer[] = {iter->x, iter->y, iter->z, intensity, laser_num};
+          uint64_t cloud_time = cloud_times_[k];
+          float cloud_time_delta = (float) ((uint32_t) (timeStamp - cloud_time));  // NOTE Sweep goes backwards
+          float pBuffer[] = {iter->x, iter->y, iter->z, intensity, laser_num, cloud_time_delta};
           fwrite(pBuffer, 1, sizeof(pBuffer), ldrFile);
+          k++;
           //uint32_t iBuffer[] = {iter->rgba};
           //fwrite(iBuffer, 1, sizeof(iBuffer), ldrFile);
       }
@@ -150,7 +164,8 @@ class LDRConverter
     boost::mutex visual_cloud_mutex_;
     string _dir;
 
-    CloudConstPtr cloud_;
+    CloudPtr cloud_;
+    std::vector<uint64_t> cloud_times_;
 };
 
 
