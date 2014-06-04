@@ -17,7 +17,10 @@ def filter_occluded(_rects):
     OCCLUSION_THRESHOLD = 0.4;
 
     rects = copy.deepcopy(_rects);
-    rects.sort(key=lambda r: r.width())
+
+    # cars that are closer to the camera should come first -> closer to the camera means lower in the image
+    #rects.sort(key=lambda r: r.width())
+    rects.sort(key=lambda r: (r.y2, r.width()))
 
     rects_filtered = [];
     num_rects = len(rects);
@@ -61,6 +64,9 @@ def comp_rect_hist(I, _rect, normtype=1):
 
     roi_img = I[rect.y1:rect.y2, rect.x1:rect.x2, :];
 
+    print "roi width: ", roi_img.shape[0], ", roi height: ", roi_img.shape[1];
+    print rect.y1, rect.y2, rect.x1, rect.x2
+
     assert(roi_img.shape[0] > 0 and roi_img.shape[1] > 0);
 
     hsv_img = cv2.cvtColor(roi_img, cv2.COLOR_BGR2HSV);
@@ -89,6 +95,12 @@ def comp_rect_hist(I, _rect, normtype=1):
 def inc_image_name(s, n):
     pos1 = s.rfind('_');
     pos2 = s.rfind('.');
+
+    pos1_slash = s.rfind('/');
+
+    # supported formats: "/path/filename_<framenumber>.ext" or "/path/<framenumber>.ext" 
+    if pos1 < pos1_slash:
+        pos1 = pos1_slash;
 
     num = int(s[pos1+1:pos2]) + n
     numlen = pos2 - pos1 - 1;
@@ -120,7 +132,13 @@ def match_and_ratio_test(des1, des2):
 	# good = [m for m, n in matches if m.distance < 0.75*n.distance];
 
 	# BFMatcher with default params
+    
+       	# MA: need at least two points to perform ratio test 
+	if len(des1) <= 1 or len(des2) <= 1:
+            return [];
+        
 	bf = cv2.BFMatcher()
+
 	matches = bf.knnMatch(des1, des2, k=2)
 
 	if len(matches)<2:
@@ -222,16 +240,16 @@ def RectSIFT(qImg, _qRect, tImg, _tRect):
         tRect = copy.deepcopy(_tRect);
 
 	# MA: make smaller rect relative to the second 
-	if qRect.width() > 180:
-		roi_scale = 0.65;
-	else: 
+	if qRect.width() > 250:
 		roi_scale = 0.85;
+	else: 
+		roi_scale = 0.95;
 
         qRectSmall = copy.deepcopy(qRect);
         qRectSmall.resize(roi_scale);
 
         # MA: pad since SIFT features seem to depend on the size of the cropped image
-	npad = 100;
+	npad = 20;
         pad_annorect(qRect, npad);
         pad_annorect(tRect, npad);
 
@@ -383,7 +401,7 @@ def NextRect(Img1, Img2, Rect1):
 def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
 	MIN_TRACK_RECT_SIZE = 30;
-
+	max_move_thr = .9;
 	#min_match_percentage = 0.25;
 	#min_match_percentage = 0.05;
 	#max_color_dist = 1.7;
@@ -421,10 +439,15 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 
         # MA: init track id's
         for tidx, r in enumerate(tracked_rects):
-            r.classID = tidx;
-
+	    if frame_inc > 0:
+		    r.classID = tidx;
+	    else:
+		    r.classID = -tidx;
+			
             tracks_init_des.append([]);
             tracks_init_num_matches.append(-1);
+
+            print "width: ", r.width(), ", height: ", r.height();
 
 	    assert(r.width > 0 and r.height() > 0);
 	    tracks_init_colorhist.append(comp_rect_hist(Img1_color, r));
@@ -477,15 +500,15 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
                         cur_num_matches = 0;
 
                         if framesTracked == 0:
-                            tracks_init_des[rect.classID] = des1;
-                            tracks_init_num_matches[rect.classID] = len(matches);
+                            tracks_init_des[abs(rect.classID)] = des1;
+                            tracks_init_num_matches[abs(rect.classID)] = len(matches);
 
-                            cur_num_matches = tracks_init_num_matches[rect.classID];
+                            cur_num_matches = tracks_init_num_matches[abs(rect.classID)];
                         else:
                             bf = cv2.BFMatcher();
-                            cur_num_matches = len(match_and_ratio_test(tracks_init_des[rect.classID], des2));
+                            cur_num_matches = len(match_and_ratio_test(tracks_init_des[abs(rect.classID)], des2));
                         
-                        print "\ttrack %d, init_num_matches %d, cur_num_matches: %d" % (rect.classID, tracks_init_num_matches[rect.classID], cur_num_matches)
+                        print "\ttrack %d, init_num_matches %d, cur_num_matches: %d" % (rect.classID, tracks_init_num_matches[abs(rect.classID)], cur_num_matches)
 
 			verification_ok = True;
 
@@ -493,11 +516,11 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 		        hist_cur = comp_rect_hist(Img2_color, new_rect);
 			
 			#cur_color_dist = cv2.compareHist(tracks_init_colorhist[rect.classID], hist_cur, cv.CV_COMP_CHISQR)
-			cur_color_dist = dist_chi2(tracks_init_colorhist[rect.classID], hist_cur);
+			cur_color_dist = dist_chi2(tracks_init_colorhist[abs(rect.classID)], hist_cur);
 
 			print "\n\t cur_color_dist: " + str(cur_color_dist);
 
-			if  cur_color_dist > max_color_dist:
+			if  cur_color_dist > max_color_dist and new_rect.overlap_pascal(rect) < max_move_thr:
                             verification_ok = False;
                             num_init_matching_failed_color += 1;
 
@@ -506,11 +529,22 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
 			# 	verification_ok = False;
                         #         num_init_matching_failed_sift += 1;
 
-                        # MA: for now tracks that start on the boundary should remain on the boundary (otherwise we don't know t he correct extent)
+                        # MA: for now tracks that start on the boundary should remain on the boundary (otherwise we don't know the correct extent)
                         BORDER_THRESHOLD = 10;
-                        if (rect.x1 < BORDER_THRESHOLD and new_rect.x1 > rect.x1) or (rect.x2 > Img2.shape[1] - BORDER_THRESHOLD and new_rect.x2 < rect.x2):
-                            verification_ok = False;
-                            num_ignore_border += 1;
+			car_dim_ratio = 1.5
+			if rect.height() > .3 * Img2.shape[0]:
+				car_dim_ratio = 1.2
+			if(rect.x1 < BORDER_THRESHOLD and new_rect.x1 > rect.x1):
+			   if(new_rect.height()<50):
+				new_rect.y1 -= 10;
+			   if (1.0 * new_rect.width()/new_rect.height()) < car_dim_ratio:
+				new_rect.x1 = 0
+		
+			if(rect.x2 > Img2.shape[1] - BORDER_THRESHOLD and new_rect.x2 < rect.x2):
+			   if(new_rect.height()<50):
+				new_rect.y1 -= 10;
+			   if (1.0 * new_rect.width()/new_rect.height()) < car_dim_ratio:
+				new_rect.x2 = Img2.shape[1]-1;
                              
 			# MA: accept first frame (use it as baseline number of matches for SIFT)
                         if verification_ok:
@@ -528,7 +562,7 @@ def track_frame(a, stop_imgname, trackMaxFrames, frame_inc):
                     break;
 
                 curImageName = nextImageName;
-                tracked_rects = new_tracked_rects;
+        	tracked_rects = filter_occluded(new_tracked_rects);
                 Img1 = Img2;
 
             else:

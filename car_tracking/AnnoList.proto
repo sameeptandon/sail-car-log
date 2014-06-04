@@ -1,0 +1,38 @@
+package protobuf_annolist;
+
+//option java_package = "com.example.tutorial";
+option java_outer_classname = "AnnoListPb";
+
+message AnnoRect {
+  // left, top, right, bottom 
+  optional float x1 = 1;
+  optional float y1 = 2;
+  optional float x2 = 3;
+  optional float y2 = 4;
+
+  // e.g. detector score 
+  optional float score = 5;
+    
+  // id, e.g. to associate annorects in different images during tracking
+  optional int32 id = 6;
+
+  // 3d attributes
+  optional float distance3d = 7;
+  optional float width3d = 8;
+  optional float height3d = 9;
+  optional float length3d = 10;
+}
+
+message Annotation {
+  optional string imageName = 1;
+
+  repeated AnnoRect rect = 2;
+
+  // image width and height 
+  optional int32 imgWidth = 3;
+  optional int32 imgHeight = 4;
+}
+
+message AnnoList {
+  repeated Annotation annotation = 1;	
+}
