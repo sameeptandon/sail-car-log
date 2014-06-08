@@ -55,7 +55,7 @@ if __name__ == "__main__":
     annolist_basedir = os.path.dirname(opts.annolist_name)
 
     print "loading %s"  % opts.annolist_name;
-    annolist = parseXML(opts.annolist_name);
+    annolist = parse(opts.annolist_name);
 
     annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
     annolist_base, annolist_ext = os.path.splitext(annolist_base_ext);
@@ -163,6 +163,6 @@ if __name__ == "__main__":
 
     if do_save:
         print "saving " + save_filename;
-        saveXML(save_filename, annolist_out);
+        save(save_filename, annolist_out);
 
 

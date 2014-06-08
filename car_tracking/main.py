@@ -44,7 +44,7 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     
     annolist_basedir = os.path.dirname(opts.annolist_name)
-    annolist = parseXML(opts.annolist_name);
+    annolist = parse(opts.annolist_name);
 
     if opts.numimgs == -1:
         numimgs = len(annolist);

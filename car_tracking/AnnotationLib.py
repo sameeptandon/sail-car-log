@@ -62,6 +62,7 @@ class AnnoRect(object):
 		self.d3 = []
 		self.silhouetteID = -1
 		self.classID = -1
+		self.track_id = -1
 
 	def width(self):
 		return abs(self.x2-self.x1)
@@ -252,7 +253,7 @@ class AnnoRect(object):
 
 	def addToXML(self, node, doc): # no Silhouette yet
 		rect_el = doc.createElement("annorect")
-		for item in "x1 y1 x2 y2 score scale".split():
+		for item in "x1 y1 x2 y2 score scale track_id".split():
 			coord_el = doc.createElement(item)
 			coord_val = doc.createTextNode(str(self.__getattribute__(item)))
 			coord_el.appendChild(coord_val)
@@ -489,6 +490,9 @@ def parseXML(filename):
 
 			for classID in annoRect.getElementsByTagName("classID"):
 				rect.classID = int(classID.firstChild.data)
+
+			for track_id in annoRect.getElementsByTagName("track_id"):
+				rect.track_id = int(track_id.firstChild.data)
 
 			for articulation in annoRect.getElementsByTagName("articulation"):
 				for id in articulation.getElementsByTagName("id"):

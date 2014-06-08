@@ -15,6 +15,7 @@ message AnnoRect {
     
   // id, e.g. to associate annorects in different images during tracking
   optional int32 id = 6;
+  optional int32 track_id = 11;
 
   // 3d attributes
   optional float distance3d = 7;
