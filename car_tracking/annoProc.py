@@ -1,5 +1,7 @@
 #!/usr/bin/python 
 
+import sys;
+
 from AnnotationLib import *
 from optparse import OptionParser
 
@@ -17,10 +19,13 @@ if __name__ == "__main__":
     parser.add_option('--subset', action="store_true", dest='do_subset', help='subset of the image list')
     parser.add_option('--convert', dest='convert_name', type="string", help='convert/save to different format')
 
+    parser.add_option('--min_width', dest='min_width', type="int", help='remove bounding boxes with width smaller than threshold', default=-1)
+    parser.add_option('--max_width', dest='max_width', type="int", help='remove bounding boxes with width larger than threshold', default=-1)
+
     parser.add_option('--merge_sort', dest='merge_sort', type="string", help='merge two annotation lists and sort the result by filename')
 
     (opts, args) = parser.parse_args()
-   
+
     annolist_basedir = os.path.dirname(opts.annolist_name)
 
     print "loading ", opts.annolist_name;
@@ -93,7 +98,35 @@ if __name__ == "__main__":
             save(save_filename, annolist);
         else:
             print "unrecognized output format";
+
+    elif opts.min_width > 0 or opts.max_width > 0:
+
+        min_width = opts.min_width;
+        max_width = opts.max_width;
+
+        if opts.max_width <= 0:
+            max_width = 1e6;
+
+        for a in annolist:
+            a.rects = [r for r in a.rects if r.width() > min_width and r.width() < max_width];
+
+        annolist_path, annolist_base_ext = os.path.split(opts.annolist_name);
+        annolist_base, annolist_ext = os.path.splitext(annolist_base_ext);
+
+        save_filename = annolist_path + "/" + annolist_base;
         
+        if opts.min_width != -1:
+            save_filename += "-minwidth" + str(opts.min_width)
+
+        if opts.max_width != -1:
+            save_filename += "-maxwidth" + str(opts.max_width)
+
+        save_filename += annolist_ext;
+
+        print "saving " + save_filename;
+        save(save_filename, annolist);
+
+            
 
     elif opts.convert_name != None:
         print "saving ", opts.convert_name;

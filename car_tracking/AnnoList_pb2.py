@@ -13,7 +13,7 @@ from google.protobuf import descriptor_pb2
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='AnnoList.proto',
   package='protobuf_annolist',
-  serialized_pb='\n\x0e\x41nnoList.proto\x12\x11protobuf_annolist\"\x9e\x01\n\x08\x41nnoRect\x12\n\n\x02x1\x18\x01 \x01(\x02\x12\n\n\x02y1\x18\x02 \x01(\x02\x12\n\n\x02x2\x18\x03 \x01(\x02\x12\n\n\x02y2\x18\x04 \x01(\x02\x12\r\n\x05score\x18\x05 \x01(\x02\x12\n\n\x02id\x18\x06 \x01(\x05\x12\x12\n\ndistance3d\x18\x07 \x01(\x02\x12\x0f\n\x07width3d\x18\x08 \x01(\x02\x12\x10\n\x08height3d\x18\t \x01(\x02\x12\x10\n\x08length3d\x18\n \x01(\x02\"o\n\nAnnotation\x12\x11\n\timageName\x18\x01 \x01(\t\x12)\n\x04rect\x18\x02 \x03(\x0b\x32\x1b.protobuf_annolist.AnnoRect\x12\x10\n\x08imgWidth\x18\x03 \x01(\x05\x12\x11\n\timgHeight\x18\x04 \x01(\x05\"=\n\x08\x41nnoList\x12\x31\n\nannotation\x18\x01 \x03(\x0b\x32\x1d.protobuf_annolist.AnnotationB\x0c\x42\nAnnoListPb')
+  serialized_pb='\n\x0e\x41nnoList.proto\x12\x11protobuf_annolist\"\xb0\x01\n\x08\x41nnoRect\x12\n\n\x02x1\x18\x01 \x01(\x02\x12\n\n\x02y1\x18\x02 \x01(\x02\x12\n\n\x02x2\x18\x03 \x01(\x02\x12\n\n\x02y2\x18\x04 \x01(\x02\x12\r\n\x05score\x18\x05 \x01(\x02\x12\n\n\x02id\x18\x06 \x01(\x05\x12\x10\n\x08track_id\x18\x0b \x01(\x05\x12\x12\n\ndistance3d\x18\x07 \x01(\x02\x12\x0f\n\x07width3d\x18\x08 \x01(\x02\x12\x10\n\x08height3d\x18\t \x01(\x02\x12\x10\n\x08length3d\x18\n \x01(\x02\"o\n\nAnnotation\x12\x11\n\timageName\x18\x01 \x01(\t\x12)\n\x04rect\x18\x02 \x03(\x0b\x32\x1b.protobuf_annolist.AnnoRect\x12\x10\n\x08imgWidth\x18\x03 \x01(\x05\x12\x11\n\timgHeight\x18\x04 \x01(\x05\"=\n\x08\x41nnoList\x12\x31\n\nannotation\x18\x01 \x03(\x0b\x32\x1d.protobuf_annolist.AnnotationB\x0c\x42\nAnnoListPb')
 
 
 
@@ -68,28 +68,35 @@ _ANNORECT = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='distance3d', full_name='protobuf_annolist.AnnoRect.distance3d', index=6,
+      name='track_id', full_name='protobuf_annolist.AnnoRect.track_id', index=6,
+      number=11, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='distance3d', full_name='protobuf_annolist.AnnoRect.distance3d', index=7,
       number=7, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='width3d', full_name='protobuf_annolist.AnnoRect.width3d', index=7,
+      name='width3d', full_name='protobuf_annolist.AnnoRect.width3d', index=8,
       number=8, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='height3d', full_name='protobuf_annolist.AnnoRect.height3d', index=8,
+      name='height3d', full_name='protobuf_annolist.AnnoRect.height3d', index=9,
       number=9, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='length3d', full_name='protobuf_annolist.AnnoRect.length3d', index=9,
+      name='length3d', full_name='protobuf_annolist.AnnoRect.length3d', index=10,
       number=10, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -105,7 +112,7 @@ _ANNORECT = _descriptor.Descriptor(
   is_extendable=False,
   extension_ranges=[],
   serialized_start=38,
-  serialized_end=196,
+  serialized_end=214,
 )
 
 
@@ -153,8 +160,8 @@ _ANNOTATION = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=198,
-  serialized_end=309,
+  serialized_start=216,
+  serialized_end=327,
 )
 
 
@@ -181,8 +188,8 @@ _ANNOLIST = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=311,
-  serialized_end=372,
+  serialized_start=329,
+  serialized_end=390,
 )
 
 _ANNOTATION.fields_by_name['rect'].message_type = _ANNORECT
