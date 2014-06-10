@@ -21,8 +21,8 @@ from gps_viewer import get_route_segment_split_gps
 
 
 def nn_matches(xyz_tgt, xyz_src, gps_dist_tol, debug=False):
-    nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(xyz1)
-    distances, tgt_indices = nbrs.kneighbors(xyz2)
+    nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(xyz_tgt)
+    distances, tgt_indices = nbrs.kneighbors(xyz_src)
     tgt_indices = tgt_indices.ravel()
     distances = distances.ravel()
     src_indices = np.array(xrange(tgt_indices.shape[0]), dtype=np.int64)
