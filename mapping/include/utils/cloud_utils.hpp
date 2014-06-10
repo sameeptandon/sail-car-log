@@ -111,15 +111,21 @@ void project_cloud_eigen(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, cons
     //}
 }
 
-template<typename PointT>
-void filter_lidar_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, boost::shared_ptr<pcl::PointCloud<PointT> > output_cloud, std::vector<int>& filtered_indices)
+template <typename PointT>
+void filter_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, boost::shared_ptr<pcl::PointCloud<PointT> > filtered_cloud, std::vector<int>& filtered_indices, const std::string& filter_dim, float range_min, float range_max)
 {
     filtered_indices.clear();
 
     pcl::PassThrough<PointT> pass;
     pass.setInputCloud(cloud);
-    pass.setFilterFieldName("z");
-    pass.setFilterLimits(0, std::numeric_limits<float>::max());
+    pass.setFilterFieldName(filter_dim);
+    pass.setFilterLimits(range_min, range_max);
     pass.filter(filtered_indices);
-    pass.filter(*output_cloud);
+    pass.filter(*filtered_cloud);
+}
+
+template<typename PointT>
+void filter_lidar_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, boost::shared_ptr<pcl::PointCloud<PointT> > filtered_cloud, std::vector<int>& filtered_indices)
+{
+    filter_cloud<PointT>(cloud, filtered_cloud, filtered_indices, "z", 0, std::numeric_limits<float>::max());
 }
