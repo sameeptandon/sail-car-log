@@ -9,6 +9,7 @@ from transformations import euler_matrix
 import numpy as np
 import cv2
 from ArgParser import *
+from LidarIntegrator import transform_points_in_sweep
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -30,7 +31,16 @@ def cloudToPixels(cam, pts_wrt_cam):
 
     return (pix, mask)
 
-def lidarPtsToPixels(pts_wrt_lidar_t, imu_transforms_t, cam):
+def lidarPtsToPixels(pts_wrt_imu_0, imu_transforms_t, T_from_i_to_l, cam):
+    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0,
+        np.ones((1,pts_wrt_imu_0.shape[1]))))
+
+    # Transform points back to imu_t
+    pts_wrt_imu_t = np.dot( np.linalg.inv(imu_transforms_t), pts_wrt_imu_0)
+
+    # transform points from imu_t to lidar_t
+    pts_wrt_lidar_t = np.dot(T_from_i_to_l, pts_wrt_imu_t)
+
     # transform points from lidar_t to camera_t
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
     pts_wrt_camera_t = dot(R_to_c_from_l(cam), 
@@ -46,6 +56,7 @@ def lidarPtsToPixels(pts_wrt_lidar_t, imu_transforms_t, cam):
 
     return (pix, mask)
 
+
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
@@ -58,6 +69,9 @@ if __name__ == '__main__':
     lidar_loader = LDRLoader(args['frames'])
     imu_transforms = IMUTransforms(gps_data)
 
+    T_from_l_to_i = params['lidar']['T_from_l_to_i']
+    T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
+
     while True:
         (success, I) = video_reader.getNextFrame()
         print gps_data[video_reader.framenum,:]
@@ -65,12 +79,21 @@ if __name__ == '__main__':
         t = utc_from_gps_log(gps_data[fnum,:])
         data = lidar_loader.loadLDRWindow(t, 0.1)
         print data.shape
-        (pix, mask) = lidarPtsToPixels(data[:,0:3].transpose(), imu_transforms[fnum,:,:], cam); 
+
+        # Transform data into IMU frame at time t
+        pts = data[:, 0:3].transpose()
+        pts = np.vstack((pts,np.ones((1, pts.shape[1]))))
+        pts = np.dot(T_from_l_to_i, pts)
+
+        # Shift points according to timestamps instead of using transform of full sweep
+        times = data[:, 5]
+        transform_points_in_sweep(pts, times, fnum, imu_transforms)
+
+        (pix, mask) = lidarPtsToPixels(pts, imu_transforms[fnum, :, :], T_from_i_to_l, cam)
+
         intensity = data[mask, 3]
         heat_colors = heatColorMapFast(intensity, 0, 100)
         for p in range(4):
-            I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
-            I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
             I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
 
