@@ -27,12 +27,12 @@ DSET_AVI = DSET + '.avi'
 CAM_NUM = int(DSET[-1])
 
 # Stuff to scp over
-REMOTE_DATA_DIR = 'gorgon39:/scail/group/deeplearning/driving_data/q50_data/%s' % ROUTE
+REMOTE_DATA_DIR = 'gorgon39:/scail/group/deeplearning/driving_data/sameep/%s' % ROUTE
 REMOTE_FILES = [
     'split_\\*_%s.avi' % DSET,
-    '%s_gps.out' % DSET[:-1],
+    #'%s_gps.out' % DSET[:-1],
     #'%s_frames' % DSET[:-1],
-    '%s.map' % DSET[:-1],
+    #'%s.map' % DSET[:-1],
     '%s_*.bag' % DSET[:-1],
     '%s.pcap' % DSET[:-1],
     #'params.ini'

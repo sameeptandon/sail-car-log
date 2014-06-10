@@ -1,20 +1,17 @@
-from LidarTransforms import *
 import sys
-import os
-from VideoReader import *
 import cv2
-from cv2 import imshow, waitKey
-from numpy.linalg import norm
-from ColorMap import *
-from numpy import exp, log, sqrt
-from transformations import euler_matrix
 import scipy.weave
 import itertools
-from ArgParser import *
+import numpy as np
+from ArgParser import parse_args
 from scipy.signal import convolve2d
 from scipy.optimize import fmin_l_bfgs_b
 import matplotlib.pyplot as plt
 from fabric.colors import green, red
+from VideoReader import VideoReader
+from LidarTransforms import loadLDRCamMap, loadLDR, R_to_c_from_l_old
+from ColorMap import heatColorMapFast
+from transformations import euler_matrix
 
 # cam 5
 #(tx,ty,tz) = (-0.3, 1.4, 0.55)
@@ -33,6 +30,9 @@ C_global = np.array([tx, ty, tz, rx, ry, rz])
 
 IMG_WIDTH = 2080
 IMG_HEIGHT = 1040
+
+t_eps = 0.1
+r_eps = 2 * np.pi / 180
 
 # Things to tweak
 # - Bounds
@@ -73,9 +73,9 @@ def computeLogDistanceTransform(D, gamma):
     # assume that D is logarithmic in the edges
     width = D.shape[0]
     height = D.shape[1]
-    lg = log(gamma)
+    lg = np.log(gamma)
     code = \
-    """
+    '''
     using namespace std;
     for (int x = 1; x < width; x++) {
         for (int y = 1; y < height; y++) {
@@ -98,7 +98,7 @@ def computeLogDistanceTransform(D, gamma):
             D(x,y) = max(p1,max(p2,max(p3,p4)));
         }
     }
-    """
+    '''
     scipy.weave.inline(code, ['D', 'width', 'height', 'lg'], headers=['<algorithm>'],
                        type_converters=scipy.weave.converters.blitz)
 
@@ -159,7 +159,8 @@ def computeReprojection(C, raw_pts, cam):
     pts[:, 2] += C[2]
     R = euler_matrix(C[3], C[4], C[5])[0:3, 0:3]
     pts_wrt_cam = np.dot(R, np.dot(R_to_c_from_l_old(cam), pts.transpose()))
-    pix = np.around(np.dot(cam['KK'], np.divide(pts_wrt_cam[0:3, :], pts_wrt_cam[2,:])))
+    pix = np.around(np.dot(cam['KK'],
+        np.divide(pts_wrt_cam[0:3, :], pts_wrt_cam[2, :])))
     pix = pix.astype(np.int32)
     return (pix, pts_wrt_cam)
 
@@ -170,38 +171,17 @@ def computeMask(pix, pts_wrt_cam):
     mask = np.logical_and(mask, pix[1, :] > 0 + width / 2)
     mask = np.logical_and(mask, pix[0, :] < IMG_WIDTH - width / 2)
     mask = np.logical_and(mask, pix[1, :] < IMG_HEIGHT - width / 2)
-    #mask = np.logical_and(mask, pix[0,:] < 1280 - width / 2)
-    #mask = np.logical_and(mask, pix[1,:] < 960 - width / 2)
-    mask = np.logical_and(mask, pts_wrt_cam[2, :] > 0)
-    return mask
-
-
-def computeMask2(pix, pts_wrt_cam):
-    width = 20
-    mask = np.logical_and(True, pix[0, :] > 0 - width / 2)
-    mask = np.logical_and(mask, pix[1, :] > 0 - width / 2)
-    mask = np.logical_and(mask, pix[0, :] < IMG_WIDTH + width / 2)
-    mask = np.logical_and(mask, pix[1, :] < IMG_HEIGHT + width / 2)
     mask = np.logical_and(mask, pts_wrt_cam[2, :] > 0)
     return mask
 
 
 def computeReprojectionScore(C, pts, I, cam):
-    # print C
     (pix, pts_wrt_cam) = computeReprojection(C, pts, cam)
-    #mask = computeMask2(pix, pts_wrt_cam)
-
-    #plt.imshow(I)
-    #plt.colorbar()
-    #plt.show()
-
-    #px = pix[1,mask]
-    #py = pix[0,mask]
     px = pix[1, :]
     py = pix[0, :]
-
-    return np.sum(bilinear_interpolate(I, px, py))
-    # return np.sum(I[px,py])
+    score = np.sum(bilinear_interpolate(I, px, py))
+    score = score / px.size
+    return score
 
 
 def gridsearch(C, batch, cam):
@@ -210,8 +190,6 @@ def gridsearch(C, batch, cam):
     step_r = 0.003
 
     best_score = -float("inf")
-    best_d = None
-    #scores = np.zeros((729,1))
     scores = np.zeros((3 ** 3, 1))
     idx = 0
 
@@ -253,17 +231,16 @@ def bilinear_interpolate(dist_transform, x, y):
     y[y % 1 == 0] += reg
 
     x1 = np.array(np.floor(x), dtype=np.int32)
-    x2 = np.array(np.ceil(x), dtype=np.int32)
+    x2 = x1 + 1
     y1 = np.array(np.floor(y), dtype=np.int32)
-    y2 = np.array(np.ceil(y), dtype=np.int32)
+    y2 = y1 + 1
 
     d = np.zeros(x.size)
     in_bounds = np.logical_and(
         np.logical_and(x1 >= 0, y1 >= 0), np.logical_and(x2 < N, y2 < M))
     out_bounds = np.logical_not(in_bounds)
     # FIXME May want to penalize more heavily
-    d[out_bounds] = np.max(
-        dist_transform) + x[out_bounds] ** 2 + y[out_bounds] ** 2
+    d[out_bounds] = np.max(dist_transform) + np.sqrt(x[out_bounds] ** 2 + y[out_bounds] ** 2)
 
     x = x[in_bounds]
     x1 = x1[in_bounds]
@@ -302,8 +279,6 @@ class CalibScore(object):
 
 def optimize_calib(C_init, batch, cam):
     scorer = CalibScore(cam, batch)
-    t_eps = 0.1
-    r_eps = 0.01 * np.pi / 180
     eps = np.array([t_eps, t_eps, t_eps, r_eps, r_eps, r_eps])
     C_min = C_init - eps
     C_max = C_init + eps
@@ -323,8 +298,8 @@ def drawReprojection(C, pts, I, cam):
     colors = heatColorMapFast(intensity, 0, 100)
     I[px, py, :] = colors[0, :, :]
 
-    imshow('display', I)
-    waitKey(1000)
+    cv2.imshow('display', I)
+    cv2.waitKey(1000)
 
 
 def getNextData(reader, LDRFrameMap):
@@ -339,7 +314,7 @@ def getNextData(reader, LDRFrameMap):
 
 def processData(data):
     I, pts = data
-    E = processImage2(I)
+    E = processImage(I)
     proc_pts = processPointCloud(pts)
     dist = np.sqrt(np.sum(proc_pts[:, 0:3] ** 2, axis=1))
     proc_pts = proc_pts[dist > 3, :]
@@ -379,19 +354,6 @@ def dgauss_filt(sigma):
     G_y *= 2.0 / np.sum(np.abs(G_y))
 
     return G_x, G_y
-
-"""
-def processImage(I):
-    from scipy.signal import convolve2d
-
-    E = cv2.cvtColor(I, cv2.COLOR_BGR2GRAY)
-    G_x, G_y = dgauss_filt(0.02)
-    I_x = -convolve2d(E, G_x, mode='same')
-    I_y = -convolve2d(E, G_y, mode='same')
-    I_mag = np.sqrt(I_x ** 2 + I_y ** 2)
-    edges = computeDistanceTransform(I_mag, 0.98, 1.0/2.0)
-    return edges
-"""
 
 def processImage(I):
     kernels = generateEdgeFilterKernels()
@@ -457,29 +419,31 @@ if __name__ == '__main__':
 
         batch_data = pool.map(processData, batch_data)
         #batch_data = [processData(x) for x in batch_data]
-        #batch_data = processBatch(batch_data)
 
         count = 0
         while count < 1:
             count += 1
 
-            out1 = gridsearch(C_current, batch_data, cam)
-            out = optimize_calib(C_global, batch_data, cam)
-            print 'obj gridsearch:', green(out1[1])
-            print 'x_opt', out1[0]
-            print 'obj l-bfgs-b:', green(out[1])
-            print 'x_opt', out[0]
-            print 'diff', red(out1[1] - out[1])
-            if np.all(C_current == out[0]):
+            out_grid = gridsearch(C_current, batch_data, cam)
+            out_grad = optimize_calib(C_global, batch_data, cam)
+
+            print 'obj gridsearch:', green(out_grid[1])
+            print 'x_opt', out_grid[0]
+            print 'obj l-bfgs-b:', green(out_grad[1])
+            print 'x_opt', out_grad[0]
+            print 'diff', red(out_grid[1] - out_grad[1])
+
+            out_opt = out_grad
+
+            if np.all(C_current == out_opt[0]):
                 print 'All same'
                 break
-            C_current = out[0]
             for idx in range(len(batch_data)):
                 if idx != len(batch_data) - 1:
                     continue
                 proc_pts = batch_data[idx][3]
                 (pix, pts_wrt_cam) = computeReprojection(
-                    C_current, proc_pts, cam)
+                    out_opt[0], proc_pts, cam)
                 mask = computeMask(pix, pts_wrt_cam)
                 px = pix[1, mask]
                 py = pix[0, mask]
@@ -487,18 +451,18 @@ if __name__ == '__main__':
                 pts = batch_data[idx][1]
 
                 drawReprojection(
-                    C_current, pts, batch_data[idx][0].copy(), cam)
-                E_show = batch_data[idx][2].copy()
-                print E_show.shape
-                #E_show = np.array(E_show / np.max(E_show) * 255, dtype=np.uint8)
-                #E_show = batch_data[idx][0].copy()
-                #for p in range(4):
-                    #E_show[px+p,py] = 255
-                    #E_show[px,py+p] = 255
-                    #E_show[px-p,py] = 255
-                    #E_show[px,py-p] = 255
-                #imshow('viz', cv2.pyrDown(E_show/255.0))
-                #waitKey(100)
+                    out_opt[0], pts, batch_data[idx][0].copy(), cam)
 
-            #imshow('display', I)
-            #key = chr((waitKey() & 255))
+                '''
+                E_show = batch_data[idx][2].copy()
+                for p in range(4):
+                    E_show[px+p, py] = 255
+                    E_show[px, py+p] = 255
+                    E_show[px-p, py] = 255
+                    E_show[px, py-p] = 255
+                cv2.imshow('viz', cv2.pyrDown(E_show/255.0))
+                cv2.waitKey(100)
+                '''
+
+            #cv2.imshow('display', I)
+            #key = chr((cv2.waitKey() & 255))
