@@ -9,9 +9,6 @@ from transformations import euler_matrix
 import numpy as np
 import cv2
 from ArgParser import *
-from ImageProcTools import processImage
-
-WINDOW = 50*2
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -23,8 +20,10 @@ def cloudToPixels(cam, pts_wrt_cam):
     pix = pix.astype(np.int32)
     mask = np.logical_and(True, pix[0,:] > 0 + width/2)
     mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
-    mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
-    mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
+    #mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
+    #mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
+    mask = np.logical_and(mask, pix[1,:] < 1039 - width/2)
+    mask = np.logical_and(mask, pix[0,:] < 2079 - width/2)
     mask = np.logical_and(mask, pts_wrt_cam[2,:] > 0)
     dist_sqr = np.sum( pts_wrt_cam[0:3, :] ** 2, axis = 0)
     mask = np.logical_and(mask, dist_sqr > 3)
@@ -47,12 +46,6 @@ def lidarPtsToPixels(pts_wrt_lidar_t, imu_transforms_t, cam):
 
     return (pix, mask)
 
-
-def trackbarOnchange(t, prev_t):
-    if abs(t - prev_t) > 1:
-        video_reader.setFrame(t)
-
-
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
@@ -68,9 +61,9 @@ if __name__ == '__main__':
     while True:
         (success, I) = video_reader.getNextFrame()
         print gps_data[video_reader.framenum,:]
-        fnum = video_reader.framenum
+        fnum = video_reader.framenum*2
         t = utc_from_gps_log(gps_data[fnum,:])
-        data = lidar_loader.loadLDRWindow(t, 0.05)
+        data = lidar_loader.loadLDRWindow(t, 0.1)
         print data.shape
         (pix, mask) = lidarPtsToPixels(data[:,0:3].transpose(), imu_transforms[fnum,:,:], cam); 
         intensity = data[mask, 3]
@@ -81,5 +74,5 @@ if __name__ == '__main__':
             I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
 
-        cv2.imshow('vid', I)
-        cv2.waitKey(5)
+        cv2.imshow('vid', cv2.pyrDown(I))
+        cv2.waitKey(500)
