@@ -52,6 +52,22 @@ def computeDistanceTransform(D, gamma, alpha):
 
     return alpha * D + (1 - alpha) * F
 
+def computeLogDistanceTransformSlow(D, gamma):
+    # assume that D is logarithmic in the edges
+    width = D.shape[0]
+    height = D.shape[1]
+    lg = log(gamma)
+
+    for x in range(1,width):
+        for y in range(1,height):
+            D[x,y] = max(D[x,y], D[x-1,y]+lg, D[x,y-1]+lg, D[x-1,y-1]+lg)
+
+    for x in reversed(range(width-1)):
+        for y in reversed(range(height-1)):
+            D[x,y] = max(D[x,y], D[x+1,y]+lg, D[x,y+1]+lg, D[x+1,y+1]+lg)
+
+    #print D
+    return D
 
 def computeLogDistanceTransform(D, gamma):
     # assume that D is logarithmic in the edges
@@ -59,7 +75,7 @@ def computeLogDistanceTransform(D, gamma):
     height = D.shape[1]
     lg = log(gamma)
     code = \
-        """
+    """
     using namespace std;
     for (int x = 1; x < width; x++) {
         for (int y = 1; y < height; y++) {
@@ -99,7 +115,6 @@ def generateEdgeFilterKernels():
             if (x != 1 and y != 1):
                 kernels.append(K)
     return kernels
-
 
 def processPointCloud(raw_pts):
     # add rotational angle and distance to pts
@@ -377,7 +392,6 @@ def processImage(I):
     edges = computeDistanceTransform(I_mag, 0.98, 1.0/2.0)
     return edges
 """
-
 
 def processImage(I):
     kernels = generateEdgeFilterKernels()

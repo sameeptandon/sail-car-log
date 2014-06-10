@@ -6,6 +6,8 @@ import gzip
 import bz2
 import sys
 
+import PalLib;
+
 import xml.dom.minidom
 from xml.dom.minidom import Node
 xml_dom_ext_available=False
@@ -60,6 +62,7 @@ class AnnoRect(object):
 		self.d3 = []
 		self.silhouetteID = -1
 		self.classID = -1
+		self.track_id = -1
 
 	def width(self):
 		return abs(self.x2-self.x1)
@@ -250,7 +253,7 @@ class AnnoRect(object):
 
 	def addToXML(self, node, doc): # no Silhouette yet
 		rect_el = doc.createElement("annorect")
-		for item in "x1 y1 x2 y2 score scale".split():
+		for item in "x1 y1 x2 y2 score scale track_id".split():
 			coord_el = doc.createElement(item)
 			coord_val = doc.createTextNode(str(self.__getattribute__(item)))
 			coord_el.appendChild(coord_val)
@@ -488,6 +491,9 @@ def parseXML(filename):
 			for classID in annoRect.getElementsByTagName("classID"):
 				rect.classID = int(classID.firstChild.data)
 
+			for track_id in annoRect.getElementsByTagName("track_id"):
+				rect.track_id = int(track_id.firstChild.data)
+
 			for articulation in annoRect.getElementsByTagName("articulation"):
 				for id in articulation.getElementsByTagName("id"):
 					rect.articulations.append(int(id.firstChild.data))
@@ -527,6 +533,9 @@ def parse(filename):
 	if(ext == ".al"):
 		return parseXML(filename)
 	
+	if(ext == ".pal"):
+		return PalLib.pal2al(PalLib.loadPal(filename));
+
 	return []
 
 
@@ -624,8 +633,30 @@ def parseIDL(filename):
 	return annotations
 
 
+
+	
+
 #####################################################################
 ### Saving
+
+def save(filename, annotations):
+	name, ext = os.path.splitext(filename)
+
+	if (ext == ".gz" or ext == ".bz2"):
+		name, ext = os.path.splitext(name)
+	
+	if(ext == ".idl"):
+		return saveIDL(filename, annotations)		
+
+	elif(ext == ".al"):
+		return saveXML(filename, annotations)
+
+	elif(ext == ".pal"):
+		return PalLib.savePal(filename, PalLib.al2pal(annotations));
+
+	else:
+		assert(False);
+		return False;
 
 def saveIDL(filename, annotations):
 	[name, ext] = os.path.splitext(filename)
@@ -976,3 +1007,5 @@ def annoAnalyze(detIDL):
 		filteredIDL.append(a)
 		
 	return filteredIDL
+
+
