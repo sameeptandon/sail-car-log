@@ -59,6 +59,9 @@ class GPSReader():
     for line in f:
       l = line.rstrip()
       tokens = l.split(',');
+      # for TAGGEDMARKxPVA logs, delete the tag, and then process as is
+      if len(tokens) == 22:
+          del tokens[11] # eventID token
       if len(tokens) == 21:
         record = { }
         for idx in range(10):
