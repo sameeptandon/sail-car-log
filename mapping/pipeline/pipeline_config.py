@@ -16,7 +16,7 @@ DATA_DIR = '/scr/scl'
 ROUTE = os.getenv('SCL_ROUTE', '4-2-14-monterey')
 SEGMENT = os.getenv('SCL_SEGMENT', '280N')
 SPLIT = os.getenv('SCL_SPLIT', 'a')
-CAMERA = 2
+CAMERA = 3
 
 DSET = '%s_%s%d' % (SEGMENT, SPLIT, CAMERA)
 #DSET = 'sandhill_b2'

@@ -29,10 +29,10 @@ def R_to_c_from_w(roll, pitch, yaw, cam):
     return dot(R_to_c_from_i(cam), R_to_i_from_w(roll, pitch, yaw) )
 
 
-def integrateVelocity(vel, dt=1/50.0):
+def integrateVelocity(vel, dt):
     return np.cumsum(vel*dt, axis=0)
 
-def smoothCoordinates(GPSData):
+def smoothCoordinates(GPSData, dt):
     tr = np.array([np.eye(4),]*GPSData.shape[0])
 
     roll_start = deg2rad(GPSData[0,8])
@@ -40,7 +40,7 @@ def smoothCoordinates(GPSData):
     yaw_start = -deg2rad(GPSData[0,9])
     base_R_to_i_from_w = R_to_i_from_w(roll_start, pitch_start, yaw_start)
 
-    NEU_coords = integrateVelocity(GPSData[:,4:7])
+    NEU_coords = integrateVelocity(GPSData[:,4:7], dt=dt)
     ENU_coords = np.array(NEU_coords)
     ENU_coords[:,0] = NEU_coords[:,1]
     ENU_coords[:,1] = NEU_coords[:,0]
@@ -67,7 +67,8 @@ def smoothCoordinates(GPSData):
 returns the relative transformations of the IMU from time 0 to the end of the GPS log. 
 """ 
 def IMUTransforms(GPSData):
-    return smoothCoordinates(GPSData)
+    dt = GPSData[1, 0] - GPSData[0, 0]
+    return smoothCoordinates(GPSData, dt=dt)
 
 def GPSTransforms(GPSData, Camera, width=2): 
 

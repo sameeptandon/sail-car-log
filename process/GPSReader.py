@@ -53,13 +53,18 @@ class GPSReader():
   def __init__(self, filename):
     self.data = [ ]
     self.token_order = ['seconds', 'lat', 'long', 'height',
-        'v_north', 'v_east', 'v_up', 'rot_y', 'rot_x', 
+        'v_north', 'v_east', 'v_up', 'rot_y', 'rot_x',
         'azimuth', 'week'];
     f = open(filename);
     for line in f:
       l = line.rstrip()
-      tokens = l.split(',');
+      tokens = l.split(',')
+      for k in range(len(tokens)):
+          if 'PVA' in tokens[k]:
+              break
+      tokens = tokens[k:]
       # for TAGGEDMARKxPVA logs, delete the tag, and then process as is
+      #print tokens
       if len(tokens) == 22:
           del tokens[11] # eventID token
       if len(tokens) == 21:
@@ -79,7 +84,7 @@ class GPSReader():
       for j in range(11):
         arr[t,j] = self.data[t][self.token_order[j]]
 
-    
+
     #arr[:, 1] = smoothData(arr[:, 1])
     #arr[:, 2] = smoothData(arr[:, 2])
     #arr[:, 3] = smoothData(arr[:, 3])

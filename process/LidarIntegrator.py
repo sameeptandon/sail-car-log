@@ -94,15 +94,17 @@ def stepVideo(video_reader, step):
         (success, I) = video_reader.getNextFrame()
     return success
 
+
 def interp_transforms(T1, T2, alpha):
     assert alpha <= 1
     T_avg = alpha * T1 + (1 - alpha) * T2
     q1 = quaternion_from_matrix(T1)
     q2 = quaternion_from_matrix(T2)
-    q3 = quaternion_slerp(q1,q2,alpha)
+    q3 = quaternion_slerp(q1, q2, alpha)
     R = quaternion_matrix(q3)
     T_avg[0:3, 0:3] = R[0:3,0:3]
     return T_avg
+
 
 def interp_transforms_backward(imu_transforms, ind):
     assert ind < 0, 'No need to call interp_transforms_backward'

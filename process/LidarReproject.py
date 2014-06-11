@@ -9,7 +9,8 @@ from transformations import euler_matrix
 import numpy as np
 import cv2
 from ArgParser import *
-from LidarIntegrator import transform_points_in_sweep
+import bisect
+from LidarIntegrator import interp_transforms
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -32,22 +33,20 @@ def cloudToPixels(cam, pts_wrt_cam):
     return (pix, mask)
 
 def lidarPtsToPixels(pts_wrt_imu_0, imu_transforms_t, T_from_i_to_l, cam):
-    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0,
-        np.ones((1,pts_wrt_imu_0.shape[1]))))
-
     # Transform points back to imu_t
-    pts_wrt_imu_t = np.dot( np.linalg.inv(imu_transforms_t), pts_wrt_imu_0)
+    pts_wrt_imu_t = np.dot(np.linalg.inv(imu_transforms_t), pts_wrt_imu_0)
+    #pts_wrt_imu_t = pts_wrt_imu_0
 
     # transform points from imu_t to lidar_t
     pts_wrt_lidar_t = np.dot(T_from_i_to_l, pts_wrt_imu_t)
 
     # transform points from lidar_t to camera_t
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
-    pts_wrt_camera_t = dot(R_to_c_from_l(cam), 
+    pts_wrt_camera_t = dot(R_to_c_from_l(cam),
             pts_wrt_camera_t.transpose())
 
     pts_wrt_camera_t = np.vstack((pts_wrt_camera_t,
-        np.ones((1,pts_wrt_camera_t.shape[1]))))
+        np.ones((1, pts_wrt_camera_t.shape[1]))))
     pts_wrt_camera_t = dot(cam['E'], pts_wrt_camera_t)
     pts_wrt_camera_t = pts_wrt_camera_t[0:3,:]
 
@@ -57,39 +56,66 @@ def lidarPtsToPixels(pts_wrt_imu_0, imu_transforms_t, T_from_i_to_l, cam):
     return (pix, mask)
 
 
+def transform_points_by_times(pts, t_pts, imu_transforms, gps_times):
+    print pts.shape, t_pts.shape
+    for t in set(t_pts):
+        mask = t_pts == t
+
+        fnum1 = bisect.bisect(gps_times, t) - 1
+        fnum2 = fnum1 + 1
+        alpha = (1 - (t - gps_times[fnum1])) / float(gps_times[fnum2] - gps_times[fnum1])
+
+        T1 = imu_transforms[fnum1, :, :]
+        T2 = imu_transforms[fnum2, :, :]
+
+        transform = interp_transforms(T1, T2, alpha)
+
+        # transform data into imu_0 frame
+        pts[:, mask] = np.dot(transform, pts[:, mask])
+
+
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
     video_file = args['video']
     video_reader = VideoReader(video_file)
-    params = args['params'] 
+    params = args['params']
     cam = params['cam'][cam_num-1]
-    gps_reader = GPSReader(args['gps_mark2'])
-    gps_data = gps_reader.getNumericData()
+
+    gps_reader_mark1 = GPSReader(args['gps_mark1'])
+    gps_data_mark1 = gps_reader_mark1.getNumericData()
+    gps_reader_mark2 = GPSReader(args['gps_mark2'])
+    gps_data_mark2 = gps_reader_mark2.getNumericData()
+
     lidar_loader = LDRLoader(args['frames'])
-    imu_transforms = IMUTransforms(gps_data)
+    #imu_transforms_mark1 = IMUTransforms(gps_data_mark1)
+    imu_transforms_mark2 = IMUTransforms(gps_data_mark2)
+    #gps_times_mark1 = utc_from_gps_log_all(gps_data_mark1)
+    gps_times_mark2 = utc_from_gps_log_all(gps_data_mark2)
 
     T_from_l_to_i = params['lidar']['T_from_l_to_i']
-    T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
+    T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
 
     while True:
         (success, I) = video_reader.getNextFrame()
-        print gps_data[video_reader.framenum,:]
-        fnum = video_reader.framenum*2
-        t = utc_from_gps_log(gps_data[fnum,:])
-        data = lidar_loader.loadLDRWindow(t, 0.1)
+        fnum = video_reader.framenum * 2
+        #t = utc_from_gps_log(gps_data_mark2[fnum, :])
+        t = gps_times_mark2[fnum]
+        data, t_data = lidar_loader.loadLDRWindow(t-50000, 0.1)
         print data.shape
 
         # Transform data into IMU frame at time t
         pts = data[:, 0:3].transpose()
-        pts = np.vstack((pts,np.ones((1, pts.shape[1]))))
+        pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
         pts = np.dot(T_from_l_to_i, pts)
 
-        # Shift points according to timestamps instead of using transform of full sweep
-        times = data[:, 5]
-        transform_points_in_sweep(pts, times, fnum, imu_transforms)
+        #fnum_mark1 = bisect.bisect(gps_times_mark1, t)
 
-        (pix, mask) = lidarPtsToPixels(pts, imu_transforms[fnum, :, :], T_from_i_to_l, cam)
+        # Shift points according to timestamps instead of using transform of full sweep
+        #transform_points_by_times(pts, t_data, imu_transforms_mark1, gps_times_mark1)
+        transform_points_by_times(pts, t_data, imu_transforms_mark2, gps_times_mark2)
+
+        (pix, mask) = lidarPtsToPixels(pts, imu_transforms_mark2[fnum, :, :], T_from_i_to_l, cam)
 
         intensity = data[mask, 3]
         heat_colors = heatColorMapFast(intensity, 0, 100)
@@ -98,4 +124,4 @@ if __name__ == '__main__':
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
 
         cv2.imshow('vid', cv2.pyrDown(I))
-        cv2.waitKey(500)
+        cv2.waitKey(5)

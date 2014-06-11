@@ -49,6 +49,11 @@ def loadLDRCamMap(frame_cloud_map):
 def utc_from_gps_log(log):
     return utc_from_gps(log[10], log[0])
 
+
+def utc_from_gps_log_all(log):
+    return utc_from_gps(log[:, 10], log[:, 0])
+
+
 def utc_from_gps(gps_week, seconds, leap_seconds=16):
     """ Converts from gps week time to UTC time. UTC time starts from JAN 1,
         1970 and GPS time starts from JAN 6, 1980.
@@ -59,8 +64,12 @@ def utc_from_gps(gps_week, seconds, leap_seconds=16):
     secs_in_week = 604800
     secs_gps_to_utc = 315964800
 
-    return long((gps_week * secs_in_week + seconds + secs_gps_to_utc
-                - leap_seconds) * 1000000)
+    utc = (gps_week * secs_in_week + seconds + secs_gps_to_utc -
+        leap_seconds) * 1000000
+    if type(gps_week) is np.ndarray:
+        return np.array(utc, dtype=np.int64)
+    else:
+        return long(utc)
 
 
 class LDRLoader(object):
@@ -91,7 +100,7 @@ class LDRLoader(object):
         all_times = None
         for (ldr_file, sweep_end_time) in zip(ldr_files, sweep_end_times):
             data = loadLDR(ldr_file)
-            times = -1 * data[:, 5] + sweep_end_time
+            times = -1 * np.array(data[:, 5], dtype=np.int64) + sweep_end_time
 
             if all_data is None:
                 all_data = data
@@ -104,7 +113,7 @@ class LDRLoader(object):
 
         mask = (all_times >= microsec_since_epoch - time_window / 2.0) &\
                (all_times <= microsec_since_epoch + time_window / 2.0)
-        return all_data[mask, :]
+        return all_data[mask, :], all_times[mask]
 
 
 def R_to_c_from_l_old(cam):
