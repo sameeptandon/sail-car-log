@@ -35,6 +35,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         (rx,ry,rz,crx,cry,crz) = map(lambda x: float(x), data.split(','))
         
         R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
+        #cR = euler_matrix(crx, cry, crz)[0:3,0:3]
         cR = euler_matrix(crx, cry, crz)[0:3,0:3]
         paramInit = True
 
@@ -125,7 +126,7 @@ if __name__ == '__main__':
             I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
 
-        cv2.imshow('vid', cv2.pyrDown(I))
+        cv2.imshow('vid', I)
         key = cv2.waitKey(10)
         if key == -1:
             continue

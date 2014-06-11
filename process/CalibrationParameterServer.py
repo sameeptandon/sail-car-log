@@ -9,7 +9,7 @@ global cry
 global crz
 
 (rx,ry,rz) = (0.005,-0.0101,-0.029)
-(crx,cry,crz) = (0.062,0.0116,0.0115)
+(crx,cry,crz) = (0.0, 0.0, 0.0)
 global all_connected
 
 def ParametersToString():
