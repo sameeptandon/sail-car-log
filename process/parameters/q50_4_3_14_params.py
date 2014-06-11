@@ -24,8 +24,8 @@ def GetQ50LidarParams():
 ##### LIDAR to Camera Calibration parameters #####
 
 def GetQ50CameraParams():
-    cam = [{}, {}, {}, {}, {}]
-    for i in [1, 0, 2, 3, 4]:
+    cam = [{}, {}, {}, {}, {}, {}]
+    for i in [1, 0, 2, 3, 4, 5]:
         cam[i]['R_to_c_from_i'] = np.array([[-1, 0, 0],
                                          [0, 0, -1],
                                          [0, -1, 0]])
@@ -65,18 +65,60 @@ def GetQ50CameraParams():
             cam[i]['cv'] = 450.24
             cam[i]['distort'] = np.array([-0.16879238412882028, 0.11971166628565273, -0.0017457365846050555, 0.0001853749033525837, 0.0])
 
-        elif i in range(2, 5):
+        elif i == 2:
             # FIXME
             R_to_c_from_l_in_camera_frame = euler_matrix(0.0, 0.05, 0.0)[0:3,0:3]
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             # FIXME
-            cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.7, -0.2, 0.5])
+            cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.53, 0.0, 0.40])
             cam[i]['E'] = np.eye(4)
 
             cam[i]['fx'] = 669.688574
             cam[i]['fy'] = 673.807170
             cam[i]['cu'] = 996.121080
-            cam[i]['cv'] = 264.973916
+            cam[i]['cv'] = 264.973916*2
+            # FIXME TODO
+            cam[i]['distort'] = np.array([-0.006067, 0.001167, 0.000275, 0.000828, 0.000000])
+        elif i == 3:
+            # FIXME
+            R_to_c_from_l_in_camera_frame = euler_matrix(np.pi / 2, 0.045, -0.0, 'syxz')[0:3,0:3]
+            cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
+            # FIXME
+            cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([0.0, -0.762, 0.40])
+            cam[i]['E'] = np.eye(4)
+
+            cam[i]['fx'] = 669.688574
+            cam[i]['fy'] = 673.807170
+            cam[i]['cu'] = 996.121080
+            cam[i]['cv'] = 264.973916*2
+            # FIXME TODO
+            cam[i]['distort'] = np.array([-0.006067, 0.001167, 0.000275, 0.000828, 0.000000])
+        elif i == 4:
+            # FIXME
+            R_to_c_from_l_in_camera_frame = euler_matrix(0.0, 0.0, 0.0)[0:3,0:3]
+            cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
+            # FIXME
+            cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([0.0, 0.67, 0.40])
+            cam[i]['E'] = np.eye(4)
+
+            cam[i]['fx'] = 669.688574
+            cam[i]['fy'] = 673.807170
+            cam[i]['cu'] = 996.121080
+            cam[i]['cv'] = 264.973916*2
+            # FIXME TODO
+            cam[i]['distort'] = np.array([-0.006067, 0.001167, 0.000275, 0.000828, 0.000000])
+        elif i == 5:
+            # FIXME
+            R_to_c_from_l_in_camera_frame = euler_matrix(0.0, 0.05, 0.0)[0:3,0:3]
+            cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
+            # FIXME
+            cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([0.50, 0.0, 0.40])
+            cam[i]['E'] = np.eye(4)
+
+            cam[i]['fx'] = 669.688574
+            cam[i]['fy'] = 673.807170
+            cam[i]['cu'] = 996.121080
+            cam[i]['cv'] = 264.973916*2
             # FIXME TODO
             cam[i]['distort'] = np.array([-0.006067, 0.001167, 0.000275, 0.000828, 0.000000])
 
