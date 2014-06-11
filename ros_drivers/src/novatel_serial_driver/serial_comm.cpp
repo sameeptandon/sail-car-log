@@ -26,14 +26,20 @@ void serial_comm::Connect(string port) {
     // reset stuff
     safeWrite("unlogall\r\n");
     safeWrite("fix none\r\n");
-    safeWrite("eventincontrol mark1 event\r\n");
+    safeWrite("eventincontrol mark1 event positive\r\n");
+    safeWrite("eventincontrol mark2 event positive\r\n");
     
     
     ///////// logging /////////////////
     //safeWrite("log mark1time onnew\r\n");
     safeWrite("log mark1pvaa onnew\r\n");
+    safeWrite("log tagnextmark mark2 2\r\n");
+    safeWrite("log taggedmark2pvaa onnew\r\n");
+    //safeWrite("log mark2pvaa onnew\r\n");
     safeWrite("log inscovs ontime 1 0 nohold\r\n");
     safeWrite("log gpgst ontime 1 0 nohold\r\n");
+
+    safeWrite("eventoutcontrol mark1 enable positive 10000000 10000000\r\n");
     //safeWrite(port, "log usb1 bestposa ontime 0.5 0 nohold\r\n");
 }
 
@@ -45,7 +51,10 @@ void serial_comm::Run() {
 
 */
 void serial_comm::Close() {
+    safeWrite("eventoutcontrol mark1 disable\r\n");
     safeWrite("eventoutcontrol mark2 disable\r\n");
+    safeWrite("eventincontrol mark1 disable\r\n");
+    safeWrite("eventincontrol mark2 disable\r\n");
     safeWrite("unlogall\r\n");
     cout << "flushing GPS buffers" << endl;
     _port->flush();

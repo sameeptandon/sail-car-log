@@ -2,7 +2,7 @@
 
 <arg name="basename" />
 
-<!-- Start Left Camera Recording --> 
+<!-- Start Left Camera Recording -->
 <include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
     <arg name="basename" value="$(arg basename)" />
     <arg name="cameranum" value="1" />
@@ -16,6 +16,38 @@
     <arg name="cameranum" value="2" />
     <arg name="image_topic" value="/fwd_right/image_raw" />
     <arg name="writer_node_name" value="fwd_right_writer" />
+</include>
+
+<!-- Start WFOV Front Camera Recording -->
+<include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="3" />
+    <arg name="image_topic" value="/wfov_front/image_raw" />
+    <arg name="writer_node_name" value="wfov_front_writer" />
+</include>
+
+<!-- Start WFOV Left Camera Recording --> 
+<include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="4" />
+    <arg name="image_topic" value="/wfov_left/image_raw" />
+    <arg name="writer_node_name" value="wfov_left_writer" />
+</include>
+
+<!-- Start WFOV Right Camera Recording --> 
+<include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="5" />
+    <arg name="image_topic" value="/wfov_right/image_raw" />
+    <arg name="writer_node_name" value="wfov_right_writer" />
+</include>
+
+<!-- Start WFOV Back Camera Recording --> 
+<include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="6" />
+    <arg name="image_topic" value="/wfov_back/image_raw" />
+    <arg name="writer_node_name" value="wfov_back_writer" />
 </include>
 
 <!-- Start Velodyne Recording -->

@@ -16,43 +16,34 @@
 
 class ThreadedImageWriter
 {
-  image_transport::ImageTransport it_;
-  image_transport::Subscriber image_sub_;
-  SyncBuffer<cv::Mat> buffer[NUM_SPLITS];
-  Consumer<cv::Mat>* consumer[NUM_SPLITS];
-  uint64_t numframes;
-  std::ofstream img_ros_acq_time_file;
-  
-public:
-    ThreadedImageWriter(ros::NodeHandle nh)
-    : it_(nh)
-  {
-      std::string topic, basename;
-      int camera_num;
-      nh.param<std::string>("image", topic, std::string(""));
-      nh.param<std::string>("basename", basename, std::string(""));
-      nh.param<int>("cameranum", camera_num, 0); 
+    image_transport::ImageTransport it_;
+    image_transport::Subscriber image_sub_;
+    SyncBuffer<cv::Mat> buffer[NUM_SPLITS];
+    Consumer<cv::Mat>* consumer[NUM_SPLITS];
+    uint64_t numframes;
+    std::ofstream img_ros_acq_time_file;
+    bool init;
+    std::string topic, basename;
+    int camera_num;
+    ros::NodeHandle* _nh;
+    public:
+    ThreadedImageWriter(ros::NodeHandle* nh)
+        : it_(*nh)
+    {
+        nh->param<std::string>("image", topic, std::string(""));
+        nh->param<std::string>("basename", basename, std::string(""));
+        nh->param<int>("cameranum", camera_num, 0);
+        init = false;
+        _nh = nh;
 
-    for (int thread_num = 0; thread_num < NUM_SPLITS; thread_num++) {
-        stringstream sstm;
-        sstm << "split_" << thread_num << "_" << basename << camera_num << ".avi";
-        string thread_fname = sstm.str();
-        using namespace std;
-        cout << thread_fname << endl;
-        buffer[thread_num].getBuffer()->setCapacity(1000);
-        consumer[thread_num] = new Consumer<cv::Mat>(
-                buffer[thread_num].getBuffer(),
-                thread_fname, buffer[thread_num].getMutex(),
-                50.0f, 1280, 960, nh); 
-    }
-    numframes = 0;
-    stringstream sstm;
-    sstm << basename << camera_num << "_rostime.txt";
-    img_ros_acq_time_file.open(sstm.str().c_str());
-    ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
-    // Subscribe to input video feed and publish output video feed
-    image_sub_ = it_.subscribe(topic, 10000, 
-      &ThreadedImageWriter::imageCb, this);
+      stringstream sstm;
+      sstm << basename << camera_num << "_rostime.txt";
+      img_ros_acq_time_file.open(sstm.str().c_str());
+      numframes = 0; 
+      ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
+      // Subscribe to input video feed and publish output video feed
+      image_sub_ = it_.subscribe(topic, 1000, 
+              &ThreadedImageWriter::imageCb, this);
 
   }
 
@@ -80,6 +71,22 @@ public:
       ROS_ERROR("cv_bridge exception: %s", e.what());
       return;
     }
+    
+    if (!init) { 
+        for (int thread_num = 0; thread_num < NUM_SPLITS; thread_num++) {
+            stringstream sstm;
+            sstm << "split_" << thread_num << "_" << basename << camera_num << ".avi";
+            string thread_fname = sstm.str();
+            using namespace std;
+            cout << thread_fname << endl;
+            buffer[thread_num].getBuffer()->setCapacity(1000);
+            consumer[thread_num] = new Consumer<cv::Mat>(
+                    buffer[thread_num].getBuffer(),
+                    thread_fname, buffer[thread_num].getMutex(),
+                    20.0f, msg->width, msg->height, *_nh); 
+        }
+        init = true;
+    }
 
     numframes++; // this makes us effectively 1 index. 
     cv::Mat* img = new cv::Mat( cv_ptr->image ) ;
@@ -97,7 +104,7 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "video_writer");
   ros::NodeHandle nh("~");
-  ThreadedImageWriter ic(nh);
+  ThreadedImageWriter ic(&nh);
   ros::spin();
   ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(2.0));
   ic.stop();

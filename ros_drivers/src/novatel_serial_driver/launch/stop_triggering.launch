@@ -1,5 +1,9 @@
 <launch>
-    <node pkg="rostopic" type="rostopic" name="novatel_config"
-        args="pub /novatel_port_in std_msgs/String 'eventoutcontrol mark2 disable'" output="screen" />
+    <!--
+    <node pkg="rostopic" type="rostopic" name="novatel_config_m1"
+        args="pub /novatel_port_in std_msgs/String 'eventoutcontrol mark1 disable'" output="screen" />
+    -->
 
+    <node pkg="rostopic" type="rostopic" name="novatel_config_m2"
+        args="pub /novatel_port_in std_msgs/String 'eventoutcontrol mark2 disable'" output="screen" />
 </launch>
