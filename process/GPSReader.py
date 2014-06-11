@@ -74,9 +74,9 @@ class GPSReader():
     return self.data;
 
   def getNumericData(self):
-    arr = np.zeros([len(self.data), 10], np.float64);
+    arr = np.zeros([len(self.data), 11], np.float64);
     for t in range(len(self.data)):
-      for j in range(10):
+      for j in range(11):
         arr[t,j] = self.data[t][self.token_order[j]]
 
     
