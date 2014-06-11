@@ -46,6 +46,22 @@ def loadLDRCamMap(frame_cloud_map):
 
     return clouds
 
+def utc_from_gps_log(log):
+    return utc_from_gps(log[10], log[0])
+
+def utc_from_gps(gps_week, seconds, leap_seconds=16):
+    """ Converts from gps week time to UTC time. UTC time starts from JAN 1,
+        1970 and GPS time starts from JAN 6, 1980.
+
+        http://leapsecond.com/java/gpsclock.htm
+    """
+
+    secs_in_week = 604800
+    secs_gps_to_utc = 315964800
+
+    return long((gps_week * secs_in_week + seconds + secs_gps_to_utc
+                - leap_seconds) * 1000000)
+
 
 class LDRLoader(object):
 
