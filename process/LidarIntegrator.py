@@ -12,7 +12,7 @@ from GPSTransforms import *
 from VideoReader import *
 from LidarTransforms import *
 from VtkRenderer import *
-from transformations import euler_matrix
+from transformations import euler_matrix, quaternion_matrix, quaternion_from_matrix, quaternion_slerp
 import numpy as np
 from ColorMap import *
 import vtk
@@ -94,16 +94,15 @@ def stepVideo(video_reader, step):
         (success, I) = video_reader.getNextFrame()
     return success
 
-
 def interp_transforms(T1, T2, alpha):
     assert alpha <= 1
     T_avg = alpha * T1 + (1 - alpha) * T2
-    # Need to orthonormalize transform
-    R = T_avg[0:3, 0:3]
-    R = np.linalg.qr(R, mode='complete')[0]
-    T_avg[0:3, 0:3] = R
+    q1 = quaternion_from_matrix(T1)
+    q2 = quaternion_from_matrix(T2)
+    q3 = quaternion_slerp(q1,q2,alpha)
+    R = quaternion_matrix(q3)
+    T_avg[0:3, 0:3] = R[0:3,0:3]
     return T_avg
-
 
 def interp_transforms_backward(imu_transforms, ind):
     assert ind < 0, 'No need to call interp_transforms_backward'
@@ -120,7 +119,7 @@ def transform_points_in_sweep(pts, times, fnum, imu_transforms):
         mask = times == time
 
         # FIXME PARAM
-        offset = (time / float(1e6)) / 0.02
+        offset = (time / float(1e6)) / 0.05
         offset = min(5, offset)
 
         ind1 = int(fnum - math.ceil(offset))
