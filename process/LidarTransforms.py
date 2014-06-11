@@ -1,11 +1,16 @@
-import numpy as np
 import os
+import glob
+import numpy as np
+
+# PARAM
+SWEEP_TIME_MICROSEC = 100000
 
 
 def loadLDR(ldrfile):
     z = np.fromfile(ldrfile, dtype=np.float32)
     z = z.reshape((z.shape[0] / 6, 6))
     return z
+
 
 def loadPCD(pcdfile): 
     f = open(pcdfile, 'r')
@@ -27,6 +32,7 @@ def loadPCD(pcdfile):
 
     return pts
 
+
 def loadLDRCamMap(frame_cloud_map):
     map_file = open(frame_cloud_map, 'r')
     clouds = []
@@ -39,6 +45,67 @@ def loadLDRCamMap(frame_cloud_map):
     map_file.close()
 
     return clouds
+
+def utc_from_gps_log(log):
+    return utc_from_gps(log[10], log[0])
+
+def utc_from_gps(gps_week, seconds, leap_seconds=16):
+    """ Converts from gps week time to UTC time. UTC time starts from JAN 1,
+        1970 and GPS time starts from JAN 6, 1980.
+
+        http://leapsecond.com/java/gpsclock.htm
+    """
+
+    secs_in_week = 604800
+    secs_gps_to_utc = 315964800
+
+    return long((gps_week * secs_in_week + seconds + secs_gps_to_utc
+                - leap_seconds) * 1000000)
+
+
+class LDRLoader(object):
+
+    def __init__(self, ldr_dir):
+        ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, '*.ldr'))))
+        file_times = np.array([int(os.path.splitext(os.path.basename(f))[0]) for f in ldr_files], dtype=np.int64)
+        sweep_end_times = file_times
+        sweep_start_times = sweep_end_times[:-1]
+        sweep_start_times = np.insert(sweep_start_times, 0,
+                sweep_start_times[0] - SWEEP_TIME_MICROSEC)
+        self.ldr_files = np.array(ldr_files)
+        self.sweep_start_times = sweep_start_times
+        self.sweep_end_times = sweep_end_times
+
+    def loadLDRWindow(self, microsec_since_epoch, time_window_sec):
+        time_window = time_window_sec * 1e6
+
+        # Get files that may have points within the time window
+        mask = (self.sweep_start_times >= microsec_since_epoch - time_window / 2.0 - SWEEP_TIME_MICROSEC) &\
+               (self.sweep_end_times <= microsec_since_epoch + time_window / 2.0 + SWEEP_TIME_MICROSEC)
+        ldr_files = self.ldr_files[mask].tolist()
+        #print ldr_files
+        sweep_end_times = self.sweep_end_times[mask].tolist()
+
+        # Load the points from those times
+        all_data = None
+        all_times = None
+        for (ldr_file, sweep_end_time) in zip(ldr_files, sweep_end_times):
+            data = loadLDR(ldr_file)
+            times = -1 * data[:, 5] + sweep_end_time
+
+            if all_data is None:
+                all_data = data
+                all_times = times
+            else:
+                all_data = np.vstack((all_data, data))
+                all_times = np.concatenate((all_times, times))
+
+        # Filter points within time window
+
+        mask = (all_times >= microsec_since_epoch - time_window / 2.0) &\
+               (all_times <= microsec_since_epoch + time_window / 2.0)
+        return all_data[mask, :]
+
 
 def R_to_c_from_l_old(cam):
     # hard coded calibration parameters for now

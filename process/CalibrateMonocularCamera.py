@@ -2,7 +2,8 @@ import sys, os, cv2, cv, random
 import numpy as np
 from transformations import euler_from_matrix
 
-patternShape = (10,7)
+#patternShape = (10,7)
+patternShape = (12, 8)
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 def loadFiles(target_dir, filter_fn): 
@@ -30,7 +31,7 @@ if __name__ == '__main__':
     for img in left_imgs: 
         flags = cv2.CALIB_CB_FAST_CHECK
         I_left = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        ret_left, left_corners = cv2.findChessboardCorners(I_left, patternShape, None, flags=flags)
+        ret_left, left_corners = cv2.findChessboardCorners(I_left, patternShape, None)#, flags=flags)
 
         if ret_left == False:
             print 'no checkerboard found??'
@@ -55,9 +56,7 @@ if __name__ == '__main__':
 
     # generate obj_pts
     pattern_points = np.zeros((np.prod(patternShape), 3), np.float32)
-    pattern_points[:,:2] = np.indices(patternShape).T.reshape(-1,2) * 0.0995
-
-    print pattern_points
+    pattern_points[:,:2] = np.indices(patternShape).T.reshape(-1,2) * 0.099
     left_obj_pts = [ ] 
     for j in range(len(left_data)):
         left_obj_pts.append(np.copy(pattern_points))

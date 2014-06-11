@@ -11,9 +11,15 @@ import cv2
 from ArgParser import *
 from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
-from matplotlib.cm import jet
+from matplotlib.cm import jet, rainbow
+from LidarIntegrator import start_fn
 
 WINDOW = 2#50*2.5
+
+#IMG_WIDTH = 1280
+#IMG_HEIGHT = 960
+IMG_WIDTH = 2080
+IMG_HEIGHT = 1552
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -25,8 +31,8 @@ def cloudToPixels(cam, pts_wrt_cam):
     pix = pix.astype(np.int32)
     mask = np.logical_and(True, pix[0,:] > 0 + width/2)
     mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
-    mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
-    mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
+    mask = np.logical_and(mask, pix[0,:] < 2080 - width/2)
+    mask = np.logical_and(mask, pix[1,:] < 1552 - width/2)
     mask = np.logical_and(mask, pts_wrt_cam[2,:] > 0)
     dist_sqr = np.sum( pts_wrt_cam[0:3, :] ** 2, axis = 0)
     mask = np.logical_and(mask, dist_sqr > 3)
@@ -64,6 +70,7 @@ def trackbarOnchange(t, prev_t):
 
 
 if __name__ == '__main__':
+
     args = parse_args(sys.argv[1], sys.argv[2])
     cam_num = int(sys.argv[2][-5])
     video_file = args['video']
@@ -86,23 +93,27 @@ if __name__ == '__main__':
     print "Hit 'q' to quit"
     trackbarInit = False
 
-    interp_grid = np.mgrid[0:1280, 0:960]
+    interp_grid = np.mgrid[0:IMG_WIDTH, 0:IMG_HEIGHT]
 
     #pix_list = list()
     #depth_list = list()
     #img_list = list()
 
-    fps = 30  # PARAM
+    fps = 10  # PARAM
     fourcc = cv2.cv.CV_FOURCC(*'MJPG')
     video_writer = cv2.VideoWriter()
-    video_writer.open('tmp.avi', fourcc, fps, (1280, 960))  # PARAM
+    video_writer.open('tmp.avi', fourcc, fps, (IMG_WIDTH, IMG_HEIGHT))  # PARAM
+
+    video_reader.setFrame(start_fn)
 
     #while len(pix_list) < 10:
     while True:
-        for count in range(1):
+        for count in range(10):
             (success, I) = video_reader.getNextFrame()
+            #print I.shape
 
         if not success:
+            print 'Done reading video', video_file
             break
 
         t = video_reader.framenum - 1
@@ -110,6 +121,7 @@ if __name__ == '__main__':
         mask_window = (map_data[:,4] < t + WINDOW) & (map_data[:,4] > t )
         map_data_copy = array(map_data[mask_window, :])
         if map_data_copy.size == 0:
+            print 'Map data empty'
             break
 
         # reproject
@@ -124,11 +136,13 @@ if __name__ == '__main__':
         img_interp[np.isnan(img_interp)] = max(depth)  # PARAM
         print max(depth)
 
-        img_color = jet(img_interp / max(depth))  # PARAM
+        img_color = rainbow(img_interp / max(depth))  # PARAM
+        #plt.imshow(img_color)
+        #plt.show()
         img_color = img_color[:, :, 0:3]
         img_color = np.uint8(img_color * 255)
 
-        img_out = np.uint8(0.5 * I + 0.5*img_color)
+        img_out = np.uint8(0.0 * I + 1.0*img_color)
         video_writer.write(img_out)
 
         #pix_list.append(pix[:, mask])
