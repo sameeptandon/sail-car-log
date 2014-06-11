@@ -5,6 +5,8 @@
 #include <vector>
 #include <iostream>
 #define SHUTTER_PARAM (190) // 3 MS
+#define WFOV_SHUTTER_PARAM (96) // 1 MS
+//#define SHUTTER_PARAM (1451) // 3 MS
 
 //#define NOSYNC
 
@@ -103,13 +105,29 @@ void setProperty(Camera* cam, PropertyType p, float val) {
     }
 }
 
-void setWhiteBalance(Camera* cam, int red, int blue) {
+void setWhiteBalanceOff(Camera* cam) {
     Error error;
     Property prop;
     prop.type = WHITE_BALANCE;
     prop.absControl = false;
     prop.present = true; 
     prop.onOff = false;
+    prop.autoManualMode = false; 
+    prop.valueA = 500;
+    prop.valueB = 500;
+    error = cam->SetProperty( &prop );
+    if ( error != PGRERROR_OK ) {
+        PrintError(error);
+    }
+}
+
+void setWhiteBalance(Camera* cam, int red, int blue) {
+    Error error;
+    Property prop;
+    prop.type = WHITE_BALANCE;
+    prop.absControl = false;
+    prop.present = true; 
+    prop.onOff = true;
     prop.autoManualMode = false; 
     prop.valueA = red;
     prop.valueB = blue;
@@ -142,19 +160,34 @@ int configureImageSettings(Camera* cam) {
     writeRegister(cam, 0x1098, bytes);
     //setProperty(cam, GAIN, 0.0);
     //setProperty(cam, SHUTTER, 3.0);
+    setProperty(cam, FRAME_RATE, 1);
 
-    setWhiteBalance(cam, 511, 815);
+    setWhiteBalanceOff(cam);
 
     return 1;
 }
 
+int configureWFOVImageSettings(Camera* cam) {
+    Error error;
+
+    //unsigned int bytes = readRegister(cam, 0x1098);
+    //bytes = bytes & (-1 << 12);
+    //bytes = bytes | (WFOV_SHUTTER_PARAM);
+    //writeRegister(cam, 0x1098, bytes);
+    setProperty(cam, GAIN, 0.0);
+    setProperty(cam, SHUTTER, 0.9);
+    setProperty(cam, FRAME_RATE, 1);
+    setWhiteBalance(cam, 550, 631);
+
+    return 1;
+}
 int configureBusAndTrigger(Camera* cam) { 
     Error error; 
 
     FC2Config pConfig;
     cam->GetConfiguration(&pConfig);
     pConfig.grabMode = BUFFER_FRAMES;
-    pConfig.numBuffers = 10;
+    pConfig.numBuffers = 15;
     //pConfig.isochBusSpeed = BUSSPEED_S5000;
     //pConfig.asyncBusSpeed = BUSSPEED_S5000;
     //pConfig.highPerformanceRetrieveBuffer = true;
@@ -177,6 +210,37 @@ int configureBusAndTrigger(Camera* cam) {
 #endif
 }
 
+int configureWFOVBusAndTrigger(Camera* cam) { 
+    Error error; 
+
+    FC2Config pConfig;
+    cam->GetConfiguration(&pConfig);
+    pConfig.grabMode = BUFFER_FRAMES;
+    pConfig.numBuffers = 10;
+    //pConfig.isochBusSpeed = BUSSPEED_S5000;
+    //pConfig.asyncBusSpeed = BUSSPEED_S5000;
+    //pConfig.highPerformanceRetrieveBuffer = true;
+    pConfig.grabTimeout = (int)(1000.0); // Needs to be in ms
+    cam->SetConfiguration(&pConfig);
+
+#ifndef NOSYNC
+    //enable triggering mode
+    TriggerMode mTrigger;
+    mTrigger.mode = 15; 
+    mTrigger.source = 0; 
+    mTrigger.parameter = 2; 
+    mTrigger.onOff = true; 
+    mTrigger.polarity = 1; 
+    error = cam->SetTriggerMode(&mTrigger); 
+    if (error != PGRERROR_OK) {
+        PrintError(error);
+        return -1;
+    }
+
+
+#endif
+}
+
 int RunWideAngleCamera(Camera* cam) {
     Error error;
 
@@ -193,11 +257,12 @@ int RunWideAngleCamera(Camera* cam) {
 
     Format7ImageSettings settings;
     settings.width = 2080;
-    settings.height = 1552;
+    settings.height = 1040;
     settings.mode = MODE_0;
     settings.offsetX = 0;
-    settings.offsetY = 0;
-    settings.pixelFormat = PIXEL_FORMAT_422YUV8;
+    settings.offsetY = 256;
+    //settings.pixelFormat = PIXEL_FORMAT_422YUV8;
+    settings.pixelFormat = PIXEL_FORMAT_RAW8;
 
     bool settings_valid;
     Format7PacketInfo packet_info; 
@@ -210,8 +275,8 @@ int RunWideAngleCamera(Camera* cam) {
         return -1;
     }
   
-    configureImageSettings(cam);
-    configureBusAndTrigger(cam); 
+    configureWFOVImageSettings(cam);
+    configureWFOVBusAndTrigger(cam); 
 
     // Start capturing images
     printf( "Starting capture... \n" );

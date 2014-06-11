@@ -7,9 +7,21 @@
 #include <sensor_msgs/Image.h> // ROS message header for Image
 #include <sensor_msgs/image_encodings.h> // ROS header for the different supported image encoding types
 #include <sensor_msgs/fill_image.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 using namespace FlyCapture2;
 using namespace std;
+
+void convertToCV(const Image* obj, IplImage* img) {
+    img->height = obj->GetRows();
+    img->width = obj->GetCols();
+    img->widthStep = obj->GetStride();
+    img->nChannels = 3;
+    img->imageData = (char*) obj->GetData(); 
+}
+
 
 int main(int argc, char **argv){
     ros::init(argc, argv, "pointgrey_camera_driver");
@@ -52,7 +64,9 @@ int main(int argc, char **argv){
     image_transport::CameraPublisher it_pub = it->advertiseCamera("/" + ros::this_node::getNamespace() + "/image_raw", 1000);
 
     // get ready for capture loop
+    Image image;
     Image bgrImage;
+    IplImage* cvImg;
     string imageEncoding = sensor_msgs::image_encodings::BGR8;
     sensor_msgs::ImagePtr ros_image; ///< Camera Info message.
     sensor_msgs::CameraInfoPtr ci; ///< Camera Info message.
@@ -71,14 +85,18 @@ int main(int argc, char **argv){
     while (ros::ok()) {
 
         // try to get an image
-        Image image;
         Error error = cam->RetrieveBuffer(&image);
 
-        //check if we had no image in the timeout 
+        //check if we had a timeout or some other error 
         if (error == PGRERROR_TIMEOUT) 
             continue;
         else if (error != PGRERROR_OK)
             throw std::runtime_error(error.GetDescription());
+
+        // HACK: throw away half the frames for the WFOV cameras
+        num_frames++;
+        if (camera_type.compare("wide") == 0 && num_frames % 2 != 1)
+            continue;
 
         //grabbed image, reset ros structures and fill out fields
         ros_image.reset(new sensor_msgs::Image());
@@ -91,13 +109,18 @@ int main(int argc, char **argv){
         
         //convert to bgr
         image.Convert(PIXEL_FORMAT_BGR, &bgrImage);
+        cvImg = cvCreateImageHeader(cvSize(bgrImage.GetCols(), bgrImage.GetRows()), IPL_DEPTH_8U, 3);
+        convertToCV(&bgrImage, cvImg);
+
+        if (camera_type.compare("wide") == 0)
+            cvFlip(cvImg, cvImg, -1);
 
         // package in ros header 
-        fillImage(*ros_image, imageEncoding, bgrImage.GetRows(), bgrImage.GetCols(), bgrImage.GetStride(), bgrImage.GetData());
+         //fillImage(*ros_image, imageEncoding, bgrImage.GetRows(), bgrImage.GetCols(), bgrImage.GetStride(), bgrImage.GetData());
+        fillImage(*ros_image, imageEncoding, cvImg->height, cvImg->width, cvImg->widthStep, cvImg->imageData);
 
         // Publish the message using standard image transport
         it_pub.publish(ros_image, ci);
-        num_frames++;
     }
 
     // node asked to terminate

@@ -42,7 +42,7 @@ class ThreadedImageWriter
       numframes = 0; 
       ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
       // Subscribe to input video feed and publish output video feed
-      image_sub_ = it_.subscribe(topic, 10000, 
+      image_sub_ = it_.subscribe(topic, 1000, 
               &ThreadedImageWriter::imageCb, this);
 
   }
@@ -83,7 +83,7 @@ class ThreadedImageWriter
             consumer[thread_num] = new Consumer<cv::Mat>(
                     buffer[thread_num].getBuffer(),
                     thread_fname, buffer[thread_num].getMutex(),
-                    50.0f, msg->width, msg->height, *_nh); 
+                    20.0f, msg->width, msg->height, *_nh); 
         }
         init = true;
     }

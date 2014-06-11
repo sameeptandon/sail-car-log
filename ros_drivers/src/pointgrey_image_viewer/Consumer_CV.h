@@ -33,7 +33,7 @@ class Consumer
         void receiveAndProcess () {
             while (!_is_done) {
                 if (_buf->isEmpty()) {
-                    usleep(1000 / 200); // poll at max of 120hz
+                    usleep(10000); // poll at max of 120hz
                 } else { 
                     while (!_buf->isEmpty ())  {
                         int buf_size = _buf->getSize();
@@ -67,6 +67,7 @@ class Consumer
                 CV_FOURCC('F','M','P','4'),
                 //CV_FOURCC('U','2','6','3'),
                 //CV_FOURCC('M','P','E','G'),
+                //CV_FOURCC('M','J','P','G'),
                 _frameRate,
                 cvSize(imWidth, imHeight));
 
