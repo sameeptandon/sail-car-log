@@ -96,6 +96,7 @@ int main(int argc, char** argv)
   cv::Mat frame;
   std::vector<cv::Point2f> pixels;
   std::vector<cv::Point2f> filtered_pixels;
+  std::vector<cv::Point2f> corner_pixels;
 
   for (int k = start; k < end; k += step)
   {
@@ -171,12 +172,24 @@ int main(int argc, char** argv)
 
       for (int k = 0; k < clusters.size(); k++)
       {
+        // Determine 3d bounding box
+
+        pcl::PointXYZ min_pt, max_pt;
+        pcl::getMinMax3D(*(clusters[k]), min_pt, max_pt);
+        CloudPtr corners_cloud(new Cloud);
+        get_box_corners(min_pt, max_pt, corners_cloud);
+        project_cloud_eigen(corners_cloud, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(),
+                params().intrinsics, params().distortions, corner_pixels);
+        draw_bbox_3d_from_corner_pixels(corner_pixels, cv::Scalar(0, 0, 255), frame, 2);
+
+        // Project point cloud and draw 2D bounding box
+
         project_cloud_eigen(clusters[k], Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(),
                 params().intrinsics, params().distortions, pixels);
 
         std::vector<int> filtered_pixel_indices;
         filter_pixels(pixels, frame, filtered_pixels, filtered_pixel_indices);
-        if (filtered_pixels.size() > 0)
+        if (filtered_pixels.size() > params().obj_min_cluster_size)
             set_pixel_colors(filtered_pixels, cv::Vec3b(255, 0, 0), frame, 2);
             draw_bbox_from_pixels(filtered_pixels, cv::Scalar(0, 255, 0), frame, 3);
       }

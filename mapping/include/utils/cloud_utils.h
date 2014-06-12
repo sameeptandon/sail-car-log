@@ -8,6 +8,7 @@
 #include <pcl/correspondence.h>
 #include <pcl/PointIndices.h>
 
+void get_box_corners(pcl::PointXYZ min_pt, pcl::PointXYZ max_pt, boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ> > corners);
 
 template <typename PointT>
 void load_cloud(std::string pcd_path, boost::shared_ptr<pcl::PointCloud<PointT> > cloud);

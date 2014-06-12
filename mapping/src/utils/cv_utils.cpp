@@ -3,6 +3,9 @@
 #include <iostream>
 #include "utils/cv_utils.h"
 
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <limits>
@@ -79,5 +82,25 @@ void draw_bbox_from_pixels(const std::vector<cv::Point2f>& pixels, const cv::Sca
         y_max = std::max(y_max, pixels[k].y);
     }
     // Draw rectangle
-    cv::rectangle(img, cv::Point(x_min, y_min), cv::Point(x_max, y_max), color, line_width, 8, 0);
+    if (!(x_min == img.cols))  // FIXME Temporary hack
+        cv::rectangle(img, cv::Point(x_min, y_min), cv::Point(x_max, y_max), color, line_width, 8, 0);
+}
+
+
+void draw_bbox_3d_from_corner_pixels(const std::vector<cv::Point2f>& corner_pixels, const cv::Scalar& color, cv::Mat& img, int line_width)
+{
+    for (int k = 0; k < 8; k++)
+        if (corner_pixels[k].x < 0 || corner_pixels[k].y < 0)
+            return;
+
+    std::vector<cv::Point2f> corner_pixels_top(&corner_pixels[0], &corner_pixels[4]);
+    std::vector<cv::Point2f> corner_pixels_bottom(&corner_pixels[4], &corner_pixels[8]);
+    for (int k = 0; k < 4; k++)
+        cv::line(img, corner_pixels[k], corner_pixels[k+4], color, line_width, 8, 0);
+    for (int k = 0; k < 4; k++)
+        cv::line(img, corner_pixels[k*2], corner_pixels[k*2+1], color, line_width, 8, 0);
+    cv::line(img, corner_pixels[0], corner_pixels[3], color, line_width, 8, 0);
+    cv::line(img, corner_pixels[1], corner_pixels[2], color, line_width, 8, 0);
+    cv::line(img, corner_pixels[4], corner_pixels[7], color, line_width, 8, 0);
+    cv::line(img, corner_pixels[5], corner_pixels[6], color, line_width, 8, 0);
 }
