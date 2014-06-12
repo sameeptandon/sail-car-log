@@ -3,6 +3,11 @@
 #include <iostream>
 #include "utils/cv_utils.h"
 
+#include <boost/algorithm/string/predicate.hpp>
+
+#include <limits>
+
+
 void filter_pixels(const std::vector<cv::Point2f>& pixels, const cv::Mat& img, std::vector<cv::Point2f>& filtered_pixels)
 {
     std::vector<int> filtered_indices;
@@ -56,4 +61,23 @@ void set_pixel_colors(const std::vector<cv::Point2f>& pixels, const cv::Vec3b& c
             }
         }
     }
+}
+
+
+void draw_bbox_from_pixels(const std::vector<cv::Point2f>& pixels, const cv::Scalar& color, cv::Mat& img, int line_width)
+{
+    // Compute bbox
+    float x_min = img.cols;
+    float x_max = 0;
+    float y_min = img.rows;
+    float y_max = 0;
+    for (int k = 0; k < pixels.size(); k++)
+    {
+        x_min = std::min(x_min, pixels[k].x);
+        x_max = std::max(x_max, pixels[k].x);
+        y_min = std::min(y_min, pixels[k].y);
+        y_max = std::max(y_max, pixels[k].y);
+    }
+    // Draw rectangle
+    cv::rectangle(img, cv::Point(x_min, y_min), cv::Point(x_max, y_max), color, line_width, 8, 0);
 }

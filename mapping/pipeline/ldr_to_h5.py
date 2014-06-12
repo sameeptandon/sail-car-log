@@ -24,15 +24,12 @@ if __name__ == '__main__':
     parser.add_argument('map', help='map file')
     parser.add_argument('h5_dir', help='directory to write h5 files to')
     parser.add_argument('--full', action='store_true')
+    parser.add_argument('--no_transform', action='store_true')
     args = parser.parse_args()
 
     gps_reader = GPSReader(args.gps)
     GPSData = gps_reader.getNumericData()
     #imu_transforms = IMUTransforms(GPSData)
-
-    imu_transforms = np.load(OPT_POS_FILE)['data']
-    # FIXME put this in solve_qp?
-    N = imu_transforms.shape[0]
 
     # Assuming want to just export from start to end
     step = EXPORT_STEP
@@ -45,7 +42,10 @@ if __name__ == '__main__':
         num_fn = EXPORT_NUM
     end = start + num_fn * step
 
-    trans_wrt_imu = imu_transforms[start:end, 0:3, 3]
+    if not args.no_transform:
+        imu_transforms = np.load(OPT_POS_FILE)['data']
+        # FIXME put this in solve_qp?
+        N = imu_transforms.shape[0]
 
     params = LoadParameters(PARAMS_TO_LOAD)
     ldr_map = loadLDRCamMap(args.map)
@@ -71,7 +71,6 @@ if __name__ == '__main__':
                                (data[:, 2] > -2.5)
         else:
             data_filter_mask = (dist > 3) & \
-                               (data[:, 0] > 0) & \
                                (data[:, 2] > -5)
 
         filtered_data = data[data_filter_mask, :]
@@ -84,15 +83,17 @@ if __name__ == '__main__':
         else:
             data = filtered_data
 
-        # transform data into IMU frame at time t
         pts = data[:, 0:3].transpose()
-        pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
-        T_from_l_to_i = params['lidar']['T_from_l_to_i']
-        pts = np.dot(T_from_l_to_i, pts)
 
-        # Microseconds till end of the sweep
-        times = data[:, 5]
-        transform_points_in_sweep(pts, times, fnum, imu_transforms)
+        if not args.no_transform:
+            # Transform data into IMU frame at time t
+            pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
+            T_from_l_to_i = params['lidar']['T_from_l_to_i']
+            pts = np.dot(T_from_l_to_i, pts)
+
+            # Microseconds till end of the sweep
+            times = data[:, 5]
+            transform_points_in_sweep(pts, times, fnum, imu_transforms)
 
         pts = pts.transpose()
 

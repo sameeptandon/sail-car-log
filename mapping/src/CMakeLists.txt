@@ -3,12 +3,9 @@ find_package(PythonLibs REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
 
 # OpenCV
-if(CLUSTER)
-    find_package(OpenCV REQUIRED
-        HINTS "/var/tmp/build/opencv")
-else()
-    find_package(OpenCV REQUIRED)
-endif()
+find_package(OpenCV REQUIRED)
+message("--OpenCV includes--")
+message(${OpenCV_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 # Libraries
@@ -102,3 +99,7 @@ add_subdirectory(octomap)
 
 add_executable(compute_bounds compute_bounds.cpp)
 target_link_libraries(compute_bounds ${Boost_LIBRARIES} h5 cloud_utils params)
+
+# Lidar detection stuff
+
+add_subdirectory(lidar_detect)
