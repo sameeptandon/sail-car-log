@@ -10,7 +10,7 @@ import numpy as np
 import cv2
 from ArgParser import *
 import bisect
-from LidarIntegrator import interp_transforms
+from LidarTransforms import interp_transforms, transform_points_by_times
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -55,23 +55,6 @@ def lidarPtsToPixels(pts_wrt_imu_0, imu_transforms_t, T_from_i_to_l, cam):
 
     return (pix, mask)
 
-
-def transform_points_by_times(pts, t_pts, imu_transforms, gps_times):
-    print pts.shape, t_pts.shape
-    for t in set(t_pts):
-        mask = t_pts == t
-
-        fnum1 = bisect.bisect(gps_times, t) - 1
-        fnum2 = fnum1 + 1
-        alpha = (1 - (t - gps_times[fnum1])) / float(gps_times[fnum2] - gps_times[fnum1])
-
-        T1 = imu_transforms[fnum1, :, :]
-        T2 = imu_transforms[fnum2, :, :]
-
-        transform = interp_transforms(T1, T2, alpha)
-
-        # transform data into imu_0 frame
-        pts[:, mask] = np.dot(transform, pts[:, mask])
 
 
 if __name__ == '__main__':

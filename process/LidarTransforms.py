@@ -1,6 +1,9 @@
 import os
 import glob
 import numpy as np
+import bisect
+from transformations import quaternion_from_matrix, quaternion_slerp,\
+        quaternion_matrix
 
 # PARAM
 SWEEP_TIME_MICROSEC = 100000
@@ -132,6 +135,74 @@ def R_to_c_from_l(cam):
     R_to_c_from_l = np.dot(cam['R_to_c_from_l_in_camera_frame'], R_to_c_from_l)
 
     return R_to_c_from_l
+
+
+def interp_transforms(T1, T2, alpha):
+    assert alpha <= 1
+    T_avg = alpha * T1 + (1 - alpha) * T2
+    q1 = quaternion_from_matrix(T1)
+    q2 = quaternion_from_matrix(T2)
+    q3 = quaternion_slerp(q1, q2, alpha)
+    R = quaternion_matrix(q3)
+    T_avg[0:3, 0:3] = R[0:3, 0:3]
+    return T_avg
+
+
+def interp_transforms_backward(imu_transforms, ind):
+    assert ind < 0, 'No need to call interp_transforms_backward'
+    T_interp = imu_transforms[0, :, :] -\
+        (imu_transforms[-1 * ind, :, :] - imu_transforms[0, :, :])
+    R = T_interp[0:3, 0:3]
+    R = np.linalg.qr(R, mode='complete')[0]
+    T_interp[0:3, 0:3] = R
+    return T_interp
+
+
+def transform_points_in_sweep(pts, times, fnum, imu_transforms):
+    for time in set(times):
+        mask = times == time
+
+        # FIXME PARAM
+        offset = (time / float(1e6)) / 0.05
+        offset = min(5, offset)
+
+        ind1 = int(fnum - math.ceil(offset))
+        ind2 = int(fnum - math.floor(offset))
+
+        # FIXME Hack to interpolate before 0
+        #ind1, ind2 = max(ind1, 0), max(ind2, 0)
+        if ind1 < 0:
+            T1 = interp_transforms_backward(imu_transforms, ind1)
+        else:
+            T1 = imu_transforms[ind1, :, :]
+        if ind2 < 0:
+            T2 = interp_transforms_backward(imu_transforms, ind2)
+        else:
+            T2 = imu_transforms[ind2, :, :]
+
+        transform = interp_transforms(T1, T2, offset / 5.0)
+
+        # transform data into imu_0 frame
+        pts[:, mask] = np.dot(transform, pts[:, mask])
+
+
+def transform_points_by_times(pts, t_pts, imu_transforms, gps_times):
+    print pts.shape, t_pts.shape
+    for t in set(t_pts):
+        mask = t_pts == t
+
+        fnum1 = bisect.bisect(gps_times, t) - 1
+        fnum2 = fnum1 + 1
+        alpha = (1 - (t - gps_times[fnum1])) / float(gps_times[fnum2] - gps_times[fnum1])
+
+        T1 = imu_transforms[fnum1, :, :]
+        T2 = imu_transforms[fnum2, :, :]
+
+        transform = interp_transforms(T1, T2, alpha)
+
+        # transform data into imu_0 frame
+        pts[:, mask] = np.dot(transform, pts[:, mask])
+
 
 if __name__ == '__main__':
     import sys
