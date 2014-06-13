@@ -1,4 +1,4 @@
-#usage: nobody knows, don't ask
+# usage: nobody knows, don't ask
 
 from Q50_config import *
 from ArgParser import *
@@ -22,15 +22,16 @@ END_TIME = 10.0  # seconds into the GPS Mark 1 log
 STEP_TIME = 0.2  # seconds between adding points from scans
 SCAN_WINDOW = 0.05  # +/- seconds of data to add between each step
 
+
 def exportData(all_data, all_t):
-        print 'exporting data'
-        export_data = np.row_stack(all_data)
-        export_t = np.concatenate(all_t)
-        print export_data
-        print export_data.shape
-        print export_t.shape
-        np.savez(sys.argv[3], data=export_data, t=export_t)
-        print 'export complete'
+    print 'exporting data'
+    export_data = np.row_stack(all_data)
+    export_t = np.concatenate(all_t)
+    print export_data
+    print export_data.shape
+    print export_t.shape
+    np.savez(sys.argv[3], data=export_data, t=export_t)
+    print 'export complete'
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
@@ -50,8 +51,8 @@ if __name__ == '__main__':
     current_time = gps_times_mark1[0] + START_TIME * 1e6
     end_time = gps_times_mark1[0] + END_TIME * 1e6
 
-    all_data = [ ]
-    all_t = [ ]
+    all_data = []
+    all_t = []
     # in this interval, we will build a map
     while current_time < end_time:
         print (end_time - current_time) / 1e6
@@ -67,7 +68,7 @@ if __name__ == '__main__':
         pts = np.dot(T_from_l_to_i, pts)
 
         # Shift points according to timestamps instead of using
-        # transform of full sweep. 
+        # transform of full sweep.
         # This will put pts in imu_0 frame
         transform_points_by_times(pts, t_data, imu_transforms_mark1,
                                   gps_times_mark1)
