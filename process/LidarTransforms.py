@@ -14,28 +14,6 @@ def loadLDR(ldrfile):
     z = z.reshape((z.shape[0] / 6, 6))
     return z
 
-
-def loadPCD(pcdfile): 
-    f = open(pcdfile, 'r')
-    count = 0
-    data_started = False
-    for l in f:
-        t = l.split()
-        if t[0] == 'POINTS':
-            num_pts = int(t[1])
-            pts = np.zeros((num_pts, 4), float)
-            continue
-        elif t[0] == 'DATA':
-            data_started = True
-            continue
-        elif data_started:
-            z = np.array(map(lambda x: float(x), t))
-            pts[count,:] = z
-            count += 1
-
-    return pts
-
-
 def loadLDRCamMap(frame_cloud_map):
     map_file = open(frame_cloud_map, 'r')
     clouds = []
@@ -187,7 +165,6 @@ def transform_points_in_sweep(pts, times, fnum, imu_transforms):
 
 
 def transform_points_by_times(pts, t_pts, imu_transforms, gps_times):
-    print pts.shape, t_pts.shape
     for t in set(t_pts):
         mask = t_pts == t
 

@@ -18,9 +18,9 @@ import cv2
 import math
 
 START_TIME = 1.0  # seconds into the GPS Mark 1 log
-END_TIME = 10.0  # seconds into the GPS Mark 1 log
-STEP_TIME = 0.2  # seconds between adding points from scans
-SCAN_WINDOW = 0.05  # +/- seconds of data to add between each step
+END_TIME = 20.0  # seconds into the GPS Mark 1 log
+STEP_TIME = 0.3  # seconds between adding points from scans
+SCAN_WINDOW = 0.1  # +/- seconds of data to add between each step
 
 
 def exportData(all_data, all_t):
@@ -61,6 +61,9 @@ if __name__ == '__main__':
             current_time, SCAN_WINDOW)
 
         # TODO: filter points
+        data_filter_mask = (data[:,3] > 30)            
+        data = data[data_filter_mask, :]
+        t_data = t_data[data_filter_mask]
 
         # put in imu_t frame
         pts = data[:, 0:3].transpose()

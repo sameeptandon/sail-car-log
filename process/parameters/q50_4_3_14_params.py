@@ -45,8 +45,8 @@ def GetQ50CameraParams():
             cam[i]['E'] = E
             cam[i]['E_t'] = T
             cam[i]['E_R'] = R
-
-
+            cam[i]['width'] = 1280
+            cam[i]['height'] = 960
             cam[i]['fx'] = 2254.76
             cam[i]['fy'] = 2266.30
             cam[i]['cu'] = 655.55
@@ -58,6 +58,8 @@ def GetQ50CameraParams():
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.5,0.31,0.34]);
             cam[i]['E'] = np.eye(4)
+            cam[i]['width'] = 1280
+            cam[i]['height'] = 960
             cam[i]['fx'] = 2250.72
             cam[i]['fy'] = 2263.75
             cam[i]['cu'] = 648.95
@@ -71,6 +73,8 @@ def GetQ50CameraParams():
             # FIXME
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.53, 0.0, 0.40])
             cam[i]['E'] = np.eye(4)
+            cam[i]['width'] = 2080
+            cam[i]['height'] = 1040
             cam[i]['fx'] = 669.688574
             cam[i]['fy'] = 673.807170
             cam[i]['cu'] = 996.121080
@@ -83,6 +87,8 @@ def GetQ50CameraParams():
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([0.0, -0.762, 0.40])
             cam[i]['E'] = np.eye(4)
+            cam[i]['width'] = 2080
+            cam[i]['height'] = 1040
             cam[i]['fx'] = 669.688574
             cam[i]['fy'] = 673.807170
             cam[i]['cu'] = 996.121080
@@ -94,6 +100,8 @@ def GetQ50CameraParams():
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([0.0, 0.67, 0.40])
             cam[i]['E'] = np.eye(4)
+            cam[i]['width'] = 2080
+            cam[i]['height'] = 1040
             cam[i]['fx'] = 669.688574
             cam[i]['fy'] = 673.807170
             cam[i]['cu'] = 996.121080
@@ -105,6 +113,8 @@ def GetQ50CameraParams():
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([0.50, 0.0, 0.40])
             cam[i]['E'] = np.eye(4)
+            cam[i]['width'] = 2080
+            cam[i]['height'] = 1040
             cam[i]['fx'] = 669.688574
             cam[i]['fy'] = 673.807170
             cam[i]['cu'] = 996.121080
