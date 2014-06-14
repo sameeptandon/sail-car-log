@@ -4,7 +4,7 @@ project(mapping)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-set(CLUSTER OFF)
+set(CLUSTER ON)
 
 find_package(PCL 1.7.1 EXACT COMPONENTS common io filters visualization surface features segmentation)
 include_directories(${PCL_INCLUDE_DIRS})

@@ -1,14 +1,13 @@
 #include "VideoReader.h"
-using namespace std;
 
 VideoReader::VideoReader(string path, string base_video_name) {
-    captures = vector<VideoCapture>(NUM_SPLITS);
+    captures = std::vector<cv::VideoCapture>(NUM_SPLITS);
     for (int i = 0; i < NUM_SPLITS; i++) {
         stringstream sstm;
         sstm << path << "/split_" << i << "_" << base_video_name;
         string capture_name = sstm.str();
         cout << capture_name << endl;
-        captures[i] = VideoCapture(capture_name);
+        captures[i] = cv::VideoCapture(capture_name);
     }
     framenum = 0;
 }

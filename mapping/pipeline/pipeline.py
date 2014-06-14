@@ -18,7 +18,8 @@ from pipeline_config import POINTS_H5_DIR,\
         STATIC_VTK_FILE, DYNAMIC_CLOUD_FILE, DYNAMIC_VTK_FILE,\
         FILTERED_CLOUDS_DIR, PARAMS_TO_LOAD,\
         MERGED_COLOR_CLOUDS_DIR, MERGED_COLOR_CLOUD_FILE,\
-        MERGED_COLOR_VTK_FILE, LDR_UPSAMPLED_DIR, LDR_DIR
+        MERGED_COLOR_VTK_FILE, LDR_UPSAMPLED_DIR, LDR_DIR,\
+        NO_TRANSFORM
 from pipeline_utils import file_num
 
 
@@ -52,6 +53,7 @@ def generate_frames_and_map(input_file, output_dir):
 
 
 #@follows('generate_frames_and_map')
+'''
 @transform('%s/*.ldr' % LDR_DIR,
            regex('%s/(.*?).ldr' % LDR_DIR),
            r'%s/\1.ldr' % LDR_UPSAMPLED_DIR)
@@ -61,6 +63,7 @@ def upsample_ldrs(input_file, output_file):
     cmd = '%s %s %s %d' % (upsampler, input_file, output_file, ni)
     print cmd
     check_call(cmd, shell=True)
+'''
 
 
 @follows('generate_frames_and_map')
@@ -71,7 +74,7 @@ def convert_params_to_h5(input_file, output_file):
     check_call(cmd, shell=True)
 
 
-@follows('convert_params_to_h5')
+#@follows('convert_params_to_h5')
 @files('params.ini', '%s/sentinel' % POINTS_H5_DIR)
 @posttask(touch_file('%s/sentinel' % POINTS_H5_DIR))
 def convert_ldr_to_h5(dummy_file, output_file):
@@ -81,6 +84,8 @@ def convert_ldr_to_h5(dummy_file, output_file):
     cmd = 'python {exporter} {fgps} {fmap} {h5_dir}'.format(exporter=exporter, fgps=GPS_FILE, fmap=MAP_FILE, h5_dir=POINTS_H5_DIR)
     if EXPORT_FULL:
         cmd += ' --full'
+    if NO_TRANSFORM:
+        cmd += ' --no_transform'
     print cmd
     check_call(cmd, shell=True)
 

@@ -26,7 +26,7 @@ void Parameters::initialize()
    color_dir = py::extract<std::string>(pycfg.attr("COLOR_DIR"));
    color_clouds_dir = py::extract<std::string>(pycfg.attr("COLOR_CLOUDS_DIR"));
    params_file = py::extract<std::string>(pycfg.attr("PARAMS_H5_FILE"));
-   cam_ind = py::extract<int>(pycfg.attr("CAM_NUM")) - 1;
+   cam_ind = py::extract<int>(pycfg.attr("CAMERA")) - 1;
    lidar_project_min_dist = py::extract<float>(pycfg.attr("LIDAR_PROJECT_MIN_DIST"));
    py::list l = py::extract<py::list>(pycfg.attr("ICP_COORD_WEIGHTS"));
    for (int j = 0; j < py::len(l); j++)
@@ -58,6 +58,21 @@ void Parameters::initialize()
     cluster_tol = py::extract<float>(pycfg.attr("CLUSTER_TOL"));
     min_cluster_size = py::extract<int>(pycfg.attr("MIN_CLUSTER_SIZE"));
     max_cluster_size = py::extract<int>(pycfg.attr("MAX_CLUSTER_SIZE"));
+
+    // Lidar detection parameters
+
+    pyListToVector(pycfg.attr("FILTER_RANGE"), filter_range);
+    pyListToVector(pycfg.attr("G"), g);
+    inlier_dist_thresh = py::extract<float>(pycfg.attr("INLIER_DIST_THRESH"));
+    highest_plane = py::extract<bool>(pycfg.attr("HIGHEST_PLANE"));
+    plane_ransac_max_iters = py::extract<int>(pycfg.attr("PLANE_RANSAC_MAX_ITERS"));
+    normal_eps_angle = py::extract<float>(pycfg.attr("NORMAL_EPS_ANGLE"));
+    min_plane_cloud_size = py::extract<int>(pycfg.attr("MIN_PLANE_CLOUD_SIZE"));
+    min_pts_above_hull = py::extract<int>(pycfg.attr("MIN_PTS_ABOVE_HULL"));
+    pyListToVector(pycfg.attr("PLANE_Z_THRESH"), plane_z_thresh);
+    obj_cluster_tol = py::extract<float>(pycfg.attr("OBJ_CLUSTER_TOL"));
+    obj_min_cluster_size = py::extract<int>(pycfg.attr("OBJ_MIN_CLUSTER_SIZE"));
+    obj_max_cluster_size = py::extract<int>(pycfg.attr("OBJ_MAX_CLUSTER_SIZE"));
 
    // Loading calibration parameters
 
