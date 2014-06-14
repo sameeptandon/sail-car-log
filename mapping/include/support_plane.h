@@ -141,6 +141,8 @@ public:
   // Transform cloud back
   void untransformCloud(PointCloudPtr transformed_cloud, PointCloudPtr cloud);
 
+  void projectPointOnPlane(PointT& pt, PointT& proj_pt);
+
   // For debugging
   void visualize();
   void visualize(PointCloudPtr cloud, PointCloudPtr hull, Eigen::Vector3f normal);

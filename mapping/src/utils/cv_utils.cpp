@@ -89,10 +89,6 @@ void draw_bbox_from_pixels(const std::vector<cv::Point2f>& pixels, const cv::Sca
 
 void draw_bbox_3d_from_corner_pixels(const std::vector<cv::Point2f>& corner_pixels, const cv::Scalar& color, cv::Mat& img, int line_width)
 {
-    for (int k = 0; k < 8; k++)
-        if (corner_pixels[k].x < 0 || corner_pixels[k].y < 0)
-            return;
-
     std::vector<cv::Point2f> corner_pixels_top(&corner_pixels[0], &corner_pixels[4]);
     std::vector<cv::Point2f> corner_pixels_bottom(&corner_pixels[4], &corner_pixels[8]);
     for (int k = 0; k < 4; k++)
