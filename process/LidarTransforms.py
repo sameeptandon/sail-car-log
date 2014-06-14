@@ -92,6 +92,8 @@ class LDRLoader(object):
 
         mask = (all_times >= microsec_since_epoch - time_window / 2.0) &\
                (all_times <= microsec_since_epoch + time_window / 2.0)
+        if all_data is None:
+            return None, None
         return all_data[mask, :], all_times[mask]
 
 
