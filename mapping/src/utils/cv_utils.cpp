@@ -67,13 +67,12 @@ void set_pixel_colors(const std::vector<cv::Point2f>& pixels, const cv::Vec3b& c
 }
 
 
-void draw_bbox_from_pixels(const std::vector<cv::Point2f>& pixels, const cv::Scalar& color, cv::Mat& img, int line_width)
+bbox compute_bbox(const std::vector<cv::Point2f>& pixels)
 {
-    // Compute bbox
-    float x_min = img.cols;
-    float x_max = 0;
-    float y_min = img.rows;
-    float y_max = 0;
+    float x_min = std::numeric_limits<float>::max();
+    float x_max = std::numeric_limits<float>::min();
+    float y_min = std::numeric_limits<float>::max();
+    float y_max = std::numeric_limits<float>::min();
     for (int k = 0; k < pixels.size(); k++)
     {
         x_min = std::min(x_min, pixels[k].x);
@@ -81,9 +80,18 @@ void draw_bbox_from_pixels(const std::vector<cv::Point2f>& pixels, const cv::Sca
         y_min = std::min(y_min, pixels[k].y);
         y_max = std::max(y_max, pixels[k].y);
     }
+
+    bbox box(x_min, x_max, y_min, y_max);
+    return box;
+}
+
+
+void draw_bbox(const bbox& box, const cv::Scalar& color, cv::Mat& img, int line_width)
+{
     // Draw rectangle
-    if (!(x_min == img.cols))  // FIXME Temporary hack
-        cv::rectangle(img, cv::Point(x_min, y_min), cv::Point(x_max, y_max), color, line_width, 8, 0);
+    if (!(box.x_min == img.cols))  // FIXME Temporary hack
+        cv::rectangle(img, cv::Point(box.x_min, box.y_min),
+                cv::Point(box.x_max, box.y_max), color, line_width, 8, 0);
 }
 
 

@@ -71,6 +71,7 @@ void transform_from_lidar_to_camera(Point& point_in_lidar_frame, Point& point_in
   point_in_camera_frame = pcl::transformPoint(point_in_camera_frame, rot_to_c_from_l);
 }
 
+
 int options(int ac, char ** av, Options& opts)
 {
   // Declare the supported options.
@@ -238,7 +239,13 @@ int main(int argc, char** argv)
         filter_pixels(pixels, frame, filtered_pixels, filtered_pixel_indices);
         if (filtered_pixels.size() > params().obj_min_cluster_size)
             set_pixel_colors(filtered_pixels, cv::Vec3b(255, 0, 0), frame, 2);
-            draw_bbox_from_pixels(pixels, cv::Scalar(0, 255, 0), frame, 3);
+
+            // Don't use filtered here
+            bbox box = compute_bbox(pixels);
+            if (box.xy_ratio() > 0.1) // FIXME PARAM
+            {
+                draw_bbox(box, cv::Scalar(0, 255, 0), frame, 3);
+            }
       }
     }
 
