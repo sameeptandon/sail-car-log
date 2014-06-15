@@ -1,6 +1,6 @@
 import os
 from subprocess import check_call
-from pipeline_config import DATA_DIR, CAMERA
+from pipeline_config import DATA_DIR
 
 def file_num(file_path):
     return int(os.path.splitext(os.path.basename(file_path))[0])
@@ -12,7 +12,7 @@ def print_and_call(cmd):
 
 
 def dset_dir_from_rss(rss):
-    dset = '%s_%s%d' % (rss[1], rss[2], CAMERA)
+    dset = '%s_%s' % (rss[1], rss[2])
     return '%s/%s/%s' % (DATA_DIR, rss[0], dset)
 
 def touchf(f):

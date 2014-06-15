@@ -18,7 +18,7 @@ SEGMENT = os.getenv('SCL_SEGMENT', '280N')
 SPLIT = os.getenv('SCL_SPLIT', 'a')
 CAMERA = 4
 
-DSET = '%s_%s%d' % (SEGMENT, SPLIT, CAMERA)
+DSET = '%s_%s' % (SEGMENT, SPLIT)
 #DSET = 'sandhill_b2'
 DSET_DIR = pjoin(pjoin(DATA_DIR, ROUTE), DSET)
 if not os.path.exists(DSET_DIR):
