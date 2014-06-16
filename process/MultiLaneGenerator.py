@@ -43,38 +43,19 @@ class MultiLane:
 
     def saveLanes(self, filepath):
         """ Writes the current state of the generator to a file """
-        print "Saving Lanes"
         np.savez(filepath, data=self.lanes, t=self.times)
 
     def clusterLanes(self):
         """Clusters lanes. A cluster is a sphere of at least 10 points within 3
-        meters of eachother"""
-        lanest = np.array([])
-        numsegs = self.lanes.shape[0] / 100
-        count = 0
-        for segment in xrange(numsegs):
-            if segment % (numsegs / 10) == 0:
-                print "Segment ", segment, "/", numsegs
-            i = float(segment) / numsegs * self.lanes.shape[0]
-            j = float(segment + 1) / numsegs * self.lanes.shape[0]
-            lanes = self.lanes[i : j, :]
-            times = self.times[i: j]
-            cl = cluster.DBSCAN(eps=3, min_samples=10)
-            labels = cl.fit_predict(lanes[:, :3])
-            lanes  = lanes[labels > -1, :]
-            times = times[labels > -1]
-            labels = labels[labels > -1]
-            labels = labels + count
-            count += (np.unique(labels)).shape[0]
-            lanes = np.column_stack((lanes, labels))
-            if lanest.shape[0] == 0:
-                lanest = lanes
-                timest = times
-            else:
-                lanest = np.vstack((lanest, lanes))
-                timest = np.hstack((timest, times))
-        self.lanes = lanest
-        self.times = timest
+        meters of eachother. cl.fit_predict may take a long time"""
+        cl = cluster.DBSCAN(eps=3, min_samples=10)
+        labels = cl.fit_predict(self.lanes[:, :3])
+        # Only include points that are in a cluster
+        mask = labels > -1
+        lanes = np.column_stack((self.lanes[mask, :], labels[mask]))
+        times = self.times[mask]
+        self.lanes = lanes
+        self.times = times
         return self.lanes, self.times
 
     def extendLanes(self):
@@ -117,8 +98,6 @@ class MultiLane:
             lastIndex = currentIndex
         mins = np.min(multilanedists, axis=0)
         argmins = np.argmin(multilanedists, axis=0)
-        print np.sort(argmins)
-        print np.sort(mins)
         # TODO: Why is this hardcoded?
         mask = ((argmins == 0) & (mins < 0.2)) | \
                ((argmins == 1) & (mins < 1.2)) | \
