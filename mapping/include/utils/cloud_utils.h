@@ -6,7 +6,9 @@
 
 #include "point_defs.h"
 #include <pcl/correspondence.h>
+#include <pcl/PointIndices.h>
 
+void get_box_corners(pcl::PointXYZ min_pt, pcl::PointXYZ max_pt, boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ> > corners);
 
 template <typename PointT>
 void load_cloud(std::string pcd_path, boost::shared_ptr<pcl::PointCloud<PointT> > cloud);
@@ -33,5 +35,14 @@ void filter_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, boost::shar
 // Assumes cloud is in the camera frame
 template<typename PointT>
 void filter_lidar_cloud(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, boost::shared_ptr<pcl::PointCloud<PointT> > filtered_cloud, std::vector<int>& filtered_indices);
+
+template <typename PointT>
+void filter_field(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, std::string field, float lower, float upper);
+
+template <typename PointT>
+void extract_clusters_euclidean(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, std::vector<pcl::PointIndices>& cluster_indices, float cluster_tol, int min_cluster_size, int max_cluster_size);
+
+template <typename PointT>
+void extract_clusters_euclidean(boost::shared_ptr<pcl::PointCloud<PointT> > cloud, std::vector<boost::shared_ptr<pcl::PointCloud<PointT> > >& clusters, float cluster_tol, int min_cluster_size, int max_cluster_size);
 
 #include "cloud_utils.hpp"

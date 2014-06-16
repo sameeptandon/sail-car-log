@@ -59,9 +59,12 @@ if __name__ == '__main__':
         # load points w.r.t lidar at current time
         data, t_data = lidar_loader.loadLDRWindow(
             current_time, SCAN_WINDOW)
+        if data is None:
+            current_time += STEP_TIME * 1e6
+            continue
 
         # TODO: filter points
-        data_filter_mask = (data[:,3] > 30)            
+        data_filter_mask = (data[:,3] > 30)
         data = data[data_filter_mask, :]
         t_data = t_data[data_filter_mask]
 

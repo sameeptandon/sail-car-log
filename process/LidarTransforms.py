@@ -59,9 +59,7 @@ class LDRLoader(object):
         ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, '*.ldr'))))
         file_times = np.array([int(os.path.splitext(os.path.basename(f))[0]) for f in ldr_files], dtype=np.int64)
         sweep_end_times = file_times
-        sweep_start_times = sweep_end_times[:-1]
-        sweep_start_times = np.insert(sweep_start_times, 0,
-                sweep_start_times[0] - SWEEP_TIME_MICROSEC)
+        sweep_start_times = sweep_end_times - SWEEP_TIME_MICROSEC
         self.ldr_files = np.array(ldr_files)
         self.sweep_start_times = sweep_start_times
         self.sweep_end_times = sweep_end_times
@@ -94,6 +92,8 @@ class LDRLoader(object):
 
         mask = (all_times >= microsec_since_epoch - time_window / 2.0) &\
                (all_times <= microsec_since_epoch + time_window / 2.0)
+        if all_data is None:
+            return None, None
         return all_data[mask, :], all_times[mask]
 
 
