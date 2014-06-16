@@ -2,9 +2,9 @@ import sys, os, cv2, cv, random
 import numpy as np
 from transformations import euler_from_matrix
 
-#patternShape = (10,7)
-patternShape = (12, 8)
-criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+patternShape = (10,7)
+#patternShape = (12, 8)
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.0001)
 
 def loadFiles(target_dir, filter_fn): 
     files = os.listdir(target_dir)
@@ -19,8 +19,11 @@ def loadFiles(target_dir, filter_fn):
 if __name__ == '__main__':
     # load images
     left_imgs = loadFiles(sys.argv[1], lambda x: 'png' in x)
-    fixed_board = cv2.imread(sys.argv[2])
-    left_imgs.append(fixed_board)
+    for idx in range(len(sys.argv)):
+        if idx >= 2:
+            left_imgs.append(cv2.imread(sys.argv[idx]))
+    #fixed_board = cv2.imread(sys.argv[2])
+    #left_imgs.append(fixed_board)
     print len(left_imgs)
     
 
@@ -48,6 +51,7 @@ if __name__ == '__main__':
 
 
 
+    print len(left_cb_imgs)
     # flatten list
     #left_data = np.array([item for sublist in left_pts for item in sublist], np.float32)
 
@@ -72,7 +76,6 @@ if __name__ == '__main__':
 
     for idx in range(len(left_img_points)):
         num = idx
-        idx = len(left_img_points)-1
         r = rvecs[idx]
         print r
         imgpoints2, _ = cv2.projectPoints(np.copy(pattern_points), r, tvecs[idx], cameraMatrix, distCoeffs)
@@ -86,12 +89,14 @@ if __name__ == '__main__':
             draw_I[pix[1,:], pix[0,:]+p] = [0, 5, 255]
             draw_I[pix[1,:], pix[0,:]-p] = [0, 5, 255]
         cv2.imshow('reproj', cv2.pyrDown(draw_I))
-        cv2.waitKey(1000)
+        cv2.waitKey(50)
 
+    """
     print tvecs[-1]
     print rvecs[-1]
     print cv2.Rodrigues(rvecs[-1])
     print euler_from_matrix(cv2.Rodrigues(rvecs[-1])[0], 'sxyz')
+    """
     
 
 
