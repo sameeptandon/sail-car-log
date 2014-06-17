@@ -23,17 +23,15 @@ DSET = '%s_%s' % (SEGMENT, SPLIT)
 DSET_DIR = pjoin(pjoin(DATA_DIR, ROUTE), DSET)
 if not os.path.exists(DSET_DIR):
     os.makedirs(DSET_DIR)
-DSET_AVI = DSET + '.avi'
+DSET_AVI = DSET + '%d.avi' % CAMERA
 
 # Stuff to scp over
 REMOTE_DATA_DIR = 'gorgon39:/scail/group/deeplearning/driving_data/sameep/%s' % ROUTE
 REMOTE_FILES = [
-    'split_\\*_%s.avi' % DSET,
-    #'%s_gps.out' % DSET[:-1],
-    #'%s_frames' % DSET[:-1],
-    #'%s.map' % DSET[:-1],
-    '%s_*.bag' % DSET[:-1],
-    '%s.pcap' % DSET[:-1],
+    'split_\\*_%s%d.avi' % (DSET, CAMERA),
+    #'%s.map' % DSET,
+    '%s_*.bag' % DSET,
+    '%s.pcap' % DSET,
     #'params.ini'
 ]
 
@@ -45,13 +43,13 @@ FABRIC_PASS_FILE = '%s/pipeline/pass.txt' % MAPPING_PATH
 
 PARAMS_TO_LOAD = 'q50_4_3_14_params'
 PARAMS_FILE = pjoin(DSET_DIR, 'params.ini')
-GPS_FILE = pjoin(DSET_DIR, '%s_gpsmark2.out' % DSET[:-1])
-MAP_FILE = pjoin(DSET_DIR, '%s_aligned.map' % DSET[:-1])
+GPS_FILE = pjoin(DSET_DIR, '%s_gpsmark2.out' % DSET)
+MAP_FILE = pjoin(DSET_DIR, '%s.map' % DSET)
 
 OPT_POS_FILE = '%s/%s' % (GRAPHSLAM_OPT_POS_DIR, '--'.join([ROUTE, SEGMENT, SPLIT]) + '.npz')
 
 PARAMS_H5_FILE = pjoin(DSET_DIR, 'params.h5')
-LDR_DIR = pjoin(DSET_DIR, '%s_aligned_frames' % DSET[:-1])
+LDR_DIR = pjoin(DSET_DIR, '%s_aligned_frames' % DSET)
 LDR_UPSAMPLED_DIR = LDR_DIR + '_upsampled'
 POINTS_H5_DIR = pjoin(DSET_DIR, 'h5')
 PCD_DIR = pjoin(DSET_DIR, 'pcd')
@@ -81,6 +79,8 @@ if EXPORT_FULL:
     else:
         pass
 EXPORT_STEP = 1
+# TODO Move everything over to use STEP_TIME
+STEP_TIME = 0.1
 
 DOWNSAMPLE_LEAF_SIZE = 0.1
 K_NORM_EST = 30

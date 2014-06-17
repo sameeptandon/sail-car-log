@@ -34,7 +34,8 @@ if __name__ == '__main__':
     if EXPORT_START != 0:
         video_reader.setFrame(EXPORT_START)
 
-    while video_reader.frame:
+    count = 0
+    while count < EXPORT_NUM:
         (success, I) = video_reader.getNextFrame()
         if not success:
             print 'Reached end of video'
@@ -48,10 +49,11 @@ if __name__ == '__main__':
         data, t_data = lidar_loader.loadLDRWindow(t-50000, 0.1)
         print data.shape
 
-        ldrfile = os.path.join(LDR_DIR, '%d.ldr' % video_reader.framenum)
+        ldrfile = os.path.join(LDR_DIR, '%d.ldr' % (video_reader.framenum - 1))
         data.tofile(ldrfile)
 
         # Step
 
+        count += 1
         for k in range(EXPORT_STEP - 1):
             (success, I) = video_reader.getNextFrame()
