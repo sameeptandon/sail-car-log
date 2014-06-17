@@ -83,8 +83,8 @@ class MultiLane:
         for segment in xrange(numsegs):
             if segment % (numsegs / 10) == 0:
                 print "Segment ", segment, "/", numsegs
-            i = float(segment) / numsegs * self.interp.shape[0]
-            j = float(segment + 1) / numsegs * self.interp.shape[0]
+            i = int(float(segment) / numsegs * self.interp.shape[0])
+            j = int(float(segment + 1) / numsegs * self.interp.shape[0])
             interpSeg = self.interp[i : j, :,:]
             lastInterpSegPoint = np.array([interpSeg[-1, :, 0]]);
             currentIndex = lastIndex + np.argmin(
@@ -121,14 +121,23 @@ class MultiLane:
         as well as expected. TODO: see if a piecewise-linear fit works better"""
         total = np.array([])
         for i in xrange(self.leftLanes + self.rightLanes):
-            lane = self.lanes[self.lanes[:, self.lanes.shape[1]-2] == i, :]
-            lanedist = np.sum(np.abs(lane[:, :3]) ** 2, axis=-1) ** (1. / 2)
-            xinter = UnivariateSpline(lanedist, lane[:, 0], s=100)
-            yinter = UnivariateSpline(lanedist, lane[:, 1], s=100)
-            zinter = UnivariateSpline(lanedist, lane[:, 2], s=100)
-            newpoints = np.arange(0, lanedist[lanedist.shape[0] - 1], 0.01)
-            a = np.column_stack((xinter(newpoints), yinter(newpoints), zinter(
-                newpoints), np.ones(newpoints.shape[0]) * i))
+            mask = self.lanes[:, -2] == i
+            lane = self.lanes[mask, :]
+            times = self.times[mask]
+
+            # Sort the lane with time information
+            # sort_order = np.linalg.norm(lane[:, :3], axis=1).argsort()
+            sort_order = times.argsort(axis=0)
+            sorted_times = times[sort_order]
+            sorted_lane = lane[sort_order]
+
+            xinter = UnivariateSpline(sorted_times, sorted_lane[:, 0], s=0)
+            yinter = UnivariateSpline(sorted_times, sorted_lane[:, 1], s=0)
+            zinter = UnivariateSpline(sorted_times, sorted_lane[:, 2], s=0)
+            # 10 points per second
+            t = np.arange(sorted_times[0], sorted_times[-1], 10000)
+            a = np.column_stack((xinter(t), yinter(t), zinter(t),
+                                 np.ones(t.shape[0]) * i))
             if total.shape[0] == 0:
                 total = a
             else:

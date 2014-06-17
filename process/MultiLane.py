@@ -47,6 +47,23 @@ def get_transforms(args):
     imu_transforms = IMUTransforms(gps_data)
     return imu_transforms
 
+def saveClusters(lanes, times, num_lanes):
+    out = {}
+    out['num_lanes'] = np.array(num_lanes)
+    for i in xrange(num_lanes):
+        mask = lanes[:, -2] == i
+        lane = lanes[mask]
+        time = times[mask]
+
+        lane = lane[:, :3]
+
+        shifted = np.vstack((lane[1:, :], np.zeros((1, 3))))
+        lane = np.hstack((lane, shifted))
+        out['lane' + str(i)] = lane
+        out['time' + str(i)] = time
+
+    np.savez('multilane_points', **out)
+
 class Blockworld:
 
     def __init__(self):
@@ -76,8 +93,21 @@ class Blockworld:
 
         interps = ml.extendLanes()
         lanes, times = ml.filterLaneMarkings()
-        lanes, times = ml.clusterLanes()
+
+        try:
+            npz = np.load('cluster.npz')
+            print 'Loading clusters from file'
+            ml.lanes = npz['data']
+            ml.times = npz['t']
+        except IOError:
+            lanes, times = ml.clusterLanes()
+            print 'Clustering points'
+            ml.saveLanes('cluster.npz')
+
+        print lanes
         lanes, times = ml.sampleLanes()
+
+        # saveClusters(ml.lanes, ml.times, 5)
 
         print 'Adding clustered points'
         clusters = ml.lanes.copy()
@@ -86,11 +116,12 @@ class Blockworld:
         cluster_actor.GetProperty().SetPointSize(10)
         self.ren.AddActor(cluster_actor)
 
-        # print 'Interpolating lanes'
-        # interp_lanes = ml.interpolateLanes()
-        # interp_lanes_cloud = VtkPointCloud(interp_lanes[:, :3], interp_lanes[:, 4])
-        # interp_lanes_actor = interp_lanes_cloud.get_vtk_cloud(zMin=0, zMax=500)
-        # self.ren.AddActor(interp_lanes_actor)
+        print 'Interpolating lanes'
+        interp_lanes = ml.interpolateLanes()
+        print interp_lanes
+        interp_lanes_cloud = VtkPointCloud(interp_lanes[:, :3], interp_lanes[:, 3])
+        interp_lanes_actor = interp_lanes_cloud.get_vtk_cloud(zMin=0, zMax=4)
+        self.ren.AddActor(interp_lanes_actor)
 
         print 'Adding car'
         self.car = load_ply('../mapping/viz/gtr.ply')
