@@ -47,11 +47,11 @@ def get_transforms(args):
     imu_transforms = IMUTransforms(gps_data)
     return imu_transforms
 
-def saveClusters(lanes, times, num_lanes):
+def saveClusters(lanes, times, lane_idx, num_lanes):
     out = {}
     out['num_lanes'] = np.array(num_lanes)
     for i in xrange(num_lanes):
-        mask = lanes[:, -2] == i
+        mask = lanes[:, lane_idx] == i
         lane = lanes[mask]
         time = times[mask]
 
@@ -91,8 +91,8 @@ class Blockworld:
         raw_actor = raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
         self.ren.AddActor(raw_actor)
 
-        interps = ml.extendLanes()
-        lanes, times = ml.filterLaneMarkings()
+        ml.extendLanes()
+        ml.filterLaneMarkings()
 
         try:
             npz = np.load('cluster.npz')
@@ -100,14 +100,11 @@ class Blockworld:
             ml.lanes = npz['data']
             ml.times = npz['t']
         except IOError:
-            lanes, times = ml.clusterLanes()
+            ml.clusterLanes()
             print 'Clustering points'
             ml.saveLanes('cluster.npz')
 
-        print lanes
-        lanes, times = ml.sampleLanes()
-
-        # saveClusters(ml.lanes, ml.times, 5)
+        ml.sampleLanes()
 
         print 'Adding clustered points'
         clusters = ml.lanes.copy()
@@ -117,11 +114,13 @@ class Blockworld:
         self.ren.AddActor(cluster_actor)
 
         print 'Interpolating lanes'
-        interp_lanes = ml.interpolateLanes()
-        print interp_lanes
+        ml.interpolateLanes()
+        interp_lanes = ml.lanes.copy()
         interp_lanes_cloud = VtkPointCloud(interp_lanes[:, :3], interp_lanes[:, 3])
         interp_lanes_actor = interp_lanes_cloud.get_vtk_cloud(zMin=0, zMax=4)
         self.ren.AddActor(interp_lanes_actor)
+
+        # saveClusters(ml.lanes, ml.times, -1, 5)
 
         print 'Adding car'
         self.car = load_ply('../mapping/viz/gtr.ply')

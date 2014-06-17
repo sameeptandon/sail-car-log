@@ -119,7 +119,8 @@ class MultiLane:
     def interpolateLanes(self):
         """Interpolates lane POIs with a univariate spline. This does not work
         as well as expected. TODO: see if a piecewise-linear fit works better"""
-        total = np.array([])
+        interp_l = np.array([])
+        interp_t = np.array([])
         for i in xrange(self.leftLanes + self.rightLanes):
             mask = self.lanes[:, -2] == i
             lane = self.lanes[mask, :]
@@ -138,12 +139,15 @@ class MultiLane:
             t = np.arange(sorted_times[0], sorted_times[-1], 10000)
             a = np.column_stack((xinter(t), yinter(t), zinter(t),
                                  np.ones(t.shape[0]) * i))
-            if total.shape[0] == 0:
-                total = a
+            if interp_l.shape[0] == 0:
+                interp_l = a
+                interp_t = t
             else:
-                total = np.vstack((total, a))
-        self.lanes = total
-        return self.lanes
+                interp_l = np.vstack((interp_l, a))
+                interp_t = np.hstack((interp_t, t))
+        self.lanes = interp_l
+        self.times = interp_t
+        return self.lanes, self.times
 
     def sampleLanes(self):
         """ Chooses the median in a cluster """
