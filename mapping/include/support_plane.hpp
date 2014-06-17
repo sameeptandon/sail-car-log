@@ -520,3 +520,19 @@ SupportPlane<PointT>::visualize(PointCloudPtr cloud, PointCloudPtr hull_cloud,
       boost::this_thread::sleep(boost::posix_time::microseconds(100000));
     }
 }
+
+
+template <typename PointT> void
+SupportPlane<PointT>::projectPointOnPlane(PointT& pt, PointT& proj_pt)
+{
+    Eigen::Vector3f p(pt.x, pt.y, pt.z);
+    Eigen::Vector3f n = getNormal().normalized();
+    std::vector<float> c = coefficients_->values;
+    // ax + by + cz + d = 0
+    Eigen::Vector3f p_plane(p[0], p[1], (-c[0]*p[0] - c[1]*p[1] - c[3]) / c[2]);
+
+    Eigen::Vector3f p_proj = p - (p - p_plane).dot(n) * n;
+    proj_pt.x = p_proj(0);
+    proj_pt.y = p_proj(1);
+    proj_pt.z = p_proj(2);
+}
