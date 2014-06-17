@@ -9,6 +9,7 @@
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
+#include <pcl/common/transforms.h>
 
 #include <opencv2/opencv.hpp>
 
@@ -19,8 +20,9 @@
 #include "../videoreader/VideoReader.h"
 
 
+typedef pcl::PointXYZ Point;
 typedef pcl::PointCloud<pcl::PointXYZ> Cloud;
-typedef pcl::PointCloud<pcl::PointXYZ>::Ptr CloudPtr; 
+typedef pcl::PointCloud<pcl::PointXYZ>::Ptr CloudPtr;
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -32,6 +34,43 @@ struct Options
   bool debug;
   po::options_description desc;
 };
+
+
+void transform_from_camera_to_lidar(CloudPtr cloud_in_camera_frame, CloudPtr cloud_in_lidar_frame)
+{
+  Eigen::Matrix4f rot_to_l_from_c = params().rot_to_c_from_l.inverse();
+  Eigen::Matrix4f trans_from_c_to_l = params().trans_from_l_to_c.inverse();
+  pcl::transformPointCloud(*cloud_in_camera_frame, *cloud_in_lidar_frame, rot_to_l_from_c);
+  pcl::transformPointCloud(*cloud_in_lidar_frame, *cloud_in_lidar_frame, trans_from_c_to_l);
+}
+
+
+void transform_from_lidar_to_camera(CloudPtr cloud_in_lidar_frame, CloudPtr cloud_in_camera_frame)
+{
+  pcl::transformPointCloud(*cloud_in_lidar_frame, *cloud_in_camera_frame, params().trans_from_l_to_c);
+  pcl::transformPointCloud(*cloud_in_camera_frame, *cloud_in_camera_frame, params().rot_to_c_from_l);
+}
+
+
+void transform_from_camera_to_lidar(Point& point_in_camera_frame, Point& point_in_lidar_frame)
+{
+  Eigen::Matrix4f rot_to_l_from_c = params().rot_to_c_from_l.inverse();
+  Eigen::Matrix4f trans_from_c_to_l = params().trans_from_l_to_c.inverse();
+  Eigen::Transform<float, 3, Eigen::Affine> rot(rot_to_l_from_c);
+  Eigen::Transform<float, 3, Eigen::Affine> trans(trans_from_c_to_l);
+  point_in_lidar_frame = pcl::transformPoint(point_in_camera_frame, rot);
+  point_in_lidar_frame = pcl::transformPoint(point_in_lidar_frame, trans);
+}
+
+
+void transform_from_lidar_to_camera(Point& point_in_lidar_frame, Point& point_in_camera_frame)
+{
+  Eigen::Transform<float, 3, Eigen::Affine> trans_from_l_to_c(params().trans_from_l_to_c);
+  Eigen::Transform<float, 3, Eigen::Affine> rot_to_c_from_l(params().rot_to_c_from_l);
+  point_in_camera_frame = pcl::transformPoint(point_in_lidar_frame, trans_from_l_to_c);
+  point_in_camera_frame = pcl::transformPoint(point_in_camera_frame, rot_to_c_from_l);
+}
+
 
 int options(int ac, char ** av, Options& opts)
 {
@@ -156,8 +195,7 @@ int main(int argc, char** argv)
     else
     {
       // Transform to camera_t
-      pcl::transformPointCloud(*cloud_filtered, *cloud_filtered, params().trans_from_l_to_c);
-      pcl::transformPointCloud(*cloud_filtered, *cloud_filtered, params().rot_to_c_from_l);
+      transform_from_lidar_to_camera(cloud_filtered, cloud_filtered);
       // Only points in front of the camera
       filter_field(cloud_filtered, "z", 0, std::numeric_limits<float>::max());
 
@@ -172,10 +210,20 @@ int main(int argc, char** argv)
 
       for (int k = 0; k < clusters.size(); k++)
       {
-        // Determine 3d bounding box
+        // Project the point onto the plane (for occluded cars)
+        // Have to first transform the cluster back into lidar coordinates
 
         pcl::PointXYZ min_pt, max_pt;
+        transform_from_camera_to_lidar(clusters[k], clusters[k]);
         pcl::getMinMax3D(*(clusters[k]), min_pt, max_pt);
+        support_plane.projectPointOnPlane(min_pt, min_pt);
+        transform_from_lidar_to_camera(clusters[k], clusters[k]);
+
+        transform_from_lidar_to_camera(min_pt, min_pt);
+        transform_from_lidar_to_camera(max_pt, max_pt);
+
+        // Determine 3d bounding box
+
         CloudPtr corners_cloud(new Cloud);
         get_box_corners(min_pt, max_pt, corners_cloud);
         project_cloud_eigen(corners_cloud, Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(),
@@ -191,7 +239,13 @@ int main(int argc, char** argv)
         filter_pixels(pixels, frame, filtered_pixels, filtered_pixel_indices);
         if (filtered_pixels.size() > params().obj_min_cluster_size)
             set_pixel_colors(filtered_pixels, cv::Vec3b(255, 0, 0), frame, 2);
-            draw_bbox_from_pixels(filtered_pixels, cv::Scalar(0, 255, 0), frame, 3);
+
+            // Don't use filtered here
+            bbox box = compute_bbox(pixels);
+            if (box.xy_ratio() > 0.1) // FIXME PARAM
+            {
+                draw_bbox(box, cv::Scalar(0, 255, 0), frame, 3);
+            }
       }
     }
 

@@ -1,6 +1,5 @@
 import os
 from os.path import join as pjoin
-from pipeline_config import CAMERA
 from pipeline_utils import print_and_call
 from pipeline_config import NUM_CPUS, CAMERA, DATA_DIR
 from graphslam_config import GRAPHSLAM_PATH, GRAPHSLAM_MAPS_DIR, GRAPHSLAM_OPT_POS_DIR, GPS_FILES, RSS_LIST
@@ -9,7 +8,7 @@ from joblib import Parallel, delayed
 
 def export_map_data(gps_file, rss):
     route, segment, split = rss
-    dset = '%s_%s%d' % (segment, split, CAMERA)
+    dset = '%s_%s' % (segment, split)
     dset_dir = pjoin(pjoin(DATA_DIR, route), dset)
     stem = '_'.join(os.path.basename(gps_file).split('_')[0:-1])
     video = '%s%d.avi' % (stem, CAMERA)
