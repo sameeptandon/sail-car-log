@@ -1,0 +1,8 @@
+## Running Car Detection
+
+- Build `mapping`
+- Modify `pipeline_config.py` settings
+- Run `python pipeline.py convert_h5_to_pcd`
+- Run `./detect_cars --out out_video.avi` from the `mapping/bin` folder
+
+Plane fitting and clustering should just work, but may want to tweak `FILTER_RANGE` in `pipeline_config.py` if get clusters outside of the road.
