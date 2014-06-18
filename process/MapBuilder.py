@@ -75,15 +75,12 @@ class MapBuilder:
 
             if filters != None:
                 if 'lanes' in filters:
-                    print 'lanes'
                     data_filter_mask &=  (data[:,3] > 30) & (data[:,2] < -1.9) & \
                                          (data[:,2] >-2.1) & (data[:,1] < 3) & \
                                          (data [:,1] > -30) & (data[:,3] < 200)
                 if 'forward' in filters:
-                    print 'forward'
                     data_filter_mask &= (data[:, 0] > 0)
                 if 'flat' in filters:
-                    print 'flat'
                     data[:, 0] = 0
 
             data = data[data_filter_mask, :]
