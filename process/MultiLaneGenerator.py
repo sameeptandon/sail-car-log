@@ -5,7 +5,7 @@
 """
 import numpy as np
 from sklearn import cluster
-from scipy.spatial import distance
+from scipy.spatial import distance, KDTree
 import random
 from scipy.interpolate import UnivariateSpline
 import warnings
@@ -27,6 +27,8 @@ class MultiLane:
         self.npz = np.load(filteredLidarFile)
         self.lanes = self.npz['data']
         self.times = self.npz['t']
+        self.interp_lanes = None
+        self.interp_times = None
 
         self.interp = np.load(interpolationFile)
         self.leftLanes = leftLanes
@@ -38,7 +40,7 @@ class MultiLane:
         self.filterLaneMarkings()
         self.clusterLanes()
         self.sampleLanes()
-        # self.interpolateLanes()
+        self.interpolateLanes()
         return self.lanes, self.times
 
     def saveLanes(self, filepath):
@@ -48,7 +50,7 @@ class MultiLane:
     def clusterLanes(self):
         """Clusters lanes. A cluster is a sphere of at least 10 points within 3
         meters of eachother. cl.fit_predict may take a long time"""
-        cl = cluster.DBSCAN(eps=3, min_samples=10)
+        cl = cluster.DBSCAN(eps=3, min_samples=8)
         labels = cl.fit_predict(self.lanes[:, :3])
         # Only include points that are in a cluster
         mask = labels > -1
@@ -99,7 +101,7 @@ class MultiLane:
         mins = np.min(multilanedists, axis=0)
         argmins = np.argmin(multilanedists, axis=0)
         # TODO: Why is this hardcoded?
-        mask = ((argmins == 0) & (mins < 0.2)) | \
+        mask = ((argmins == 0) & (mins < 0.5)) | \
                ((argmins == 1) & (mins < 1.2)) | \
                ((argmins == 2) & (mins < 2.2)) | \
                ((argmins == 3) & (mins < 3.2)) | \
@@ -117,8 +119,13 @@ class MultiLane:
         return self.lanes, self.times
 
     def interpolateLanes(self):
-        """Interpolates lane POIs with a univariate spline. This does not work
-        as well as expected. TODO: see if a piecewise-linear fit works better"""
+        """Interpolates lane POIs with a univariate spline. """
+        # Sort the lane with time information
+        # sort_order = np.linalg.norm(lane[:, :3], axis=1).argsort()
+        sort_order = self.times.argsort(axis=0)
+        self.times = self.times[sort_order]
+        self.lanes = self.lanes[sort_order]
+
         interp_l = np.array([])
         interp_t = np.array([])
         for i in xrange(self.leftLanes + self.rightLanes):
@@ -126,28 +133,23 @@ class MultiLane:
             lane = self.lanes[mask, :]
             times = self.times[mask]
 
-            # Sort the lane with time information
-            # sort_order = np.linalg.norm(lane[:, :3], axis=1).argsort()
-            sort_order = times.argsort(axis=0)
-            sorted_times = times[sort_order]
-            sorted_lane = lane[sort_order]
-
-            xinter = UnivariateSpline(sorted_times, sorted_lane[:, 0], s=0)
-            yinter = UnivariateSpline(sorted_times, sorted_lane[:, 1], s=0)
-            zinter = UnivariateSpline(sorted_times, sorted_lane[:, 2], s=0)
+            xinter = UnivariateSpline(times, lane[:, 0], s=0)
+            yinter = UnivariateSpline(times, lane[:, 1], s=0)
+            zinter = UnivariateSpline(times, lane[:, 2], s=0)
             # 10 points per second
-            t = np.arange(sorted_times[0], sorted_times[-1], 10000)
+            t = np.arange(times[0], times[-1], 10000)
             a = np.column_stack((xinter(t), yinter(t), zinter(t),
                                  np.ones(t.shape[0]) * i))
+            
+            # Save the interpolated lane-times and the sorted lane-times
             if interp_l.shape[0] == 0:
-                interp_l = a
-                interp_t = t
+                (interp_l, interp_t) = (a, t)
             else:
-                interp_l = np.vstack((interp_l, a))
-                interp_t = np.hstack((interp_t, t))
-        self.lanes = interp_l
-        self.times = interp_t
-        return self.lanes, self.times
+                (interp_l, interp_t) =  (np.vstack((interp_l, a)), 
+                                         np.hstack((interp_t, t)))
+
+        (self.interp_lanes, self.interp_times) = (interp_l, interp_t)
+        return self.interp_lanes, self.interp_times
 
     def sampleLanes(self):
         """ Chooses the median in a cluster """
@@ -164,6 +166,31 @@ class MultiLane:
         self.lanes = np.array(l_centroids)
         self.times = np.array(t_centroids)
         return self.lanes, self.times
+    
+    def fixMissingPoints(self):
+        """ This method is not finished yet!! 
+        It should remove points that are interpolated for a long distance"""
+        for lane in xrange(self.leftLanes + self.rightLanes):
+            xyz = self.lanes[self.lanes[:, -2] == lane, :3]
+            dist = distance.cdist(xyz, xyz)
+            # Don't pick ourselves
+            np.fill_diagonal(dist, float('inf'))
+            path = []
+            idx = []
+            for i in xrange(dist.shape[0]):
+                # Find the closest point relative to this one
+                close_idx = np.argmin(dist[i:, i:], axis=0)[0]
+                # Update the relative position to be absolute
+                close_idx += i
+                # x1, y1, z1, x2, y2, z2, distance
+                path.append(np.hstack((xyz[i, :3], xyz[close_idx, :3],
+                                       dist[close_idx, i])))
+                idx.append(close_idx)
+            print np.sort(np.array(idx)) - np.array(idx)
+            idx = []
+        return np.array(path)
+        
+        
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")  # filtering warnings

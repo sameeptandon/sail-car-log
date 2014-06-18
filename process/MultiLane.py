@@ -85,14 +85,14 @@ class Blockworld:
 
         ml = MultiLane(sys.argv[3], sys.argv[4], 1, 4)
 
-        print 'Adding raw points'
+        ml.extendLanes()
+        ml.filterLaneMarkings()
+
+        print 'Adding filtered points'
         pts = ml.lanes.copy()
         raw_cloud = VtkPointCloud(pts[:, :3], pts[:, 4])
         raw_actor = raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
         self.ren.AddActor(raw_actor)
-
-        ml.extendLanes()
-        ml.filterLaneMarkings()
 
         try:
             npz = np.load('cluster.npz')
@@ -100,8 +100,8 @@ class Blockworld:
             ml.lanes = npz['data']
             ml.times = npz['t']
         except IOError:
-            ml.clusterLanes()
             print 'Clustering points'
+            ml.clusterLanes()
             ml.saveLanes('cluster.npz')
 
         ml.sampleLanes()
@@ -115,11 +115,12 @@ class Blockworld:
 
         print 'Interpolating lanes'
         ml.interpolateLanes()
-        interp_lanes = ml.lanes.copy()
+        interp_lanes = ml.interp_lanes.copy()
         interp_lanes_cloud = VtkPointCloud(interp_lanes[:, :3], interp_lanes[:, 3])
         interp_lanes_actor = interp_lanes_cloud.get_vtk_cloud(zMin=0, zMax=4)
         self.ren.AddActor(interp_lanes_actor)
 
+        # ml.fixMissingPoints()
         # saveClusters(ml.lanes, ml.times, -1, 5)
 
         print 'Adding car'
