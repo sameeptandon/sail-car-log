@@ -35,7 +35,6 @@ os.chdir(DSET_DIR)
 DOWNLOADS = list()
 for f in REMOTE_FILES:
     DOWNLOADS.append([None, f])
-
 @follows(*MKDIRS)
 @files(DOWNLOADS)
 def download_files(dummy, local_file):
@@ -43,14 +42,13 @@ def download_files(dummy, local_file):
     print cmd
     check_call(cmd, shell=True)
 
-
 @follows('download_files')
 @files('./%s_gps.bag' % DSET, '%s_frames' % DSET)
 def generate_frames_and_map(input_file, output_dir):
     cmd = 'cd %s/lidar; python generate_frames.py %s %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR, PARAMS_TO_LOAD)
     print cmd
     check_call(cmd, shell=True)
-    cmd = '%s/gps/BagToGPSMarkOut.py %s' % (SAIL_CAR_LOG_PATH, '%s/%s_gps.bag' % (DSET_DIR, DSET))
+    cmd = 'cd %s/lidar; python generate_gps_out.py %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR) 
     print cmd
     check_call(cmd, shell=True)
 
