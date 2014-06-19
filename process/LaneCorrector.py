@@ -140,16 +140,15 @@ class Blockworld:
         if idx >= 0:
             p = self.picker.GetPickPosition()
             actor = self.picker.GetActor()
+            data_in = actor.GetMapper().GetInput()
 
-            print 'Got point', p, idx
-            
-            data = actor.GetMapper().GetInput().GetPoints().GetData()
-            data.SetTuple(idx, (0,0,0))
-            print 'Moved point to', data.GetTuple(idx)
+            pos = data_in.GetPoints().GetData()
+            pos.SetTuple(idx, (0,0,0))
 
-            self.ren.RemoveActor(actor)
-            self.ren.AddActor(actor)
+            color = data_in.GetPointData().GetScalars()
+            color.SetTuple(idx, (5,))
 
+            data_in.Modified()
             iren.GetRenderWindow().Render()
 
     def keyhandler(self, obj, event):
