@@ -124,7 +124,6 @@ class Blockworld:
 
         # Add mouse move even
         self.iren.AddObserver('LeftButtonPressEvent', self.mouseHandler)
-
         self.iren.Start()
 
     def getCameraPosition(self, t):
@@ -137,8 +136,21 @@ class Blockworld:
         # renWin.HideCursor()
         x, y = iren.GetEventPosition()
         self.picker.Pick(x, y, 0, self.ren)
-        p = self.picker.GetPickPosition()
-        print p
+        idx = self.picker.GetPointId()
+        if idx >= 0:
+            p = self.picker.GetPickPosition()
+            actor = self.picker.GetActor()
+
+            print 'Got point', p, idx
+            
+            data = actor.GetMapper().GetInput().GetPoints().GetData()
+            data.SetTuple(idx, (0,0,0))
+            print 'Moved point to', data.GetTuple(idx)
+
+            self.ren.RemoveActor(actor)
+            self.ren.AddActor(actor)
+
+            iren.GetRenderWindow().Render()
 
     def keyhandler(self, obj, event):
         key = obj.GetKeySym()
