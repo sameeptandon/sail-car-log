@@ -1,20 +1,17 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-#Usage: MultiLane.py folder/ video.avi data.npz interpolated_lanes.pickle
+#Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
 
 from ArgParser import parse_args
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
-from MultiLaneGenerator import MultiLane
 from Q50_config import LoadParameters
-from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText
+from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText, VtkImage
 import numpy as np
-from scipy.interpolate import UnivariateSpline
-from scipy.spatial import distance, KDTree
-from sklearn import cluster
 import sys
 from transformations import euler_from_matrix
 import vtk
+from VideoReader import *
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -168,26 +165,35 @@ class Blockworld:
         self.end = self.step * 500
         self.count = 0
 
-        # Whether to write video
-        self.record = False
-
-        self.ren = vtk.vtkRenderer()
-        self.ren.SetBackground(0, 0, 0)
-
-        self.win = vtk.vtkRenderWindow()
-        self.win.AddRenderer(self.ren)
-        self.win.SetSize(800, 400)
-
-        self.iren = vtk.vtkRenderWindowInteractor()
-        self.iren.SetRenderWindow(self.win)
-
-        # Transforms
+        ##### Grab all the transforms ######
         self.imu_transforms = get_transforms(args)
         self.trans_wrt_imu = self.imu_transforms[
             self.start:self.end:self.step, 0:3, 3]
         self.params = args['params']
         self.lidar_params = self.params['lidar']
 
+        # Whether to write video
+        self.record = False
+
+        ###### Set up the renderers ######
+        self.cloud_ren = vtk.vtkRenderer()
+        self.cloud_ren.SetViewport(0,0,0.5,1.0)
+        self.cloud_ren.SetBackground(0, 0, 0)
+
+        self.img_ren = vtk.vtkRenderer()
+        self.img_ren.SetViewport(0.5,0,1.0,1.0)
+        self.img_ren.SetInteractive(False)
+        self.img_ren.SetBackground(0, 0, 0)
+
+        self.win = vtk.vtkRenderWindow()
+        self.win.AddRenderer(self.cloud_ren)
+        self.win.AddRenderer(self.img_ren)
+        self.win.SetSize(800, 400)
+
+        self.iren = vtk.vtkRenderWindowInteractor()
+        self.iren.SetRenderWindow(self.win)
+
+        ###### Cloud Actors ######
         print 'Adding raw points'
         raw_npz = np.load(sys.argv[3])
         pts = raw_npz['data']
@@ -195,7 +201,7 @@ class Blockworld:
         raw_actor = raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
         raw_actor.GetProperty().SetPointSize(5)
         raw_actor.SetPickable(0)
-        self.ren.AddActor(raw_actor)
+        self.cloud_ren.AddActor(raw_actor)
 
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
@@ -209,21 +215,32 @@ class Blockworld:
         for i in xrange(num_lanes):
             interp_lanes[i] = npz['lane' + str(i)]
             interp_times[i] = npz['time' + str(i)]
+            # The intensity of the lane tells us which lane it is
+            # Do not change this, it is very important
             interp_cloud[i] = VtkPointCloud(interp_lanes[i][:, :3],
                                             np.ones((interp_lanes[i].shape[0]))
                                             * i)
             self.interp_actor[i] = interp_cloud[i].get_vtk_cloud(zMin=0, zMax=num_lanes+1)
             self.interp_actor[i].GetProperty().SetPointSize(2)
-            self.ren.AddActor(self.interp_actor[i])
+            self.cloud_ren.AddActor(self.interp_actor[i])
 
-
-        self.mouseInteractor = LaneInteractorStyle(self.iren, self.ren, self)
+        # Use our custom mouse interactor
+        self.mouseInteractor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
         self.iren.SetInteractorStyle(self.mouseInteractor)
 
+        # Tell the user which mode we are in
         selectMode = VtkText(self.getModetext('single'), (10, 10))
         self.selectModeActor = selectMode.get_vtk_text()
-        self.ren.AddActor(self.selectModeActor)
+        self.cloud_ren.AddActor(self.selectModeActor)
 
+        ###### 2D Projection Actors ######
+        self.video_reader = VideoReader(args['video'])
+        (success, I) = self.video_reader.getNextFrame()
+        vtkimg = VtkImage(I)
+        self.img_actor = vtkimg.get_vtk_image()
+        self.img_ren.AddActor(self.img_actor)
+
+        ###### Add Callbacks ######
         print 'Rendering'
 
         self.iren.Initialize()
