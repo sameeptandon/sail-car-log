@@ -7,6 +7,22 @@ import cv2
 import itertools
 
 
+class VtkText:
+    def __init__(self, text, pos):
+        self.text = text
+        self.pos = pos
+
+    def get_vtk_text(self):
+        txt = vtk.vtkTextActor()
+        txt.SetInput(self.text)
+        txtprop=txt.GetTextProperty()
+        txtprop.SetFontFamilyToArial()
+        txtprop.SetFontSize(18)
+        txtprop.SetColor(1,1,1)
+        txt.SetDisplayPosition(*self.pos)
+        
+        return txt
+
 class VtkImage:
     def __init__(self, im):
         self.im =  cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
