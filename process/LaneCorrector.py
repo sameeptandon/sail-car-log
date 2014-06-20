@@ -7,7 +7,7 @@ from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
 from MultiLaneGenerator import MultiLane
 from Q50_config import LoadParameters
-from VtkRenderer import VtkPointCloud, VtkBoundingBox
+from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 from scipy.spatial import distance, KDTree
@@ -72,12 +72,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.AddObserver('MouseWheelForwardEvent', self.MouseWheelForwardEvent)
         self.AddObserver('MouseWheelBackwardEvent', self.MouseWheelBackwardEvent)
 
-    def getLane(self, actor):
-        if actor and actor in self.parent.interp_actor:
-            return self.parent.interp_actor.index(actor)
-        else:
-            return None
-
     def MouseWheelForwardEvent(self, obj, event):
         print self.ren.GetActiveCamera().GetPosition()
         self.OnMouseWheelForward()
@@ -137,7 +131,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             old_pos = np.array(old_pos)
 
             change = new_pos - old_pos
-
             for p in self.nextNearbyPoint(self.idx):
                 if p >= 0 and p < self.data_in.GetNumberOfElements(0):
                     p_old_pos = np.array(self.pos.GetTuple(p))
@@ -154,22 +147,39 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     
     def nextNearbyPoint(self, mid):
         n = self.num_nearby
-        i = mid - n
-        while i <= mid + n:
+        i = mid - n + 1
+        while i < mid + n:
             yield i
             i += 1
+
+    def getLane(self, actor):
+        if actor and actor in self.parent.interp_actor:
+            return self.parent.interp_actor.index(actor)
+        else:
+            return None
 
 class Blockworld:
 
     def __init__(self):
+        args = parse_args(sys.argv[1], sys.argv[2])
+
         self.start = 0
         self.step = 10
         self.end = self.step * 500
         self.count = 0
 
-        self.ren = vtk.vtkRenderer()
+        # Whether to write video
+        self.record = False
 
-        args = parse_args(sys.argv[1], sys.argv[2])
+        self.ren = vtk.vtkRenderer()
+        self.ren.SetBackground(0, 0, 0)
+
+        self.win = vtk.vtkRenderWindow()
+        self.win.AddRenderer(self.ren)
+        self.win.SetSize(800, 400)
+
+        self.iren = vtk.vtkRenderWindowInteractor()
+        self.iren.SetRenderWindow(self.win)
 
         # Transforms
         self.imu_transforms = get_transforms(args)
@@ -183,6 +193,7 @@ class Blockworld:
         pts = raw_npz['data']
         raw_cloud = VtkPointCloud(pts[:, :3], pts[:, 3])
         raw_actor = raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
+        raw_actor.GetProperty().SetPointSize(5)
         raw_actor.SetPickable(0)
         self.ren.AddActor(raw_actor)
 
@@ -202,26 +213,20 @@ class Blockworld:
                                             np.ones((interp_lanes[i].shape[0]))
                                             * i)
             self.interp_actor[i] = interp_cloud[i].get_vtk_cloud(zMin=0, zMax=num_lanes+1)
-            self.interp_actor[i].GetProperty().SetPointSize(7)
+            self.interp_actor[i].GetProperty().SetPointSize(2)
             self.ren.AddActor(self.interp_actor[i])
-        
+
+
+        self.mouseInteractor = LaneInteractorStyle(self.iren, self.ren, self)
+        self.iren.SetInteractorStyle(self.mouseInteractor)
+
+        selectMode = VtkText(self.getModetext('single'), (10, 10))
+        self.selectModeActor = selectMode.get_vtk_text()
+        self.ren.AddActor(self.selectModeActor)
+
         print 'Rendering'
 
-        self.win = vtk.vtkRenderWindow()
-        self.ren.SetBackground(0, 0, 0)
-        self.win.AddRenderer(self.ren)
-        self.win.SetSize(800, 400)
-
-        self.iren = vtk.vtkRenderWindowInteractor()
-        self.iren .SetRenderWindow(self.win)
-        # mouseInteractor = vtk.vtkInteractorStyleTrackballCamera()
-        mouseInteractor = LaneInteractorStyle(self.iren, self.ren, self)
-        self.iren.SetInteractorStyle(mouseInteractor)
-
         self.iren.Initialize()
-
-        # Whether to write video
-        self.record = False
 
         # Set up time
         self.iren.AddObserver('TimerEvent', self.update)
@@ -232,6 +237,12 @@ class Blockworld:
 
         self.iren.Start()
 
+    def getModetext(self, mode):
+        if mode == 'single':
+            return 'Single Lane - ' + str(self.mouseInteractor.num_nearby)
+        else:
+            return 'All Lanes - ' + str(self.mouseInteractor.num_nearby)
+
     def getCameraPosition(self, t):
         position = self.imu_transforms[t - self.step, 0:3, 3] +\
                    np.array([0, 0, 75.0])
@@ -240,6 +251,17 @@ class Blockworld:
 
     def keyhandler(self, obj, event):
         key = obj.GetKeySym()
+        
+        if key == 'Up':
+            self.mouseInteractor.num_nearby += 1
+            self.selectModeActor.SetInput(self.getModetext('single'))
+            self.selectModeActor.Modified()
+        elif key == 'Down':
+            num = self.mouseInteractor.num_nearby - 1
+            self.mouseInteractor.num_nearby = num if num > 0 else 1
+            self.selectModeActor.SetInput(self.getModetext('single'))
+            self.selectModeActor.Modified()
+            
         if key == 'a':
             self.mode = 'above'
         elif key == '0':
