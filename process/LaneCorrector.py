@@ -49,34 +49,84 @@ def saveClusters(lanes, times, lane_idx, num_lanes):
 
     np.savez('multilane_points', **out)
 
-class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballActor):
-    def __init__(self, iren, ren):
+class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
+    def __init__(self, iren, ren, parent):
         self.iren = iren
         self.ren = ren
+        self.parent = parent
         self.picker = vtk.vtkPointPicker()
         self.iren.SetPicker(self.picker)
 
         self.moving = False
+        self.InteractionProp = None
 
         self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
         self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
-        self.AddObserver('MouseMoveEvent', self.OnMouseMoveEvent)
+        self.AddObserver('RightButtonPressEvent', self.RightButtonPressEvent)
+        self.AddObserver('RightButtonReleaseEvent', self.RightButtonReleaseEvent)
+        self.AddObserver('MouseMoveEvent', self.MouseMoveEvent)
 
-    def OnMouseMoveEvent(self, obj, event):
+        self.AddObserver('MouseWheelForwardEvent', self.MouseWheelForwardEvent)
+        self.AddObserver('MouseWheelBackwardEvent', self.MouseWheelBackwardEvent)
+
+    def getLane(self, actor):
+        if actor and actor in self.parent.interp_actor:
+            return self.parent.interp_actor.index(actor)
+        else:
+            return None
+
+    def MouseWheelForwardEvent(self, obj, event):
+        print self.ren.GetActiveCamera().GetPosition()
+        self.OnMouseWheelForward()
+
+    def MouseWheelBackwardEvent(self, obj, event):
+        print self.ren.GetActiveCamera().GetPosition()
+        self.OnMouseWheelBackward()
+
+    def LeftButtonPressEvent(self, obj, event):
+        x, y = self.iren.GetEventPosition()
+        self.picker.Pick(x, y, 0, self.ren)
+        idx = self.picker.GetPointId()
+        if idx >= 0 and self.getLane(self.picker.GetActor()) != None:
+            self.InteractionProp = self.picker.GetActor()
+            self.old_pos = self.picker.GetPickPosition()
+            self.idx = idx
+            self.moving = True
+
+    def LeftButtonReleaseEvent(self, obj, event):
+        lane = self.getLane(self.InteractionProp)
+        if lane != None:
+            print '(%d, %d) %s -> %s' % (lane, self.idx, self.old_pos, self.new_pos)
+        self.moving = False
+        self.idx = -1
+        self.old_pos = None
+        self.new_pos = None
+        self.InteractionProp = None
+
+    def RightButtonPressEvent(self, obj, event):
+        self.OnLeftButtonDown()
+
+    def RightButtonReleaseEvent(self, obj, event):
+        self.OnLeftButtonUp()
+
+    def MouseMoveEvent(self, obj, event):
         if self.moving:
-            obj_center = self.obj_center
+            old_pos = self.old_pos
             x, y = self.iren.GetEventPosition()
 
-            disp_obj_center = [0] * 3
-            new_pick_point = [0] * 4
-            self.ComputeWorldToDisplay(self.ren, obj_center[0], obj_center[1],
-                                       obj_center[2], disp_obj_center)
+            disp_obj_center = [0.] * 3
+            new_pick_point = [0.] * 4
+            self.ComputeWorldToDisplay(self.ren, old_pos[0], old_pos[1],
+                                       old_pos[2], disp_obj_center)
             self.ComputeDisplayToWorld(self.ren, x, y, disp_obj_center[2],
                                        new_pick_point)
             data_in = self.InteractionProp.GetMapper().GetInput()
 
             pos = data_in.GetPoints().GetData()
-            pos.SetTuple(self.idx, new_pick_point[:-1])
+            self.new_pos = new_pick_point[:-1]
+            self.new_pos[2] = old_pos[2]
+
+            pos.SetTuple(self.idx, self.new_pos)
 
             # color = data_in.GetPointData().GetScalars()
             # color.SetTuple(self.idx, (5,))
@@ -84,22 +134,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballActor):
             data_in.Modified()
             self.iren.GetRenderWindow().Render()
 
-    def LeftButtonReleaseEvent(self, obj, event):
-        self.moving = False
-        self.idx = -1
-        self.obj_center = None
-        self.InteractionProp = None
-
-    def LeftButtonPressEvent(self, obj, event):
-        x, y = self.iren.GetEventPosition()
-        self.picker.Pick(x, y, 0, self.ren)
-        idx = self.picker.GetPointId()
-        if idx >= 0:
-            self.InteractionProp = self.picker.GetActor()
-            self.obj_center = self.picker.GetPickPosition()
-            self.idx = idx
-            print 'Moving point', idx
-            self.moving = True
 
 
 class Blockworld:
@@ -121,12 +155,13 @@ class Blockworld:
         self.params = args['params']
         self.lidar_params = self.params['lidar']
 
-        # print 'Adding raw points'
-        # raw_npz = np.load(sys.argv[3])
-        # pts = raw_npz['data']
-        # raw_cloud = VtkPointCloud(pts[:, :3], pts[:, 3])
-        # raw_actor = raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
-        # self.ren.AddActor(raw_actor)
+        print 'Adding raw points'
+        raw_npz = np.load(sys.argv[3])
+        pts = raw_npz['data']
+        raw_cloud = VtkPointCloud(pts[:, :3], pts[:, 3])
+        raw_actor = raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
+        raw_actor.SetPickable(0)
+        self.ren.AddActor(raw_actor)
 
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
@@ -135,7 +170,7 @@ class Blockworld:
         interp_lanes = [None] * num_lanes
         interp_times = [None] * num_lanes
         interp_cloud = [None] * num_lanes
-        interp_actor = [None] * num_lanes
+        self.interp_actor = [None] * num_lanes
 
         for i in xrange(num_lanes):
             interp_lanes[i] = npz['lane' + str(i)]
@@ -143,12 +178,11 @@ class Blockworld:
             interp_cloud[i] = VtkPointCloud(interp_lanes[i][:, :3],
                                             np.ones((interp_lanes[i].shape[0]))
                                             * i)
-            interp_actor[i] = interp_cloud[i].get_vtk_cloud(zMin=0, zMax=num_lanes+1)
-            interp_actor[i].GetProperty().SetPointSize(7)
-            self.ren.AddActor(interp_actor[i])
+            self.interp_actor[i] = interp_cloud[i].get_vtk_cloud(zMin=0, zMax=num_lanes+1)
+            self.interp_actor[i].GetProperty().SetPointSize(7)
+            self.ren.AddActor(self.interp_actor[i])
         
         print 'Rendering'
-        self.ren.ResetCamera()
 
         self.win = vtk.vtkRenderWindow()
         self.ren.SetBackground(0, 0, 0)
@@ -158,7 +192,7 @@ class Blockworld:
         self.iren = vtk.vtkRenderWindowInteractor()
         self.iren .SetRenderWindow(self.win)
         # mouseInteractor = vtk.vtkInteractorStyleTrackballCamera()
-        mouseInteractor = LaneInteractorStyle(self.iren, self.ren)
+        mouseInteractor = LaneInteractorStyle(self.iren, self.ren, self)
         self.iren.SetInteractorStyle(mouseInteractor)
 
         self.iren.Initialize()
@@ -200,24 +234,26 @@ class Blockworld:
     def update(self, iren, event):
         # Transform the car
         # t = self.start + self.step * self.count
-        t = self.start + self.step
+        if self.count == 1:
+            t = self.start + self.step
 
-        imu_transform = self.imu_transforms[t, :,:]
+            imu_transform = self.imu_transforms[t, :,:]
 
-        # Set camera position
-        fren = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
-        cam = fren.GetActiveCamera()
-        position, focal_point = self.getCameraPosition(t)
+            # Set camera position
+            fren = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
+            cam = fren.GetActiveCamera()
+            position, focal_point = self.getCameraPosition(t)
 
-        cam.SetPosition(position)
-        cam.SetFocalPoint(focal_point)
-        cam.SetViewUp(0, 0, 1)
-        fren.ResetCameraClippingRange()
-        cam.SetClippingRange(0.1, 1600)
+            cam.SetPosition(position)
+            cam.SetFocalPoint(focal_point)
+            cam.SetViewUp(0, 0, 1)
+            fren.ResetCameraClippingRange()
+            cam.SetClippingRange(0.1, 1600)
+
+            if self.record:
+                self.writeVideo()
+        
         iren.GetRenderWindow().Render()
-
-        if self.record:
-            self.writeVideo()
 
         self.count += 1
 
