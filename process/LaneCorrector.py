@@ -49,6 +49,59 @@ def saveClusters(lanes, times, lane_idx, num_lanes):
 
     np.savez('multilane_points', **out)
 
+class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballActor):
+    def __init__(self, iren, ren):
+        self.iren = iren
+        self.ren = ren
+        self.picker = vtk.vtkPointPicker()
+        self.iren.SetPicker(self.picker)
+
+        self.moving = False
+
+        self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
+        self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
+        self.AddObserver('MouseMoveEvent', self.OnMouseMoveEvent)
+
+    def OnMouseMoveEvent(self, obj, event):
+        if self.moving:
+            obj_center = self.obj_center
+            x, y = self.iren.GetEventPosition()
+
+            disp_obj_center = [0] * 3
+            new_pick_point = [0] * 4
+            self.ComputeWorldToDisplay(self.ren, obj_center[0], obj_center[1],
+                                       obj_center[2], disp_obj_center)
+            self.ComputeDisplayToWorld(self.ren, x, y, disp_obj_center[2],
+                                       new_pick_point)
+            data_in = self.InteractionProp.GetMapper().GetInput()
+
+            pos = data_in.GetPoints().GetData()
+            pos.SetTuple(self.idx, new_pick_point[:-1])
+
+            # color = data_in.GetPointData().GetScalars()
+            # color.SetTuple(self.idx, (5,))
+
+            data_in.Modified()
+            self.iren.GetRenderWindow().Render()
+
+    def LeftButtonReleaseEvent(self, obj, event):
+        self.moving = False
+        self.idx = -1
+        self.obj_center = None
+        self.InteractionProp = None
+
+    def LeftButtonPressEvent(self, obj, event):
+        x, y = self.iren.GetEventPosition()
+        self.picker.Pick(x, y, 0, self.ren)
+        idx = self.picker.GetPointId()
+        if idx >= 0:
+            self.InteractionProp = self.picker.GetActor()
+            self.obj_center = self.picker.GetPickPosition()
+            self.idx = idx
+            print 'Moving point', idx
+            self.moving = True
+
+
 class Blockworld:
 
     def __init__(self):
@@ -104,11 +157,9 @@ class Blockworld:
 
         self.iren = vtk.vtkRenderWindowInteractor()
         self.iren .SetRenderWindow(self.win)
-        mouseInteractor = vtk.vtkInteractorStyleTrackballCamera()
+        # mouseInteractor = vtk.vtkInteractorStyleTrackballCamera()
+        mouseInteractor = LaneInteractorStyle(self.iren, self.ren)
         self.iren.SetInteractorStyle(mouseInteractor)
-
-        self.picker = vtk.vtkPointPicker()
-        self.iren.SetPicker(self.picker)
 
         self.iren.Initialize()
 
@@ -122,34 +173,13 @@ class Blockworld:
         # Add keypress event
         self.iren.AddObserver('KeyPressEvent', self.keyhandler)
 
-        # Add mouse move even
-        self.iren.AddObserver('LeftButtonPressEvent', self.mouseHandler)
         self.iren.Start()
 
     def getCameraPosition(self, t):
         position = self.imu_transforms[t - self.step, 0:3, 3] +\
-                   np.array([-75.0, 0, 25.0])
+                   np.array([0, 0, 75.0])
         focal_point = self.imu_transforms[t, 0:3, 3]
         return position, focal_point
-
-    def mouseHandler(self, iren, event=""):
-        # renWin.HideCursor()
-        x, y = iren.GetEventPosition()
-        self.picker.Pick(x, y, 0, self.ren)
-        idx = self.picker.GetPointId()
-        if idx >= 0:
-            p = self.picker.GetPickPosition()
-            actor = self.picker.GetActor()
-            data_in = actor.GetMapper().GetInput()
-
-            pos = data_in.GetPoints().GetData()
-            pos.SetTuple(idx, (0,0,0))
-
-            color = data_in.GetPointData().GetScalars()
-            color.SetTuple(idx, (5,))
-
-            data_in.Modified()
-            iren.GetRenderWindow().Render()
 
     def keyhandler(self, obj, event):
         key = obj.GetKeySym()
@@ -191,6 +221,7 @@ class Blockworld:
 
         self.count += 1
 
+    # Video Recording
     def startVideo(self):
         self.win2img = vtk.vtkWindowToImageFilter()
         self.win2img.SetInput(self.win)
