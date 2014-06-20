@@ -55,10 +55,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.ren = ren
         self.parent = parent
         self.picker = vtk.vtkPointPicker()
+        self.picker.SetTolerance(0.01)
         self.iren.SetPicker(self.picker)
 
         self.moving = False
         self.InteractionProp = None
+
+        self.num_nearby = 10
 
         self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
         self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
@@ -89,18 +92,20 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         idx = self.picker.GetPointId()
         if idx >= 0 and self.getLane(self.picker.GetActor()) != None:
             self.InteractionProp = self.picker.GetActor()
-            self.old_pos = self.picker.GetPickPosition()
             self.idx = idx
             self.moving = True
 
     def LeftButtonReleaseEvent(self, obj, event):
         lane = self.getLane(self.InteractionProp)
         if lane != None:
-            print '(%d, %d) %s -> %s' % (lane, self.idx, self.old_pos, self.new_pos)
+            print '(%d, %d)' % (lane, self.idx)
+            for p in self.nextNearbyPoint(self.idx):
+                self.color.SetTuple(p, (lane,))
+
+            self.Render()
+            
         self.moving = False
         self.idx = -1
-        self.old_pos = None
-        self.new_pos = None
         self.InteractionProp = None
 
     def RightButtonPressEvent(self, obj, event):
@@ -111,7 +116,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
     def MouseMoveEvent(self, obj, event):
         if self.moving:
-            old_pos = self.old_pos
+            self.data_in = self.InteractionProp.GetMapper().GetInput()
+            self.pos = self.data_in.GetPoints().GetData()
+            self.color = self.data_in.GetPointData().GetScalars()
+
+            old_pos = self.pos.GetTuple(self.idx)
             x, y = self.iren.GetEventPosition()
 
             disp_obj_center = [0.] * 3
@@ -120,21 +129,35 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                        old_pos[2], disp_obj_center)
             self.ComputeDisplayToWorld(self.ren, x, y, disp_obj_center[2],
                                        new_pick_point)
-            data_in = self.InteractionProp.GetMapper().GetInput()
 
-            pos = data_in.GetPoints().GetData()
-            self.new_pos = new_pick_point[:-1]
-            self.new_pos[2] = old_pos[2]
+            new_pos = new_pick_point[:-1]
+            new_pos[2] = old_pos[2]
 
-            pos.SetTuple(self.idx, self.new_pos)
+            new_pos = np.array(new_pos)
+            old_pos = np.array(old_pos)
 
-            # color = data_in.GetPointData().GetScalars()
-            # color.SetTuple(self.idx, (5,))
+            change = new_pos - old_pos
 
-            data_in.Modified()
-            self.iren.GetRenderWindow().Render()
+            for p in self.nextNearbyPoint(self.idx):
+                if p >= 0 and p < self.data_in.GetNumberOfElements(0):
+                    p_old_pos = np.array(self.pos.GetTuple(p))
+                    alpha = 1.0 - abs(self.idx - p) / float(self.num_nearby)
+                    p_new_pos = p_old_pos + change * alpha
+                    self.pos.SetTuple(p, tuple(p_new_pos))
+                    self.color.SetTuple(p, (5,))
 
+            self.Render()
 
+    def Render(self):
+        self.data_in.Modified()
+        self.iren.GetRenderWindow().Render()
+    
+    def nextNearbyPoint(self, mid):
+        n = self.num_nearby
+        i = mid - n
+        while i <= mid + n:
+            yield i
+            i += 1
 
 class Blockworld:
 
