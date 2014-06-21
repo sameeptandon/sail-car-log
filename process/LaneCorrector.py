@@ -8,10 +8,13 @@ from GPSTransforms import IMUTransforms
 from Q50_config import LoadParameters
 from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText, VtkImage
 import numpy as np
+from scipy.spatial import KDTree
 import sys
 from transformations import euler_from_matrix
 import vtk
 from VideoReader import *
+from ColorMap import heatColorMapFast
+from MapReproject import lidarPtsToPixels
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -58,7 +61,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.moving = False
         self.InteractionProp = None
 
-        self.num_nearby = 10
+        self.num_nearby = 100
 
         self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
         self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
@@ -171,21 +174,25 @@ class Blockworld:
             self.start:self.end:self.step, 0:3, 3]
         self.params = args['params']
         self.lidar_params = self.params['lidar']
+        self.T_from_i_to_l = np.linalg.inv(self.lidar_params['T_from_l_to_i'])
+        cam_num = args['cam_num']
+        self.cam_params = self.params['cam'][cam_num-1]
 
         # Whether to write video
         self.record = False
 
         ###### Set up the renderers ######
         self.cloud_ren = vtk.vtkRenderer()
-        self.cloud_ren.SetViewport(0,0,0.5,1.0)
+        self.cloud_ren.SetViewport(0,0,1.0,1.0)
         self.cloud_ren.SetBackground(0, 0, 0)
 
         self.img_ren = vtk.vtkRenderer()
-        self.img_ren.SetViewport(0.5,0,1.0,1.0)
-        self.img_ren.SetInteractive(False)
-        self.img_ren.SetBackground(0, 0, 0)
+        self.img_ren.SetViewport(0.75,0.0,1.0,0.25)
+        # self.img_ren.SetInteractive(False)
+        self.img_ren.SetBackground(0.1, 0.1, 0.1)
 
         self.win = vtk.vtkRenderWindow()
+
         self.win.AddRenderer(self.cloud_ren)
         self.win.AddRenderer(self.img_ren)
         self.win.SetSize(800, 400)
@@ -205,24 +212,27 @@ class Blockworld:
 
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
-        num_lanes = int(npz['num_lanes'])
+        self.num_lanes = int(npz['num_lanes'])
 
-        interp_lanes = [None] * num_lanes
-        interp_times = [None] * num_lanes
-        interp_cloud = [None] * num_lanes
-        self.interp_actor = [None] * num_lanes
+        interp_lanes = [None] * self.num_lanes
+        interp_times = [None] * self.num_lanes
+        self.interp_cloud = [None] * self.num_lanes
+        self.interp_actor = [None] * self.num_lanes
 
-        for i in xrange(num_lanes):
+        for i in xrange(self.num_lanes):
             interp_lanes[i] = npz['lane' + str(i)]
             interp_times[i] = npz['time' + str(i)]
             # The intensity of the lane tells us which lane it is
             # Do not change this, it is very important
-            interp_cloud[i] = VtkPointCloud(interp_lanes[i][:, :3],
-                                            np.ones((interp_lanes[i].shape[0]))
-                                            * i)
-            self.interp_actor[i] = interp_cloud[i].get_vtk_cloud(zMin=0, zMax=num_lanes+1)
+            num_pts = interp_lanes[i].shape[0]
+            self.interp_cloud[i] = VtkPointCloud(interp_lanes[i][:, :3],
+                                            np.ones((num_pts)) * i)
+            self.interp_actor[i] = self.interp_cloud[i].get_vtk_cloud(zMin=0,
+                                                                      zMax=self.num_lanes+1)
             self.interp_actor[i].GetProperty().SetPointSize(2)
             self.cloud_ren.AddActor(self.interp_actor[i])
+
+        self.laneKDTree = KDTree(self.interp_cloud[0].xyz)
 
         # Use our custom mouse interactor
         self.mouseInteractor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
@@ -235,10 +245,7 @@ class Blockworld:
 
         ###### 2D Projection Actors ######
         self.video_reader = VideoReader(args['video'])
-        (success, I) = self.video_reader.getNextFrame()
-        vtkimg = VtkImage(I)
-        self.img_actor = vtkimg.get_vtk_image()
-        self.img_ren.AddActor(self.img_actor)
+        self.img_actor = None
 
         ###### Add Callbacks ######
         print 'Rendering'
@@ -296,21 +303,31 @@ class Blockworld:
     def update(self, iren, event):
         # Transform the car
         # t = self.start + self.step * self.count
-        if self.count == 1:
-            t = self.start + self.step
+        t = self.start + self.step
+        self.img_ren.RemoveActor(self.img_actor)
+        
+        self.video_reader.setFrame(t - self.step)
+        (success, self.I) = self.video_reader.getNextFrame()
 
+        self.I = self.projectPointsOnImg(self.I, t)
+        vtkimg = VtkImage(self.I)
+        self.img_actor = vtkimg.get_vtk_image()
+        self.img_ren.AddActor(self.img_actor)
+
+        if self.count == 1:
             imu_transform = self.imu_transforms[t, :,:]
 
             # Set camera position
-            fren = iren.GetRenderWindow().GetRenderers().GetFirstRenderer()
-            cam = fren.GetActiveCamera()
+            cam = self.cloud_ren.GetActiveCamera()
             position, focal_point = self.getCameraPosition(t)
 
             cam.SetPosition(position)
             cam.SetFocalPoint(focal_point)
             cam.SetViewUp(0, 0, 1)
-            fren.ResetCameraClippingRange()
+            self.cloud_ren.ResetCameraClippingRange()
             cam.SetClippingRange(0.1, 1600)
+
+            self.img_ren.ResetCamera()
 
             if self.record:
                 self.writeVideo()
@@ -318,6 +335,23 @@ class Blockworld:
         iren.GetRenderWindow().Render()
 
         self.count += 1
+
+    def projectPointsOnImg(self, I, t):
+        car_pos = self.imu_transforms[t, 0:3, 3]
+        (d, i) = self.laneKDTree.query(car_pos)
+        
+        for num in xrange(self.num_lanes):
+            lane = self.interp_cloud[num].xyz[i:i+100, :3]
+            pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
+                                         self.T_from_i_to_l, self.cam_params)
+        
+            intensity = np.ones((pix.shape[0], 1)) * num
+            heat_colors = heatColorMapFast(intensity, 0, 5)
+            for p in range(4):
+                I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
+                I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
+
+        return I
 
     # Video Recording
     def startVideo(self):
