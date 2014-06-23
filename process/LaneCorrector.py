@@ -95,6 +95,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.InteractionProp = None
 
     def RightButtonPressEvent(self, obj, event):
+        print self.FindPokedRenderer()
         self.OnLeftButtonDown()
 
     def RightButtonReleaseEvent(self, obj, event):
