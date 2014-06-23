@@ -353,10 +353,11 @@ class Blockworld:
 
     def projectPointsOnImg(self, I, t):
         car_pos = self.imu_transforms[t, 0:3, 3]
-        (d, i) = self.laneKDTree.query(car_pos)
-        
+        (d, closest_idx) = self.laneKDTree.query(car_pos)
+        nearby_idx = self.laneKDTree.query_ball_point(car_pos, r=100.0)
+
         for num in xrange(self.num_lanes):
-            lane = self.interp_cloud[num].xyz[i:i+100, :3]
+            lane = self.interp_cloud[num].xyz[nearby_idx > closest_idx, :3]
             pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
                                          self.T_from_i_to_l, self.cam_params)
         
@@ -365,6 +366,8 @@ class Blockworld:
             for p in range(4):
                 I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
                 I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
+                I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
+                I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
 
         return I
 
