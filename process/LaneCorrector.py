@@ -32,23 +32,6 @@ def get_transforms(args):
     imu_transforms = IMUTransforms(gps_data)
     return imu_transforms
 
-def saveClusters(lanes, times, lane_idx, num_lanes):
-    out = {}
-    out['num_lanes'] = np.array(num_lanes)
-    for i in xrange(num_lanes):
-        mask = lanes[:, lane_idx] == i
-        lane = lanes[mask]
-        time = times[mask]
-
-        lane = lane[:, :3]
-
-        shifted = np.vstack((lane[1:, :], np.zeros((1, 3))))
-        lane = np.hstack((lane, shifted))
-        out['lane' + str(i)] = lane
-        out['time' + str(i)] = time
-
-    np.savez('multilane_points', **out)
-
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, iren, ren, parent):
         self.iren = iren
@@ -60,8 +43,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         self.moving = False
         self.InteractionProp = None
+        self.color = None
+        self.data_in = None
 
         self.num_nearby = 100
+        self.SetMotionFactor(40.0)
+
+        self.AutoAdjustCameraClippingRangeOff()
+        self.ren.GetActiveCamera().SetClippingRange(0.01, 1600)
 
         self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
         self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
@@ -71,6 +60,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         self.AddObserver('MouseWheelForwardEvent', self.MouseWheelForwardEvent)
         self.AddObserver('MouseWheelBackwardEvent', self.MouseWheelBackwardEvent)
+
+        # Add keypress event
+        self.AddObserver('KeyPressEvent', self.KeyHandler)
 
     def MouseWheelForwardEvent(self, obj, event):
         print self.ren.GetActiveCamera().GetPosition()
@@ -141,6 +133,51 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             self.Render()
 
+    def KeyHandler(self, obj, event):
+        key = self.iren.GetKeySym()
+        if not self.moving:
+            if key == 'Up':
+                # Increase the number of points selected
+                self.num_nearby += 1
+                self.setModeText(self.getModeText('single'))
+            elif key == 'Down':
+                # Decrease the number of points selected
+                num = self.num_nearby - 1
+                self.num_nearby = num if num > 0 else 1
+                self.setModeText(self.getModeText('single'))
+            elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
+                if key == '3':
+                    # Workaround: 3 toggles stereo rendering. Turn it on so later
+                    # it is turned off
+                    self.parent.win.StereoRenderOn()
+
+                self.setModeText(self.getModeText(key))
+            elif key == 'x':
+                # Export Data
+                self.parent.exportData('out.npz')
+            elif key == '0':
+                self.parent.count = 0
+            elif key == 'r':
+                self.parent.record = ~self.parent.record
+                if self.parent.record:
+                    self.parent.startVideo()
+                else:
+                    self.parent.closeVideo()
+            else:
+                pass
+
+    def getModeText(self, mode):
+        if mode == 'single':
+            return 'Single Lane - ' + str(self.num_nearby)
+        elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
+            return 'Lane ' + mode + ' - All points'
+        else:
+            return 'All Lanes - ' + str(self.num_nearby)
+
+    def setModeText(self, text):
+        self.parent.selectModeActor.SetInput(text)
+        self.parent.selectModeActor.Modified()
+
     def Render(self):
         self.data_in.Modified()
         self.iren.GetRenderWindow().Render()
@@ -192,7 +229,7 @@ class Blockworld:
         self.img_ren.SetBackground(0.1, 0.1, 0.1)
 
         self.win = vtk.vtkRenderWindow()
-
+        self.win.StereoCapableWindowOff()
         self.win.AddRenderer(self.cloud_ren)
         self.win.AddRenderer(self.img_ren)
         self.win.SetSize(800, 400)
@@ -239,7 +276,7 @@ class Blockworld:
         self.iren.SetInteractorStyle(self.mouseInteractor)
 
         # Tell the user which mode we are in
-        selectMode = VtkText(self.getModetext('single'), (10, 10))
+        selectMode = VtkText(self.mouseInteractor.getModeText('single'), (10, 10))
         self.selectModeActor = selectMode.get_vtk_text()
         self.cloud_ren.AddActor(self.selectModeActor)
 
@@ -256,50 +293,28 @@ class Blockworld:
         self.iren.AddObserver('TimerEvent', self.update)
         self.timer = self.iren.CreateRepeatingTimer(100)
 
-        # Add keypress event
-        self.iren.AddObserver('KeyPressEvent', self.keyhandler)
 
         self.iren.Start()
 
-    def getModetext(self, mode):
-        if mode == 'single':
-            return 'Single Lane - ' + str(self.mouseInteractor.num_nearby)
-        else:
-            return 'All Lanes - ' + str(self.mouseInteractor.num_nearby)
-
+        
     def getCameraPosition(self, t):
         position = self.imu_transforms[t - self.step, 0:3, 3] +\
                    np.array([0, 0, 75.0])
         focal_point = self.imu_transforms[t, 0:3, 3]
         return position, focal_point
 
-    def keyhandler(self, obj, event):
-        key = obj.GetKeySym()
-        
-        if key == 'Up':
-            self.mouseInteractor.num_nearby += 1
-            self.selectModeActor.SetInput(self.getModetext('single'))
-            self.selectModeActor.Modified()
-        elif key == 'Down':
-            num = self.mouseInteractor.num_nearby - 1
-            self.mouseInteractor.num_nearby = num if num > 0 else 1
-            self.selectModeActor.SetInput(self.getModetext('single'))
-            self.selectModeActor.Modified()
-            
-        if key == 'a':
-            self.mode = 'above'
-        elif key == '0':
-            self.count = 0
-        elif key == 'r':
-            self.record = ~self.record
-            print self.record
-            if self.record:
-                self.startVideo()
-            else:
-                self.closeVideo()
-        else:
-            pass
 
+    def exportData(self, file_name):
+        lanes = {}
+        lanes['num_lanes'] = self.num_lanes
+        for num in xrange(self.num_lanes):
+            lane = self.interp_cloud[num].xyz[:, :3]
+            offset = np.vstack((lane[1:, :], np.zeros((1,3))))
+            lane = np.hstack((lane, offset)) 
+            lanes['lane' + str(num)] = lane
+        
+        np.savez(file_name, **lanes)
+            
     def update(self, iren, event):
         # Transform the car
         # t = self.start + self.step * self.count
@@ -314,24 +329,24 @@ class Blockworld:
         self.img_actor = vtkimg.get_vtk_image()
         self.img_ren.AddActor(self.img_actor)
 
-        if self.count == 1:
+        if self.count == 0:
             imu_transform = self.imu_transforms[t, :,:]
 
             # Set camera position
-            cam = self.cloud_ren.GetActiveCamera()
+            cloud_cam = self.cloud_ren.GetActiveCamera()
             position, focal_point = self.getCameraPosition(t)
 
-            cam.SetPosition(position)
-            cam.SetFocalPoint(focal_point)
-            cam.SetViewUp(0, 0, 1)
-            self.cloud_ren.ResetCameraClippingRange()
-            cam.SetClippingRange(0.1, 1600)
+            cloud_cam.SetPosition(position)
+            cloud_cam.SetFocalPoint(focal_point)
+            cloud_cam.SetViewUp(0, 0, 1)
 
             self.img_ren.ResetCamera()
+            self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
 
-            if self.record:
-                self.writeVideo()
         
+        if self.record:
+            self.writeVideo()
+
         iren.GetRenderWindow().Render()
 
         self.count += 1
