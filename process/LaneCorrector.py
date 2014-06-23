@@ -46,6 +46,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.color = None
         self.data_in = None
 
+        self.mode = 'single'
+
         self.num_nearby = 100
         self.SetMotionFactor(40.0)
 
@@ -65,11 +67,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.AddObserver('KeyPressEvent', self.KeyHandler)
 
     def MouseWheelForwardEvent(self, obj, event):
-        print self.ren.GetActiveCamera().GetPosition()
         self.OnMouseWheelForward()
 
     def MouseWheelBackwardEvent(self, obj, event):
-        print self.ren.GetActiveCamera().GetPosition()
         self.OnMouseWheelBackward()
 
     def LeftButtonPressEvent(self, obj, event):
@@ -144,42 +144,49 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             if key == 'Up':
                 # Increase the number of points selected
                 self.num_nearby += 1
-                self.setModeText(self.getModeText('single'))
+                self.mode = 'single'
             elif key == 'Down':
                 # Decrease the number of points selected
                 num = self.num_nearby - 1
                 self.num_nearby = num if num > 0 else 1
-                self.setModeText(self.getModeText('single'))
+                self.mode = 'single'
             elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
                 if key == '3':
                     # Workaround: 3 toggles stereo rendering. Turn it on so later
                     # it is turned off
                     self.parent.win.StereoRenderOn()
-
-                self.setModeText(self.getModeText(key))
+                self.mode = key
             elif key == 'x':
                 # Export Data
                 self.parent.exportData('out.npz')
+            elif key == 'space':
+                print 'toggle pause'
+                self.parent.running = False if self.parent.running else True
             elif key == '0':
                 self.parent.count = 0
             elif key == 'r':
-                self.parent.record = ~self.parent.record
+                self.parent.record = False if self.parent.record else True
                 if self.parent.record:
-                    self.parent.startVideo()
+                    print 'Recording'
+                    self.startVideo()
                 else:
-                    self.parent.closeVideo()
+                    print 'Saving recording'
+                    self.closeVideo()
             else:
                 pass
 
-    def getModeText(self, mode):
-        if mode == 'single':
-            return 'Single Lane - ' + str(self.num_nearby)
-        elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
-            return 'Lane ' + mode + ' - All points'
-        else:
-            return 'All Lanes - ' + str(self.num_nearby)
+    def updateModeText(self):
+        frame_num = self.parent.count
+        mode = self.mode
 
-    def setModeText(self, text):
+        txt = '(%d) ' % frame_num
+        if mode == 'single':
+            text = txt + 'Single Lane - %d' % self.num_nearby
+        elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
+            text = txt + 'Lane %s - All points' % mode
+        else:
+            text = txt + 'All Lanes - %d' % self.num_nearby
+
         self.parent.selectModeActor.SetInput(text)
         self.parent.selectModeActor.Modified()
 
@@ -199,6 +206,27 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             return self.parent.interp_actor.index(actor)
         else:
             return None
+
+    # Video Recording
+    def startVideo(self):
+        self.win2img = vtk.vtkWindowToImageFilter()
+        self.win2img.SetInput(self.parent.win)
+
+        self.videoWriter = vtk.vtkFFMPEGWriter()
+        self.videoWriter.SetFileName('multilane.avi')
+        self.videoWriter.SetInputConnection(self.win2img.GetOutputPort())
+        self.videoWriter.SetRate(15)  # 10 fps
+        self.videoWriter.SetQuality(2)  # Highest
+        self.videoWriter.SetBitRate(25000)  # kilobits/s
+        self.videoWriter.SetBitRateTolerance(2000)
+        self.videoWriter.Start()
+
+    def writeVideo(self):
+        self.win2img.Modified()
+        self.videoWriter.Write()
+
+    def closeVideo(self):
+        self.videoWriter.End()
 
 class Blockworld:
 
@@ -222,6 +250,7 @@ class Blockworld:
 
         # Whether to write video
         self.record = False
+        self.running = True
 
         ###### Set up the renderers ######
         self.cloud_ren = vtk.vtkRenderer()
@@ -281,7 +310,7 @@ class Blockworld:
         self.iren.SetInteractorStyle(self.mouseInteractor)
 
         # Tell the user which mode we are in
-        selectMode = VtkText(self.mouseInteractor.getModeText('single'), (10, 10))
+        selectMode = VtkText('', (10, 10))
         self.selectModeActor = selectMode.get_vtk_text()
         self.cloud_ren.AddActor(self.selectModeActor)
 
@@ -304,7 +333,7 @@ class Blockworld:
         
     def getCameraPosition(self, t):
         position = self.imu_transforms[t - self.step, 0:3, 3] +\
-                   np.array([0, 0, 75.0])
+                   np.array([-175.0, 0, 75.0])
         focal_point = self.imu_transforms[t, 0:3, 3]
         return position, focal_point
 
@@ -322,50 +351,57 @@ class Blockworld:
             
     def update(self, iren, event):
         # Transform the car
-        # t = self.start + self.step * self.count
-        t = self.start + self.step
-        self.img_ren.RemoveActor(self.img_actor)
-        
-        self.video_reader.setFrame(t - self.step)
-        (success, self.I) = self.video_reader.getNextFrame()
+        t = self.start + self.step * self.count
+        cloud_cam = self.cloud_ren.GetActiveCamera()
+        imu_transform = self.imu_transforms[t, :,:]
 
+        # self.video_reader.setFrame(t - 1)
+        # (success, I) = self.video_reader.getNextFrame()
+        
+        while self.video_reader.framenum <= t:
+            (success, self.I) = self.video_reader.getNextFrame()
+        
         self.I = self.projectPointsOnImg(self.I, t)
         vtkimg = VtkImage(self.I)
+
+        self.img_ren.RemoveActor(self.img_actor)
         self.img_actor = vtkimg.get_vtk_image()
         self.img_ren.AddActor(self.img_actor)
 
-        if self.count == 0:
-            imu_transform = self.imu_transforms[t, :,:]
-
+        if self.running:
             # Set camera position
-            cloud_cam = self.cloud_ren.GetActiveCamera()
             position, focal_point = self.getCameraPosition(t)
 
             cloud_cam.SetPosition(position)
             cloud_cam.SetFocalPoint(focal_point)
-            cloud_cam.SetViewUp(0, 0, 1)
 
+        if self.count == 0:
+            cloud_cam.SetViewUp(0, 0, 1)
             self.img_ren.ResetCamera()
             self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
-
         
-        if self.record:
-            self.writeVideo()
+        self.mouseInteractor.updateModeText()
 
         iren.GetRenderWindow().Render()
 
-        self.count += 1
+        if self.record:
+            self.mouseInteractor.writeVideo()
+        
+        if self.running or self.count == 0:
+            self.count += 1
 
     def projectPointsOnImg(self, I, t):
         car_pos = self.imu_transforms[t, 0:3, 3]
+
         (d, closest_idx) = self.laneKDTree.query(car_pos)
-        nearby_idx = self.laneKDTree.query_ball_point(car_pos, r=100.0)
+        nearby_idx = np.array(self.laneKDTree.query_ball_point(car_pos, r=100.0))
+        nearby_idx = nearby_idx[nearby_idx > closest_idx]
 
         for num in xrange(self.num_lanes):
-            lane = self.interp_cloud[num].xyz[nearby_idx > closest_idx, :3]
+            lane = self.interp_cloud[num].xyz[nearby_idx, :3]
+
             pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
                                          self.T_from_i_to_l, self.cam_params)
-        
             intensity = np.ones((pix.shape[0], 1)) * num
             heat_colors = heatColorMapFast(intensity, 0, 5)
             for p in range(4):
@@ -376,27 +412,6 @@ class Blockworld:
 
         return I
 
-    # Video Recording
-    def startVideo(self):
-        self.win2img = vtk.vtkWindowToImageFilter()
-        self.win2img.SetInput(self.win)
-        self.videoWriter = vtk.vtkFFMPEGWriter()
-        self.videoWriter.SetFileName('multilane.avi')
-        self.videoWriter.SetInputConnection(self.win2img.GetOutputPort())
-        self.videoWriter.SetRate(10)  # 10 fps
-        self.videoWriter.SetQuality(2)  # Highest
-        self.videoWriter.SetBitRate(1000)  # kilobits/s
-        self.videoWriter.SetBitRateTolerance(1000)
-        self.videoWriter.Start()
-
-    def writeVideo(self):
-        self.win2img.Modified()
-        self.videoWriter.Write()
-
-    def closeVideo(self):
-        self.videoWriter.End()
-        self.videoWriter.Delete()
-        self.win2img.Delete()
 
 if __name__ == '__main__':
     blockworld = Blockworld()
