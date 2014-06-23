@@ -95,8 +95,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.InteractionProp = None
 
     def RightButtonPressEvent(self, obj, event):
-        print self.FindPokedRenderer()
-        self.OnLeftButtonDown()
+        x, y = self.iren.GetEventPosition()
+        self.FindPokedRenderer(x, y)
+
+        # Only allow rotation for the cloud camera
+        if self.GetCurrentRenderer() == self.ren:
+            self.OnLeftButtonDown()
 
     def RightButtonReleaseEvent(self, obj, event):
         self.OnLeftButtonUp()
