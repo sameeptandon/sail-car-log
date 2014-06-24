@@ -12,7 +12,9 @@ def drawBorder(I, color, thickness):
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     reader = VideoReader(args['video'])
-    f = open(sys.argv[3], 'r')
+    fdir = sys.argv[1] + '/car_frames'
+    fname = fdir + "/" + args['basename'] + str(args['cam_num']) + '.pickle'
+    f = open(fname, 'r')
     framenums = pickle.load(f)
     last_record = 0 
     while True:

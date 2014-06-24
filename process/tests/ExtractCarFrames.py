@@ -21,10 +21,9 @@ if __name__ == '__main__':
     outdir = sys.argv[1] + '/car_frames'
     try:
         os.mkdir(outdir)
-        os.chmod(outdir, 
-                stat.IRUSR | stat.IWUSR | stat.IXUSR | stat.IRGRP | stat.IWGRP | stat.IXGRP | stat.IROTH | stat.IWOTH | stat.IXOTH )
     except:
         pass
+    os.chmod(outdir, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH )
 
     outfname = outdir + "/" + args['basename'] + str(args['cam_num']) + '.pickle'
 
