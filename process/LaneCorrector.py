@@ -15,6 +15,7 @@ import vtk
 from VideoReader import *
 from ColorMap import heatColorMapFast
 from MapReproject import lidarPtsToPixels
+import math
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -31,6 +32,19 @@ def get_transforms(args):
     gps_data = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(gps_data)
     return imu_transforms
+
+def load_ply(ply_file):
+    """ Loads a ply file and returns an actor """
+    reader = vtk.vtkPLYReader()
+    reader.SetFileName(ply_file)
+    reader.Update()
+
+    ply_mapper = vtk.vtkPolyDataMapper()
+    ply_mapper.SetInputConnection(reader.GetOutputPort())
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(ply_mapper)
+    return actor
 
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, iren, ren, parent):
@@ -131,7 +145,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             for p in self.nextNearbyPoint(self.idx):
                 if p >= 0 and p < self.data_in.GetNumberOfElements(0):
                     p_old_pos = np.array(self.pos.GetTuple(p))
-                    alpha = 1.0 - abs(self.idx - p) / float(self.num_nearby)
+                    alpha = abs(self.idx - p) / float(self.num_nearby)
+                    alpha = (math.cos(alpha * math.pi) + 1) / 2.
                     p_new_pos = p_old_pos + change * alpha
                     self.pos.SetTuple(p, tuple(p_new_pos))
                     self.color.SetTuple(p, (5,))
@@ -160,12 +175,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 # Export Data
                 self.parent.exportData('out.npz')
             elif key == 'space':
-                print 'toggle pause'
-                self.parent.running = False if self.parent.running else True
+                self.parent.running = not self.parent.running
             elif key == '0':
                 self.parent.count = 0
             elif key == 'r':
-                self.parent.record = False if self.parent.record else True
+                self.parent.record = not self.parent.record
                 if self.parent.record:
                     print 'Recording'
                     self.startVideo()
@@ -215,9 +229,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.videoWriter = vtk.vtkFFMPEGWriter()
         self.videoWriter.SetFileName('multilane.avi')
         self.videoWriter.SetInputConnection(self.win2img.GetOutputPort())
-        self.videoWriter.SetRate(15)  # 10 fps
-        self.videoWriter.SetQuality(2)  # Highest
-        self.videoWriter.SetBitRate(25000)  # kilobits/s
+        self.videoWriter.SetRate(15) 
+        self.videoWriter.SetQuality(2) # 2 is the highest
+        self.videoWriter.SetBitRate(25000)
         self.videoWriter.SetBitRateTolerance(2000)
         self.videoWriter.Start()
 
@@ -286,13 +300,11 @@ class Blockworld:
         self.num_lanes = int(npz['num_lanes'])
 
         interp_lanes = [None] * self.num_lanes
-        interp_times = [None] * self.num_lanes
         self.interp_cloud = [None] * self.num_lanes
         self.interp_actor = [None] * self.num_lanes
 
         for i in xrange(self.num_lanes):
             interp_lanes[i] = npz['lane' + str(i)]
-            interp_times[i] = npz['time' + str(i)]
             # The intensity of the lane tells us which lane it is
             # Do not change this, it is very important
             num_pts = interp_lanes[i].shape[0]
@@ -304,6 +316,11 @@ class Blockworld:
             self.cloud_ren.AddActor(self.interp_actor[i])
 
         self.laneKDTree = KDTree(self.interp_cloud[0].xyz)
+
+        print 'Adding car'
+        self.car = load_ply('../mapping/viz/gtr.ply')
+        self.car.GetProperty().LightingOff()
+        self.cloud_ren.AddActor(self.car)
 
         # Use our custom mouse interactor
         self.mouseInteractor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
@@ -346,23 +363,23 @@ class Blockworld:
             offset = np.vstack((lane[1:, :], np.zeros((1,3))))
             lane = np.hstack((lane, offset)) 
             lanes['lane' + str(num)] = lane
-        
+
+        print 'Saved', file_name
         np.savez(file_name, **lanes)
             
     def update(self, iren, event):
         # Transform the car
         t = self.start + self.step * self.count
         cloud_cam = self.cloud_ren.GetActiveCamera()
-        imu_transform = self.imu_transforms[t, :,:]
-
         # self.video_reader.setFrame(t - 1)
         # (success, I) = self.video_reader.getNextFrame()
         
         while self.video_reader.framenum <= t:
             (success, self.I) = self.video_reader.getNextFrame()
-        
-        self.I = self.projectPointsOnImg(self.I, t)
-        vtkimg = VtkImage(self.I)
+
+        I = self.I.copy()
+        I = self.projectPointsOnImg(I, t)
+        vtkimg = VtkImage(I)
 
         self.img_ren.RemoveActor(self.img_actor)
         self.img_actor = vtkimg.get_vtk_image()
@@ -374,6 +391,12 @@ class Blockworld:
 
             cloud_cam.SetPosition(position)
             cloud_cam.SetFocalPoint(focal_point)
+
+            imu_transform = self.imu_transforms[t, :, :]
+            transform = vtk_transform_from_np(imu_transform)
+            transform.RotateZ(90)
+            transform.Translate(-2, -3, -2)
+            self.car.SetUserTransform(transform)
 
         if self.count == 0:
             cloud_cam.SetViewUp(0, 0, 1)
