@@ -1,5 +1,5 @@
 <launch>
-    <node pkg="lane_detection" type="LanePredictionNode" name="LanePredictionNode" output="screen" args="/home/q50/jpazhaya/q50_data/q50_635x363_stride2_network2_step0.000005_iter60368_0.npy /fwd_right/image_raw">
+    <node pkg="lane_detection" type="LanePredictionNode" name="LanePredictionNode" output="screen" args="/home/smart/jpazhaya/q50_data/q50_635x363_stride2_network2_2cam_sane_data_step0.000005_cont102760_iter81480_0.npy /fwd_left/image_raw">
     </node>
 
 </launch>
