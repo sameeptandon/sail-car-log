@@ -31,7 +31,7 @@ void push_data(const std::vector<float>& data){
         mData.push(data);
 }
 
-int framePeriod = 2;
+int framePeriod = 1;
 
 void lanePredictorCb(const sensor_msgs::ImageConstPtr& msg){
     if(msg->header.seq%framePeriod!=0){
