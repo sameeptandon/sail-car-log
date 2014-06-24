@@ -41,6 +41,8 @@ class MapBuilder:
         # grab the initial time off the gps log and compute start and end times
         self.start_time = self.gps_times_mark1[0] + start_time * 1e6
         self.end_time = self.gps_times_mark1[0] + end_time * 1e6
+        if self.end_time > self.gps_times_mark1[-1]:
+            self.end_time = self.gps_times_mark1[-1]
         self.step_time = step_time
         self.scan_window = scan_window
 
@@ -71,20 +73,23 @@ class MapBuilder:
                 continue
 
             # Always remove low intensity points
-            data_filter_mask = data[:, 3] > 30
+            filter_mask = data[:, 3] > 5
 
             if filters != None:
+                filter_mask = data[:, 3] > 30
                 if 'lanes' in filters:
-                    data_filter_mask &=  (data[:,3] > 30) & (data[:,2] < -1.9) & \
-                                         (data[:,2] >-2.1) & (data[:,1] < 3) & \
-                                         (data [:,1] > -30) & (data[:,3] < 200)
+                    filter_mask &=  (data[:,1] < 3) & (data [:,1] > -30) &\
+                                    (data[:,2] < -1.9) & (data[:,2] > -2.1)
                 if 'forward' in filters:
-                    data_filter_mask &= (data[:, 0] > 0)
+                    filter_mask &= (data[:, 0] > 0)
+                if 'no-trees' in filters:
+                    filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) &\
+                                   (data[:,2] < 0) & (data[:,2] > -5)
                 if 'flat' in filters:
                     data[:, 0] = 0
 
-            data = data[data_filter_mask, :]
-            t_data = t_data[data_filter_mask]
+            data = data[filter_mask, :]
+            t_data = t_data[filter_mask]
         
             # put in imu_t frame
             pts = data[:, 0:3].transpose()
