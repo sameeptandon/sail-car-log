@@ -1,10 +1,10 @@
 from VideoReader import * 
 from ArgParser import *
-import sys, cv2, pickle, os
+import sys, cv2, pickle, os, stat
 
 FRAME_STEP = 5
-HISTORY_WINDOW = 30 
-FUTURE_WINDOW = 20
+HISTORY_WINDOW = 40 
+FUTURE_WINDOW = 30
 
 def export_frames(fnums, fname):
     f = open(fname, 'w')
@@ -21,10 +21,12 @@ if __name__ == '__main__':
     outdir = sys.argv[1] + '/car_frames'
     try:
         os.mkdir(outdir)
+        os.chmod(outdir, 
+                stat.IRUSR | stat.IWUSR | stat.IXUSR | stat.IRGRP | stat.IWGRP | stat.IXGRP | stat.IROTH | stat.IWOTH | stat.IXOTH )
     except:
         pass
 
-    outfname = outdir + "/" + args['basename'] + '.pickle'
+    outfname = outdir + "/" + args['basename'] + str(args['cam_num']) + '.pickle'
 
 
     framenums = set()
