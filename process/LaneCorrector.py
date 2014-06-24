@@ -317,6 +317,8 @@ class Blockworld:
 
         self.laneKDTree = KDTree(self.interp_cloud[0].xyz)
 
+        # self.calculateZError(pts)
+
         print 'Adding car'
         self.car = load_ply('../mapping/viz/gtr.ply')
         self.car.SetPickable(0)
@@ -348,7 +350,18 @@ class Blockworld:
 
         self.iren.Start()
 
-        
+    def calculateZError(self, pts):
+        # Calculates median z-error of interpolated lanes to points
+        tree = KDTree(pts[:, :3])
+        for num in xrange(self.num_lanes):
+            lane = self.interp_cloud[num].xyz[:4910, :]
+            z_dist = []
+            for p in lane:
+                (d, i) = tree.query(p)
+                z_dist.append(abs(p[2] - pts[i, 2]))
+            z_dist = np.array(z_dist)
+            print 'Median Error in Lane %d: %f' % (num, np.median(z_dist)) 
+
     def getCameraPosition(self, t):
         offset = np.array([-75.0, 0, 25.0])
         position = np.dot(self.imu_transforms[t,0:3,0:3], offset)
