@@ -28,8 +28,8 @@ if __name__ == '__main__':
 
         if reader.framenum in framenums:
             drawBorder(I, (0,255,0), 10)
-        cv2.imshow('video', I)
-        key = chr(cv2.waitKey(50) & 255)
+        cv2.imshow('video', cv2.pyrDown(cv2.pyrDown(I)))
+        key = chr(cv2.waitKey(5) & 255)
         if key == 'c':
             print reader.framenum
             for p in range(HISTORY_WINDOW):
