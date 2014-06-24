@@ -174,7 +174,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         if self.moving:
             lane = self.getLane(self.InteractionProp)
             if lane != None:
-                print '(%d, %d)' % (lane, self.idx)
                 for p in self.nextNearbyPoint(self.idx):
                     self.color.SetTuple(p, (lane,))
 
@@ -257,22 +256,27 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.mode = key
             elif key == 'x':
                 # Export Data
-                self.parent.exportData('out.npz')
+                file_name = 'out.npz'
+                self.parent.exportData(file_name)
+                print 'Saved', file_name
             elif key == 'space':
                 self.parent.running = not self.parent.running
+                print 'Running' if self.parent.running else 'Paused'
             elif key == 'z':
+                print 'Undo'
                 self.undoer.undo()
                 self.Render()
             elif key == 'y':
+                print 'Redo'
                 self.undoer.redo()
                 self.Render()
             elif key == 'r':
                 self.parent.record = not self.parent.record
                 if self.parent.record:
-                    print 'Recording'
+                    print 'Recording multilane.avi'
                     self.startVideo()
                 else:
-                    print 'Saving recording'
+                    print 'Done Recording'
                     self.closeVideo()
             else:
                 pass
@@ -293,8 +297,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.parent.selectModeActor.Modified()
 
     def Render(self):
-        self.data_in.Modified()
-        self.iren.GetRenderWindow().Render()
+        if self.data_in != None:
+            self.data_in.Modified()
+            self.iren.GetRenderWindow().Render()
     
     def nextNearbyPoint(self, mid):
         n = self.num_to_move
@@ -315,12 +320,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             return np.array(pos.GetTuple(index))
 
     # Video Recording
-    def startVideo(self):
+    def startVideo(self, video_name='multilane.avi'):
         self.win2img = vtk.vtkWindowToImageFilter()
         self.win2img.SetInput(self.parent.win)
 
         self.videoWriter = vtk.vtkFFMPEGWriter()
-        self.videoWriter.SetFileName('multilane.avi')
+        self.videoWriter.SetFileName(video_name)
         self.videoWriter.SetInputConnection(self.win2img.GetOutputPort())
         self.videoWriter.SetRate(15) 
         self.videoWriter.SetQuality(2) # 2 is the highest
@@ -473,7 +478,6 @@ class Blockworld:
             lane = np.hstack((lane, offset)) 
             lanes['lane' + str(num)] = lane
 
-        print 'Saved', file_name
         np.savez(file_name, **lanes)
             
     def update(self, iren, event):
@@ -500,6 +504,7 @@ class Blockworld:
 
             cloud_cam.SetPosition(position)
             cloud_cam.SetFocalPoint(focal_point)
+            cloud_cam.SetRoll(90.0)
 
             imu_transform = self.imu_transforms[t, :, :]
             transform = vtk_transform_from_np(imu_transform)
