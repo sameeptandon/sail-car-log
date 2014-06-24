@@ -66,7 +66,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.SetMotionFactor(40.0)
 
         self.AutoAdjustCameraClippingRangeOff()
-        self.ren.GetActiveCamera().SetClippingRange(0.01, 1600)
+        self.ren.GetActiveCamera().SetClippingRange(0.01, 500)
 
         self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
         self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
@@ -319,6 +319,7 @@ class Blockworld:
 
         print 'Adding car'
         self.car = load_ply('../mapping/viz/gtr.ply')
+        self.car.SetPickable(0)
         self.car.GetProperty().LightingOff()
         self.cloud_ren.AddActor(self.car)
 
@@ -349,9 +350,11 @@ class Blockworld:
 
         
     def getCameraPosition(self, t):
-        position = self.imu_transforms[t - self.step, 0:3, 3] +\
-                   np.array([-175.0, 0, 75.0])
-        focal_point = self.imu_transforms[t, 0:3, 3]
+        offset = np.array([-75.0, 0, 25.0])
+        position = np.dot(self.imu_transforms[t,0:3,0:3], offset)
+
+        position += self.imu_transforms[t, 0:3, 3] + position
+        focal_point = self.imu_transforms[t + 10 * self.step, 0:3, 3]
         return position, focal_point
 
 
