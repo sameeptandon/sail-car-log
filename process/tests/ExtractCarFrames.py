@@ -1,6 +1,6 @@
 from VideoReader import * 
 from ArgParser import *
-import sys, cv2, pickle
+import sys, cv2, pickle, os
 
 FRAME_STEP = 5
 HISTORY_WINDOW = 30 
@@ -17,6 +17,15 @@ def drawBorder(I, color, thickness):
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     reader = VideoReader(args['video'])
+
+    outdir = sys.argv[1] + '/car_frames'
+    try:
+        os.mkdir(outdir)
+    except:
+        pass
+
+    outfname = outdir + "/" + args['basename'] + '.pickle'
+
 
     framenums = set()
     last_record = 0 
@@ -37,4 +46,4 @@ if __name__ == '__main__':
             for p in range(FUTURE_WINDOW):
                 framenums.add(reader.framenum + p)
 
-    export_frames(framenums, sys.argv[3])
+    export_frames(framenums, outfname)
