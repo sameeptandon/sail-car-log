@@ -16,6 +16,7 @@ from VideoReader import *
 from ColorMap import heatColorMapFast
 from MapReproject import lidarPtsToPixels
 import math
+from collections import deque
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -46,6 +47,66 @@ def load_ply(ply_file):
     actor.SetMapper(ply_mapper)
     return actor
 
+class Undoer:
+
+    class Change:
+        def __init__(self, lane, idx, num_to_move, change):
+            self.lane = lane
+            self.idx = idx
+            self.num_to_move = num_to_move
+            self.change = change
+
+        def __str__(self):
+            return '(%d, %d) %s' % (self.lane, self.idx, self.change)
+
+    def __init__(self, lane_actors, parent):
+        self.lane_actors = lane_actors
+        self.undo_queue = deque(maxlen=100)
+        self.redo_queue = deque(maxlen=100)
+        self.parent = parent
+
+    def __str__(self):
+        s = 'undo:\n'
+        for i in self.undo_queue:
+            s += '\t' + str(i) + '\n'
+        s+= 'redo:\n'
+        for i in self.redo_queue:
+            s +=  '\t' + str(i) + '\n'
+        return s
+
+    def undo(self):
+        try:
+            undo = self.undo_queue.pop()
+            self.redo_queue.append(undo)
+            self.performChange(undo)
+        except IndexError:
+            pass
+
+    def redo(self):
+        try:
+            redo = self.redo_queue.pop()
+            self.undo_queue.append(redo)
+            self.performChange(redo, -1)
+        except IndexError:
+            pass
+
+    def addChange(self, lane, idx, num_to_move, change):
+        change = Undoer.Change(lane, idx, num_to_move, change)
+        try:
+            # Try to append
+            self.undo_queue.append(change)
+        except IndexError:
+            # Remove the oldest change
+            self.undo_queue.popleftn()
+            # Add the new change
+            self.undo_queue.append(change)
+        self.redo_queue.clear()
+
+    def performChange(self, change, direction=1):
+        # def movePoint (self, lane, point, num_to_move, change):
+        self.parent.movePoint(change.lane, change.idx, change.num_to_move,
+                              direction * np.array(change.change))
+
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, iren, ren, parent):
         self.iren = iren
@@ -54,6 +115,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.picker = vtk.vtkPointPicker()
         self.picker.SetTolerance(0.01)
         self.iren.SetPicker(self.picker)
+
+        self.undoer = Undoer(self.parent.interp_actors, self)
 
         self.moving = False
         self.InteractionProp = None
@@ -68,14 +131,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.AutoAdjustCameraClippingRangeOff()
         self.ren.GetActiveCamera().SetClippingRange(0.01, 500)
 
-        self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
-        self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
-        self.AddObserver('RightButtonPressEvent', self.RightButtonPressEvent)
-        self.AddObserver('RightButtonReleaseEvent', self.RightButtonReleaseEvent)
-        self.AddObserver('MouseMoveEvent', self.MouseMoveEvent)
-
         self.AddObserver('MouseWheelForwardEvent', self.MouseWheelForwardEvent)
         self.AddObserver('MouseWheelBackwardEvent', self.MouseWheelBackwardEvent)
+
+        self.AddObserver('RightButtonPressEvent', self.RightButtonPressEvent)
+        self.AddObserver('RightButtonReleaseEvent', self.RightButtonReleaseEvent)
+        self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
+        self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
+        self.AddObserver('MouseMoveEvent', self.MouseMoveEvent)
 
         # Add keypress event
         self.AddObserver('KeyPressEvent', self.KeyHandler)
@@ -85,28 +148,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
     def MouseWheelBackwardEvent(self, obj, event):
         self.OnMouseWheelBackward()
-
-    def LeftButtonPressEvent(self, obj, event):
-        x, y = self.iren.GetEventPosition()
-        self.picker.Pick(x, y, 0, self.ren)
-        idx = self.picker.GetPointId()
-        if idx >= 0 and self.getLane(self.picker.GetActor()) != None:
-            self.InteractionProp = self.picker.GetActor()
-            self.idx = idx
-            self.moving = True
-
-    def LeftButtonReleaseEvent(self, obj, event):
-        lane = self.getLane(self.InteractionProp)
-        if lane != None:
-            print '(%d, %d)' % (lane, self.idx)
-            for p in self.nextNearbyPoint(self.idx):
-                self.color.SetTuple(p, (lane,))
-
-            self.Render()
-            
-        self.moving = False
-        self.idx = -1
-        self.InteractionProp = None
 
     def RightButtonPressEvent(self, obj, event):
         x, y = self.iren.GetEventPosition()
@@ -118,6 +159,35 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
     def RightButtonReleaseEvent(self, obj, event):
         self.OnLeftButtonUp()
+
+    def LeftButtonPressEvent(self, obj, event):
+        x, y = self.iren.GetEventPosition()
+        self.picker.Pick(x, y, 0, self.ren)
+        idx = self.picker.GetPointId()
+        if idx >= 0 and self.getLane(self.picker.GetActor()) != None:
+            self.InteractionProp = self.picker.GetActor()
+            self.idx = idx
+            self.moving = True
+            self.startPos = self.getPointPosition(self.InteractionProp, self.idx)
+
+    def LeftButtonReleaseEvent(self, obj, event):
+        if self.moving:
+            lane = self.getLane(self.InteractionProp)
+            if lane != None:
+                print '(%d, %d)' % (lane, self.idx)
+                for p in self.nextNearbyPoint(self.idx):
+                    self.color.SetTuple(p, (lane,))
+
+                self.Render()
+
+                endPos = self.getPointPosition(self.InteractionProp, self.idx)
+                change = self.startPos - endPos
+                self.undoer.addChange(lane, self.idx, self.num_to_move, change)
+
+            self.moving = False
+            self.idx = -1
+            self.InteractionProp = None
+            self.startPos = None
 
     def MouseMoveEvent(self, obj, event):
         if self.moving:
@@ -164,6 +234,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 alpha = (math.cos(alpha * math.pi) + 1) / 2.
                 p_new_pos = p_old_pos + change * alpha
                 pos.SetTuple(p, tuple(p_new_pos))
+
+        data_in.Modified()
         
     def KeyHandler(self, obj, event):
         key = self.iren.GetKeySym()
@@ -188,8 +260,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.parent.exportData('out.npz')
             elif key == 'space':
                 self.parent.running = not self.parent.running
-            elif key == '0':
-                self.parent.count = 0
+            elif key == 'z':
+                self.undoer.undo()
+                self.Render()
+            elif key == 'y':
+                self.undoer.redo()
+                self.Render()
             elif key == 'r':
                 self.parent.record = not self.parent.record
                 if self.parent.record:
@@ -232,6 +308,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             return self.parent.interp_actors.index(actor)
         else:
             return None
+
+    def getPointPosition(self, actor, index):
+        if self.getLane(actor) != None:
+            pos = actor.GetMapper().GetInput().GetPoints().GetData()
+            return np.array(pos.GetTuple(index))
 
     # Video Recording
     def startVideo(self):
