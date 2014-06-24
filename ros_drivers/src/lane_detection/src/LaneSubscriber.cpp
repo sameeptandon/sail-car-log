@@ -1,12 +1,12 @@
 #include "ros/ros.h"
 #include "lane_detection/LaneOutput.h"
 
-#include <canlib.h>
-#include "RXTX_CANCom.h" // Class for Kvaser Can Handling
-#include "RXTX_ConvData.h" // 
+//#include <canlib.h>
+//#include "RXTX_CANCom.h" // Class for Kvaser Can Handling
+//#include "RXTX_ConvData.h" // 
 
 //----------------Define---------------------------------------
-CCANCom CANCom;
+//CCANCom CANCom;
 
 
 void laneCallback(const lane_detection::LaneOutput::ConstPtr& msg){
@@ -21,7 +21,7 @@ void laneCallback(const lane_detection::LaneOutput::ConstPtr& msg){
             centerLine[j][i] = (leftLane[j][i]+rightLane[j][i])/2.0;
         }
     }
-
+/*
     // CAN transimition
     bool FLG = false;
     CAN_DATA_FORM CAN;
@@ -71,9 +71,9 @@ void laneCallback(const lane_detection::LaneOutput::ConstPtr& msg){
     CAN.ID_735.xr10 = (uint) ( centerLine[3][10] + 327.68 ) /0.01 ; 
     FLG = CANCom.transmit(ID,8,CAN.bData);
     
-    if(FLG){ ROS_DEBUG("Send Pose[x, y, heading]: %f, %f, %f", msg->pose.pose.position.x, msg->pose.pose.position.y, yaw ); }
-    else { ROS_ERROR("CAN Send Err"); }
-    
+    //if(FLG){ ROS_DEBUG("Send Pose[x, y, heading]: %f, %f, %f", msg->pose.pose.position.x, msg->pose.pose.position.y, yaw ); }
+    //else { ROS_ERROR("CAN Send Err"); }
+  */  
 }
 
 
@@ -97,13 +97,14 @@ int main(int argc, char **argv){
   }
 
   /* Open channels, parameters and go on bus */
-  CANCom.connect(channel);
+  /*CANCom.connect(channel);
 
   if ( ! CANCom.isConnected() ) {
     ROS_ERROR("CAN Open Channel %d Failed\n", channel);
   }
   else {
     ROS_INFO("CAN Open Channel %d Succeeded\n", channel);
+  }*/
   //--------------------------------------------------------
   
     ros::init(argc,argv,"LaneSubscriber");
