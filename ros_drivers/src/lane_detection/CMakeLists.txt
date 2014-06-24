@@ -139,7 +139,7 @@ target_link_libraries(VideoProducer ${lane_detector_LIBS} ${catkin_LIBRARIES})
 cuda_add_executable(LanePredictionNode src/LanePredictionNode.cpp src/LanePredictor_honda.cu src/LanePredictor_Q50.cu)
 target_link_libraries(LanePredictionNode ${lane_detector_LIBS} ${catkin_LIBRARIES})
 
-add_executable(LaneSubscriber src/LaneSubscriber.cpp)
+add_executable(LaneSubscriber src/LaneSubscriber.cpp )
 target_link_libraries(LaneSubscriber ${catkin_LIBRARIES})
 
 ## Declare a cpp library
