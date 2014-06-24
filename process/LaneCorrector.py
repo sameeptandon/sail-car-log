@@ -62,7 +62,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         self.mode = 'single'
 
-        self.num_nearby = 100
+        self.num_to_move = 100
         self.SetMotionFactor(40.0)
 
         self.AutoAdjustCameraClippingRangeOff()
@@ -140,30 +140,42 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             new_pos = np.array(new_pos)
             old_pos = np.array(old_pos)
-
             change = new_pos - old_pos
+
+            lane = self.getLane(self.InteractionProp)
+            # Move the point
+            self.movePoint(lane, self.idx, self.num_to_move, change)
+            
+            # Color the points that we are moving
             for p in self.nextNearbyPoint(self.idx):
                 if p >= 0 and p < self.data_in.GetNumberOfElements(0):
-                    p_old_pos = np.array(self.pos.GetTuple(p))
-                    alpha = abs(self.idx - p) / float(self.num_nearby)
-                    alpha = (math.cos(alpha * math.pi) + 1) / 2.
-                    p_new_pos = p_old_pos + change * alpha
-                    self.pos.SetTuple(p, tuple(p_new_pos))
                     self.color.SetTuple(p, (5,))
 
             self.Render()
 
+    def movePoint (self, lane, idx, num_to_move, change):
+        lane_actor = self.parent.interp_actors[lane]
+        data_in = lane_actor.GetMapper().GetInput()
+        pos = data_in.GetPoints().GetData()
+        for p in self.nextNearbyPoint(idx):
+            if p >= 0 and p < data_in.GetNumberOfElements(0):
+                p_old_pos = np.array(pos.GetTuple(p))
+                alpha = abs(idx - p) / float(num_to_move)
+                alpha = (math.cos(alpha * math.pi) + 1) / 2.
+                p_new_pos = p_old_pos + change * alpha
+                pos.SetTuple(p, tuple(p_new_pos))
+        
     def KeyHandler(self, obj, event):
         key = self.iren.GetKeySym()
         if not self.moving:
             if key == 'Up':
                 # Increase the number of points selected
-                self.num_nearby += 1
+                self.num_to_move += 1
                 self.mode = 'single'
             elif key == 'Down':
                 # Decrease the number of points selected
-                num = self.num_nearby - 1
-                self.num_nearby = num if num > 0 else 1
+                num = self.num_to_move - 1
+                self.num_to_move = num if num > 0 else 1
                 self.mode = 'single'
             elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
                 if key == '3':
@@ -195,11 +207,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         txt = '(%d) ' % frame_num
         if mode == 'single':
-            text = txt + 'Single Lane - %d' % self.num_nearby
+            text = txt + 'Single Lane - %d' % self.num_to_move
         elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
             text = txt + 'Lane %s - All points' % mode
         else:
-            text = txt + 'All Lanes - %d' % self.num_nearby
+            text = txt + 'All Lanes - %d' % self.num_to_move
 
         self.parent.selectModeActor.SetInput(text)
         self.parent.selectModeActor.Modified()
@@ -209,15 +221,15 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.iren.GetRenderWindow().Render()
     
     def nextNearbyPoint(self, mid):
-        n = self.num_nearby
+        n = self.num_to_move
         i = mid - n + 1
         while i < mid + n:
             yield i
             i += 1
 
     def getLane(self, actor):
-        if actor and actor in self.parent.interp_actor:
-            return self.parent.interp_actor.index(actor)
+        if actor and actor in self.parent.interp_actors:
+            return self.parent.interp_actors.index(actor)
         else:
             return None
 
@@ -301,7 +313,7 @@ class Blockworld:
 
         interp_lanes = [None] * self.num_lanes
         self.interp_cloud = [None] * self.num_lanes
-        self.interp_actor = [None] * self.num_lanes
+        self.interp_actors = [None] * self.num_lanes
 
         for i in xrange(self.num_lanes):
             interp_lanes[i] = npz['lane' + str(i)]
@@ -310,10 +322,10 @@ class Blockworld:
             num_pts = interp_lanes[i].shape[0]
             self.interp_cloud[i] = VtkPointCloud(interp_lanes[i][:, :3],
                                             np.ones((num_pts)) * i)
-            self.interp_actor[i] = self.interp_cloud[i].get_vtk_cloud(zMin=0,
+            self.interp_actors[i] = self.interp_cloud[i].get_vtk_cloud(zMin=0,
                                                                       zMax=self.num_lanes+1)
-            self.interp_actor[i].GetProperty().SetPointSize(2)
-            self.cloud_ren.AddActor(self.interp_actor[i])
+            self.interp_actors[i].GetProperty().SetPointSize(2)
+            self.cloud_ren.AddActor(self.interp_actors[i])
 
         self.laneKDTree = KDTree(self.interp_cloud[0].xyz)
 
