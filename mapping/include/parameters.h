@@ -87,6 +87,21 @@ class Parameters
     Eigen::Matrix3f intrinsics;
     Eigen::VectorXf distortions;
 
+    // Lidar detection parameters
+
+    std::vector<float> filter_range;
+    std::vector<float> g;
+    float inlier_dist_thresh;
+    bool highest_plane;
+    int plane_ransac_max_iters;
+    float normal_eps_angle;
+    int min_plane_cloud_size;
+    int min_pts_above_hull;
+    std::vector<float> plane_z_thresh;
+    float obj_cluster_tol;
+    int obj_min_cluster_size;
+    int obj_max_cluster_size;
+
   private:
     Parameters() { initialized = false; };
     Parameters(Parameters const&);

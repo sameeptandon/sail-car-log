@@ -5,12 +5,11 @@
 
 #define NUM_SPLITS 10
 
-using namespace cv;
 using namespace std;
 
 class VideoReader{
     public:
-        typedef boost::tuple<bool,Mat> FrameReadType;
+        typedef boost::tuple<bool, cv::Mat> FrameReadType;
         VideoReader(string path, string base_video_name);
         bool skip(int k);
         bool getNextFrame(cv::Mat& frame);
@@ -22,5 +21,5 @@ class VideoReader{
 
     protected:
         int framenum;
-        vector<VideoCapture> captures;
+        vector<cv::VideoCapture> captures;
 };

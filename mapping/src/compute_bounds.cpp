@@ -3,29 +3,13 @@
 
 #include <boost/foreach.hpp>
 
-#include <pcl/kdtree/kdtree.h>
+//#include <pcl/kdtree/kdtree.h>
 #include <pcl/common/centroid.h>
 #include <pcl/segmentation/extract_clusters.h>
 
 #include "utils/cloud_utils.h"
 #include "parameters.h"
 #include "utils/hdf_utils.h"
-
-
-void extract_clusters_euclidean(pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud, std::vector<pcl::PointIndices>& cluster_indices, float cluster_tol, int min_cluster_size, int max_cluster_size)
-{
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
-    tree->setEpsilon(0.0);
-    tree->setInputCloud (cloud);
-
-    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance (cluster_tol);
-    ec.setMinClusterSize (min_cluster_size);
-    ec.setMaxClusterSize (max_cluster_size);
-    ec.setSearchMethod (tree);
-    ec.setInputCloud (cloud);
-    ec.extract (cluster_indices);
-}
 
 
 void compute3DMedian(const pcl::PointCloud<pcl::PointXYZ>& cloud, const std::vector<int>& indices, Eigen::Matrix<float, 4, 1>& median)

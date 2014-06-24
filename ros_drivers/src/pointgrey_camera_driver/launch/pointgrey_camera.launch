@@ -1,8 +1,41 @@
 <launch>
 
+  <group ns="wfov_front">
+  <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
+      <param name="serial" value="14051297" />
+      <param name="camera_type" value="wide" />
+  </node>
+  <node pkg="image_proc" type="image_proc" name="image_proc" />
+  </group>
+
+  <group ns="wfov_left">
+  <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
+      <param name="serial" value="14051397" />
+      <param name="camera_type" value="wide" />
+  </node>
+  <node pkg="image_proc" type="image_proc" name="image_proc" />
+  </group>
+  
+  <group ns="wfov_right">
+  <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
+      <param name="serial" value="14051404" />
+      <param name="camera_type" value="wide" />
+  </node>
+  <node pkg="image_proc" type="image_proc" name="image_proc" />
+  </group>
+  
+  <group ns="wfov_back">
+  <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
+      <param name="serial" value="14051402" />
+      <param name="camera_type" value="wide" />
+  </node>
+  <node pkg="image_proc" type="image_proc" name="image_proc" />
+  </group>
+  
   <group ns="fwd_left">
   <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
       <param name="serial" value="13041044" />
+      <param name="camera_type" value="narrow" />
   </node>
   <node pkg="image_proc" type="image_proc" name="image_proc" />
   </group>
@@ -10,6 +43,7 @@
   <group ns="fwd_right">
   <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
       <param name="serial" value="13041026" />
+      <param name="camera_type" value="narrow" />
   </node>
   <node pkg="image_proc" type="image_proc" name="image_proc" />
   </group>

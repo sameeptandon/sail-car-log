@@ -29,6 +29,8 @@ if(NOT POINTGREY_LIB)
   include_directories(${POINTGREY_INCLUDE_DIR})  
 endif()
 
+find_package(OpenCV REQUIRED)
+
 include_directories(include ${catkin_INCLUDE_DIRS})
 
 add_library(PointGreyCamera src/PointGreyCamera.cpp)
@@ -45,7 +47,7 @@ add_executable(pointgrey_list_cameras src/list_cameras.cpp)
 target_link_libraries(pointgrey_list_cameras PointGreyCamera ${catkin_LIBRARIES})
 
 add_executable(pointgrey_camera_driver src/PointGreyDriver.cpp)
-target_link_libraries(pointgrey_camera_driver ${POINTGREY_LIB} ${catkin_LIBRARIES})
+target_link_libraries(pointgrey_camera_driver ${POINTGREY_LIB} ${catkin_LIBRARIES} ${OpenCV_LIBS})
  
 install(TARGETS 
   PointGreyCamera

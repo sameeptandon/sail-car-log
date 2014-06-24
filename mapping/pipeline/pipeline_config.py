@@ -13,28 +13,25 @@ NUM_CPUS = multiprocessing.cpu_count() - 1
 DATA_DIR = '/scr/scl'
 #DATA_DIR = '/media/sdb'
 
-ROUTE = os.getenv('SCL_ROUTE', '4-2-14-monterey')
+ROUTE = os.getenv('SCL_ROUTE', '6-10-14-280')
 SEGMENT = os.getenv('SCL_SEGMENT', '280N')
 SPLIT = os.getenv('SCL_SPLIT', 'a')
-CAMERA = 2
+CAMERA = 4
 
-DSET = '%s_%s%d' % (SEGMENT, SPLIT, CAMERA)
+DSET = '%s_%s' % (SEGMENT, SPLIT)
 #DSET = 'sandhill_b2'
 DSET_DIR = pjoin(pjoin(DATA_DIR, ROUTE), DSET)
 if not os.path.exists(DSET_DIR):
     os.makedirs(DSET_DIR)
-DSET_AVI = DSET + '.avi'
-CAM_NUM = int(DSET[-1])
+DSET_AVI = DSET + '%d.avi' % CAMERA
 
 # Stuff to scp over
-REMOTE_DATA_DIR = 'gorgon39:/scail/group/deeplearning/driving_data/q50_data/%s' % ROUTE
+REMOTE_DATA_DIR = 'gorgon39:/scail/group/deeplearning/driving_data/sameep/%s' % ROUTE
 REMOTE_FILES = [
-    'split_\\*_%s.avi' % DSET,
-    '%s_gps.out' % DSET[:-1],
-    #'%s_frames' % DSET[:-1],
-    '%s.map' % DSET[:-1],
-    '%s_*.bag' % DSET[:-1],
-    '%s.pcap' % DSET[:-1],
+    'split_\\*_%s%d.avi' % (DSET, CAMERA),
+    #'%s.map' % DSET,
+    '%s_*.bag' % DSET,
+    '%s.pcap' % DSET,
     #'params.ini'
 ]
 
@@ -46,13 +43,14 @@ FABRIC_PASS_FILE = '%s/pipeline/pass.txt' % MAPPING_PATH
 
 PARAMS_TO_LOAD = 'q50_4_3_14_params'
 PARAMS_FILE = pjoin(DSET_DIR, 'params.ini')
-GPS_FILE = pjoin(DSET_DIR, '%s_gps.out' % DSET[:-1])
-MAP_FILE = pjoin(DSET_DIR, '%s.map' % DSET[:-1])
+GPS_FILE = pjoin(DSET_DIR, '%s_gpsmark2.out' % DSET)
+MAP_FILE = pjoin(DSET_DIR, '%s.map' % DSET)
 
 OPT_POS_FILE = '%s/%s' % (GRAPHSLAM_OPT_POS_DIR, '--'.join([ROUTE, SEGMENT, SPLIT]) + '.npz')
 
 PARAMS_H5_FILE = pjoin(DSET_DIR, 'params.h5')
-LDR_DIR = pjoin(DSET_DIR, '%s_frames' % DSET[:-1])
+LDR_DIR = pjoin(DSET_DIR, '%s_aligned_frames' % DSET)
+LDR_UPSAMPLED_DIR = LDR_DIR + '_upsampled'
 POINTS_H5_DIR = pjoin(DSET_DIR, 'h5')
 PCD_DIR = pjoin(DSET_DIR, 'pcd')
 PCD_DOWNSAMPLED_DIR = pjoin(DSET_DIR, 'pcd_downsampled')
@@ -66,7 +64,8 @@ MERGED_COLOR_CLOUDS_DIR = pjoin(DSET_DIR, 'merged_color_clouds')
 OCTOMAP_DIR = pjoin(DSET_DIR, 'octomaps')
 COLOR_OCTOMAP_DIR = pjoin(DSET_DIR, 'color_octomaps')
 
-EXPORT_FULL = True
+EXPORT_FULL = False
+NO_TRANSFORM = True
 LANE_FILTER = False
 #EXPORT_START = 1700
 EXPORT_START = 0
@@ -79,7 +78,9 @@ if EXPORT_FULL:
         EXPORT_NUM = int(open(EXPORT_FULL_NUM_FILE, 'r').read().strip())
     else:
         pass
-EXPORT_STEP = 5
+EXPORT_STEP = 1
+# TODO Move everything over to use STEP_TIME
+STEP_TIME = 0.1
 
 DOWNSAMPLE_LEAF_SIZE = 0.1
 K_NORM_EST = 30
@@ -133,11 +134,31 @@ STATIC_VTK_FILE = os.path.splitext(STATIC_CLOUD_FILE)[0] + '.vtk'
 DYNAMIC_CLOUD_FILE = pjoin(MERGED_COLOR_CLOUDS_DIR, 'dynamic_%d.pcd' % MAP_COLOR_WINDOW)
 DYNAMIC_VTK_FILE = os.path.splitext(DYNAMIC_CLOUD_FILE)[0] + '.vtk'
 
+# Used for clustering and extracting lanes markings for evaluation
+
 CLUSTER_TOL = 0.5
 MIN_CLUSTER_SIZE = 25
 MAX_CLUSTER_SIZE = 2500
 
 PROJECT_MAP_WINDOW = 50 * 2.5  # 50 Hz * # seconds
+
+# Lidar detection
+
+# (x_min, x_max, y_mihn, y_max, z_min, z_max)
+FILTER_RANGE = [-10, 10, -10, 10, -10, 10]
+# gravity vector
+G = [0, 0, 1]
+INLIER_DIST_THRESH = 0.2
+HIGHEST_PLANE = False
+PLANE_RANSAC_MAX_ITERS = 20
+NORMAL_EPS_ANGLE = 10
+MIN_PLANE_CLOUD_SIZE = 100
+MIN_PTS_ABOVE_HULL = 100
+PLANE_Z_THRESH = [-10, 10]
+OBJ_CLUSTER_TOL = 0.75
+OBJ_MIN_CLUSTER_SIZE = 50
+OBJ_MAX_CLUSTER_SIZE = 5000
+
 
 '''
 Print out variable values

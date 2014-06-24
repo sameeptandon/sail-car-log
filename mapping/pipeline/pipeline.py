@@ -18,11 +18,12 @@ from pipeline_config import POINTS_H5_DIR,\
         STATIC_VTK_FILE, DYNAMIC_CLOUD_FILE, DYNAMIC_VTK_FILE,\
         FILTERED_CLOUDS_DIR, PARAMS_TO_LOAD,\
         MERGED_COLOR_CLOUDS_DIR, MERGED_COLOR_CLOUD_FILE,\
-        MERGED_COLOR_VTK_FILE
+        MERGED_COLOR_VTK_FILE, LDR_UPSAMPLED_DIR, LDR_DIR,\
+        NO_TRANSFORM, CAMERA
 from pipeline_utils import file_num
 
 
-dirs = [POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
+dirs = [LDR_DIR, LDR_UPSAMPLED_DIR, POINTS_H5_DIR, PCD_DIR, PCD_DOWNSAMPLED_DIR,
         PCD_DOWNSAMPLED_NORMALS_DIR, ICP_TRANSFORMS_DIR, COLOR_DIR,
         COLOR_CLOUDS_DIR, MERGED_CLOUDS_DIR, MERGED_COLOR_CLOUDS_DIR,
         OCTOMAP_DIR, COLOR_OCTOMAP_DIR, FILTERED_CLOUDS_DIR]
@@ -34,7 +35,6 @@ os.chdir(DSET_DIR)
 DOWNLOADS = list()
 for f in REMOTE_FILES:
     DOWNLOADS.append([None, f])
-
 @follows(*MKDIRS)
 @files(DOWNLOADS)
 def download_files(dummy, local_file):
@@ -42,13 +42,29 @@ def download_files(dummy, local_file):
     print cmd
     check_call(cmd, shell=True)
 
-
 @follows('download_files')
-@files('./%s_gps.bag' % DSET[:-1], '%s_frames' % DSET[:-1])
+@files('./%s_gps.bag' % DSET, '%s_frames' % DSET)
 def generate_frames_and_map(input_file, output_dir):
-    cmd = 'cd %s/lidar; python generate_frames.py %s %s; python generate_map.py %s %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR, PARAMS_TO_LOAD, DSET_DIR, PARAMS_TO_LOAD)
+    cmd = 'cd %s/lidar; python generate_frames.py %s %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR, PARAMS_TO_LOAD)
     print cmd
     check_call(cmd, shell=True)
+    cmd = 'cd %s/lidar; python generate_gps_out.py %s; cd -' % (SAIL_CAR_LOG_PATH, DSET_DIR) 
+    print cmd
+    check_call(cmd, shell=True)
+
+
+#@follows('generate_frames_and_map')
+'''
+@transform('%s/*.ldr' % LDR_DIR,
+           regex('%s/(.*?).ldr' % LDR_DIR),
+           r'%s/\1.ldr' % LDR_UPSAMPLED_DIR)
+def upsample_ldrs(input_file, output_file):
+    ni = 2  # FIXME PARAM
+    upsampler = 'python %s/../process/upsample_ldr.py' % MAPPING_PATH
+    cmd = '%s %s %s %d' % (upsampler, input_file, output_file, ni)
+    print cmd
+    check_call(cmd, shell=True)
+'''
 
 
 @follows('generate_frames_and_map')
@@ -59,16 +75,27 @@ def convert_params_to_h5(input_file, output_file):
     check_call(cmd, shell=True)
 
 
+# TODO Also have to run the new bag file extractor for mark2
+
 @follows('convert_params_to_h5')
-@files('params.ini', '%s/sentinel' % POINTS_H5_DIR)
-@posttask(touch_file('%s/sentinel' % POINTS_H5_DIR))
-def convert_ldr_to_h5(dummy_file, output_file):
-    if os.path.exists('%s/sentinel' % POINTS_H5_DIR):
-        return
+@files(None, '%s/sentinel' % LDR_DIR)
+@posttask(touch_file('%s/sentinel' % LDR_DIR))
+def align_ldr(dummy, sentinel):
+    cmd = 'python %s/process/LidarAlign.py %s %s' % (SAIL_CAR_LOG_PATH, DSET_DIR, '%s%d.avi' % (DSET, CAMERA))
+    print cmd
+    check_call(cmd, shell=True)
+
+
+@follows('align_ldr')
+#@files('params.ini', '%s/sentinel' % POINTS_H5_DIR)
+@transform('%s/*.ldr' % LDR_DIR,
+           regex('%s/(.*?).ldr' % LDR_DIR),
+           r'%s/\1.h5' % POINTS_H5_DIR)
+def convert_ldr_to_h5(ldr_file, h5_file):
     exporter = '%s/mapping/pipeline/ldr_to_h5.py' % SAIL_CAR_LOG_PATH
-    cmd = 'python {exporter} {fgps} {fmap} {h5_dir}'.format(exporter=exporter, fgps=GPS_FILE, fmap=MAP_FILE, h5_dir=POINTS_H5_DIR)
-    if EXPORT_FULL:
-        cmd += ' --full'
+    cmd = 'python {exporter} {fgps} {ldr_file} {h5_file}'.format(exporter=exporter, fgps=GPS_FILE, ldr_file=ldr_file, h5_file=h5_file)
+    if NO_TRANSFORM:
+        cmd += ' --no_transform'
     print cmd
     check_call(cmd, shell=True)
 

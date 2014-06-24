@@ -19,6 +19,7 @@ import vtk
 import copy
 import cv2
 import math
+from LidarTransforms import transform_points_in_sweep
 
 
 global actors
@@ -94,53 +95,6 @@ def stepVideo(video_reader, step):
         (success, I) = video_reader.getNextFrame()
     return success
 
-
-def interp_transforms(T1, T2, alpha):
-    assert alpha <= 1
-    T_avg = alpha * T1 + (1 - alpha) * T2
-    # Need to orthonormalize transform
-    R = T_avg[0:3, 0:3]
-    R = np.linalg.qr(R, mode='complete')[0]
-    T_avg[0:3, 0:3] = R
-    return T_avg
-
-
-def interp_transforms_backward(imu_transforms, ind):
-    assert ind < 0, 'No need to call interp_transforms_backward'
-    T_interp = imu_transforms[0, :, :] -\
-        (imu_transforms[-1 * ind, :, :] - imu_transforms[0, :, :])
-    R = T_interp[0:3, 0:3]
-    R = np.linalg.qr(R, mode='complete')[0]
-    T_interp[0:3, 0:3] = R
-    return T_interp
-
-
-def transform_points_in_sweep(pts, times, fnum, imu_transforms):
-    for time in set(times):
-        mask = times == time
-
-        # FIXME PARAM
-        offset = (time / float(1e6)) / 0.02
-        offset = min(5, offset)
-
-        ind1 = int(fnum - math.ceil(offset))
-        ind2 = int(fnum - math.floor(offset))
-
-        # FIXME Hack to interpolate before 0
-        #ind1, ind2 = max(ind1, 0), max(ind2, 0)
-        if ind1 < 0:
-            T1 = interp_transforms_backward(imu_transforms, ind1)
-        else:
-            T1 = imu_transforms[ind1, :, :]
-        if ind2 < 0:
-            T2 = interp_transforms_backward(imu_transforms, ind2)
-        else:
-            T2 = imu_transforms[ind2, :, :]
-
-        transform = interp_transforms(T1, T2, offset / 5.0)
-
-        # transform data into imu_0 frame
-        pts[:, mask] = np.dot(transform, pts[:, mask])
 
 
 def integrateClouds(ldr_map, IMUTransforms, renderer, offset, num_steps, step, calibrationParameters):
