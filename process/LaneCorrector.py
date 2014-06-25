@@ -125,8 +125,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         self.mode = 'single'
 
-        self.num_to_move = 100
-        self.SetMotionFactor(40.0)
+        self.num_to_move = 50
+        self.SetMotionFactor(10.0)
 
         self.AutoAdjustCameraClippingRangeOff()
         self.ren.GetActiveCamera().SetClippingRange(0.01, 500)
@@ -481,7 +481,7 @@ class Blockworld:
             print 'Median Error in Lane %d: %f' % (num, np.median(z_dist)) 
 
     def getCameraPosition(self, t):
-        offset = np.array([-75.0, 0, 25.0])
+        offset = np.array([-75.0, 0, 25.0]) / 4
         # Rotate the camera so it is behind the car
         position = np.dot(self.imu_transforms[t,0:3,0:3], offset)
         position += self.imu_transforms[t, 0:3, 3] + position
