@@ -47,23 +47,21 @@ def load_ply(ply_file):
     actor.SetMapper(ply_mapper)
     return actor
 
+
+class Change:
+    def __init__(self, selection, vector):
+        self.selection = selection
+        self.vector = vector
+
+    def __str__(self):
+        return '(%d, %d) %s' % (self.selection.lane, self.selection.idx,
+                                self.vector)
+
 class Undoer:
-
-    class Change:
-        def __init__(self, lane, idx, num_to_move, change):
-            self.lane = lane
-            self.idx = idx
-            self.num_to_move = num_to_move
-            self.change = change
-
-        def __str__(self):
-            return '(%d, %d) %s' % (self.lane, self.idx, self.change)
-
-    def __init__(self, lane_actors, parent):
-        self.lane_actors = lane_actors
-        self.undo_queue = deque(maxlen=100)
-        self.redo_queue = deque(maxlen=100)
-        self.parent = parent
+    def __init__(self):
+        num_edits = 1000
+        self.undo_queue = deque(maxlen=num_edits)
+        self.redo_queue = deque(maxlen=num_edits)
 
     def __str__(self):
         s = 'undo:\n'
@@ -90,22 +88,98 @@ class Undoer:
         except IndexError:
             pass
 
-    def addChange(self, lane, idx, num_to_move, change):
-        change = Undoer.Change(lane, idx, num_to_move, change)
+    def addChange(self, selection, vector):
+        change = Change(selection, vector)
         try:
             # Try to append
             self.undo_queue.append(change)
         except IndexError:
             # Remove the oldest change
-            self.undo_queue.popleftn()
+            self.undo_queue.popleft()
             # Add the new change
             self.undo_queue.append(change)
         self.redo_queue.clear()
 
     def performChange(self, change, direction=1):
-        # def movePoint (self, lane, point, num_to_move, change):
-        self.parent.movePoint(change.lane, change.idx, change.num_to_move,
-                              direction * np.array(change.change))
+        change.selection.move(direction * np.array(change.vector))
+
+class Selection:
+    symmetric = 0
+    direct = 1
+    def __init__(self, parent, actor, idx, mode=symmetric, end_idx=-1):
+        self.parent = parent
+        self.actor = actor
+
+        self.data = self.actor.GetMapper().GetInput()
+        self.pos = self.data.GetPoints().GetData()
+        self.color = self.data.GetPointData().GetScalars()
+
+        self.idx = idx
+        self.lane = self.getLane()
+        self.startPos = self.getPosition()
+
+        # Selection mode
+        self.mode = mode
+        # The region of points are on either side of idx
+        if self.mode == Selection.symmetric:
+            self.region = parent.num_to_move
+
+        # The region starts at idx and ends at end_idx
+        elif self.mode == Selection.direct:
+            # Make sure start is before end
+            if end_idx >= 0:
+                if self.idx > end_idx:
+                    # Swap
+                    self.idx, end_idx = end_idx, self.idx
+
+                self.region = end_idx
+            else:
+                self.region = self.idx
+        else:
+            raise RuntimeError('Bad selection mode')
+
+
+    def getLane(self):
+        interp_actors = self.parent.parent.interp_actors
+        if self.actor and self.actor in interp_actors:
+            return interp_actors.index(self.actor)
+        raise RuntimeError('Could not find lane')
+
+    def getPosition(self, offset=0):
+        return np.array(self.pos.GetTuple(self.idx + offset))
+
+    def nextPoint(self):
+        if self.mode == Selection.symmetric:
+            start = self.idx - self.region + 1
+            end = self.idx + self.region - 1
+        else:
+            start = self.idx
+            end = self.end_idx
+
+        while start <= end:
+            yield start
+            start += 1
+
+    def setColor(self, color):
+        for i in self.nextPoint():
+            self.color.SetTuple(i, color)
+        self.data.Modified()
+
+    def move(self, vector):
+        """ Vector is a change for the idx point. All other points in the
+        selection region will move as well """
+        vector = np.array(vector)
+        if self.mode == Selection.symmetric:
+            for p in self.nextPoint():
+                if p >= 0 and p < self.data.GetNumberOfElements(0):
+                    p_old_pos = np.array(self.pos.GetTuple(p))
+                    alpha = abs(self.idx - p) / float(self.region)
+                    alpha = (math.cos(alpha * math.pi) + 1) / 2.
+                    p_new_pos = p_old_pos + vector * alpha
+                    self.pos.SetTuple(p, tuple(p_new_pos))
+
+            self.data.Modified()
+
 
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, iren, ren, parent):
@@ -116,16 +190,15 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.picker.SetTolerance(0.005)
         self.iren.SetPicker(self.picker)
 
-        self.undoer = Undoer(self.parent.interp_actors, self)
+        self.undoer = Undoer()
 
         self.moving = False
-        self.InteractionProp = None
-        self.color = None
-        self.data_in = None
+        self.selection = None
 
-        self.mode = 'single'
+        self.mode = 'edit'
 
         self.num_to_move = 50
+
         self.SetMotionFactor(10.0)
 
         self.AutoAdjustCameraClippingRangeOff()
@@ -164,37 +237,32 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         x, y = self.iren.GetEventPosition()
         self.picker.Pick(x, y, 0, self.ren)
         idx = self.picker.GetPointId()
-        if idx >= 0 and self.getLane(self.picker.GetActor()) != None:
-            self.InteractionProp = self.picker.GetActor()
-            self.idx = idx
-            self.moving = True
-            self.startPos = self.getPointPosition(self.InteractionProp, self.idx)
+        actor = self.picker.GetActor()
+        if idx >= 0:
+            if self.mode == 'edit':
+                self.selection = Selection(self, actor, idx)
+                self.moving = True
+            elif self.mode == 'delete':
+                self.selection = Selection(self, actor, idx, Selection.direct)
 
     def LeftButtonReleaseEvent(self, obj, event):
-        if self.moving:
-            lane = self.getLane(self.InteractionProp)
-            if lane != None:
-                for p in self.nextNearbyPoint(self.idx):
-                    self.color.SetTuple(p, (lane,))
+        if self.moving and self.mode == 'edit':
+            endPos = self.selection.getPosition()
+            change = self.selection.startPos - endPos
 
-                self.Render()
+            # self.selection.move(change)
+            lane = self.selection.getLane()
+            self.selection.setColor((lane,))
+            self.Render()
 
-                endPos = self.getPointPosition(self.InteractionProp, self.idx)
-                change = self.startPos - endPos
-                self.undoer.addChange(lane, self.idx, self.num_to_move, change)
+            self.undoer.addChange(self.selection, change)
 
             self.moving = False
-            self.idx = -1
-            self.InteractionProp = None
-            self.startPos = None
+            self.selection = None
 
     def MouseMoveEvent(self, obj, event):
-        if self.moving:
-            self.data_in = self.InteractionProp.GetMapper().GetInput()
-            self.pos = self.data_in.GetPoints().GetData()
-            self.color = self.data_in.GetPointData().GetScalars()
-
-            old_pos = self.pos.GetTuple(self.idx)
+        if self.moving and self.mode == 'edit':
+            old_pos = self.selection.getPosition()
             x, y = self.iren.GetEventPosition()
 
             disp_obj_center = [0.] * 3
@@ -211,30 +279,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             old_pos = np.array(old_pos)
             change = new_pos - old_pos
 
-            lane = self.getLane(self.InteractionProp)
             # Move the point
-            self.movePoint(lane, self.idx, self.num_to_move, change)
-            
-            # Color the points that we are moving
-            for p in self.nextNearbyPoint(self.idx):
-                if p >= 0 and p < self.data_in.GetNumberOfElements(0):
-                    self.color.SetTuple(p, (5,))
+            self.selection.move(change)
+            self.selection.setColor((5,))
 
             self.Render()
 
-    def movePoint (self, lane, idx, num_to_move, change):
-        lane_actor = self.parent.interp_actors[lane]
-        data_in = lane_actor.GetMapper().GetInput()
-        pos = data_in.GetPoints().GetData()
-        for p in self.nextNearbyPoint(idx):
-            if p >= 0 and p < data_in.GetNumberOfElements(0):
-                p_old_pos = np.array(pos.GetTuple(p))
-                alpha = abs(idx - p) / float(num_to_move)
-                alpha = (math.cos(alpha * math.pi) + 1) / 2.
-                p_new_pos = p_old_pos + change * alpha
-                pos.SetTuple(p, tuple(p_new_pos))
-
-        data_in.Modified()
         
     def KeyHandler(self, obj, event):
         # Symbol names are declared in
@@ -242,16 +292,19 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         # https://github.com/Kitware/VTK/
         key = self.iren.GetKeySym()
         if not self.moving:
+            if key == 'Escape':
+                self.mode = 'edit'
+
             if key == 'bracketright':
                 # Increase the number of points selected
                 self.num_to_move += 1
-                self.mode = 'single'
+                self.mode = 'edit'
 
             elif key == 'bracketleft':
                 # Decrease the number of points selected
                 num = self.num_to_move - 1
                 self.num_to_move = num if num > 0 else 1
-                self.mode = 'single'
+                self.mode = 'edit'
 
             elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
                 if key == '3':
@@ -259,6 +312,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     # it is turned off
                     self.parent.win.StereoRenderOn()
                 self.mode = key
+
+            elif key == 'd':
+                # Decrease the number of points selected
+                self.mode = 'delete'
 
             elif key == 's':
                 file_name = 'out.npz'
@@ -303,10 +360,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         mode = self.mode
 
         txt = '(%d) ' % frame_num
-        if mode == 'single':
+        if mode == 'edit':
             text = txt + 'Single Lane - %d' % self.num_to_move
         elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
             text = txt + 'Lane %s - All points' % mode
+        elif mode == 'delete':
+            text = txt + 'Select segment to delete'
         else:
             text = txt + 'All Lanes - %d' % self.num_to_move
 
@@ -314,27 +373,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.parent.selectModeActor.Modified()
 
     def Render(self):
-        if self.data_in != None:
-            self.data_in.Modified()
-            self.iren.GetRenderWindow().Render()
+        self.iren.GetRenderWindow().Render()
     
-    def nextNearbyPoint(self, mid):
-        n = self.num_to_move
-        i = mid - n + 1
-        while i < mid + n:
-            yield i
-            i += 1
-
-    def getLane(self, actor):
-        if actor and actor in self.parent.interp_actors:
-            return self.parent.interp_actors.index(actor)
-        else:
-            return None
-
-    def getPointPosition(self, actor, index):
-        if self.getLane(actor) != None:
-            pos = actor.GetMapper().GetInput().GetPoints().GetData()
-            return np.array(pos.GetTuple(index))
 
     # Video Recording
     def startVideo(self, video_name='multilane.avi'):
@@ -444,8 +484,8 @@ class Blockworld:
         self.cloud_ren.AddActor(self.car)
 
         # Use our custom mouse interactor
-        self.mouseInteractor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
-        self.iren.SetInteractorStyle(self.mouseInteractor)
+        self.interactor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
+        self.iren.SetInteractorStyle(self.interactor)
 
         # Tell the user which mode we are in
         selectMode = VtkText('', (10, 10))
@@ -547,10 +587,10 @@ class Blockworld:
             self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
         
         # Update the little text in the bottom left
-        self.mouseInteractor.updateModeText()
+        self.interactor.updateModeText()
 
         if self.record:
-            self.mouseInteractor.writeVideo()
+            self.interactor.writeVideo()
         
         if self.running or self.count == 0:
             self.count += 1
@@ -583,6 +623,6 @@ class Blockworld:
 
         return I
 
-
 if __name__ == '__main__':
     blockworld = Blockworld()
+
