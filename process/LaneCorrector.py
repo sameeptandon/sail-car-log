@@ -113,7 +113,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.ren = ren
         self.parent = parent
         self.picker = vtk.vtkPointPicker()
-        self.picker.SetTolerance(0.01)
+        self.picker.SetTolerance(0.005)
         self.iren.SetPicker(self.picker)
 
         self.undoer = Undoer(self.parent.interp_actors, self)
@@ -237,39 +237,48 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         data_in.Modified()
         
     def KeyHandler(self, obj, event):
+        # Symbol names are declared in
+        # GUISupport/Qt/QVTKInteractorAdapter.cxx
+        # https://github.com/Kitware/VTK/
         key = self.iren.GetKeySym()
         if not self.moving:
-            if key == 'Up':
+            if key == 'bracketright':
                 # Increase the number of points selected
                 self.num_to_move += 1
                 self.mode = 'single'
-            elif key == 'Down':
+
+            elif key == 'bracketleft':
                 # Decrease the number of points selected
                 num = self.num_to_move - 1
                 self.num_to_move = num if num > 0 else 1
                 self.mode = 'single'
+
             elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
                 if key == '3':
                     # Workaround: 3 toggles stereo rendering. Turn it on so later
                     # it is turned off
                     self.parent.win.StereoRenderOn()
                 self.mode = key
-            elif key == 'x':
-                # Export Data
+
+            elif key == 's':
                 file_name = 'out.npz'
-                self.parent.exportData(file_name)
                 print 'Saved', file_name
+                self.parent.exportData(file_name)
+
             elif key == 'space':
                 self.parent.running = not self.parent.running
                 print 'Running' if self.parent.running else 'Paused'
+
             elif key == 'z':
                 print 'Undo'
                 self.undoer.undo()
                 self.Render()
+
             elif key == 'y':
                 print 'Redo'
                 self.undoer.redo()
                 self.Render()
+
             elif key == 'r':
                 self.parent.record = not self.parent.record
                 if self.parent.record:
@@ -278,8 +287,16 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 else:
                     print 'Done Recording'
                     self.closeVideo()
-            else:
-                pass
+
+            elif key == 'Down':
+                if not self.parent.running:
+                    self.parent.count -= 1
+                    self.parent.manual_change = -1
+
+            elif key == 'Up':
+                if not self.parent.running:
+                    self.parent.count += 1
+                    self.parent.manual_change = 1
 
     def updateModeText(self):
         frame_num = self.parent.count
@@ -362,7 +379,10 @@ class Blockworld:
 
         # Whether to write video
         self.record = False
+        # Is the flyover running
         self.running = True
+        # Has the user changed the time
+        self.manual_change = 0
 
         ###### Set up the renderers ######
         self.cloud_ren = vtk.vtkRenderer()
@@ -462,9 +482,11 @@ class Blockworld:
 
     def getCameraPosition(self, t):
         offset = np.array([-75.0, 0, 25.0])
+        # Rotate the camera so it is behind the car
         position = np.dot(self.imu_transforms[t,0:3,0:3], offset)
-
         position += self.imu_transforms[t, 0:3, 3] + position
+
+        # Focus 10 frames in front of the car
         focal_point = self.imu_transforms[t + 10 * self.step, 0:3, 3]
         return position, focal_point
 
@@ -484,12 +506,15 @@ class Blockworld:
         # Transform the car
         t = self.start + self.step * self.count
         cloud_cam = self.cloud_ren.GetActiveCamera()
-        # self.video_reader.setFrame(t - 1)
-        # (success, I) = self.video_reader.getNextFrame()
         
+        # If we have gone backwards in time we need use setframe (slow)
+        if self.manual_change == -1:
+            self.video_reader.setFrame(t - 1)
+
         while self.video_reader.framenum <= t:
             (success, self.I) = self.video_reader.getNextFrame()
 
+        # Copy the image so we can project points onto it
         I = self.I.copy()
         I = self.projectPointsOnImg(I, t)
         vtkimg = VtkImage(I)
@@ -498,28 +523,31 @@ class Blockworld:
         self.img_actor = vtkimg.get_vtk_image()
         self.img_ren.AddActor(self.img_actor)
 
-        if self.running:
-            # Set camera position
+        if self.running or self.manual_change:
+            # Set camera position to in front of the car
             position, focal_point = self.getCameraPosition(t)
-
             cloud_cam.SetPosition(position)
             cloud_cam.SetFocalPoint(focal_point)
-            cloud_cam.SetRoll(90.0)
 
+            # Update the car position
             imu_transform = self.imu_transforms[t, :, :]
             transform = vtk_transform_from_np(imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
             self.car.SetUserTransform(transform)
 
+            # If the user caused a manual change, reset it
+            self.manual_change = 0
+
+        # Initialization
         if self.count == 0:
             cloud_cam.SetViewUp(0, 0, 1)
             self.img_ren.ResetCamera()
+            # These units are pixels
             self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
         
+        # Update the little text in the bottom left
         self.mouseInteractor.updateModeText()
-
-        iren.GetRenderWindow().Render()
 
         if self.record:
             self.mouseInteractor.writeVideo()
@@ -527,13 +555,19 @@ class Blockworld:
         if self.running or self.count == 0:
             self.count += 1
 
+        iren.GetRenderWindow().Render()
+
     def projectPointsOnImg(self, I, t):
         car_pos = self.imu_transforms[t, 0:3, 3]
-
+        # Find the closest point
         (d, closest_idx) = self.laneKDTree.query(car_pos)
-        nearby_idx = np.array(self.laneKDTree.query_ball_point(car_pos, r=100.0))
+        # Find all the points nearby
+        nearby_idx = np.array(self.laneKDTree.query_ball_point(car_pos,
+                                                               r=100.0))
+        # Remove the points before the closest point
         nearby_idx = nearby_idx[nearby_idx > closest_idx]
 
+        # Project the points onto the image
         for num in xrange(self.num_lanes):
             lane = self.interp_cloud[num].xyz[nearby_idx, :3]
 
