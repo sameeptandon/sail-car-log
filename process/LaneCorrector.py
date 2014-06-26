@@ -108,6 +108,8 @@ class Selection:
     direct = 1
     def __init__(self, parent, actor, idx, mode=symmetric, end_idx=-1):
         self.parent = parent
+        self.blockworld = parent.parent
+
         self.actor = actor
 
         self.data = self.actor.GetMapper().GetInput()
@@ -145,28 +147,32 @@ class Selection:
             return self.region != 0
 
     def getLane(self):
-        interp_actors = self.parent.parent.interp_actors
-        if self.actor and self.actor in interp_actors:
-            return interp_actors.index(self.actor)
+        lane_actors = self.blockworld.lane_actors
+        # print len(lane_actors)
+        if self.actor and self.actor in lane_actors:
+            return lane_actors.index(self.actor)
         raise RuntimeError('Could not find lane')
 
     def getPosition(self, offset=0):
         return np.array(self.pos.GetTuple(self.idx + offset))
 
-    def nextPoint(self):
+    def getStart(self):
         if self.mode == Selection.symmetric:
-            start = self.idx - self.region + 1
-            end = self.idx + self.region - 1
+            return self.idx - self.region + 1
         else:
-            start = self.idx
-            end = self.idx + self.region
+            return self.idx
 
-        while start <= end:
-            yield start
-            start += 1
+    def getEnd(self):
+        if self.mode == Selection.symmetric:
+            return self.idx + self.region - 1
+        else:
+            return self.idx + self.region
+
+    def nextPoint(self):
+        return xrange(self.getStart(), self.getEnd())
 
     def highlight(self):
-        self.setColor((5,))
+        self.setColor((self.blockworld.num_colors,))
 
     def lowlight(self):
         self.setColor((self.lane,))
@@ -193,7 +199,14 @@ class Selection:
 
     def delete(self):
         print 'Deleting segment'
+        # Delete the data in the region
+        lane_cloud = self.blockworld.lane_clouds[self.lane]
+        splits = np.split(lane_cloud.xyz, [self.getStart(), self.getEnd()])
 
+        self.blockworld.addLane(splits[0])
+        self.blockworld.addLane(splits[-1], self.lane)
+
+        self.data.Modified()
 
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, iren, ren, parent):
@@ -352,6 +365,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.mode = 'delete'
                 elif self.selection != None and self.selection.isSelected():
                     self.selection.delete()
+                    self.selection = None
+                    self.mode = 'edit'
 
             elif key == 's':
                 file_name = 'out.npz'
@@ -495,25 +510,17 @@ class Blockworld:
 
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
-        self.num_lanes = int(npz['num_lanes'])
+        init_num_lanes = int(npz['num_lanes'])
+        self.num_lanes = 0
+        self.num_colors = 10
 
-        interp_lanes = [None] * self.num_lanes
-        self.interp_cloud = [None] * self.num_lanes
-        self.interp_actors = [None] * self.num_lanes
+        self.lane_clouds = []
+        self.lane_actors = []
+        self.lane_kdtrees = []
 
-        for i in xrange(self.num_lanes):
-            interp_lanes[i] = npz['lane' + str(i)]
-            # The intensity of the lane tells us which lane it is
-            # Do not change this, it is very important
-            num_pts = interp_lanes[i].shape[0]
-            self.interp_cloud[i] = VtkPointCloud(interp_lanes[i][:, :3],
-                                            np.ones((num_pts)) * i)
-            self.interp_actors[i] = self.interp_cloud[i].get_vtk_cloud(zMin=0,
-                                                                      zMax=self.num_lanes+1)
-            self.interp_actors[i].GetProperty().SetPointSize(2)
-            self.cloud_ren.AddActor(self.interp_actors[i])
-
-        self.laneKDTree = KDTree(self.interp_cloud[0].xyz)
+        for i in xrange(init_num_lanes):
+            interp_lane = npz['lane' + str(i)]
+            self.addLane(interp_lane)
 
         # self.calculateZError(pts)
 
@@ -545,14 +552,43 @@ class Blockworld:
         self.iren.AddObserver('TimerEvent', self.update)
         self.timer = self.iren.CreateRepeatingTimer(100)
 
-
         self.iren.Start()
+
+    def addLane(self, data, lane=-1):
+        """ Appends a new lane to the dataset or replaces an index given by
+        'lane' """
+        num_pts = data.shape[0]
+        if lane == -1:
+            num_lanes = len(self.lane_clouds)
+            old_actor = None
+        else:
+            num_lanes = lane
+            old_actor = self.lane_actors[lane]
+
+        cloud = VtkPointCloud(data[:, :3], np.ones((num_pts)) * 
+                              (num_lanes % self.num_colors))
+        actor = cloud.get_vtk_cloud(zMin=0, zMax=self.num_colors)
+
+        actor.GetProperty().SetPointSize(2)
+
+        self.cloud_ren.RemoveActor(old_actor)
+        self.cloud_ren.AddActor(actor)
+
+        if lane == -1:
+            self.lane_clouds.append(cloud)
+            self.lane_actors.append(actor)
+            self.lane_kdtrees.append(KDTree(cloud.xyz))
+            self.num_lanes += 1
+        else:
+            self.lane_clouds[lane] = cloud
+            self.lane_actors[lane] = actor
+            self.lane_kdtrees[lane] = KDTree(cloud.xyz)
 
     def calculateZError(self, pts):
         # Calculates median z-error of interpolated lanes to points
         tree = KDTree(pts[:, :3])
         for num in xrange(self.num_lanes):
-            lane = self.interp_cloud[num].xyz[:4910, :]
+            lane = self.lane_clouds[num].xyz[:4910, :]
             z_dist = []
             for p in lane:
                 (d, i) = tree.query(p)
@@ -575,7 +611,7 @@ class Blockworld:
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
         for num in xrange(self.num_lanes):
-            lane = self.interp_cloud[num].xyz[:, :3]
+            lane = self.lane_clouds[num].xyz[:, :3]
             offset = np.vstack((lane[1:, :], np.zeros((1,3))))
             lane = np.hstack((lane, offset)) 
             lanes['lane' + str(num)] = lane
@@ -639,30 +675,33 @@ class Blockworld:
 
     def projectPointsOnImg(self, I, t):
         car_pos = self.imu_transforms[t, 0:3, 3]
-        # Find the closest point
-        (d, closest_idx) = self.laneKDTree.query(car_pos)
-        # Find all the points nearby
-        nearby_idx = np.array(self.laneKDTree.query_ball_point(car_pos,
-                                                               r=100.0))
-        # Remove the points before the closest point
-        nearby_idx = nearby_idx[nearby_idx > closest_idx]
 
         # Project the points onto the image
         for num in xrange(self.num_lanes):
-            lane = self.interp_cloud[num].xyz[nearby_idx, :3]
+            # Find the closest point
+            tree = self.lane_kdtrees[num]
+            (d, closest_idx) = tree.query(car_pos)
 
-            pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
-                                         self.T_from_i_to_l, self.cam_params)
-            intensity = np.ones((pix.shape[0], 1)) * num
-            heat_colors = heatColorMapFast(intensity, 0, 5)
-            for p in range(4):
-                I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
-                I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
-                I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
-                I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
+            # Find all the points nearby
+            nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
+
+            # Remove the points before the closest point
+            nearby_idx = nearby_idx[nearby_idx > closest_idx]
+
+            lane = self.lane_clouds[num].xyz[nearby_idx, :3]
+
+            if lane.shape[0] > 0:
+                pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
+                                             self.T_from_i_to_l, self.cam_params)
+                intensity = np.ones((pix.shape[0], 1)) * num
+                heat_colors = heatColorMapFast(intensity, 0, self.num_colors)
+                for p in range(4):
+                    I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
+                    I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
+                    I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
+                    I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
 
         return I
 
 if __name__ == '__main__':
-    blockworld = Blockworld()
-
+    Blockworld()
