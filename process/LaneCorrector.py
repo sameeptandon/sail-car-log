@@ -132,12 +132,17 @@ class Selection:
                     # Swap
                     self.idx, end_idx = end_idx, self.idx
 
-                self.region = end_idx
+                self.region = end_idx - self.idx
             else:
-                self.region = self.idx
+                self.region = 0
         else:
             raise RuntimeError('Bad selection mode')
 
+    def selectionFinished(self):
+        if self.mode == Selection.symmetric:
+            return True
+        else:
+            return self.region != 0
 
     def getLane(self):
         interp_actors = self.parent.parent.interp_actors
@@ -154,11 +159,17 @@ class Selection:
             end = self.idx + self.region - 1
         else:
             start = self.idx
-            end = self.end_idx
+            end = self.idx + self.region
 
         while start <= end:
             yield start
             start += 1
+
+    def highlight(self):
+        self.setColor((5,))
+
+    def lowlight(self):
+        self.setColor((self.lane,))
 
     def setColor(self, color):
         for i in self.nextPoint():
@@ -243,16 +254,20 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.selection = Selection(self, actor, idx)
                 self.moving = True
             elif self.mode == 'delete':
-                self.selection = Selection(self, actor, idx, Selection.direct)
+                if self.selection == None:
+                    self.selection = Selection(self, actor, idx,
+                                               Selection.direct)
+                else:
+                    self.selection = Selection(self, actor, self.selection.idx,
+                                               Selection.direct, idx)
+                self.selection.highlight()
 
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
             endPos = self.selection.getPosition()
             change = self.selection.startPos - endPos
 
-            # self.selection.move(change)
-            lane = self.selection.getLane()
-            self.selection.setColor((lane,))
+            self.selection.lowlight()
             self.Render()
 
             self.undoer.addChange(self.selection, change)
@@ -281,7 +296,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             # Move the point
             self.selection.move(change)
-            self.selection.setColor((5,))
+            self.selection.highlight()
 
             self.Render()
 
@@ -361,15 +376,20 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         txt = '(%d) ' % frame_num
         if mode == 'edit':
-            text = txt + 'Single Lane - %d' % self.num_to_move
+            txt = txt + 'Single Lane - %d' % self.num_to_move
         elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
-            text = txt + 'Lane %s - All points' % mode
+            txt = txt + 'Lane %s - All points' % mode
         elif mode == 'delete':
-            text = txt + 'Select segment to delete'
+            if self.selection == None:
+                txt = txt + 'Click to start delete segment'
+            elif not self.selection.selectionFinished():
+                txt = txt + 'Select another point to create delete segment'
+            else:
+                txt = txt + 'Press \'d\' to delete selected segment'
         else:
-            text = txt + 'All Lanes - %d' % self.num_to_move
+            txt = txt + 'All Lanes - %d' % self.num_to_move
 
-        self.parent.selectModeActor.SetInput(text)
+        self.parent.selectModeActor.SetInput(txt)
         self.parent.selectModeActor.Modified()
 
     def Render(self):
