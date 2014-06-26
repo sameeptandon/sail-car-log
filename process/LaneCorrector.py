@@ -164,7 +164,7 @@ class Selection:
 
     def getEnd(self):
         if self.mode == Selection.symmetric:
-            return self.idx + self.region - 1
+            return self.idx + self.region
         else:
             return self.idx + self.region
 
