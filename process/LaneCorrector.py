@@ -138,7 +138,7 @@ class Selection:
         else:
             raise RuntimeError('Bad selection mode')
 
-    def selectionFinished(self):
+    def isSelected(self):
         if self.mode == Selection.symmetric:
             return True
         else:
@@ -190,6 +190,9 @@ class Selection:
                     self.pos.SetTuple(p, tuple(p_new_pos))
 
             self.data.Modified()
+
+    def delete(self):
+        print 'Deleting segment'
 
 
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
@@ -345,8 +348,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.mode = key
 
             elif key == 'd':
-                # Decrease the number of points selected
-                self.mode = 'delete'
+                if self.mode != 'delete':
+                    self.mode = 'delete'
+                elif self.selection != None and self.selection.isSelected():
+                    self.selection.delete()
 
             elif key == 's':
                 file_name = 'out.npz'
@@ -392,17 +397,17 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         txt = '(%d) ' % frame_num
         if mode == 'edit':
-            txt = txt + 'Single Lane - %d' % self.num_to_move
+            txt = txt + 'Click to move lane | Move window [%d]' % self.num_to_move
         elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
             txt = txt + 'Lane %s - All points' % mode
         elif mode == 'delete':
             if self.selection == None:
                 txt = txt + 'Click to start delete segment'
-            elif not self.selection.selectionFinished():
+            elif not self.selection.isSelected():
                 txt = txt + 'Select another point to create delete segment'
             else:
-                txt = txt + '\'d\' - delete selected segment, click - ' + \
-                      'change segment, \'esc\' - start over'
+                txt = txt + '\'d\' - delete selected segment | click - ' + \
+                      'change segment | \'esc\' - start over'
         else:
             txt = txt + 'All Lanes - %d' % self.num_to_move
 
