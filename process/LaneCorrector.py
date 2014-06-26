@@ -257,9 +257,20 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if self.selection == None:
                     self.selection = Selection(self, actor, idx,
                                                Selection.direct)
-                else:
-                    self.selection = Selection(self, actor, self.selection.idx,
-                                               Selection.direct, idx)
+                elif self.selection.actor == actor:
+                    # Make sure we are selecting a point from the same lane
+                    self.selection.lowlight()
+
+                    start = self.selection.idx
+                    region = self.selection.region
+                    end = start + region
+
+                    if abs(start - idx) < abs(end - idx):
+                        start, end = idx, end
+                    else:
+                        start, end = start, idx
+                    self.selection = Selection(self, actor, start,
+                                               Selection.direct, end)
                 self.selection.highlight()
 
     def LeftButtonReleaseEvent(self, obj, event):
@@ -308,7 +319,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         key = self.iren.GetKeySym()
         if not self.moving:
             if key == 'Escape':
-                self.mode = 'edit'
+                if self.mode == 'delete' and self.selection != None:
+                    self.selection.lowlight()
+                    self.selection = None
+                else:
+                    self.mode = 'edit'
 
             if key == 'bracketright':
                 # Increase the number of points selected
@@ -385,7 +400,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             elif not self.selection.selectionFinished():
                 txt = txt + 'Select another point to create delete segment'
             else:
-                txt = txt + 'Press \'d\' to delete selected segment'
+                txt = txt + '\'d\' - delete selected segment, click - ' + \
+                      'change segment, \'esc\' - start over'
         else:
             txt = txt + 'All Lanes - %d' % self.num_to_move
 
@@ -394,9 +410,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
     def Render(self):
         self.iren.GetRenderWindow().Render()
-    
 
-    # Video Recording
     def startVideo(self, video_name='multilane.avi'):
         self.win2img = vtk.vtkWindowToImageFilter()
         self.win2img.SetInput(self.parent.win)
