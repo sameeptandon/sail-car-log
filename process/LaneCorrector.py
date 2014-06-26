@@ -225,7 +225,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.AddObserver('MouseMoveEvent', self.MouseMoveEvent)
 
         # Add keypress event
-        self.AddObserver('KeyPressEvent', self.KeyHandler)
+        self.AddObserver('CharEvent', self.KeyHandler)
 
     def MouseWheelForwardEvent(self, obj, event):
         self.OnMouseWheelForward()
@@ -317,6 +317,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         # GUISupport/Qt/QVTKInteractorAdapter.cxx
         # https://github.com/Kitware/VTK/
         key = self.iren.GetKeySym()
+        if key == 'q':
+            # Todo: confirm quit
+            self.iren.TerminateApp()
+            return
+
         if not self.moving:
             if key == 'Escape':
                 if self.mode == 'delete' and self.selection != None:
@@ -337,10 +342,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.mode = 'edit'
 
             elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
-                if key == '3':
-                    # Workaround: 3 toggles stereo rendering. Turn it on so later
-                    # it is turned off
-                    self.parent.win.StereoRenderOn()
                 self.mode = key
 
             elif key == 'd':
