@@ -17,6 +17,7 @@ from ColorMap import heatColorMapFast
 from MapReproject import lidarPtsToPixels
 import math
 from collections import deque
+from sklearn import cluster
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -47,7 +48,6 @@ def load_ply(ply_file):
     actor.SetMapper(ply_mapper)
     return actor
 
-
 class Change:
     def __init__(self, selection, vector):
         self.selection = selection
@@ -56,6 +56,19 @@ class Change:
     def __str__(self):
         return '(%d, %d) %s' % (self.selection.lane, self.selection.idx,
                                 self.vector)
+
+    def performChange(self, direction=1):
+        self.selection.move(direction * np.array(self.vector))
+        self.selection.lowlight()
+
+class BigChange (Change):
+    def performChange(self, direction=1):
+        for i in xrange(len(self.selection)):
+            self.selection[i].move(direction * np.array(self.vector[i]))
+            if direction == 1:
+                self.selection[i].lowlight()
+            else:
+                self.selection[i].highlight()
 
 class Undoer:
     def __init__(self):
@@ -76,20 +89,21 @@ class Undoer:
         try:
             undo = self.undo_queue.pop()
             self.redo_queue.append(undo)
-            self.performChange(undo)
+            undo.performChange()
         except IndexError:
+            print 'Undo queue empty!'
             pass
 
     def redo(self):
         try:
             redo = self.redo_queue.pop()
             self.undo_queue.append(redo)
-            self.performChange(redo, -1)
+            redo.performChange(-1)
         except IndexError:
+            print 'Redo queue empty!'
             pass
 
-    def addChange(self, selection, vector):
-        change = Change(selection, vector)
+    def addChange(self, change):
         try:
             # Try to append
             self.undo_queue.append(change)
@@ -100,8 +114,9 @@ class Undoer:
             self.undo_queue.append(change)
         self.redo_queue.clear()
 
-    def performChange(self, change, direction=1):
-        change.selection.move(direction * np.array(change.vector))
+    def flush(self):
+        self.redo_queue.clear()
+        self.undo_queue.clear()
 
 class Selection:
     symmetric = 0
@@ -191,11 +206,17 @@ class Selection:
         self.actor.Modified()
 
     def delete(self):
-        print 'Deleting segment'
         # Create a new lane actor
-        self.blockworld.addLane(self.pos[:self.getStart()])
-        # Replace insert a new actor into the old lane index
-        self.blockworld.addLane(self.pos[self.getEnd():], self.lane)
+        new_lane = self.pos[:self.getStart()]
+        old_lane = self.pos[self.getEnd():]
+
+        if new_lane.shape[0] > 0:
+            self.blockworld.addLane(self.pos[:self.getStart()])
+        if old_lane.shape[0] > 0:
+            # Replace insert a new actor into the old lane index
+            self.blockworld.addLane(self.pos[self.getEnd():], self.lane)
+
+        self.parent.undoer.flush()
 
     def getWeight(self, p):
         alpha = abs(self.idx - p) / float(self.region)
@@ -260,6 +281,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         actor = self.picker.GetActor()
         if idx >= 0:
             if self.mode == 'edit':
+                self.lowlightAll()
                 self.selection = Selection(self, actor, idx)
                 self.moving = True
             elif self.mode == 'delete':
@@ -285,12 +307,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
             endPos = self.selection.getPosition()
-            change = self.selection.startPos - endPos
+            vector = self.selection.startPos - endPos
 
             self.selection.lowlight()
             self.Render()
 
-            self.undoer.addChange(self.selection, change)
+            change = Change(self.selection, vector)
+            self.undoer.addChange(change)
 
             self.moving = False
             self.selection = None
@@ -320,7 +343,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             self.Render()
 
-        
+    def lowlightAll(self):
+        for i in xrange(self.parent.num_lanes):
+            lane = Selection(self, self.parent.lane_actors[i], 0,
+                             Selection.direct,
+                             self.parent.lane_clouds[i].xyz.shape[0])
+            lane.lowlight()
+            self.Render()
+
     def KeyHandler(self, obj, event):
         # Symbol names are declared in
         # GUISupport/Qt/QVTKInteractorAdapter.cxx
@@ -337,6 +367,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.selection.lowlight()
                     self.selection = None
                 else:
+                    self.lowlightAll()
                     self.mode = 'edit'
 
             if key == 'bracketright':
@@ -365,6 +396,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 file_name = 'out.npz'
                 print 'Saved', file_name
                 self.parent.exportData(file_name)
+
+            elif key == 'f':
+                if self.mode == 'edit':
+                    print 'Performing fixup'
+                    self.parent.fixupLanes()
+                    print 'Fixup finished'
 
             elif key == 'space':
                 self.parent.running = not self.parent.running
@@ -495,11 +532,14 @@ class Blockworld:
         print 'Adding raw points'
         raw_npz = np.load(sys.argv[3])
         pts = raw_npz['data']
-        raw_cloud = VtkPointCloud(pts[:, :3], pts[:, 3])
-        raw_actor = raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
-        raw_actor.GetProperty().SetPointSize(5)
-        raw_actor.SetPickable(0)
-        self.cloud_ren.AddActor(raw_actor)
+        self.raw_cloud = VtkPointCloud(pts[:, :3], pts[:, 3])
+        self.raw_actor = self.raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
+        self.raw_actor.GetProperty().SetPointSize(5)
+        self.raw_actor.SetPickable(0)
+        self.cloud_ren.AddActor(self.raw_actor)
+
+        # This will be created the first time we run fixup
+        self.raw_kdtree = None
 
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
@@ -528,7 +568,7 @@ class Blockworld:
         self.iren.SetInteractorStyle(self.interactor)
 
         # Tell the user which mode we are in
-        selectMode = VtkText('', (10, 10))
+        selectMode = VtkText('Starting...', (10, 10))
         self.selectModeActor = selectMode.get_vtk_text()
         self.cloud_ren.AddActor(self.selectModeActor)
 
@@ -576,6 +616,41 @@ class Blockworld:
             self.lane_clouds[lane] = cloud
             self.lane_actors[lane] = actor
             self.lane_kdtrees[lane] = KDTree(cloud.xyz)
+
+    def fixupLanes(self):
+
+        if self.raw_kdtree == None:
+            print '\tBuilding raw KD Tree, this may take a while...'
+            self.raw_kdtree = KDTree(self.raw_cloud.xyz)
+
+        self.interactor.lowlightAll()
+
+        for l in xrange(self.num_lanes):
+            lane = self.lane_clouds[l].xyz
+            (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.15)
+
+            mask = d < float('inf')
+            close_lane = np.nonzero(mask)[0]
+            close_raw = idx[mask]
+
+            vectors = []
+            selections = []
+            for i in xrange(close_lane.shape[0]):
+                vector = self.raw_cloud.xyz[close_raw[i]] - lane[close_lane[i]]
+                sel = Selection(self.interactor, self.lane_actors[l],
+                                close_lane[i])
+                sel.move(vector)
+                sel.highlight()
+
+                vectors.append(vector)
+                selections.append(sel)
+
+            print '\tFixed lane %d changes: %d'% (l, len(vectors))
+
+            big_change = BigChange(selections, vectors)
+            self.interactor.undoer.addChange(big_change)
+
+            self.interactor.Render()
 
     def calculateZError(self, pts):
         # Calculates median z-error of interpolated lanes to points
