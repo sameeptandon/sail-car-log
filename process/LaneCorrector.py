@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-#Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
+# Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
 
 from ArgParser import parse_args
 from GPSReader import GPSReader
@@ -17,7 +17,7 @@ from ColorMap import heatColorMapFast
 from MapReproject import lidarPtsToPixels
 import math
 from collections import deque
-from sklearn import cluster
+
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -28,12 +28,14 @@ def vtk_transform_from_np(np4x4):
     transform.SetMatrix(vtk_matrix)
     return transform
 
+
 def get_transforms(args):
     """ Gets the IMU transforms for a run """
     gps_reader = GPSReader(args['gps'])
     gps_data = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(gps_data)
     return imu_transforms
+
 
 def load_ply(ply_file):
     """ Loads a ply file and returns an actor """
@@ -48,7 +50,9 @@ def load_ply(ply_file):
     actor.SetMapper(ply_mapper)
     return actor
 
+
 class Change:
+
     def __init__(self, selection, vector):
         self.selection = selection
         self.vector = vector
@@ -61,7 +65,9 @@ class Change:
         self.selection.move(direction * np.array(self.vector))
         self.selection.lowlight()
 
+
 class BigChange (Change):
+
     def performChange(self, direction=1):
         for i in xrange(len(self.selection)):
             self.selection[i].move(direction * np.array(self.vector[i]))
@@ -70,7 +76,9 @@ class BigChange (Change):
             else:
                 self.selection[i].highlight()
 
+
 class Undoer:
+
     def __init__(self):
         num_edits = 1000
         self.undo_queue = deque(maxlen=num_edits)
@@ -80,9 +88,9 @@ class Undoer:
         s = 'undo:\n'
         for i in self.undo_queue:
             s += '\t' + str(i) + '\n'
-        s+= 'redo:\n'
+        s += 'redo:\n'
         for i in self.redo_queue:
-            s +=  '\t' + str(i) + '\n'
+            s += '\t' + str(i) + '\n'
         return s
 
     def undo(self):
@@ -118,9 +126,11 @@ class Undoer:
         self.redo_queue.clear()
         self.undo_queue.clear()
 
+
 class Selection:
     symmetric = 0
     direct = 1
+
     def __init__(self, parent, actor, idx, mode=symmetric, end_idx=-1):
         self.parent = parent
         self.blockworld = parent.parent
@@ -169,7 +179,7 @@ class Selection:
         raise RuntimeError('Could not find lane')
 
     def getPosition(self, offset=0):
-        return np.array(self.pos[self.idx + offset, :])
+        return np.array(self.pos[self.idx + offset,:])
 
     def getStart(self):
         if self.mode == Selection.symmetric:
@@ -202,7 +212,7 @@ class Selection:
         weights = np.tile(weights, (vector.shape[0], 1)).transpose()
         vector = np.tile(np.array(vector), (weights.shape[0], 1))
 
-        self.pos[points, :] += weights * vector
+        self.pos[points,:] += weights * vector
         self.actor.Modified()
 
     def delete(self):
@@ -222,7 +232,9 @@ class Selection:
         alpha = abs(self.idx - p) / float(self.region)
         return (math.cos(alpha * math.pi) + 1) / 2.
 
+
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
+
     def __init__(self, iren, ren, parent):
         self.iren = iren
         self.ren = ren
@@ -246,10 +258,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.ren.GetActiveCamera().SetClippingRange(0.01, 500)
 
         self.AddObserver('MouseWheelForwardEvent', self.MouseWheelForwardEvent)
-        self.AddObserver('MouseWheelBackwardEvent', self.MouseWheelBackwardEvent)
+        self.AddObserver(
+            'MouseWheelBackwardEvent', self.MouseWheelBackwardEvent)
 
         self.AddObserver('RightButtonPressEvent', self.RightButtonPressEvent)
-        self.AddObserver('RightButtonReleaseEvent', self.RightButtonReleaseEvent)
+        self.AddObserver(
+            'RightButtonReleaseEvent', self.RightButtonReleaseEvent)
         self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
         self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
         self.AddObserver('MouseMoveEvent', self.MouseMoveEvent)
@@ -442,7 +456,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         txt = '(%d) ' % frame_num
         if mode == 'edit':
-            txt = txt + 'Click to move lane | Move window [%d]' % self.num_to_move
+            txt = txt + \
+                'Click to move lane | Move window [%d]' % self.num_to_move
         elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
             txt = txt + 'Lane %s - All points' % mode
         elif mode == 'delete':
@@ -452,7 +467,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 txt = txt + 'Select another point to create delete segment'
             else:
                 txt = txt + '\'d\' - delete selected segment | click - ' + \
-                      'change segment | \'esc\' - start over'
+                    'change segment | \'esc\' - start over'
         else:
             txt = txt + 'All Lanes - %d' % self.num_to_move
 
@@ -469,8 +484,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.videoWriter = vtk.vtkFFMPEGWriter()
         self.videoWriter.SetFileName(video_name)
         self.videoWriter.SetInputConnection(self.win2img.GetOutputPort())
-        self.videoWriter.SetRate(15) 
-        self.videoWriter.SetQuality(2) # 2 is the highest
+        self.videoWriter.SetRate(15)
+        self.videoWriter.SetQuality(2)  # 2 is the highest
         self.videoWriter.SetBitRate(25000)
         self.videoWriter.SetBitRateTolerance(2000)
         self.videoWriter.Start()
@@ -481,6 +496,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
     def closeVideo(self):
         self.videoWriter.End()
+
 
 class Blockworld:
 
@@ -500,7 +516,7 @@ class Blockworld:
         self.lidar_params = self.params['lidar']
         self.T_from_i_to_l = np.linalg.inv(self.lidar_params['T_from_l_to_i'])
         cam_num = args['cam_num']
-        self.cam_params = self.params['cam'][cam_num-1]
+        self.cam_params = self.params['cam'][cam_num - 1]
 
         # Whether to write video
         self.record = False
@@ -511,11 +527,11 @@ class Blockworld:
 
         ###### Set up the renderers ######
         self.cloud_ren = vtk.vtkRenderer()
-        self.cloud_ren.SetViewport(0,0,1.0,1.0)
+        self.cloud_ren.SetViewport(0, 0, 1.0, 1.0)
         self.cloud_ren.SetBackground(0, 0, 0)
 
         self.img_ren = vtk.vtkRenderer()
-        self.img_ren.SetViewport(0.75,0.0,1.0,0.25)
+        self.img_ren.SetViewport(0.75, 0.0, 1.0, 0.25)
         # self.img_ren.SetInteractive(False)
         self.img_ren.SetBackground(0.1, 0.1, 0.1)
 
@@ -598,7 +614,7 @@ class Blockworld:
             num_lanes = lane
             old_actor = self.lane_actors[lane]
 
-        cloud = VtkPointCloud(data[:, :3], np.ones((num_pts)) * 
+        cloud = VtkPointCloud(data[:, :3], np.ones((num_pts)) *
                               (num_lanes % self.num_colors))
         actor = cloud.get_vtk_cloud(zMin=0, zMax=self.num_colors)
 
@@ -645,7 +661,7 @@ class Blockworld:
                 vectors.append(vector)
                 selections.append(sel)
 
-            print '\tFixed lane %d changes: %d'% (l, len(vectors))
+            print '\tFixed lane %d changes: %d' % (l, len(vectors))
 
             big_change = BigChange(selections, vectors)
             self.interactor.undoer.addChange(big_change)
@@ -656,41 +672,40 @@ class Blockworld:
         # Calculates median z-error of interpolated lanes to points
         tree = KDTree(pts[:, :3])
         for num in xrange(self.num_lanes):
-            lane = self.lane_clouds[num].xyz[:4910, :]
+            lane = self.lane_clouds[num].xyz[:4910,:]
             z_dist = []
             for p in lane:
                 (d, i) = tree.query(p)
                 z_dist.append(abs(p[2] - pts[i, 2]))
             z_dist = np.array(z_dist)
-            print 'Median Error in Lane %d: %f' % (num, np.median(z_dist)) 
+            print 'Median Error in Lane %d: %f' % (num, np.median(z_dist))
 
     def getCameraPosition(self, t):
         offset = np.array([-75.0, 0, 25.0]) / 4
         # Rotate the camera so it is behind the car
-        position = np.dot(self.imu_transforms[t,0:3,0:3], offset)
+        position = np.dot(self.imu_transforms[t, 0:3, 0:3], offset)
         position += self.imu_transforms[t, 0:3, 3] + position
 
         # Focus 10 frames in front of the car
         focal_point = self.imu_transforms[t + 10 * self.step, 0:3, 3]
         return position, focal_point
 
-
     def exportData(self, file_name):
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
-            offset = np.vstack((lane[1:, :], np.zeros((1,3))))
-            lane = np.hstack((lane, offset)) 
+            offset = np.vstack((lane[1:,:], np.zeros((1, 3))))
+            lane = np.hstack((lane, offset))
             lanes['lane' + str(num)] = lane
 
         np.savez(file_name, **lanes)
-            
+
     def update(self, iren, event):
         # Transform the car
         t = self.start + self.step * self.count
         cloud_cam = self.cloud_ren.GetActiveCamera()
-        
+
         # If we have gone backwards in time we need use setframe (slow)
         if self.manual_change == -1:
             self.video_reader.setFrame(t - 1)
@@ -714,7 +729,7 @@ class Blockworld:
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            imu_transform = self.imu_transforms[t, :, :]
+            imu_transform = self.imu_transforms[t,:,:]
             transform = vtk_transform_from_np(imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
@@ -729,13 +744,13 @@ class Blockworld:
             self.img_ren.ResetCamera()
             # These units are pixels
             self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
-        
+
         # Update the little text in the bottom left
         self.interactor.updateModeText()
 
         if self.record:
             self.interactor.writeVideo()
-        
+
         if self.running or self.count == 0:
             self.count += 1
 
@@ -763,12 +778,13 @@ class Blockworld:
                     pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
                                                  self.T_from_i_to_l, self.cam_params)
                     intensity = np.ones((pix.shape[0], 1)) * num
-                    heat_colors = heatColorMapFast(intensity, 0, self.num_colors)
+                    heat_colors = heatColorMapFast(
+                        intensity, 0, self.num_colors)
                     for p in range(4):
-                        I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
-                        I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
+                        I[pix[1, mask]+p, pix[0, mask],:] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]+p,:] = heat_colors[0,:,:]
+                        I[pix[1, mask]-p, pix[0, mask],:] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]-p,:] = heat_colors[0,:,:]
 
         return I
 
