@@ -442,8 +442,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             elif key == 'Down':
                 if not self.parent.running:
-                    self.parent.count -= 1
-                    self.parent.manual_change = -1
+                    if self.parent.count > 0:
+                        self.parent.count -= 1
+                        self.parent.manual_change = -1
 
             elif key == 'Up':
                 if not self.parent.running:
