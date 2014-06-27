@@ -112,12 +112,13 @@ class Selection:
 
         self.actor = actor
 
-        self.data = self.actor.GetMapper().GetInput()
-        self.pos = self.data.GetPoints().GetData()
-        self.color = self.data.GetPointData().GetScalars()
-
         self.idx = idx
         self.lane = self.getLane()
+
+        self.data = self.actor.GetMapper().GetInput()
+        self.pos = self.blockworld.lane_clouds[self.lane].xyz
+        self.color = self.blockworld.lane_clouds[self.lane].intensity
+
         self.startPos = self.getPosition()
 
         # Selection mode
@@ -148,65 +149,54 @@ class Selection:
 
     def getLane(self):
         lane_actors = self.blockworld.lane_actors
-        # print len(lane_actors)
         if self.actor and self.actor in lane_actors:
             return lane_actors.index(self.actor)
         raise RuntimeError('Could not find lane')
 
     def getPosition(self, offset=0):
-        return np.array(self.pos.GetTuple(self.idx + offset))
+        return np.array(self.pos[self.idx + offset, :])
 
     def getStart(self):
         if self.mode == Selection.symmetric:
-            return self.idx - self.region + 1
+            return max(self.idx - self.region + 1, 0)
         else:
             return self.idx
 
     def getEnd(self):
-        if self.mode == Selection.symmetric:
-            return self.idx + self.region
-        else:
-            return self.idx + self.region
+        return min(self.idx + self.region, self.pos.shape[0])
 
     def nextPoint(self):
         return xrange(self.getStart(), self.getEnd())
 
     def highlight(self):
-        self.setColor((self.blockworld.num_colors,))
+        self.setColor(self.blockworld.num_colors)
 
     def lowlight(self):
-        self.setColor((self.lane,))
+        self.setColor(self.lane)
 
     def setColor(self, color):
-        for i in self.nextPoint():
-            self.color.SetTuple(i, color)
+        self.color[[i for i in self.nextPoint()]] = color
         self.data.Modified()
 
     def move(self, vector):
         """ Vector is a change for the idx point. All other points in the
         selection region will move as well """
         vector = np.array(vector)
-        if self.mode == Selection.symmetric:
-            for p in self.nextPoint():
-                if p >= 0 and p < self.data.GetNumberOfElements(0):
-                    p_old_pos = np.array(self.pos.GetTuple(p))
-                    alpha = abs(self.idx - p) / float(self.region)
-                    alpha = (math.cos(alpha * math.pi) + 1) / 2.
-                    p_new_pos = p_old_pos + vector * alpha
-                    self.pos.SetTuple(p, tuple(p_new_pos))
+        # TODO: Vectorize this operation
+        for p in self.nextPoint():
+            alpha = abs(self.idx - p) / float(self.region)
+            alpha = (math.cos(alpha * math.pi) + 1) / 2.
+            new_pos = self.pos[p, :] + vector * alpha
+            self.pos[p, :] = new_pos
 
-            self.data.Modified()
+        self.data.Modified()
 
     def delete(self):
         print 'Deleting segment'
-        # Delete the data in the region
-        lane_cloud = self.blockworld.lane_clouds[self.lane]
-        splits = np.split(lane_cloud.xyz, [self.getStart(), self.getEnd()])
-
-        self.blockworld.addLane(splits[0])
-        self.blockworld.addLane(splits[-1], self.lane)
-
-        self.data.Modified()
+        # Create a new lane actor
+        self.blockworld.addLane(self.pos[:self.getStart()])
+        # Replace insert a new actor into the old lane index
+        self.blockworld.addLane(self.pos[self.getEnd():], self.lane)
 
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, iren, ren, parent):
@@ -688,18 +678,19 @@ class Blockworld:
             # Remove the points before the closest point
             nearby_idx = nearby_idx[nearby_idx > closest_idx]
 
-            lane = self.lane_clouds[num].xyz[nearby_idx, :3]
+            if nearby_idx.shape[0] > 0:
+                lane = self.lane_clouds[num].xyz[nearby_idx, :3]
 
-            if lane.shape[0] > 0:
-                pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
-                                             self.T_from_i_to_l, self.cam_params)
-                intensity = np.ones((pix.shape[0], 1)) * num
-                heat_colors = heatColorMapFast(intensity, 0, self.num_colors)
-                for p in range(4):
-                    I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
-                    I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
-                    I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
-                    I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
+                if lane.shape[0] > 0:
+                    pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
+                                                 self.T_from_i_to_l, self.cam_params)
+                    intensity = np.ones((pix.shape[0], 1)) * num
+                    heat_colors = heatColorMapFast(intensity, 0, self.num_colors)
+                    for p in range(4):
+                        I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
+                        I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
 
         return I
 
