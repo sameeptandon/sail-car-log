@@ -181,15 +181,14 @@ class Selection:
     def move(self, vector):
         """ Vector is a change for the idx point. All other points in the
         selection region will move as well """
-        vector = np.array(vector)
-        # TODO: Vectorize this operation
-        for p in self.nextPoint():
-            alpha = abs(self.idx - p) / float(self.region)
-            alpha = (math.cos(alpha * math.pi) + 1) / 2.
-            new_pos = self.pos[p, :] + vector * alpha
-            self.pos[p, :] = new_pos
 
-        self.data.Modified()
+        points = [p for p in self.nextPoint()]
+        weights = np.array([self.getWeight(p) for p in points])
+        weights = np.tile(weights, (vector.shape[0], 1)).transpose()
+        vector = np.tile(np.array(vector), (weights.shape[0], 1))
+
+        self.pos[points, :] += weights * vector
+        self.actor.Modified()
 
     def delete(self):
         print 'Deleting segment'
@@ -197,6 +196,10 @@ class Selection:
         self.blockworld.addLane(self.pos[:self.getStart()])
         # Replace insert a new actor into the old lane index
         self.blockworld.addLane(self.pos[self.getEnd():], self.lane)
+
+    def getWeight(self, p):
+        alpha = abs(self.idx - p) / float(self.region)
+        return (math.cos(alpha * math.pi) + 1) / 2.
 
 class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, iren, ren, parent):
