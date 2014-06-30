@@ -448,14 +448,16 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             elif key == 'Up':
                 if not self.parent.running:
-                    self.parent.count += 1
-                    self.parent.manual_change = 1
+                    if not self.parent.finished():
+                        self.parent.count += 1
+                        self.parent.manual_change = 1
 
     def updateModeText(self):
         frame_num = self.parent.count
+        tot_num = self.parent.video_reader.total_frame_count / self.parent.step
         mode = self.mode
 
-        txt = '(%d) ' % frame_num
+        txt = '(%d/%d) ' % (frame_num, tot_num)
         if mode == 'edit':
             txt = txt + \
                 'Click to move lane | Move window [%d]' % self.num_to_move
@@ -681,14 +683,14 @@ class Blockworld:
             z_dist = np.array(z_dist)
             print 'Median Error in Lane %d: %f' % (num, np.median(z_dist))
 
-    def getCameraPosition(self, t):
+    def getCameraPosition(self, t, focus=10):
         offset = np.array([-75.0, 0, 25.0]) / 4
         # Rotate the camera so it is behind the car
         position = np.dot(self.imu_transforms[t, 0:3, 0:3], offset)
         position += self.imu_transforms[t, 0:3, 3] + position
 
         # Focus 10 frames in front of the car
-        focal_point = self.imu_transforms[t + 10 * self.step, 0:3, 3]
+        focal_point = self.imu_transforms[t + focus * self.step, 0:3, 3]
         return position, focal_point
 
     def exportData(self, file_name):
@@ -702,6 +704,10 @@ class Blockworld:
 
         np.savez(file_name, **lanes)
 
+    def finished(self):
+        t = self.start + self.step * self.count
+        return t + 10 * self.step > self.video_reader.total_frame_count
+
     def update(self, iren, event):
         # Transform the car
         t = self.start + self.step * self.count
@@ -710,6 +716,9 @@ class Blockworld:
         # If we have gone backwards in time we need use setframe (slow)
         if self.manual_change == -1:
             self.video_reader.setFrame(t - 1)
+
+        if self.finished():
+            return
 
         while self.video_reader.framenum <= t:
             (success, self.I) = self.video_reader.getNextFrame()
