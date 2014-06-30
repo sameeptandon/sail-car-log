@@ -359,11 +359,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
     def lowlightAll(self):
         for i in xrange(self.parent.num_lanes):
-            lane = Selection(self, self.parent.lane_actors[i], 0,
-                             Selection.direct,
-                             self.parent.lane_clouds[i].xyz.shape[0])
-            lane.lowlight()
-            self.Render()
+            self.lowlightLane(i)
+
+    def lowlightLane(self, num):
+        lane = Selection(self, self.parent.lane_actors[num], 0,
+                         Selection.direct,
+                         self.parent.lane_clouds[num].xyz.shape[0])
+        lane.lowlight()
+        self.Render()
 
     def KeyHandler(self, obj, event):
         # Symbol names are declared in
@@ -413,9 +416,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             elif key == 'f':
                 if self.mode == 'edit':
-                    print 'Performing fixup'
+                    print 'Fixing up all lanes'
                     self.parent.fixupLanes()
-                    print 'Fixup finished'
+                elif self.mode in [str(i) for i in
+                                   xrange(self.parent.num_lanes)]:
+                    print 'Fixing up lane', self.mode
+                    self.parent.fixupLane(int(self.mode))
+                print 'Fixup finished'
 
             elif key == 'space':
                 self.parent.running = not self.parent.running
@@ -637,6 +644,12 @@ class Blockworld:
             self.lane_kdtrees[lane] = KDTree(cloud.xyz)
 
     def fixupLanes(self):
+        self.interactor.lowlightAll()
+        for l in xrange(self.num_lanes):
+            self.fixupLane(l)
+        self.interactor.Render()
+
+    def fixupLane(self, num):
 
         if self.raw_kdtree == None:
             print '\tBuilding raw KD Tree, this may take a while...'
@@ -644,32 +657,31 @@ class Blockworld:
 
         self.interactor.lowlightAll()
 
-        for l in xrange(self.num_lanes):
-            lane = self.lane_clouds[l].xyz
-            (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.15)
+        lane = self.lane_clouds[num].xyz
+        (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.15)
 
-            mask = d < float('inf')
-            close_lane = np.nonzero(mask)[0]
-            close_raw = idx[mask]
+        mask = d < float('inf')
+        close_lane = np.nonzero(mask)[0]
+        close_raw = idx[mask]
 
-            vectors = []
-            selections = []
-            for i in xrange(close_lane.shape[0]):
-                vector = self.raw_cloud.xyz[close_raw[i]] - lane[close_lane[i]]
-                sel = Selection(self.interactor, self.lane_actors[l],
-                                close_lane[i])
-                sel.move(vector)
-                sel.highlight()
+        vectors = []
+        selections = []
+        for i in xrange(close_lane.shape[0]):
+            vector = self.raw_cloud.xyz[close_raw[i]] - lane[close_lane[i]]
+            sel = Selection(self.interactor, self.lane_actors[num],
+                            close_lane[i])
+            sel.move(vector)
+            sel.highlight()
 
-                vectors.append(vector)
-                selections.append(sel)
+            vectors.append(vector)
+            selections.append(sel)
 
-            print '\tFixed lane %d changes: %d' % (l, len(vectors))
+        print '\tFixed lane %d changes: %d' % (num, len(vectors))
 
-            big_change = BigChange(selections, vectors)
-            self.interactor.undoer.addChange(big_change)
+        big_change = BigChange(selections, vectors)
+        self.interactor.undoer.addChange(big_change)
 
-            self.interactor.Render()
+        self.interactor.Render()
 
     def calculateZError(self, pts):
         # Calculates median z-error of interpolated lanes to points
@@ -754,6 +766,7 @@ class Blockworld:
             self.img_ren.ResetCamera()
             # These units are pixels
             self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
+            self.img_ren.GetActiveCamera().Dolly(1.75)
 
         # Update the little text in the bottom left
         self.interactor.updateModeText()
