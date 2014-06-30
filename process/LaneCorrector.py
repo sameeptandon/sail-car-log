@@ -8,7 +8,7 @@ from GPSTransforms import IMUTransforms
 from Q50_config import LoadParameters
 from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText, VtkImage
 import numpy as np
-from scipy.spatial import KDTree
+from scipy.spatial import cKDTree
 import sys
 from transformations import euler_from_matrix
 import vtk
@@ -636,12 +636,12 @@ class Blockworld:
         if lane == -1:
             self.lane_clouds.append(cloud)
             self.lane_actors.append(actor)
-            self.lane_kdtrees.append(KDTree(cloud.xyz))
+            self.lane_kdtrees.append(cKDTree(cloud.xyz))
             self.num_lanes += 1
         else:
             self.lane_clouds[lane] = cloud
             self.lane_actors[lane] = actor
-            self.lane_kdtrees[lane] = KDTree(cloud.xyz)
+            self.lane_kdtrees[lane] = cKDTree(cloud.xyz)
 
     def fixupLanes(self):
         self.interactor.lowlightAll()
@@ -653,9 +653,7 @@ class Blockworld:
 
         if self.raw_kdtree == None:
             print '\tBuilding raw KD Tree, this may take a while...'
-            self.raw_kdtree = KDTree(self.raw_cloud.xyz)
-
-        self.interactor.lowlightAll()
+            self.raw_kdtree = cKDTree(self.raw_cloud.xyz)
 
         lane = self.lane_clouds[num].xyz
         (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.15)
@@ -685,7 +683,7 @@ class Blockworld:
 
     def calculateZError(self, pts):
         # Calculates median z-error of interpolated lanes to points
-        tree = KDTree(pts[:, :3])
+        tree = cKDTree(pts[:, :3])
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:4910,:]
             z_dist = []
