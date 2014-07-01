@@ -172,9 +172,9 @@ class Selection:
                 self.region = end_idx - self.idx
             else:
                 self.region = 0
-        elif self.mode == Selection.append:
+        elif self.mode == Selection.append or self.mode == Selection.fork:
             self.region = 1
-            self.idx = -1
+            self.idx = -1 if mode == Selection.append else idx
 
             self.raw_pos = self.blockworld.raw_cloud.xyz
             self.raw_idx = end_idx
@@ -184,7 +184,7 @@ class Selection:
     def isSelected(self):
         if self.mode == Selection.symmetric:
             return True
-        if self.mode == Selection.append:
+        if self.mode == Selection.append or self.mode == Selection.fork:
             return self.raw_idx != -1
         else:
             return self.region != 0
@@ -247,22 +247,26 @@ class Selection:
 
         self.parent.undoer.flush()
         
-    def insert(self):
-        if self.isSelected():
+    def append(self):
+        if self.isSelected() and self.mode == Selection.append \
+           or self.mode == Selection.fork:
+            start = self.pos[self.idx, :]
+            end = self.raw_pos[self.raw_idx, :3]
+            vector = end - start
+            n_vector = vector / np.linalg.norm(vector)
+
+            new_pts = []
+            step = 0.5
+
+            for i in np.arange(step, np.linalg.norm(vector), step):
+                new_pts.append(start + n_vector * i)
+
             if self.mode == Selection.append:
-                start = self.pos[self.idx, :]
-                end = self.raw_pos[self.raw_idx, :3]
-                vector = end - start
-                n_vector = vector / np.linalg.norm(vector)
-
-                new_pts = []
-                step = 0.5
-
-                for i in np.arange(step, np.linalg.norm(vector), step):
-                    new_pts.append(start + n_vector * i)
-
                 data = np.append(self.pos, np.array(new_pts), axis=0)
                 self.blockworld.addLane(data, self.lane)
+            else:
+                data = np.array(new_pts)
+                self.blockworld.addLane(data)
 
     def getWeight(self, p):
         alpha = abs(self.idx - p) / float(self.region)
@@ -338,6 +342,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if self.selection == None:
                     self.selection = Selection(self, actor, idx,
                                                Selection.direct)
+
                 elif self.selection.actor == actor:
                     # Make sure we are selecting a point from the same lane
                     self.selection.lowlight()
@@ -353,17 +358,17 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.selection = Selection(self, actor, start,
                                                Selection.direct, end)
                 self.selection.highlight()
-            elif self.mode == 'append':
+
+            elif self.mode == 'append' or self.mode == 'fork':
+                s_mode = Selection.append if self.mode == 'append' else Selection.fork
                 if self.selection == None:
-                    self.selection = Selection(self, actor, idx,
-                                                   Selection.append)
+                    self.selection = Selection(self, actor, idx, s_mode)
                     self.selection.highlight()
                     self.togglePick(lane=False)
                 else:
                     self.selection = Selection(self, self.selection.actor,
-                                               self.selection.idx,
-                                               self.selection.mode, idx)
-                    self.selection.insert()
+                                               self.selection.idx, s_mode, idx)
+                    self.selection.append()
                     self.KeyHandler(key='Escape')
 
     def LeftButtonReleaseEvent(self, obj, event):
