@@ -9,6 +9,7 @@ from Q50_config import LoadParameters
 from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText, VtkImage
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.spatial.distance import cdist
 import sys
 from transformations import euler_from_matrix
 import vtk
@@ -130,12 +131,18 @@ class Undoer:
 class Selection:
     symmetric = 0
     direct = 1
+    append = 2
+    fork = 3
+    create = 4
 
     def __init__(self, parent, actor, idx, mode=symmetric, end_idx=-1):
         self.parent = parent
         self.blockworld = parent.parent
 
         self.actor = actor
+
+        # Selection mode
+        self.mode = mode
 
         self.idx = idx
         self.lane = self.getLane()
@@ -146,8 +153,6 @@ class Selection:
 
         self.startPos = self.getPosition()
 
-        # Selection mode
-        self.mode = mode
         # The region of points are on either side of idx
         if self.mode == Selection.symmetric:
             self.region = parent.num_to_move
@@ -163,12 +168,20 @@ class Selection:
                 self.region = end_idx - self.idx
             else:
                 self.region = 0
+        elif self.mode == Selection.append:
+            self.region = 1
+            self.idx = -1
+
+            self.raw_pos = self.blockworld.raw_cloud.xyz
+            self.raw_idx = end_idx
         else:
             raise RuntimeError('Bad selection mode')
 
     def isSelected(self):
         if self.mode == Selection.symmetric:
             return True
+        if self.mode == Selection.append:
+            return self.raw_idx != -1
         else:
             return self.region != 0
 
@@ -176,6 +189,8 @@ class Selection:
         lane_actors = self.blockworld.lane_actors
         if self.actor and self.actor in lane_actors:
             return lane_actors.index(self.actor)
+        if self.mode == Selection.append:
+            return None
         raise RuntimeError('Could not find lane')
 
     def getPosition(self, offset=0):
@@ -213,7 +228,7 @@ class Selection:
         vector = np.tile(np.array(vector), (weights.shape[0], 1))
 
         self.pos[points,:] += weights * vector
-        self.actor.Modified()
+        self.data.Modified()
 
     def delete(self):
         # Create a new lane actor
@@ -227,6 +242,23 @@ class Selection:
             self.blockworld.addLane(self.pos[self.getEnd():], self.lane)
 
         self.parent.undoer.flush()
+        
+    def insert(self):
+        if self.isSelected():
+            if self.mode == Selection.append:
+                start = self.pos[self.idx, :]
+                end = self.raw_pos[self.raw_idx, :3]
+                vector = end - start
+                n_vector = vector / np.linalg.norm(vector)
+
+                new_pts = []
+                step = 0.5
+
+                for i in np.arange(step, np.linalg.norm(vector), step):
+                    new_pts.append(start + n_vector * i)
+
+                data = np.append(self.pos, np.array(new_pts), axis=0)
+                self.blockworld.addLane(data, self.lane)
 
     def getWeight(self, p):
         alpha = abs(self.idx - p) / float(self.region)
@@ -317,6 +349,25 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.selection = Selection(self, actor, start,
                                                Selection.direct, end)
                 self.selection.highlight()
+            elif self.mode == 'insert':
+                if self.selection == None:
+                    if actor in self.parent.lane_actors:
+                        self.selection = Selection(self, actor, idx,
+                                                   Selection.append)
+                    else:
+                        self.selection = Selection(self, actor, idx,
+                                                   Selection.create)
+                        for lane in self.parent.lane_actors:
+                            lane.SetPickable(False)
+
+                    self.selection.highlight()
+                else:
+                    self.selection = Selection(self, self.selection.actor,
+                                               self.selection.idx,
+                                               self.selection.mode, idx)
+                    self.selection.insert()
+                    self.selection = None
+                    self.mode = 'edit'
 
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
@@ -380,6 +431,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         if not self.moving:
             if key == 'Escape':
+                if self.mode == 'insert':
+                    self.parent.raw_actor.SetPickable(False)
+                    for lane in self.parent.lane_actors:
+                        lane.SetPickable(True)
+                    self.selection = None
+
                 if self.mode == 'delete' and self.selection != None:
                     self.selection.lowlight()
                     self.selection = None
@@ -408,6 +465,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.selection.delete()
                     self.selection = None
                     self.mode = 'edit'
+
+            elif key == 'i':
+                self.parent.raw_actor.SetPickable(True)
+                self.mode = 'insert'
 
             elif key == 's':
                 file_name = 'out.npz'
@@ -478,6 +539,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             else:
                 txt = txt + '\'d\' - delete selected segment | click - ' + \
                     'change segment | \'esc\' - start over'
+        elif mode == 'insert':
+            if self.selection == None:
+                txt = txt + 'Click lane or gound point to start insert'
+            else:
+                txt = txt + 'Select a ground point to create a lane'
         else:
             txt = txt + 'All Lanes - %d' % self.num_to_move
 
