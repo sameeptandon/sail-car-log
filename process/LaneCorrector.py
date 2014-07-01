@@ -127,35 +127,75 @@ class Undoer:
         self.redo_queue.clear()
         self.undo_queue.clear()
 
+class Point:
+    def __init__(self, actor, idx, blockworld):
+        self.actor = actor
+        self.idx = idx
+        self.blockworld = blockworld
+
+        self.data = self.actor.GetMapper().GetInput()
+        self.lane = self.getLane()
+        if self.lane != None:
+            self.pos = self.blockworld.lane_clouds[self.lane].xyz
+            self.color = self.blockworld.lane_clouds[self.lane].intensity
+        else:
+            self.pos = self.blockworld.raw_cloud.xyz
+            self.color = self.blockworld.raw_cloud.intensity
+
+        self.start_pos = self.getPosition()
+
+    def getLane(self):
+        lane_actors = self.blockworld.lane_actors
+        if self.actor in lane_actors:
+            return lane_actors.index(self.actor)
+        elif self.actor == self.blockworld.raw_actor:
+            return None
+        raise RuntimeError('Could not find lane')
+
+    def getPosition(self, offset=0):
+        return np.array(self.pos[self.idx + offset,:])
+
+    def selectExtreme(self):
+        if self.idx > self.pos.shape[0] / 2:
+            self.idx = self.pos.shape[0] - 1
+        else:
+            self.idx = 0
+
+    def isCloser(self, other_point):
+        pos = self.getPosition()
+        other_pos = other_point.getPosition()
+        car_pos = self.blockworld.cur_imu_transform[:3, 3]
+
+        a = np.linalg.norm(pos - car_pos)
+        b = np.linalg.norm(other_pos - car_pos)
+
+        return a < b
+
+    def __str__(self):
+        return '%d, %d: %s' % (self.lane, self.idx, self.getPosition())
 
 class Selection:
     # Moving points
-    Symmetric = 0
+    Symmetric = 'symmetric'
     # Deleting points
-    Direct = 1
+    Direct = 'direct'
     # Adding points
-    Append = 2
-    Fork = 3
-    Create = 4
-    Join = 5
+    Append = 'append'
+    Fork = 'fork'
+    Create = 'create'
+    Join = 'join'
 
-    def __init__(self, parent, actor, idx, mode=Symmetric, end_idx=-1):
+    def __init__(self, parent, actor, idx, mode=Symmetric, end_idx=-1,
+                 join_lane_actor=None):
         self.parent = parent
         self.blockworld = parent.parent
-
-        self.actor = actor
 
         # Selection mode
         self.mode = mode
 
-        self.idx = idx
-        self.lane = self.getLane()
-
-        self.data = self.actor.GetMapper().GetInput()
-        self.pos = self.blockworld.lane_clouds[self.lane].xyz
-        self.color = self.blockworld.lane_clouds[self.lane].intensity
-
-        self.startPos = self.getPosition()
+        self.point = Point(actor, idx, self.blockworld)
+        self.end_point = None
+        self.region = 1
 
         # The region of points are on either side of idx
         if self.mode == Selection.Symmetric:
@@ -163,51 +203,48 @@ class Selection:
 
         # The region starts at idx and ends at end_idx
         elif self.mode == Selection.Direct:
-            # Make sure start is before end
-            if end_idx >= 0:
-                if self.idx > end_idx:
-                    # Swap
-                    self.idx, end_idx = end_idx, self.idx
+            if end_idx != -1:
+                self.end_point = Point(actor, end_idx, self.blockworld)
+                self.region = abs(self.end_point.idx - self.point.idx + 1)
 
-                self.region = end_idx - self.idx + 1
-            else:
-                self.region = 0
         elif self.mode == Selection.Append or self.mode == Selection.Fork:
-            self.region = 1
-            self.idx = -1 if mode == Selection.Append else idx
+            if self.mode == Selection.Append:
+                self.point.selectExtreme()
+            if end_idx != -1:
+                self.end_point = Point(self.blockworld.raw_actor, end_idx,
+                                       self.blockworld)
 
-            self.raw_pos = self.blockworld.raw_cloud.xyz
-            self.raw_idx = end_idx
+        elif self.mode == Selection.Join:
+            self.point.selectExtreme()
+            if end_idx != -1 and join_lane_actor != None:
+                self.end_point = Point(join_lane_actor, end_idx,
+                                       self.blockworld)
+                self.end_point.selectExtreme()
+
         else:
             raise RuntimeError('Bad selection mode')
+
+        # Make sure the start point always comes before the end point
+        if self.end_point and self.end_point.isCloser(self.point):
+            self.end_point, self.point = self.point, self.end_point
 
     def isSelected(self):
         if self.mode == Selection.Symmetric:
             return True
-        if self.mode == Selection.Append or self.mode == Selection.Fork:
-            return self.raw_idx != -1
         else:
-            return self.region != 0
-
-    def getLane(self):
-        lane_actors = self.blockworld.lane_actors
-        if self.actor and self.actor in lane_actors:
-            return lane_actors.index(self.actor)
-        if self.mode == Selection.Append:
-            return None
-        raise RuntimeError('Could not find lane')
+            return self.end_point != None
 
     def getPosition(self, offset=0):
-        return np.array(self.pos[self.idx + offset,:])
+        return self.point.getPosition(offset)
 
     def getStart(self):
         if self.mode == Selection.Symmetric:
-            return max(self.idx - self.region + 1, 0)
+            return max(self.point.idx - self.region + 1, 0)
         else:
-            return self.idx
+            return self.point.idx
 
     def getEnd(self):
-        return min(self.idx + self.region, self.pos.shape[0])
+        return min(self.point.idx + self.region, self.point.pos.shape[0])
 
     def nextPoint(self):
         return xrange(self.getStart(), self.getEnd())
@@ -216,11 +253,11 @@ class Selection:
         self.setColor(self.blockworld.num_colors)
 
     def lowlight(self):
-        self.setColor(self.lane)
+        self.setColor(self.point.lane)
 
     def setColor(self, color):
-        self.color[[i for i in self.nextPoint()]] = color
-        self.data.Modified()
+        self.point.color[[i for i in self.nextPoint()]] = color
+        self.point.data.Modified()
 
     def move(self, vector):
         """ Vector is a change for the idx point. All other points in the
@@ -231,48 +268,62 @@ class Selection:
         weights = np.tile(weights, (vector.shape[0], 1)).transpose()
         vector = np.tile(np.array(vector), (weights.shape[0], 1))
 
-        self.pos[points,:] += weights * vector
-        self.data.Modified()
+        self.point.pos[points,:] += weights * vector
+        self.point.data.Modified()
 
     def delete(self):
         # Create a new lane actor
-        new_lane = self.pos[:self.getStart()]
-        old_lane = self.pos[self.getEnd():]
+        new_lane = self.point.pos[:self.getStart()]
+        old_lane = self.point.pos[self.getEnd():]
 
         if new_lane.shape[0] > 0:
-            self.blockworld.addLane(self.pos[:self.getStart()])
+            self.blockworld.addLane(new_lane)
         if old_lane.shape[0] > 0:
             # Replace insert a new actor into the old lane index
-            self.blockworld.addLane(self.pos[self.getEnd():], self.lane)
+            self.blockworld.addLane(old_lane, self.point.lane)
 
         if old_lane.shape[0] == 0 and new_lane.shape[0] == 0:
-            self.blockworld.removeLane(self.lane)
+            self.blockworld.removeLane(self.point.lane)
 
         self.parent.undoer.flush()
-        
+
     def append(self):
         if self.isSelected() and self.mode == Selection.Append \
            or self.mode == Selection.Fork:
-            start = self.pos[self.idx, :]
-            end = self.raw_pos[self.raw_idx, :3]
-            vector = end - start
-            n_vector = vector / np.linalg.norm(vector)
-
-            new_pts = []
-            step = 0.5
-
-            for i in np.arange(step, np.linalg.norm(vector), step):
-                new_pts.append(start + n_vector * i)
-
+            data, new_pts = self.interpolate(self.point, self.end_point)
             if self.mode == Selection.Append:
-                data = np.append(self.pos, np.array(new_pts), axis=0)
-                self.blockworld.addLane(data, self.lane)
+                data = np.append(self.point.pos, np.array(new_pts), axis=0)
+                self.blockworld.addLane(data, self.point.lane)
             else:
                 data = np.array(new_pts)
                 self.blockworld.addLane(data)
 
+    def join(self):
+        if self.isSelected() and self.mode == Selection.Join:
+            data, _ = self.interpolate(self.point, self.end_point)
+
+            self.blockworld.addLane(data, self.point.lane)
+            self.blockworld.removeLane(self.end_point.lane)
+            
+    def interpolate(self, p1, p2):
+        start = p1.pos[p1.idx, :3]
+        end = p2.pos[p2.idx, :3]
+        vector = end - start
+        norm = np.linalg.norm(vector)
+        n_vector = vector / norm
+
+        new_pts = []
+        step = 0.5
+
+        for i in np.arange(step, norm, step):
+            new_pts.append(start + n_vector * i)
+
+        data = np.concatenate((p1.pos, np.array(new_pts), p2.pos), axis=0)
+        
+        return (data, np.array(new_pts))
+
     def getWeight(self, p):
-        alpha = abs(self.idx - p) / float(self.region)
+        alpha = abs(self.point.idx - p) / float(self.region)
         return (math.cos(alpha * math.pi) + 1) / 2.
 
 
@@ -345,39 +396,58 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if self.selection == None:
                     self.selection = Selection(self, actor, idx,
                                                Selection.Direct)
-
-                elif self.selection.actor == actor:
-                    # Make sure we are selecting a point from the same lane
-                    self.selection.lowlight()
-
-                    start = self.selection.idx
-                    region = self.selection.region
-                    end = start + region
-
-                    if abs(start - idx) < abs(end - idx):
-                        start, end = idx, end
-                    else:
-                        start, end = start, idx
-                    self.selection = Selection(self, actor, start,
-                                               Selection.Direct, end)
-                self.selection.highlight()
-
-            elif self.mode == 'append' or self.mode == 'fork':
-                s_mode = Selection.Append if self.mode == 'append' else Selection.Fork
-                if self.selection == None:
-                    self.selection = Selection(self, actor, idx, s_mode)
-                    self.selection.highlight()
-                    self.togglePick(lane=False)
                 else:
-                    self.selection = Selection(self, self.selection.actor,
-                                               self.selection.idx, s_mode, idx)
-                    self.selection.append()
+                    # Make sure we are selecting a point from the same lane
+                    if self.selection.point.actor == actor:
+                        self.selection.lowlight()
+
+                        start = self.selection.point.idx
+                        region = self.selection.region
+                        end = start + region - 1
+
+                        if abs(start - idx) < abs(end - idx):
+                            start, end = idx, end
+                        else:
+                            start, end = start, idx
+                        self.selection = Selection(self, actor, start,
+                                                   Selection.Direct, end)
+                    self.selection.highlight()
+
+            elif self.mode == 'append' or self.mode == 'fork' or \
+                 self.mode == 'join' or self.mode == 'create':
+                if self.selection == None:
+                    self.selection = Selection(self, actor, idx, self.mode)
+                    self.selection.highlight()
+                    if self.mode == 'append' or self.mode == 'fork':
+                        self.togglePick(lane=False)
+                else:
+                    if self.mode == 'append' or self.mode == 'fork' or \
+                       self.mode == 'join':
+                        # Actors must be different for append, fork, and join
+                        if actor == self.selection.point.actor:
+                            return
+                    else:
+                        # Actors must be the same for create 
+                        if actor != self.selection.point.actor:
+                            return
+
+                    join_lane_actor = actor if self.mode == 'join' else None
+
+                    self.selection = Selection(self, self.selection.point.actor,
+                                               self.selection.point.idx, self.mode,
+                                               idx, join_lane_actor)
+                    if self.mode == 'append' or self.mode == 'fork':
+                        self.selection.append()
+                    elif self.mode == 'join':
+                        self.selection.join()
+                    elif self.mode == 'create':
+                        pass
                     self.KeyHandler(key='Escape')
 
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
-            endPos = self.selection.getPosition()
-            vector = self.selection.startPos - endPos
+            end_pos = self.selection.getPosition()
+            vector = self.selection.point.start_pos - end_pos
 
             self.selection.lowlight()
             self.Render()
@@ -418,9 +488,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             self.lowlightLane(i)
 
     def lowlightLane(self, num):
-        lane = Selection(self, self.parent.lane_actors[num], 0,
-                         Selection.Direct,
-                         self.parent.lane_clouds[num].xyz.shape[0])
+        actor = self.parent.lane_actors[num]
+        cloud = self.parent.lane_clouds[num]
+        lane = Selection(self, actor, 0, Selection.Direct, 
+                         cloud.xyz.shape[0] - 1)
         lane.lowlight()
         self.Render()
 
@@ -556,7 +627,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 txt += '\'d\' - delete selected segment | click - ' + \
                     'change segment | \'esc\' - start over'
         elif mode == 'insert':
-                txt += '(a) append | (f) fork | (c) create | (j) join'
+            txt += '(a) append | (f) fork | (c) create | (j) join'
         elif mode == 'append':
             if self.selection == None:
                 txt += 'Appending (1/2). Select a lane'
@@ -578,7 +649,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             else:
                 txt += 'Joining (2/2). Select a lane'
         else:
-            txt +='All Lanes - %d' % self.num_to_move
+            txt += 'All Lanes - %d' % self.num_to_move
 
         self.parent.selectModeActor.SetInput(txt)
         self.parent.selectModeActor.Modified()
@@ -619,6 +690,8 @@ class Blockworld:
 
         ##### Grab all the transforms ######
         self.imu_transforms = get_transforms(args)
+        self.cur_imu_transform = self.imu_transforms[0, :, :]
+
         self.trans_wrt_imu = self.imu_transforms[
             self.start:self.end:self.step, 0:3, 3]
         self.params = args['params']
@@ -766,7 +839,7 @@ class Blockworld:
             self.raw_kdtree = cKDTree(self.raw_cloud.xyz)
 
         lane = self.lane_clouds[num].xyz
-        (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.15)
+        (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.25)
 
         mask = d < float('inf')
         close_lane = np.nonzero(mask)[0]
@@ -859,8 +932,8 @@ class Blockworld:
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            imu_transform = self.imu_transforms[t,:,:]
-            transform = vtk_transform_from_np(imu_transform)
+            self.cur_imu_transform = self.imu_transforms[t,:,:]
+            transform = vtk_transform_from_np(self.cur_imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
             self.car.SetUserTransform(transform)
