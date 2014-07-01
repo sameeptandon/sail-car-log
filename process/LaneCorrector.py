@@ -129,11 +129,15 @@ class Undoer:
 
 
 class Selection:
+    # Moving points
     symmetric = 0
+    # Deleting points
     direct = 1
+    # Adding points
     append = 2
     fork = 3
-    create = 4
+    new = 4
+    join = 5
 
     def __init__(self, parent, actor, idx, mode=symmetric, end_idx=-1):
         self.parent = parent
@@ -349,25 +353,18 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.selection = Selection(self, actor, start,
                                                Selection.direct, end)
                 self.selection.highlight()
-            elif self.mode == 'insert':
+            elif self.mode == 'append':
                 if self.selection == None:
-                    if actor in self.parent.lane_actors:
-                        self.selection = Selection(self, actor, idx,
+                    self.selection = Selection(self, actor, idx,
                                                    Selection.append)
-                    else:
-                        self.selection = Selection(self, actor, idx,
-                                                   Selection.create)
-                        for lane in self.parent.lane_actors:
-                            lane.SetPickable(False)
-
                     self.selection.highlight()
+                    self.togglePick(lane=False)
                 else:
                     self.selection = Selection(self, self.selection.actor,
                                                self.selection.idx,
                                                self.selection.mode, idx)
                     self.selection.insert()
-                    self.selection = None
-                    self.mode = 'edit'
+                    self.KeyHandler(key='Escape')
 
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
@@ -419,11 +416,18 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         lane.lowlight()
         self.Render()
 
-    def KeyHandler(self, obj, event):
+    def togglePick(self, lane=True):
+        self.parent.raw_actor.SetPickable(not lane)
+        for l in self.parent.lane_actors:
+            l.SetPickable(lane)
+
+    def KeyHandler(self, obj=None, event=None, key=None):
         # Symbol names are declared in
         # GUISupport/Qt/QVTKInteractorAdapter.cxx
         # https://github.com/Kitware/VTK/
-        key = self.iren.GetKeySym()
+        if key == None:
+            key = self.iren.GetKeySym()
+
         if key == 'q':
             # Todo: confirm quit
             self.iren.TerminateApp()
@@ -431,14 +435,15 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         if not self.moving:
             if key == 'Escape':
-                if self.mode == 'insert':
-                    self.parent.raw_actor.SetPickable(False)
-                    for lane in self.parent.lane_actors:
-                        lane.SetPickable(True)
+                if self.mode in ['append', 'fork', 'join', 'create']:
+                    if self.mode == 'create':
+                        self.togglePick(lane=True)
+                    self.mode = 'insert'
                     self.selection = None
 
-                if self.mode == 'delete' and self.selection != None:
-                    self.selection.lowlight()
+                if self.mode == 'delete':
+                    if self.selection != None:
+                        self.selection.lowlight()
                     self.selection = None
                 else:
                     self.lowlightAll()
@@ -467,8 +472,17 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.mode = 'edit'
 
             elif key == 'i':
-                self.parent.raw_actor.SetPickable(True)
                 self.mode = 'insert'
+            elif self.mode == 'insert':
+                if key == 'a':
+                    self.mode = 'append'
+                elif key == 'f':
+                    self.mode = 'fork'
+                elif key == 'j':
+                    self.mode = 'join'
+                elif key == 'c':
+                    self.togglePick(lane=False)
+                    self.mode = 'create'
 
             elif key == 's':
                 file_name = 'out.npz'
@@ -527,25 +541,41 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         txt = '(%d/%d) ' % (frame_num, tot_num)
         if mode == 'edit':
-            txt = txt + \
-                'Click to move lane | Move window [%d]' % self.num_to_move
+            txt += 'Click to move lane | Move window [%d]' % self.num_to_move
         elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
-            txt = txt + 'Lane %s - All points' % mode
+            txt += 'Lane %s - All points' % mode
         elif mode == 'delete':
             if self.selection == None:
-                txt = txt + 'Click to start delete segment'
+                txt += 'Click to start delete segment'
             elif not self.selection.isSelected():
                 txt = txt + 'Select another point to create delete segment'
             else:
-                txt = txt + '\'d\' - delete selected segment | click - ' + \
+                txt += '\'d\' - delete selected segment | click - ' + \
                     'change segment | \'esc\' - start over'
         elif mode == 'insert':
+                txt += '(a) append | (f) fork | (c) create | (j) join'
+        elif mode == 'append':
             if self.selection == None:
-                txt = txt + 'Click lane or gound point to start insert'
+                txt += 'Select a lane to append to'
             else:
-                txt = txt + 'Select a ground point to create a lane'
+                txt += 'Select a ground point to create a lane'
+        elif mode == 'fork':
+            if self.selection == None:
+                txt += 'Select a point to fork off of'
+            else:
+                txt += 'Select a ground point to create a lane'
+        elif mode == 'create':
+            if self.selection == None:
+                txt += 'Select a ground point to start a lane'
+            else:
+                txt += 'Select a ground point to create a lane'
+        elif mode == 'join':
+            if self.selection == None:
+                txt += 'Select a lane to start join'
+            else:
+                txt += 'Select a lane to end join'
         else:
-            txt = txt + 'All Lanes - %d' % self.num_to_move
+            txt +='All Lanes - %d' % self.num_to_move
 
         self.parent.selectModeActor.SetInput(txt)
         self.parent.selectModeActor.Modified()
