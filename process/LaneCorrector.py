@@ -130,16 +130,16 @@ class Undoer:
 
 class Selection:
     # Moving points
-    symmetric = 0
+    Symmetric = 0
     # Deleting points
-    direct = 1
+    Direct = 1
     # Adding points
-    append = 2
-    fork = 3
-    new = 4
-    join = 5
+    Append = 2
+    Fork = 3
+    Create = 4
+    Join = 5
 
-    def __init__(self, parent, actor, idx, mode=symmetric, end_idx=-1):
+    def __init__(self, parent, actor, idx, mode=Symmetric, end_idx=-1):
         self.parent = parent
         self.blockworld = parent.parent
 
@@ -158,11 +158,11 @@ class Selection:
         self.startPos = self.getPosition()
 
         # The region of points are on either side of idx
-        if self.mode == Selection.symmetric:
+        if self.mode == Selection.Symmetric:
             self.region = parent.num_to_move
 
         # The region starts at idx and ends at end_idx
-        elif self.mode == Selection.direct:
+        elif self.mode == Selection.Direct:
             # Make sure start is before end
             if end_idx >= 0:
                 if self.idx > end_idx:
@@ -172,9 +172,9 @@ class Selection:
                 self.region = end_idx - self.idx + 1
             else:
                 self.region = 0
-        elif self.mode == Selection.append or self.mode == Selection.fork:
+        elif self.mode == Selection.Append or self.mode == Selection.Fork:
             self.region = 1
-            self.idx = -1 if mode == Selection.append else idx
+            self.idx = -1 if mode == Selection.Append else idx
 
             self.raw_pos = self.blockworld.raw_cloud.xyz
             self.raw_idx = end_idx
@@ -182,9 +182,9 @@ class Selection:
             raise RuntimeError('Bad selection mode')
 
     def isSelected(self):
-        if self.mode == Selection.symmetric:
+        if self.mode == Selection.Symmetric:
             return True
-        if self.mode == Selection.append or self.mode == Selection.fork:
+        if self.mode == Selection.Append or self.mode == Selection.Fork:
             return self.raw_idx != -1
         else:
             return self.region != 0
@@ -193,7 +193,7 @@ class Selection:
         lane_actors = self.blockworld.lane_actors
         if self.actor and self.actor in lane_actors:
             return lane_actors.index(self.actor)
-        if self.mode == Selection.append:
+        if self.mode == Selection.Append:
             return None
         raise RuntimeError('Could not find lane')
 
@@ -201,7 +201,7 @@ class Selection:
         return np.array(self.pos[self.idx + offset,:])
 
     def getStart(self):
-        if self.mode == Selection.symmetric:
+        if self.mode == Selection.Symmetric:
             return max(self.idx - self.region + 1, 0)
         else:
             return self.idx
@@ -251,8 +251,8 @@ class Selection:
         self.parent.undoer.flush()
         
     def append(self):
-        if self.isSelected() and self.mode == Selection.append \
-           or self.mode == Selection.fork:
+        if self.isSelected() and self.mode == Selection.Append \
+           or self.mode == Selection.Fork:
             start = self.pos[self.idx, :]
             end = self.raw_pos[self.raw_idx, :3]
             vector = end - start
@@ -264,7 +264,7 @@ class Selection:
             for i in np.arange(step, np.linalg.norm(vector), step):
                 new_pts.append(start + n_vector * i)
 
-            if self.mode == Selection.append:
+            if self.mode == Selection.Append:
                 data = np.append(self.pos, np.array(new_pts), axis=0)
                 self.blockworld.addLane(data, self.lane)
             else:
@@ -344,7 +344,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             elif self.mode == 'delete':
                 if self.selection == None:
                     self.selection = Selection(self, actor, idx,
-                                               Selection.direct)
+                                               Selection.Direct)
 
                 elif self.selection.actor == actor:
                     # Make sure we are selecting a point from the same lane
@@ -359,11 +359,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     else:
                         start, end = start, idx
                     self.selection = Selection(self, actor, start,
-                                               Selection.direct, end)
+                                               Selection.Direct, end)
                 self.selection.highlight()
 
             elif self.mode == 'append' or self.mode == 'fork':
-                s_mode = Selection.append if self.mode == 'append' else Selection.fork
+                s_mode = Selection.Append if self.mode == 'append' else Selection.Fork
                 if self.selection == None:
                     self.selection = Selection(self, actor, idx, s_mode)
                     self.selection.highlight()
@@ -419,7 +419,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
     def lowlightLane(self, num):
         lane = Selection(self, self.parent.lane_actors[num], 0,
-                         Selection.direct,
+                         Selection.Direct,
                          self.parent.lane_clouds[num].xyz.shape[0])
         lane.lowlight()
         self.Render()
@@ -559,24 +559,24 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 txt += '(a) append | (f) fork | (c) create | (j) join'
         elif mode == 'append':
             if self.selection == None:
-                txt += 'Select a lane to append to'
+                txt += 'Appending (1/2). Select a lane'
             else:
-                txt += 'Select a ground point to create a lane'
+                txt += 'Appending (2/2). Select a ground point'
         elif mode == 'fork':
             if self.selection == None:
-                txt += 'Select a point to fork off of'
+                txt += 'Forking (1/2). Select a point'
             else:
-                txt += 'Select a ground point to create a lane'
+                txt += 'Forking (2/2). Select a ground point'
         elif mode == 'create':
             if self.selection == None:
-                txt += 'Select a ground point to start a lane'
+                txt += 'Create (1/2). Select a ground point'
             else:
-                txt += 'Select a ground point to create a lane'
+                txt += 'Create (2/2). Select a ground point'
         elif mode == 'join':
             if self.selection == None:
-                txt += 'Select a lane to start join'
+                txt += 'Joining (1/2). Select a lane'
             else:
-                txt += 'Select a lane to end join'
+                txt += 'Joining (2/2). Select a lane'
         else:
             txt +='All Lanes - %d' % self.num_to_move
 
