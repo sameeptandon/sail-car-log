@@ -169,7 +169,7 @@ class Selection:
                     # Swap
                     self.idx, end_idx = end_idx, self.idx
 
-                self.region = end_idx - self.idx
+                self.region = end_idx - self.idx + 1
             else:
                 self.region = 0
         elif self.mode == Selection.append or self.mode == Selection.fork:
@@ -244,6 +244,9 @@ class Selection:
         if old_lane.shape[0] > 0:
             # Replace insert a new actor into the old lane index
             self.blockworld.addLane(self.pos[self.getEnd():], self.lane)
+
+        if old_lane.shape[0] == 0 and new_lane.shape[0] == 0:
+            self.blockworld.removeLane(self.lane)
 
         self.parent.undoer.flush()
         
@@ -441,18 +444,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         if not self.moving:
             if key == 'Escape':
                 if self.mode in ['append', 'fork', 'join', 'create']:
-                    if self.mode == 'create':
-                        self.togglePick(lane=True)
+                    self.togglePick(lane=True)
                     self.mode = 'insert'
-                    self.selection = None
-
-                if self.mode == 'delete':
-                    if self.selection != None:
-                        self.selection.lowlight()
-                    self.selection = None
                 else:
-                    self.lowlightAll()
                     self.mode = 'edit'
+
+                self.selection = None
+                self.lowlightAll()
 
             if key == 'bracketright':
                 # Increase the number of points selected
@@ -743,6 +741,17 @@ class Blockworld:
             self.lane_clouds[lane] = cloud
             self.lane_actors[lane] = actor
             self.lane_kdtrees[lane] = cKDTree(cloud.xyz)
+
+    def removeLane(self, lane):
+        actor = self.lane_actors[lane]
+        cloud = self.lane_clouds[lane]
+        tree = self.lane_kdtrees[lane]
+
+        self.lane_clouds.remove(cloud)
+        self.cloud_ren.RemoveActor(actor)
+        self.lane_actors.remove(actor)
+        self.lane_kdtrees.remove(tree)
+        self.num_lanes -= 1
 
     def fixupLanes(self):
         self.interactor.lowlightAll()
