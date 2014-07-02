@@ -127,7 +127,9 @@ class Undoer:
         self.redo_queue.clear()
         self.undo_queue.clear()
 
+
 class Point:
+
     def __init__(self, actor, idx, blockworld):
         self.actor = actor
         self.blockworld = blockworld
@@ -174,6 +176,7 @@ class Point:
 
     def __str__(self):
         return '%d, %d: %s' % (self.lane, self.idx, self.getPosition())
+
 
 class Selection:
     # Moving points
@@ -312,7 +315,7 @@ class Selection:
 
             self.blockworld.addLane(data, self.point.lane)
             self.blockworld.removeLane(self.end_point.lane)
-            
+
     def interpolate(self, p1, p2):
         start = p1.pos[p1.idx, :3]
         end = p2.pos[p2.idx, :3]
@@ -327,7 +330,7 @@ class Selection:
             new_pts.append(start + n_vector * i)
 
         data = np.concatenate((p1.pos, np.array(new_pts), p2.pos), axis=0)
-        
+
         return (data, np.array(new_pts))
 
     def getWeight(self, p):
@@ -423,7 +426,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.selection.highlight()
 
             elif self.mode == 'append' or self.mode == 'fork' or \
-                 self.mode == 'join' or self.mode == 'create':
+                    self.mode == 'join' or self.mode == 'create':
                 if self.selection == None:
                     self.selection = Selection(self, actor, idx, self.mode)
                     self.selection.highlight()
@@ -436,7 +439,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         if actor == self.selection.point.actor:
                             return
                     else:
-                        # Actors must be the same for create 
+                        # Actors must be the same for create
                         if actor != self.selection.point.actor:
                             return
 
@@ -499,7 +502,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def lowlightLane(self, num):
         actor = self.parent.lane_actors[num]
         cloud = self.parent.lane_clouds[num]
-        lane = Selection(self, actor, 0, Selection.Direct, 
+        lane = Selection(self, actor, 0, Selection.Direct,
                          cloud.xyz.shape[0] - 1)
         lane.lowlight()
         self.Render()
@@ -699,7 +702,7 @@ class Blockworld:
 
         ##### Grab all the transforms ######
         self.imu_transforms = get_transforms(args)
-        self.cur_imu_transform = self.imu_transforms[0, :, :]
+        self.cur_imu_transform = self.imu_transforms[0, :,:]
 
         self.trans_wrt_imu = self.imu_transforms[
             self.start:self.end:self.step, 0:3, 3]
@@ -877,7 +880,7 @@ class Blockworld:
         # Calculates median z-error of interpolated lanes to points
         tree = cKDTree(pts[:, :3])
         for num in xrange(self.num_lanes):
-            lane = self.lane_clouds[num].xyz[:4910,:]
+            lane = self.lane_clouds[num].xyz[:4910, :]
             z_dist = []
             for p in lane:
                 (d, i) = tree.query(p)
@@ -900,7 +903,7 @@ class Blockworld:
         lanes['num_lanes'] = self.num_lanes
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
-            offset = np.vstack((lane[1:,:], np.zeros((1, 3))))
+            offset = np.vstack((lane[1:, :], np.zeros((1, 3))))
             lane = np.hstack((lane, offset))
             lanes['lane' + str(num)] = lane
 
@@ -941,7 +944,7 @@ class Blockworld:
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            self.cur_imu_transform = self.imu_transforms[t,:,:]
+            self.cur_imu_transform = self.imu_transforms[t, :,:]
             transform = vtk_transform_from_np(self.cur_imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
@@ -988,16 +991,16 @@ class Blockworld:
                 lane = self.lane_clouds[num].xyz[nearby_idx, :3]
 
                 if lane.shape[0] > 0:
-                    pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
+                    pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t, :,:],
                                                  self.T_from_i_to_l, self.cam_params)
                     intensity = np.ones((pix.shape[0], 1)) * num
                     heat_colors = heatColorMapFast(
                         intensity, 0, self.num_colors)
                     for p in range(4):
-                        I[pix[1, mask]+p, pix[0, mask],:] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]+p,:] = heat_colors[0,:,:]
-                        I[pix[1, mask]-p, pix[0, mask],:] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]-p,:] = heat_colors[0,:,:]
+                        I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
+                        I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
 
         return I
 
