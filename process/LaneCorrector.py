@@ -130,7 +130,6 @@ class Undoer:
 class Point:
     def __init__(self, actor, idx, blockworld):
         self.actor = actor
-        self.idx = idx
         self.blockworld = blockworld
 
         self.data = self.actor.GetMapper().GetInput()
@@ -141,6 +140,8 @@ class Point:
         else:
             self.pos = self.blockworld.raw_cloud.xyz
             self.color = self.blockworld.raw_cloud.intensity
+
+        self.idx = min(idx, self.pos.shape[0] - 1)
 
         self.start_pos = self.getPosition()
 
@@ -153,7 +154,8 @@ class Point:
         raise RuntimeError('Could not find lane')
 
     def getPosition(self, offset=0):
-        return np.array(self.pos[self.idx + offset,:])
+        idx = min(self.idx + offset, self.pos.shape[0] - 1)
+        return np.array(self.pos[idx, :])
 
     def selectExtreme(self):
         if self.idx > self.pos.shape[0] / 2:
@@ -164,10 +166,9 @@ class Point:
     def isCloser(self, other_point):
         pos = self.getPosition()
         other_pos = other_point.getPosition()
-        car_pos = self.blockworld.cur_imu_transform[:3, 3]
 
-        a = np.linalg.norm(pos - car_pos)
-        b = np.linalg.norm(other_pos - car_pos)
+        a = np.linalg.norm(pos)
+        b = np.linalg.norm(other_pos)
 
         return a < b
 
@@ -194,18 +195,16 @@ class Selection:
         self.mode = mode
 
         self.point = Point(actor, idx, self.blockworld)
-        self.end_point = None
-        self.region = 1
+        self.end_point = Point(actor, idx, self.blockworld)
 
         # The region of points are on either side of idx
         if self.mode == Selection.Symmetric:
-            self.region = parent.num_to_move
+            self.end_point.idx += self.parent.num_to_move
 
         # The region starts at idx and ends at end_idx
         elif self.mode == Selection.Direct:
             if end_idx != -1:
                 self.end_point = Point(actor, end_idx, self.blockworld)
-                self.region = abs(self.end_point.idx - self.point.idx + 1)
 
         elif self.mode == Selection.Append or self.mode == Selection.Fork:
             if self.mode == Selection.Append:
@@ -225,8 +224,15 @@ class Selection:
             raise RuntimeError('Bad selection mode')
 
         # Make sure the start point always comes before the end point
-        if self.end_point and self.end_point.isCloser(self.point):
-            self.end_point, self.point = self.point, self.end_point
+        if self.mode in [Selection.Symmetric, Selection.Direct]:
+            # Direct and symmetric selections can use point idx because they
+            # are the same actor
+            if self.end_point.idx < self.point.idx:
+                self.end_point, self.point = self.point, self.end_point
+        else:
+            # All other modes must use distance from the origin
+            if self.end_point.isCloser(self.point):
+                self.end_point, self.point = self.point, self.end_point
 
     def isSelected(self):
         if self.mode == Selection.Symmetric:
@@ -239,12 +245,13 @@ class Selection:
 
     def getStart(self):
         if self.mode == Selection.Symmetric:
-            return max(self.point.idx - self.region + 1, 0)
+            region = self.end_point.idx - self.point.idx
+            return max(self.point.idx - region, 0)
         else:
             return self.point.idx
 
     def getEnd(self):
-        return min(self.point.idx + self.region, self.point.pos.shape[0])
+        return min(self.end_point.idx + 1, self.point.pos.shape[0])
 
     def nextPoint(self):
         return xrange(self.getStart(), self.getEnd())
@@ -264,17 +271,18 @@ class Selection:
         selection region will move as well """
 
         points = [p for p in self.nextPoint()]
+        print points
         weights = np.array([self.getWeight(p) for p in points])
         weights = np.tile(weights, (vector.shape[0], 1)).transpose()
         vector = np.tile(np.array(vector), (weights.shape[0], 1))
 
-        self.point.pos[points,:] += weights * vector
+        self.point.pos[points, :] += weights * vector
         self.point.data.Modified()
 
     def delete(self):
         # Create a new lane actor
-        new_lane = self.point.pos[:self.getStart()]
-        old_lane = self.point.pos[self.getEnd():]
+        old_lane = self.point.pos[:self.getStart()]
+        new_lane = self.point.pos[self.getEnd():]
 
         if new_lane.shape[0] > 0:
             self.blockworld.addLane(new_lane)
@@ -323,7 +331,8 @@ class Selection:
         return (data, np.array(new_pts))
 
     def getWeight(self, p):
-        alpha = abs(self.point.idx - p) / float(self.region)
+        region = self.end_point.idx - self.point.idx
+        alpha = abs(self.point.idx - p) / float(region)
         return (math.cos(alpha * math.pi) + 1) / 2.
 
 
@@ -402,8 +411,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.selection.lowlight()
 
                         start = self.selection.point.idx
-                        region = self.selection.region
-                        end = start + region - 1
+                        end = self.selection.end_point.idx
+                        region = end - start
 
                         if abs(start - idx) < abs(end - idx):
                             start, end = idx, end
