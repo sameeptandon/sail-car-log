@@ -293,13 +293,19 @@ class Selection:
 
     def delete(self):
         # Create a new lane actor
-        old_lane = self.point.pos[:self.getStart()]
-        new_lane = self.point.pos[self.getEnd():]
+        new_lane = self.point.pos[:self.getStart()]
+        old_lane = self.point.pos[self.getEnd():]
 
-        if new_lane.shape[0] > 0:
+        # If we are at the beginning or end
+        if new_lane.shape[0] == 0 or old_lane.shape[0] == 0:
+            # Choose the segment that has points
+            lane = new_lane if new_lane.shape[0] > 0 else old_lane
+            # Replace the lane
+            self.blockworld.addLane(lane, self.point.lane)
+        else:
+            # Add the new lane
             self.blockworld.addLane(new_lane)
-        if old_lane.shape[0] > 0:
-            # Replace insert a new actor into the old lane index
+            # Replace the old lane
             self.blockworld.addLane(old_lane, self.point.lane)
 
         if old_lane.shape[0] == 0 and new_lane.shape[0] == 0:
