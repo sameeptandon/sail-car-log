@@ -240,7 +240,9 @@ class Selection:
         else:
             # All other modes must use distance from the origin
             if self.end_point.isCloser(self.point):
-                self.end_point, self.point = self.point, self.end_point
+                # Make sure the end point is not the raw points
+                if self.end_point.actor != self.blockworld.raw_actor:
+                    self.end_point, self.point = self.point, self.end_point
 
     def isSelected(self):
         if self.mode == Selection.Symmetric:
