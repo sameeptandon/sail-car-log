@@ -92,6 +92,16 @@ class DeleteChange (Change):
         else:
             self.selection.delete()
 
+class AppendChange (DeleteChange):
+
+    def performChange(self, direction=1):
+        print self.selection
+        if direction == 1:
+            self.selection.delete()
+        else:
+            self.selection.undelete(self.removed_points, self.lane)
+        print self.selection
+
 
 class Undoer:
 
@@ -411,15 +421,25 @@ class Selection:
             _, new_pts = self.interpolate(self.point, self.end_point)
             if self.mode == Selection.Append:
                 # Check to see if we are adding to the end or the beginning
-                if self.point.idx > 0:
+                at_end = self.point.idx > 0
+                if at_end:
                     data = np.append(self.point.pos, new_pts, axis=0)
                 else:
-                    data = np.append(
-                        np.flipud(new_pts), self.point.pos, axis=0)
-                self.blockworld.addLane(data, self.point.lane, replace=True)
+                    data = np.append(np.flipud(new_pts), self.point.pos, axis=0)
+                lane = self.blockworld.addLane(data, self.point.lane,
+                                               replace=True)
+
+                if at_end:
+                    self.point = Point(lane, self.point.idx + 1, self.blockworld)
+                else:
+                    self.point = Point(lane, self.point.idx, self.blockworld)
+                self.end_point = Point(lane, self.point.idx + len(new_pts) - 1,
+                                           self.blockworld)
             else:
                 data = np.array(new_pts)
                 self.blockworld.addLane(data)
+
+            return new_pts
 
     def join(self):
         if self.isSelected() and self.mode == Selection.Join:
@@ -567,7 +587,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                                    self.selection.point.idx, self.mode,
                                                    idx, join_lane_actor)
                         if self.mode in [Selection.Append, Selection.Fork]:
-                            self.selection.append()
+                            pts = self.selection.append()
+                            change = AppendChange(self.selection, pts,
+                                                  self.selection.point.lane)
+                            self.undoer.addChange(change)
                         elif self.mode == Selection.Join:
                             self.selection.join()
                         self.KeyHandler(key='Escape')
