@@ -18,6 +18,7 @@ from ColorMap import heatColorMapFast
 from MapReproject import lidarPtsToPixels
 import math
 from collections import deque
+from pympler.asizeof import *
 
 
 def vtk_transform_from_np(np4x4):
@@ -52,7 +53,7 @@ def load_ply(ply_file):
     return actor
 
 
-class Change:
+class Change (object):
 
     def __init__(self, selection, vector):
         self.selection = selection
@@ -78,6 +79,20 @@ class BigChange (Change):
                 self.selection[i].highlight()
 
 
+class DeleteChange (Change):
+
+    def __init__(self, selection, removed_points, lane):
+        self.removed_points = removed_points
+        self.lane = lane
+        super(DeleteChange, self).__init__(selection, None)
+
+    def performChange(self, direction=1):
+        if direction == 1:
+            self.selection.undelete(self.removed_points, self.lane)
+        else:
+            self.selection.delete()
+
+
 class Undoer:
 
     def __init__(self):
@@ -99,6 +114,7 @@ class Undoer:
             undo = self.undo_queue.pop()
             self.redo_queue.append(undo)
             undo.performChange()
+            print self.getSize(), 'MB'
         except IndexError:
             print 'Undo queue empty!'
             pass
@@ -108,6 +124,7 @@ class Undoer:
             redo = self.redo_queue.pop()
             self.undo_queue.append(redo)
             redo.performChange(-1)
+            print self.getSize(), 'MB'
         except IndexError:
             print 'Redo queue empty!'
             pass
@@ -122,10 +139,17 @@ class Undoer:
             # Add the new change
             self.undo_queue.append(change)
         self.redo_queue.clear()
+        print self.getSize(), 'MB'
 
     def flush(self):
         self.redo_queue.clear()
         self.undo_queue.clear()
+
+    def getSize(self):
+        u = sum([asizeof(x) for x in self.undo_queue])
+        r = sum([asizeof(x) for x in self.redo_queue])
+        s = asizeof(self)
+        return (u + r + s) / 2. ** 20
 
 
 class Point:
@@ -157,7 +181,7 @@ class Point:
 
     def getPosition(self, offset=0):
         idx = min(self.idx + offset, self.pos.shape[0] - 1)
-        return np.array(self.pos[idx, :])
+        return np.array(self.pos[idx,:])
 
     def selectExtreme(self):
         if self.idx > self.pos.shape[0] / 2:
@@ -285,7 +309,7 @@ class Selection:
         weights = np.tile(weights, (vector.shape[0], 1)).transpose()
         vector = np.tile(np.array(vector), (weights.shape[0], 1))
 
-        self.point.pos[points, :] += weights * vector
+        self.point.pos[points,:] += weights * vector
         self.point.data.Modified()
 
     def getWeight(self, p):
@@ -295,25 +319,91 @@ class Selection:
 
     def delete(self):
         # Create a new lane actor
-        new_lane = self.point.pos[:self.getStart()]
-        old_lane = self.point.pos[self.getEnd():]
-
-        # If we are at the beginning or end
-        if new_lane.shape[0] == 0 or old_lane.shape[0] == 0:
-            # Choose the segment that has points
-            lane = new_lane if new_lane.shape[0] > 0 else old_lane
-            # Replace the lane
-            self.blockworld.addLane(lane, self.point.lane)
-        else:
-            # Add the new lane
-            self.blockworld.addLane(new_lane)
-            # Replace the old lane
-            self.blockworld.addLane(old_lane, self.point.lane)
+        lane = self.point.lane
+        start = self.getStart()
+        end = self.getEnd()
+        new_lane = self.point.pos[end:]
+        old_lane = self.point.pos[:start]
+        del_segment = self.point.pos[start:end]
 
         if old_lane.shape[0] == 0 and new_lane.shape[0] == 0:
+            # Delete the whole lane
             self.blockworld.removeLane(self.point.lane)
+            self.point = None
+            self.end_point = None
+        elif new_lane.shape[0] == 0 or old_lane.shape[0] == 0:
+            # If we are at the beginning or end
+            at_beginning = new_lane.shape[0] > 0
+            # Choose the segment that has points
+            pts = new_lane if at_beginning else old_lane
 
-        self.parent.undoer.flush()
+            # Replace the lane
+            lane_actor = self.blockworld.addLane(pts, self.point.lane,
+                                                 replace=True)
+
+            if at_beginning:
+                self.point = Point(lane_actor, 0, self.blockworld)
+                self.end_point = None
+            else:
+                self.point = None
+                self.end_point = Point(lane_actor, start, self.blockworld)
+        else:
+            # Replace the old lane
+            old_lane_actor = self.blockworld.addLane(old_lane, self.point.lane,
+                                                     replace=True)
+            # Add the new lane
+            new_lane_actor = self.blockworld.addLane(new_lane, self.point.lane
+                                                     + 1, replace = False)
+
+            self.point = Point(old_lane_actor, start, self.blockworld)
+            self.end_point = Point(new_lane_actor, 0, self.blockworld)
+
+        return del_segment, lane
+
+    def undelete(self, points, lane):
+        if self.point == None and self.end_point == None:
+            # Undeleting an entire lane
+            undeleted_lane = self.blockworld.addLane(points, lane)
+            self.point = Point(undeleted_lane, 0, self.blockworld)
+            self.end_point = Point(undeleted_lane, len(points) - 1,
+                                   self.blockworld)
+
+        elif self.point == None or self.end_point == None:
+            # Deleting from the end/beginning of the lane
+            if self.point:
+                # Add points onto the front
+                data = np.concatenate((points, self.point.pos), axis=0)
+            else:
+                # Add points to the back
+                data = np.concatenate((self.end_point.pos, points), axis=0)
+
+            undeleted_lane = self.blockworld.addLane(data, lane,
+                                                     replace=True)
+            # Update the selection points
+            if self.point:
+                self.point = Point(undeleted_lane, 0, self.blockworld)
+                self.end_point = Point(undeleted_lane, len(points) - 1,
+                                                     self.blockworld)
+            else:
+                self.point = Point(undeleted_lane, self.end_point.idx,
+                                                     self.blockworld)
+                self.end_point = Point(undeleted_lane, self.end_point.idx +
+                                                     len(points) - 1,
+                                                     self.blockworld)
+        else:
+            # Undeleting from the middle of the lane
+            data = np.concatenate((self.point.pos, points, self.end_point.pos),
+                                  axis=0)
+
+            undeleted_lane = self.blockworld.addLane(data, self.point.lane,
+                                                     replace=True)
+            self.blockworld.removeLane(self.end_point.lane)
+
+            self.point = Point(undeleted_lane, self.point.idx, self.blockworld)
+            self.end_point = Point(undeleted_lane,
+                                   self.point.idx + len(points) - 1,
+                                   self.blockworld)
+
 
     def append(self):
         if self.isSelected() and self.mode in [Selection.Append,
@@ -326,7 +416,7 @@ class Selection:
                 else:
                     data = np.append(
                         np.flipud(new_pts), self.point.pos, axis=0)
-                self.blockworld.addLane(data, self.point.lane)
+                self.blockworld.addLane(data, self.point.lane, replace=True)
             else:
                 data = np.array(new_pts)
                 self.blockworld.addLane(data)
@@ -334,7 +424,7 @@ class Selection:
     def join(self):
         if self.isSelected() and self.mode == Selection.Join:
             data, _ = self.interpolate(self.point, self.end_point)
-            self.blockworld.addLane(data, self.point.lane)
+            self.blockworld.addLane(data, self.point.lane, replace=True)
             self.blockworld.removeLane(self.end_point.lane)
 
     def interpolate(self, p1, p2):
@@ -355,11 +445,11 @@ class Selection:
         return (data, np.array(new_pts))
 
     def copy(self, ground_idx):
-        ground_pos = self.blockworld.raw_cloud.xyz[ground_idx, :]
+        ground_pos = self.blockworld.raw_cloud.xyz[ground_idx,:]
         points = [p for p in self.nextPoint()]
-        data = self.point.pos[points, :]
+        data = self.point.pos[points,:]
         # Translate points to origin, then to clicked point
-        data += ground_pos - data[0, :]
+        data += ground_pos - data[0,:]
 
         self.blockworld.addLane(data)
 
@@ -566,13 +656,16 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.mode = 'edit'
 
             elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
+
                 self.mode = key
 
             elif key == 'd':
                 if self.mode != Selection.Delete:
                     self.mode = Selection.Delete
                 elif self.selection != None and self.selection.isSelected():
-                    self.selection.delete()
+                    del_selection, lane = self.selection.delete()
+                    change = DeleteChange(self.selection, del_selection, lane)
+                    self.undoer.addChange(change)
                     self.KeyHandler(key='Escape')
 
             elif key == 'i':
@@ -727,7 +820,7 @@ class Blockworld:
 
         ##### Grab all the transforms ######
         self.imu_transforms = get_transforms(args)
-        self.cur_imu_transform = self.imu_transforms[0, :,:]
+        self.cur_imu_transform = self.imu_transforms[0,:,:]
 
         self.trans_wrt_imu = self.imu_transforms[
             self.start:self.end:self.step, 0:3, 3]
@@ -821,19 +914,22 @@ class Blockworld:
 
         self.iren.Start()
 
-    def addLane(self, data, lane=-1):
+    def addLane(self, data, lane=-1, replace=False):
         """ Appends a new lane to the dataset or replaces an index given by
-        'lane' """
+        'lane'. If 'replace' is true, replace the index given by lane"""
         num_pts = data.shape[0]
         if lane == -1:
-            num_lanes = len(self.lane_clouds)
+            lane_num = len(self.lane_clouds)
+            old_actor = None
+        elif replace == False:
+            lane_num = lane
             old_actor = None
         else:
-            num_lanes = lane
+            lane_num = lane
             old_actor = self.lane_actors[lane]
 
         cloud = VtkPointCloud(data[:, :3], np.ones((num_pts)) *
-                              (num_lanes % self.num_colors))
+                              (lane_num % self.num_colors))
         actor = cloud.get_vtk_cloud(zMin=0, zMax=self.num_colors)
 
         actor.GetProperty().SetPointSize(2)
@@ -841,15 +937,22 @@ class Blockworld:
         self.cloud_ren.RemoveActor(old_actor)
         self.cloud_ren.AddActor(actor)
 
-        if lane == -1:
+        if replace and lane > -1:
+            self.lane_clouds[lane_num] = cloud
+            self.lane_actors[lane_num] = actor
+            self.lane_kdtrees[lane_num] = cKDTree(cloud.xyz)
+        elif lane > -1:
+            self.lane_clouds.insert(lane_num, cloud)
+            self.lane_actors.insert(lane_num, actor)
+            self.lane_kdtrees.insert(lane_num, cKDTree(cloud.xyz))
+            self.num_lanes += 1
+        else:
             self.lane_clouds.append(cloud)
             self.lane_actors.append(actor)
             self.lane_kdtrees.append(cKDTree(cloud.xyz))
             self.num_lanes += 1
-        else:
-            self.lane_clouds[lane] = cloud
-            self.lane_actors[lane] = actor
-            self.lane_kdtrees[lane] = cKDTree(cloud.xyz)
+
+        return actor
 
     def removeLane(self, lane):
         actor = self.lane_actors[lane]
@@ -899,7 +1002,7 @@ class Blockworld:
         # Calculates median z-error of interpolated lanes to points
         tree = cKDTree(pts[:, :3])
         for num in xrange(self.num_lanes):
-            lane = self.lane_clouds[num].xyz[:4910, :]
+            lane = self.lane_clouds[num].xyz[:4910,:]
             z_dist = []
             for p in lane:
                 (d, i) = tree.query(p)
@@ -922,7 +1025,7 @@ class Blockworld:
         lanes['num_lanes'] = self.num_lanes
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
-            offset = np.vstack((lane[1:, :], np.zeros((1, 3))))
+            offset = np.vstack((lane[1:,:], np.zeros((1, 3))))
             lane = np.hstack((lane, offset))
             lanes['lane' + str(num)] = lane
 
@@ -963,7 +1066,7 @@ class Blockworld:
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            self.cur_imu_transform = self.imu_transforms[t, :,:]
+            self.cur_imu_transform = self.imu_transforms[t,:,:]
             transform = vtk_transform_from_np(self.cur_imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
@@ -1010,16 +1113,16 @@ class Blockworld:
                 lane = self.lane_clouds[num].xyz[nearby_idx, :3]
 
                 if lane.shape[0] > 0:
-                    pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t, :,:],
+                    pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
                                                  self.T_from_i_to_l, self.cam_params)
                     intensity = np.ones((pix.shape[0], 1)) * num
                     heat_colors = heatColorMapFast(
                         intensity, 0, self.num_colors)
                     for p in range(4):
-                        I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
-                        I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
+                        I[pix[1, mask]+p, pix[0, mask],:] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]+p,:] = heat_colors[0,:,:]
+                        I[pix[1, mask]-p, pix[0, mask],:] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]-p,:] = heat_colors[0,:,:]
 
         return I
 
