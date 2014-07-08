@@ -770,40 +770,44 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         txt = '(%d/%d) ' % (frame_num, tot_num)
         if mode == 'edit':
-            txt += 'Click to move lane | Move window [%d]' % self.num_to_move
+            txt += ('Click to move lane | Move window [%d] | (i) - insert ' + \
+                   'mode | (d) - delete mode') % self.num_to_move
         elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
             txt += 'Lane %s - All points' % mode
         elif mode == Selection.Delete:
             if self.selection == None:
-                txt += 'Click to start delete segment'
+                txt += 'Click to start delete segment | (esc) - edit mode'
             elif not self.selection.isSelected():
                 txt = txt + 'Select another point to create delete segment'
             else:
                 txt += '(d) - delete selected segment | click - ' + \
                        'change segment | (esc) - start over'
         elif mode == 'insert':
-            txt += '(a) append | (f) fork | (c) copy | (j) join'
+            txt += '(a) - append | (f) - fork | (c) - copy | (j) - join'
         elif mode == Selection.Append:
             if self.selection == None:
-                txt += 'Appending (1/2). Select a lane'
+                txt += 'Appending (1/2). Select a lane. Append will add ' + \
+                       'points to the end or beginning of a lane'
             else:
                 txt += 'Appending (2/2). Select a ground point'
         elif mode == Selection.Fork:
             if self.selection == None:
-                txt += 'Forking (1/2). Select a point'
+                txt += 'Forking (1/2). Select a point. Fork will create a ' + \
+                       'new lane from an existing point'
             else:
                 txt += 'Forking (2/2). Select a ground point'
         elif mode == Selection.Join:
             if self.selection == None:
-                txt += 'Joining (1/2). Select a lane'
+                txt += 'Joining (1/2). Select a lane. Join will join two ' + \
+                       'independent lanes into one'
             else:
                 txt += 'Joining (2/2). Select a lane'
         elif mode == Selection.Copy:
             if self.selection == None:
-                txt += 'Copy (1/3). Select a lane point to start copy'
+                txt += 'Copy (1/3). Select a lane point to start copy.'
             elif not self.selection.copy_ready:
-                txt += 'Copy (2/3). Select a lane point to end copy. (c) ' + \
-                       'to confirm selection'
+                txt += 'Copy (2/3). (c)- confirm selection | click - ' + \
+                       'change segment | (esc) - start over'
             else:
                 txt += 'Copy (3/3). Select ground point to begin copy'
         else:
