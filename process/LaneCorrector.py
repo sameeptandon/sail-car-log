@@ -92,7 +92,7 @@ class DeleteChange (Change):
         else:
             self.selection.delete()
 
-class AppendChange (DeleteChange):
+class InsertChange (DeleteChange):
 
     def performChange(self, direction=1):
         print self.selection
@@ -478,7 +478,12 @@ class Selection:
         # Translate points to origin, then to clicked point
         data += ground_pos - data[0,:]
 
-        self.blockworld.addLane(data)
+        lane = self.blockworld.addLane(data)
+
+        self.point = Point(lane, 0 , self.blockworld)
+        self.end_point = Point(lane, len(data) - 1, self.blockworld)
+
+        return data
 
     def __str__(self):
         return '%s, %s' % (self.point, self.end_point)
@@ -575,7 +580,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 # If we are in copy mode and we have selected a lane point
                 if self.mode == Selection.Copy and self.selection.copy_ready \
                    and actor == self.parent.raw_actor:
-                    self.selection.copy(idx)
+                    pts = self.selection.copy(idx)
+                    change = InsertChange(self.selection, pts,
+                                          self.selection.point.lane)
+                    self.undoer.addChange(change)
                     self.selection.lowlight()
                     self.KeyHandler(key='Escape')
 
@@ -598,7 +606,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         elif self.mode == Selection.Join:
                             pts = self.selection.join()
 
-                        change = AppendChange(self.selection, pts,
+                        change = InsertChange(self.selection, pts,
                                               self.selection.point.lane)
                         self.undoer.addChange(change)
 
