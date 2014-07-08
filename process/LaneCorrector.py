@@ -95,12 +95,7 @@ class DeleteChange (Change):
 class InsertChange (DeleteChange):
 
     def performChange(self, direction=1):
-        print self.selection
-        if direction == 1:
-            self.selection.delete()
-        else:
-            self.selection.undelete(self.removed_points, self.lane)
-        print self.selection
+        super(InsertChange, self).performChange(direction * -1)
 
 
 class Undoer:
