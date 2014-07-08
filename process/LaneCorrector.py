@@ -92,6 +92,7 @@ class DeleteChange (Change):
         else:
             self.selection.delete()
 
+
 class InsertChange (DeleteChange):
 
     def performChange(self, direction=1):
@@ -191,7 +192,7 @@ class Point:
 
     def getPosition(self, offset=0):
         idx = min(self.idx + offset, self.pos.shape[0] - 1)
-        return np.array(self.pos[idx,:])
+        return np.array(self.pos[idx, :])
 
     def selectExtreme(self):
         if self.idx > self.pos.shape[0] / 2:
@@ -319,7 +320,7 @@ class Selection:
         weights = np.tile(weights, (vector.shape[0], 1)).transpose()
         vector = np.tile(np.array(vector), (weights.shape[0], 1))
 
-        self.point.pos[points,:] += weights * vector
+        self.point.pos[points, :] += weights * vector
         self.point.data.Modified()
 
     def getWeight(self, p):
@@ -363,7 +364,7 @@ class Selection:
                                                      replace=True)
             # Add the new lane
             new_lane_actor = self.blockworld.addLane(new_lane, self.point.lane
-                                                     + 1, replace = False)
+                                                     + 1, replace=False)
 
             self.point = Point(old_lane_actor, start, self.blockworld)
             self.end_point = Point(new_lane_actor, 0, self.blockworld)
@@ -393,13 +394,13 @@ class Selection:
             if self.point:
                 self.point = Point(undeleted_lane, 0, self.blockworld)
                 self.end_point = Point(undeleted_lane, len(points) - 1,
-                                                     self.blockworld)
+                                       self.blockworld)
             else:
                 self.point = Point(undeleted_lane, self.end_point.idx,
-                                                     self.blockworld)
+                                   self.blockworld)
                 self.end_point = Point(undeleted_lane, self.end_point.idx +
-                                                     len(points) - 1,
-                                                     self.blockworld)
+                                       len(points) - 1,
+                                       self.blockworld)
         else:
             # Undeleting from the middle of the lane
             data = np.concatenate((self.point.pos, points, self.end_point.pos),
@@ -414,7 +415,6 @@ class Selection:
                                    self.point.idx + len(points) - 1,
                                    self.blockworld)
 
-
     def append(self):
         if self.isSelected() and self.mode in [Selection.Append,
                                                Selection.Fork]:
@@ -425,16 +425,18 @@ class Selection:
                 if at_end:
                     data = np.append(self.point.pos, new_pts, axis=0)
                 else:
-                    data = np.append(np.flipud(new_pts), self.point.pos, axis=0)
+                    data = np.append(
+                        np.flipud(new_pts), self.point.pos, axis=0)
                 lane = self.blockworld.addLane(data, self.point.lane,
                                                replace=True)
 
                 if at_end:
-                    self.point = Point(lane, self.point.idx + 1, self.blockworld)
+                    self.point = Point(
+                        lane, self.point.idx + 1, self.blockworld)
                 else:
                     self.point = Point(lane, self.point.idx, self.blockworld)
                 self.end_point = Point(lane, self.point.idx + len(new_pts) - 1,
-                                           self.blockworld)
+                                       self.blockworld)
             else:
                 data = np.array(new_pts)
                 lane = self.blockworld.addLane(data)
@@ -472,15 +474,15 @@ class Selection:
         return (data, np.array(new_pts))
 
     def copy(self, ground_idx):
-        ground_pos = self.blockworld.raw_cloud.xyz[ground_idx,:]
+        ground_pos = self.blockworld.raw_cloud.xyz[ground_idx, :]
         points = [p for p in self.nextPoint()]
-        data = self.point.pos[points,:]
+        data = self.point.pos[points, :]
         # Translate points to origin, then to clicked point
-        data += ground_pos - data[0,:]
+        data += ground_pos - data[0, :]
 
         lane = self.blockworld.addLane(data)
 
-        self.point = Point(lane, 0 , self.blockworld)
+        self.point = Point(lane, 0, self.blockworld)
         self.end_point = Point(lane, len(data) - 1, self.blockworld)
 
         return data
@@ -860,7 +862,7 @@ class Blockworld:
 
         ##### Grab all the transforms ######
         self.imu_transforms = get_transforms(args)
-        self.cur_imu_transform = self.imu_transforms[0,:,:]
+        self.cur_imu_transform = self.imu_transforms[0, :,:]
 
         self.trans_wrt_imu = self.imu_transforms[
             self.start:self.end:self.step, 0:3, 3]
@@ -1042,7 +1044,7 @@ class Blockworld:
         # Calculates median z-error of interpolated lanes to points
         tree = cKDTree(pts[:, :3])
         for num in xrange(self.num_lanes):
-            lane = self.lane_clouds[num].xyz[:4910,:]
+            lane = self.lane_clouds[num].xyz[:4910, :]
             z_dist = []
             for p in lane:
                 (d, i) = tree.query(p)
@@ -1065,7 +1067,7 @@ class Blockworld:
         lanes['num_lanes'] = self.num_lanes
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
-            offset = np.vstack((lane[1:,:], np.zeros((1, 3))))
+            offset = np.vstack((lane[1:, :], np.zeros((1, 3))))
             lane = np.hstack((lane, offset))
             lanes['lane' + str(num)] = lane
 
@@ -1106,7 +1108,7 @@ class Blockworld:
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            self.cur_imu_transform = self.imu_transforms[t,:,:]
+            self.cur_imu_transform = self.imu_transforms[t, :,:]
             transform = vtk_transform_from_np(self.cur_imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
@@ -1153,16 +1155,16 @@ class Blockworld:
                 lane = self.lane_clouds[num].xyz[nearby_idx, :3]
 
                 if lane.shape[0] > 0:
-                    pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t,:,:],
+                    pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t, :,:],
                                                  self.T_from_i_to_l, self.cam_params)
                     intensity = np.ones((pix.shape[0], 1)) * num
                     heat_colors = heatColorMapFast(
                         intensity, 0, self.num_colors)
                     for p in range(4):
-                        I[pix[1, mask]+p, pix[0, mask],:] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]+p,:] = heat_colors[0,:,:]
-                        I[pix[1, mask]-p, pix[0, mask],:] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]-p,:] = heat_colors[0,:,:]
+                        I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
+                        I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
+                        I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
 
         return I
 
