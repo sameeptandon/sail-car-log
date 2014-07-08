@@ -681,7 +681,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.mode = 'edit'
 
             elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
-
+                self.lowlightAll()
+                lane = Selection(self, self.parent.lane_actors[int(key)], 0,
+                                 Selection.All)
+                lane.highlight()
                 self.mode = key
 
             elif key == 'd':
