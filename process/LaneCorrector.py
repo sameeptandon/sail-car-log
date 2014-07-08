@@ -1134,9 +1134,6 @@ class Blockworld:
             # Find all the points nearby
             nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
 
-            # Remove the points before the closest point
-            nearby_idx = nearby_idx[nearby_idx > closest_idx]
-
             if nearby_idx.shape[0] > 0:
                 lane = self.lane_clouds[num].xyz[nearby_idx, :3]
 
