@@ -445,10 +445,14 @@ class Selection:
             return new_pts
 
     def join(self):
-        if self.isSelected() and self.mode == Selection.Join:
-            data, _ = self.interpolate(self.point, self.end_point)
-            self.blockworld.addLane(data, self.point.lane, replace=True)
-            self.blockworld.removeLane(self.end_point.lane)
+        data, new_pts = self.interpolate(self.point, self.end_point)
+        lane = self.blockworld.addLane(data, self.point.lane, replace=True)
+        self.blockworld.removeLane(self.end_point.lane)
+
+        self.point = Point(lane, self.point.idx + 1, self.blockworld)
+        self.end_point = Point(lane, self.point.idx + len(new_pts) - 1,
+                               self.blockworld)
+        return new_pts
 
     def interpolate(self, p1, p2):
         start = p1.pos[p1.idx, :3]
@@ -591,11 +595,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                                    idx, join_lane_actor)
                         if self.mode in [Selection.Append, Selection.Fork]:
                             pts = self.selection.append()
-                            change = AppendChange(self.selection, pts,
-                                                  self.selection.point.lane)
-                            self.undoer.addChange(change)
                         elif self.mode == Selection.Join:
-                            self.selection.join()
+                            pts = self.selection.join()
+
+                        change = AppendChange(self.selection, pts,
+                                              self.selection.point.lane)
+                        self.undoer.addChange(change)
+
                         self.KeyHandler(key='Escape')
 
     def LeftButtonReleaseEvent(self, obj, event):
