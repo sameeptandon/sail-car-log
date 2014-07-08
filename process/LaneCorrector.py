@@ -437,7 +437,10 @@ class Selection:
                                            self.blockworld)
             else:
                 data = np.array(new_pts)
-                self.blockworld.addLane(data)
+                lane = self.blockworld.addLane(data)
+
+                self.point = Point(lane, 0, self.blockworld)
+                self.end_point = Point(lane, len(new_pts) - 1, self.blockworld)
 
             return new_pts
 
