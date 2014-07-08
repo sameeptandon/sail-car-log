@@ -901,10 +901,12 @@ class Blockworld:
         print 'Adding raw points'
         raw_npz = np.load(sys.argv[3])
         pts = raw_npz['data']
-        self.raw_cloud = VtkPointCloud(pts[:, :3], pts[:, 3])
-        self.raw_actor = self.raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
+
+        self.raw_cloud = VtkPointCloud(pts[:, :3],
+                                       np.ones(pts[:, :3].shape) * 255)
+        self.raw_actor = self.raw_cloud.get_vtk_color_cloud()
         self.raw_actor.GetProperty().SetPointSize(5)
-        self.raw_actor.GetProperty().SetOpacity(0.30)
+        self.raw_actor.GetProperty().SetOpacity(0.3)
         self.raw_actor.SetPickable(0)
         self.cloud_ren.AddActor(self.raw_actor)
 
@@ -975,7 +977,7 @@ class Blockworld:
                               (lane_num % self.num_colors))
         actor = cloud.get_vtk_cloud(zMin=0, zMax=self.num_colors)
 
-        actor.GetProperty().SetPointSize(2)
+        actor.GetProperty().SetPointSize(3)
 
         self.cloud_ren.RemoveActor(old_actor)
         self.cloud_ren.AddActor(actor)
