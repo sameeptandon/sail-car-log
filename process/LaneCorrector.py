@@ -891,6 +891,7 @@ class Blockworld:
         self.raw_cloud = VtkPointCloud(pts[:, :3], pts[:, 3])
         self.raw_actor = self.raw_cloud.get_vtk_cloud(zMin=0, zMax=100)
         self.raw_actor.GetProperty().SetPointSize(5)
+        self.raw_actor.GetProperty().SetOpacity(0.30)
         self.raw_actor.SetPickable(0)
         self.cloud_ren.AddActor(self.raw_actor)
 
