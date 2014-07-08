@@ -623,16 +623,25 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             self.ComputeDisplayToWorld(self.ren, x, y, disp_obj_center[2],
                                        new_pick_point)
 
-            new_pos = new_pick_point[:-1]
+            new_pos = np.array(new_pick_point[:-1])
             new_pos[2] = old_pos[2]
 
-            new_pos = np.array(new_pos)
+            # Snapping
+            snapped = False
+            (d, i) = self.parent.raw_kdtree2d.query(new_pos[:-1])
+            if d < 1:
+                new_pos = self.parent.raw_cloud.xyz[i]
+                snapped = True
+
             old_pos = np.array(old_pos)
             change = new_pos - old_pos
 
             # Move the point
             self.selection.move(change)
-            self.selection.highlight()
+            if snapped:
+                self.selection.lowlight()
+            else:
+                self.selection.highlight()
 
             self.Render()
 
@@ -900,6 +909,7 @@ class Blockworld:
         self.cloud_ren.AddActor(self.raw_actor)
 
         self.raw_kdtree = cKDTree(self.raw_cloud.xyz)
+        self.raw_kdtree2d = cKDTree(self.raw_cloud.xyz[:, :-1])
 
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
