@@ -18,7 +18,6 @@ from ColorMap import heatColorMapFast
 from MapReproject import lidarPtsToPixels
 import math
 from collections import deque
-from pympler.asizeof import *
 
 
 def vtk_transform_from_np(np4x4):
@@ -125,20 +124,16 @@ class Undoer:
             undo = self.undo_queue.pop()
             self.redo_queue.append(undo)
             undo.performChange()
-            print self.getSize(), 'MB'
         except IndexError:
             print 'Undo queue empty!'
-            pass
 
     def redo(self):
         try:
             redo = self.redo_queue.pop()
             self.undo_queue.append(redo)
             redo.performChange(-1)
-            print self.getSize(), 'MB'
         except IndexError:
             print 'Redo queue empty!'
-            pass
 
     def addChange(self, change):
         try:
@@ -150,17 +145,10 @@ class Undoer:
             # Add the new change
             self.undo_queue.append(change)
         self.redo_queue.clear()
-        print self.getSize(), 'MB'
 
     def flush(self):
         self.redo_queue.clear()
         self.undo_queue.clear()
-
-    def getSize(self):
-        u = sum([asizeof(x) for x in self.undo_queue])
-        r = sum([asizeof(x) for x in self.redo_queue])
-        s = asizeof(self)
-        return (u + r + s) / 2. ** 20
 
 
 class Point:
