@@ -18,6 +18,7 @@ from ColorMap import heatColorMapFast
 from MapReproject import lidarPtsToPixels
 import math
 from collections import deque
+import time
 
 
 def vtk_transform_from_np(np4x4):
@@ -100,7 +101,8 @@ class InsertChange (DeleteChange):
 
 class Undoer:
 
-    def __init__(self):
+    def __init__(self, parent):
+        self.parent = parent
         num_edits = 1000
         self.undo_queue = deque(maxlen=num_edits)
         self.redo_queue = deque(maxlen=num_edits)
@@ -140,6 +142,7 @@ class Undoer:
             # Add the new change
             self.undo_queue.append(change)
         self.redo_queue.clear()
+        self.parent.KeyHandler(key='s')
 
     def flush(self):
         self.redo_queue.clear()
@@ -484,7 +487,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.picker.SetTolerance(0.005)
         self.iren.SetPicker(self.picker)
 
-        self.undoer = Undoer()
+        self.undoer = Undoer(self)
 
         self.moving = False
         self.selection = None
@@ -668,9 +671,21 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             key = self.iren.GetKeySym()
 
         if key == 'q':
+            self.KeyHandler(key='s')
             # Todo: confirm quit
             self.iren.TerminateApp()
             return
+
+        elif key == 's':
+            folder = sys.argv[1] + 'corrected_lanes/'
+            try:
+                os.mkdir(folder)
+            except OSError:
+                pass
+            file_name = str(int(time.time()) / 10) + '0.npz'
+            print 'Saved', file_name
+            file_name = folder + file_name
+            self.parent.exportData(file_name)
 
         if not self.moving:
             if key == 'Escape':
@@ -722,10 +737,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.selection.copy_ready = True
                         self.togglePick(lane=False)
 
-            elif key == 's':
-                file_name = 'out.npz'
-                print 'Saved', file_name
-                self.parent.exportData(file_name)
 
             elif key == 'f':
                 if self.mode == 'edit':
@@ -1070,8 +1081,6 @@ class Blockworld:
         lanes['num_lanes'] = self.num_lanes
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
-            offset = np.vstack((lane[1:, :], np.zeros((1, 3))))
-            lane = np.hstack((lane, offset))
             lanes['lane' + str(num)] = lane
 
         np.savez(file_name, **lanes)
