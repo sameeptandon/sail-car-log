@@ -737,7 +737,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.selection.copy_ready = True
                         self.togglePick(lane=False)
 
-
             elif key == 'f':
                 if self.mode == 'edit':
                     print 'Fixing up all lanes'
@@ -790,8 +789,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         txt = '(%d/%d) ' % (frame_num, tot_num)
         if mode == 'edit':
-            txt += ('Click to move lane | Move window [%d] | (i) - insert ' + \
-                   'mode | (d) - delete mode') % self.num_to_move
+            txt += ('Click to move lane | Move window [%d] | (i) - insert ' +
+                    'mode | (d) - delete mode') % self.num_to_move
         elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
             txt += 'Lane %s - All points' % mode
         elif mode == Selection.Delete:
