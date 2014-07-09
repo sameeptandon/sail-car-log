@@ -72,7 +72,7 @@ class BigChange (Change):
     def performChange(self, direction=1):
         for i in xrange(len(self.selection)):
             self.selection[i].move(direction * np.array(self.vector[i]))
-            if direction == 1:
+            if direction == -1:
                 self.selection[i].lowlight()
             else:
                 self.selection[i].highlight()
@@ -86,7 +86,7 @@ class DeleteChange (Change):
         super(DeleteChange, self).__init__(selection, None)
 
     def performChange(self, direction=1):
-        if direction == 1:
+        if direction == -1:
             self.selection.undelete(self.removed_points, self.lane)
         else:
             self.selection.delete()
@@ -118,7 +118,7 @@ class Undoer:
         try:
             undo = self.undo_queue.pop()
             self.redo_queue.append(undo)
-            undo.performChange()
+            undo.performChange(-1)
         except IndexError:
             print 'Undo queue empty!'
 
@@ -126,7 +126,7 @@ class Undoer:
         try:
             redo = self.redo_queue.pop()
             self.undo_queue.append(redo)
-            redo.performChange(-1)
+            redo.performChange()
         except IndexError:
             print 'Redo queue empty!'
 
@@ -600,7 +600,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
             end_pos = self.selection.getPosition()
-            vector = self.selection.point.start_pos - end_pos
+            vector = end_pos - self.selection.point.start_pos
 
             self.selection.lowlight()
             self.Render()
