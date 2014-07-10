@@ -598,7 +598,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                               self.selection.point.lane)
                         self.undoer.addChange(change)
 
-                        self.KeyHandler(key='Escape')
+                        if self.mode == Selection.Append:
+                            self.selection = Selection(self,
+                                                       self.selection.point.actor,
+                                                       self.selection.point.idx,
+                                                       Selection.Append)
+                        else:
+                            self.KeyHandler(key='Escape')
 
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
@@ -754,11 +760,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             elif key == 'z':
                 print 'Undo'
                 self.undoer.undo()
+                self.KeyHandler(key='Escape')
                 self.Render()
 
             elif key == 'y':
                 print 'Redo'
                 self.undoer.redo()
+                self.KeyHandler(key='Escape')
                 self.Render()
 
             elif key == 'r':
