@@ -291,7 +291,7 @@ class Selection:
         self.setColor(self.blockworld.num_colors)
 
     def lowlight(self):
-        self.setColor(self.point.lane)
+        self.setColor(self.point.lane % self.blockworld.num_colors)
 
     def setColor(self, color):
         self.point.color[[i for i in self.nextPoint()]] = color
