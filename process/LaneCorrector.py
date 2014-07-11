@@ -10,6 +10,7 @@ from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText, VtkImage
 import numpy as np
 from scipy.spatial import cKDTree
 from scipy.spatial.distance import cdist
+from scipy import ndimage
 import sys
 from transformations import euler_from_matrix
 import vtk
@@ -19,6 +20,7 @@ from MapReproject import lidarPtsToPixels
 import math
 from collections import deque
 import time
+import urllib
 
 
 def vtk_transform_from_np(np4x4):
@@ -36,7 +38,7 @@ def get_transforms(args):
     gps_reader = GPSReader(args['gps'])
     gps_data = gps_reader.getNumericData()
     imu_transforms = IMUTransforms(gps_data)
-    return imu_transforms
+    return imu_transforms, gps_data
 
 
 def load_ply(ply_file):
@@ -881,7 +883,7 @@ class Blockworld:
         self.count = 0
 
         ##### Grab all the transforms ######
-        self.imu_transforms = get_transforms(args)
+        self.imu_transforms, self.gps_data = get_transforms(args)
         self.cur_imu_transform = self.imu_transforms[0, :,:]
 
         self.trans_wrt_imu = self.imu_transforms[
@@ -891,6 +893,9 @@ class Blockworld:
         self.T_from_i_to_l = np.linalg.inv(self.lidar_params['T_from_l_to_i'])
         cam_num = args['cam_num']
         self.cam_params = self.params['cam'][cam_num - 1]
+
+        # Store the images
+        self.gmaps = {}
 
         # Whether to write video
         self.record = False
@@ -909,10 +914,16 @@ class Blockworld:
         # self.img_ren.SetInteractive(False)
         self.img_ren.SetBackground(0.1, 0.1, 0.1)
 
+        self.gmap_ren = vtk.vtkRenderer()
+        self.gmap_ren.SetViewport(0.75, 0.75, 1.0, 1.0)
+        # self.gmap_ren.SetInteractive(False)
+        self.gmap_ren.SetBackground(0.1, 0.1, 0.1)
+
         self.win = vtk.vtkRenderWindow()
         self.win.StereoCapableWindowOff()
         self.win.AddRenderer(self.cloud_ren)
         self.win.AddRenderer(self.img_ren)
+        self.win.AddRenderer(self.gmap_ren)
         self.win.SetSize(800, 400)
 
         self.iren = vtk.vtkRenderWindowInteractor()
@@ -1123,6 +1134,14 @@ class Blockworld:
         self.img_actor = vtkimg.get_vtk_image()
         self.img_ren.AddActor(self.img_actor)
 
+        if self.count % 10 == 0 or self.count == 0:
+            lat = self.gps_data[t, 1]
+            lon = self.gps_data[t, 2]
+            gmap = self.get_gmap(lat, lon)
+            gmap = ndimage.rotate(gmap, self.gps_data[t, 9] + 90)
+            gmap_vtk = VtkImage(gmap)
+            self.gmap_ren.AddActor(gmap_vtk.get_vtk_image())
+
         if self.running or self.manual_change:
             # Set camera position to in front of the car
             position, focal_point = self.getCameraPosition(t)
@@ -1146,6 +1165,10 @@ class Blockworld:
             # These units are pixels
             self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
             self.img_ren.GetActiveCamera().Dolly(1.75)
+
+            self.gmap_ren.ResetCamera()
+            self.gmap_ren.GetActiveCamera().SetClippingRange(100, 100000)
+            self.gmap_ren.GetActiveCamera().Dolly(1.75)
 
         # Update the little text in the bottom left
         self.interactor.updateModeText()
@@ -1186,6 +1209,21 @@ class Blockworld:
                         I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
 
         return I
+
+    def get_gmap(self, lat, lon):
+        latlon_str = '%f,%f' % (lat, lon)
+        if latlon_str in self.gmaps:
+            return self.gmaps[latlon_str]
+        else:
+            url = ('http://maps.googleapis.com/maps/api/staticmap' + \
+                   '?center=%s&zoom=19&size=400x400&maptype=satellite' +\
+                   '&key=AIzaSyDNypM9M7HEdctMR4_hMo3jTadOwr-LR4Q') % \
+                (latlon_str)
+            req = urllib.urlopen(url)
+            arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
+            img = cv2.imdecode(arr,-1)
+            self.gmaps[latlon_str] = img
+            return img
 
 if __name__ == '__main__':
     Blockworld()
