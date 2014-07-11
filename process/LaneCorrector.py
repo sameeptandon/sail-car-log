@@ -21,7 +21,7 @@ import math
 from collections import deque
 import time
 import urllib
-
+import multiprocessing
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -54,6 +54,29 @@ def load_ply(ply_file):
     actor.SetMapper(ply_mapper)
     return actor
 
+
+def load_gmaps(latlon):
+    latlon_str, dirname, fname = get_gmap_fname(latlon)
+    url = ('http://maps.googleapis.com/maps/api/staticmap' + \
+           '?center=%s&zoom=19&size=400x400&maptype=satellite' +\
+           '&key=AIzaSyDNypM9M7HEdctMR4_hMo3jTadOwr-LR4Q') % \
+        (latlon_str)
+    try:
+        os.mkdir(dirname)
+        print 'Downloading Google map files...'
+    except OSError:
+        pass
+
+    if not os.path.isfile(fname):
+        f = open(fname, 'w')
+        req = urllib.urlopen(url)
+        f.write(req.read())
+        
+def get_gmap_fname(latlon):
+    latlon_str = '%f,%f' % tuple(latlon)
+    dirname = sys.argv[1] + '/gmaps/' 
+    fname = dirname + latlon_str + '.jpg'
+    return latlon_str, dirname, fname
 
 class Change (object):
 
@@ -895,7 +918,9 @@ class Blockworld:
         self.cam_params = self.params['cam'][cam_num - 1]
 
         # Store the images
-        self.gmaps = {}
+        pool = multiprocessing.Pool(processes=50)
+        latlons = [tuple(row) for row in self.gps_data[:,1:3]][::10 * self.step]
+        pool.map(load_gmaps, latlons)
 
         # Whether to write video
         self.record = False
@@ -1135,12 +1160,13 @@ class Blockworld:
         self.img_ren.AddActor(self.img_actor)
 
         if self.count % 10 == 0 or self.count == 0:
-            lat = self.gps_data[t, 1]
-            lon = self.gps_data[t, 2]
-            gmap = self.get_gmap(lat, lon)
-            gmap = ndimage.rotate(gmap, self.gps_data[t, 9] + 90)
-            gmap_vtk = VtkImage(gmap)
-            self.gmap_ren.AddActor(gmap_vtk.get_vtk_image())
+            gmap = self.get_gmap(self.gps_data[t, 1:3])
+            if gmap != None:
+                gmap_vtk = VtkImage(gmap)
+                self.gmap_actor = gmap_vtk.get_vtk_image()
+                self.gmap_actor.RotateZ(self.gps_data[t, 9] + 90)
+                self.gmap_ren.RemoveActor(self.gmap_actor)
+                self.gmap_ren.AddActor(self.gmap_actor)
 
         if self.running or self.manual_change:
             # Set camera position to in front of the car
@@ -1210,20 +1236,13 @@ class Blockworld:
 
         return I
 
-    def get_gmap(self, lat, lon):
-        latlon_str = '%f,%f' % (lat, lon)
-        if latlon_str in self.gmaps:
-            return self.gmaps[latlon_str]
-        else:
-            url = ('http://maps.googleapis.com/maps/api/staticmap' + \
-                   '?center=%s&zoom=19&size=400x400&maptype=satellite' +\
-                   '&key=AIzaSyDNypM9M7HEdctMR4_hMo3jTadOwr-LR4Q') % \
-                (latlon_str)
-            req = urllib.urlopen(url)
-            arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
-            img = cv2.imdecode(arr,-1)
-            self.gmaps[latlon_str] = img
-            return img
+    def get_gmap(self, latlon):
+        fname = get_gmap_fname(latlon)[2]
+        if not os.path.isfile(fname):
+            return None
+        return cv2.imread(fname)
+
+
 
 if __name__ == '__main__':
     Blockworld()
