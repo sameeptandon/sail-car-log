@@ -10,6 +10,21 @@ import random
 from scipy.interpolate import UnivariateSpline
 import warnings
 
+"""
+returns an m x 3 array of shifted interpolated points
+"""
+def OffsetInterpolated(lidar, guessInterpolatedLane):
+    from scipy.spatial import cKDTree
+    #keep the first three coordinates
+    guessInterpolatedLane = guessInterpolatedLane[:, :3]
+    lidar = lidar[:,:3]
+    #setup kd tree, query the nearest interpolated point for each lidar point, and shift by median of the difference
+    kdi = cKDTree(guessInterpolatedLane)
+    indices = kdi.query(lidar, eps = 0)[1]
+    closestInterpolatedPoints = guessInterpolatedLane[indices, :] #indices[1] returns the in
+    offset = np.median(closestInterpolatedPoints - lidar, axis = 0)
+    shiftedInterpolated = guessInterpolatedLane - offset
+    return shiftedInterpolated
 
 class MultiLane:
 
@@ -198,5 +213,4 @@ if __name__ == '__main__':
                           '/Users/Phoenix/pranav/files/singlelanefiles/interpolated.pickle',
                           1, 2)
     multiLane.extrapolateLanes()
-    multiLane.saveLanes(
-        '/Users/Phoenix/pranav/files/multilanefiles/lanesInterpolated3.npy')
+    multiLane.saveLanes('/Users/Phoenix/pranav/files/multilanefiles/lanesInterpolated3.npy')
