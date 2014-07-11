@@ -9,12 +9,12 @@ from scipy.spatial import distance, KDTree
 import random
 from scipy.interpolate import UnivariateSpline
 import warnings
+from scipy.spatial import cKDTree
 
 """
 returns an m x 3 array of shifted interpolated points
 """
 def OffsetInterpolated(lidar, guessInterpolatedLane):
-    from scipy.spatial import cKDTree
     #keep the first three coordinates
     guessInterpolatedLane = guessInterpolatedLane[:, :3]
     lidar = lidar[:,:3]
