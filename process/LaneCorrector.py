@@ -102,12 +102,8 @@ class Change (object):
 class BigChange (Change):
 
     def performChange(self, direction=1):
-        for i in xrange(len(self.selection)):
-            self.selection[i].move(direction * np.array(self.vector[i]))
-            if direction == -1:
-                self.selection[i].lowlight()
-            else:
-                self.selection[i].highlight()
+        self.selection.point.pos += direction * self.vector
+        self.selection.lowlight()
 
 
 class DeleteChange (Change):
@@ -1085,14 +1081,14 @@ class Blockworld:
 
     def fixupLane(self, num):
         lane = self.lane_clouds[num].xyz
+        orig_lane = self.lane_clouds[num].xyz.copy()
+
         (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.25)
 
         mask = d < float('inf')
         close_lane = np.nonzero(mask)[0]
         close_raw = idx[mask]
 
-        vectors = []
-        selections = []
         for i in xrange(close_lane.shape[0]):
             vector = self.raw_cloud.xyz[close_raw[i]] - lane[close_lane[i]]
             sel = Selection(self.interactor, self.lane_actors[num],
@@ -1100,15 +1096,14 @@ class Blockworld:
             sel.move(vector)
             sel.highlight()
 
-            vectors.append(vector)
-            selections.append(sel)
-
         t = np.arange(0, lane.shape[0])
         zinter = UnivariateSpline(t, lane[:, 2], s=10)
         lane[:, 2] = zinter(t)
-        print '\tFixed lane %d changes: %d' % (num, len(vectors))
+        print '\tFixed lane %d changes: %d' % (num, close_lane.shape[0])
 
-        big_change = BigChange(selections, vectors)
+        selection = Selection(self.interactor, self.lane_actors[num], 0,
+                              Selection.All)
+        big_change = BigChange(selection, lane - orig_lane)
         self.interactor.undoer.addChange(big_change)
 
         self.interactor.Render()
