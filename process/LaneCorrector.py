@@ -921,6 +921,7 @@ class Blockworld:
         pool = multiprocessing.Pool(processes=50)
         latlons = [tuple(row) for row in self.gps_data[:,1:3]][::10 * self.step]
         pool.map(load_gmaps, latlons)
+        pool.terminate()
 
         # Whether to write video
         self.record = False
@@ -955,6 +956,8 @@ class Blockworld:
         self.iren.SetRenderWindow(self.win)
 
         ###### Cloud Actors ######
+        self.gmap_actor = None
+
         print 'Adding raw points'
         raw_npz = np.load(sys.argv[3])
         pts = raw_npz['data']
@@ -1159,14 +1162,13 @@ class Blockworld:
         self.img_actor = vtkimg.get_vtk_image()
         self.img_ren.AddActor(self.img_actor)
 
-        if self.count % 10 == 0 or self.count == 0:
-            gmap = self.get_gmap(self.gps_data[t, 1:3])
-            if gmap != None:
-                gmap_vtk = VtkImage(gmap)
-                self.gmap_actor = gmap_vtk.get_vtk_image()
-                self.gmap_actor.RotateZ(self.gps_data[t, 9] + 90)
-                self.gmap_ren.RemoveActor(self.gmap_actor)
-                self.gmap_ren.AddActor(self.gmap_actor)
+        gmap = self.get_gmap(self.gps_data[t, 1:3])
+        if gmap != None:
+            gmap_vtk = VtkImage(gmap)
+            self.gmap_ren.RemoveActor(self.gmap_actor)
+            self.gmap_actor = gmap_vtk.get_vtk_image()
+            self.gmap_actor.RotateZ(self.gps_data[t, 9] + 90)
+            self.gmap_ren.AddActor(self.gmap_actor)
 
         if self.running or self.manual_change:
             # Set camera position to in front of the car
