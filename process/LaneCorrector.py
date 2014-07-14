@@ -1103,6 +1103,9 @@ class Blockworld:
             vectors.append(vector)
             selections.append(sel)
 
+        t = np.arange(0, lane.shape[0])
+        zinter = UnivariateSpline(t, lane[:, 2], s=10)
+        lane[:, 2] = zinter(t)
         print '\tFixed lane %d changes: %d' % (num, len(vectors))
 
         big_change = BigChange(selections, vectors)
