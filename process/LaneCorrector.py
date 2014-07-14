@@ -2,26 +2,30 @@
 # -*- coding: utf-8 -*-
 # Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
 
-from ArgParser import parse_args
-from GPSReader import GPSReader
-from GPSTransforms import IMUTransforms
-from Q50_config import LoadParameters
-from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText, VtkImage
-import numpy as np
-from scipy.spatial import cKDTree
-from scipy.spatial.distance import cdist
-from scipy import ndimage
-import sys
-from transformations import euler_from_matrix
-import vtk
-from VideoReader import *
-from ColorMap import heatColorMapFast
-from MapReproject import lidarPtsToPixels
-import math
 from collections import deque
+import cv2
+import math
+import multiprocessing
+import os
+import sys
 import time
 import urllib
-import multiprocessing
+import vtk
+
+import numpy as np
+from scipy.interpolate import UnivariateSpline
+from scipy.spatial import cKDTree
+from scipy.spatial.distance import cdist
+from transformations import euler_from_matrix
+
+from ArgParser import parse_args
+from ColorMap import heatColorMapFast
+from GPSReader import GPSReader
+from GPSTransforms import IMUTransforms
+from MapReproject import lidarPtsToPixels
+from VideoReader import VideoReader
+from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText, VtkImage
+
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -57,8 +61,8 @@ def load_ply(ply_file):
 
 def load_gmaps(latlon):
     latlon_str, dirname, fname = get_gmap_fname(latlon)
-    url = ('http://maps.googleapis.com/maps/api/staticmap' + \
-           '?center=%s&zoom=19&size=400x400&maptype=satellite' +\
+    url = ('http://maps.googleapis.com/maps/api/staticmap' +
+           '?center=%s&zoom=19&size=400x400&maptype=satellite' +
            '&key=AIzaSyDNypM9M7HEdctMR4_hMo3jTadOwr-LR4Q') % \
         (latlon_str)
     try:
@@ -71,12 +75,14 @@ def load_gmaps(latlon):
         f = open(fname, 'w')
         req = urllib.urlopen(url)
         f.write(req.read())
-        
+
+
 def get_gmap_fname(latlon):
     latlon_str = '%f,%f' % tuple(latlon)
-    dirname = sys.argv[1] + '/gmaps/' 
+    dirname = sys.argv[1] + '/gmaps/'
     fname = dirname + latlon_str + '.jpg'
     return latlon_str, dirname, fname
+
 
 class Change (object):
 
@@ -919,7 +925,8 @@ class Blockworld:
 
         # Store the images
         pool = multiprocessing.Pool(processes=50)
-        latlons = [tuple(row) for row in self.gps_data[:,1:3]][::10 * self.step]
+        latlons = [tuple(row)
+                   for row in self.gps_data[:, 1:3]][::10 * self.step]
         pool.map(load_gmaps, latlons)
         pool.terminate()
 
@@ -1243,7 +1250,6 @@ class Blockworld:
         if not os.path.isfile(fname):
             return None
         return cv2.imread(fname)
-
 
 
 if __name__ == '__main__':
