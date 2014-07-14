@@ -62,9 +62,8 @@ class MapBuilder:
         self.all_t = []
 
         current_time = self.start_time
-        while current_time < self.end_time:
-
-            print (self.end_time - current_time) / 1e6
+        print (self.end_time - current_time) / 1e6
+        while current_time + self.scan_window < self.end_time:
             # load points w.r.t lidar at current time
             data, t_data = self.lidar_loader.loadLDRWindow(current_time,
                                                            self.scan_window)
@@ -78,13 +77,13 @@ class MapBuilder:
             if filters != None:
                 filter_mask = data[:, 3] > 30
                 if 'lanes' in filters:
-                    filter_mask &=  (data[:,1] < 3) & (data [:,1] > -30) &\
+                    filter_mask &=  (data[:,1] < 3) & (data [:,1] > -3) &\
                                     (data[:,2] < -1.9) & (data[:,2] > -2.1)
                 if 'forward' in filters:
                     filter_mask &= (data[:, 0] > 0)
                 if 'no-trees' in filters:
                     filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) &\
-                                   (data[:,2] < 0) & (data[:,2] > -5)
+                                   (data[:,2] < -1) & (data[:,2] > -3)
                 if 'flat' in filters:
                     data[:, 0] = 0
 
@@ -108,6 +107,8 @@ class MapBuilder:
 
             current_time += self.step_time * 1e6
 
+        print (self.end_time - current_time) / 1e6
+
 
 
     def exportData(self, file_name):
@@ -123,6 +124,6 @@ class MapBuilder:
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
-    mb = MapBuilder(args, 1, 30, 0.5, 0.1)
-    mb.buildMap()
+    mb = MapBuilder(args, 1, 600, 0.5, 0.1)
+    mb.buildMap(['no-trees'])
     mb.exportData(sys.argv[3])
