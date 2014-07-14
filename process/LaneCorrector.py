@@ -626,12 +626,16 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.undoer.addChange(change)
 
                         if self.mode == Selection.Append:
-                            # TODO: Choose point or end_point to extend from
-                            # This works for now as long as the old lane is
-                            # longer than the new lane
-                            self.selection = Selection(self,
-                                                       self.selection.point.actor,
-                                                       self.selection.point.idx,
+                            # Choose which point to start the new append from
+                            if self.selection.point.idx == 0:
+                                next_point = self.selection.point
+                            else:
+                                # If we extended off the end, make end_point
+                                # the starting point for a new segment
+                                next_point = self.selection.end_point
+
+                            self.selection = Selection(self, next_point.actor,
+                                                       next_point.idx,
                                                        Selection.Append)
                         else:
                             self.KeyHandler(key='Escape')
