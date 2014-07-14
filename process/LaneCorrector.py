@@ -979,6 +979,11 @@ class Blockworld:
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
         init_num_lanes = int(npz['num_lanes'])
+        if 'saved_count' in npz:
+            self.init_count = int(npz['saved_count'])
+        else:
+            self.init_count = 0
+
         self.num_lanes = 0
         self.num_colors = 10
 
@@ -1133,6 +1138,7 @@ class Blockworld:
     def exportData(self, file_name):
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
+        lanes['saved_count']= self.count
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
             lanes['lane' + str(num)] = lane
@@ -1140,49 +1146,48 @@ class Blockworld:
         np.savez(file_name, **lanes)
 
     def finished(self):
-        t = self.start + self.step * self.count
-        return t + 10 * self.step > self.video_reader.total_frame_count
+        return self.t + 10 * self.step > self.video_reader.total_frame_count
 
     def update(self, iren, event):
         # Transform the car
-        t = self.start + self.step * self.count
+        self.t = self.start + self.step * self.count
         cloud_cam = self.cloud_ren.GetActiveCamera()
 
         # If we have gone backwards in time we need use setframe (slow)
         if self.manual_change == -1:
-            self.video_reader.setFrame(t - 1)
+            self.video_reader.setFrame(self.t - 1)
 
         if self.finished():
             return
 
-        while self.video_reader.framenum <= t:
+        while self.video_reader.framenum <= self.t:
             (success, self.I) = self.video_reader.getNextFrame()
 
         # Copy the image so we can project points onto it
         I = self.I.copy()
-        I = self.projectPointsOnImg(I, t)
+        I = self.projectPointsOnImg(I)
         vtkimg = VtkImage(I)
 
         self.img_ren.RemoveActor(self.img_actor)
         self.img_actor = vtkimg.get_vtk_image()
         self.img_ren.AddActor(self.img_actor)
 
-        gmap = self.get_gmap(self.gps_data[t, 1:3])
+        gmap = self.get_gmap(self.gps_data[self.t, 1:3])
         if gmap != None:
             gmap_vtk = VtkImage(gmap)
             self.gmap_ren.RemoveActor(self.gmap_actor)
             self.gmap_actor = gmap_vtk.get_vtk_image()
-            self.gmap_actor.RotateZ(self.gps_data[t, 9] + 90)
+            self.gmap_actor.RotateZ(self.gps_data[self.t, 9] + 90)
             self.gmap_ren.AddActor(self.gmap_actor)
 
         if self.running or self.manual_change:
             # Set camera position to in front of the car
-            position, focal_point = self.getCameraPosition(t)
+            position, focal_point = self.getCameraPosition(self.t)
             cloud_cam.SetPosition(position)
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            self.cur_imu_transform = self.imu_transforms[t, :,:]
+            self.cur_imu_transform = self.imu_transforms[self.t, :,:]
             transform = vtk_transform_from_np(self.cur_imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
@@ -1203,19 +1208,21 @@ class Blockworld:
             self.gmap_ren.GetActiveCamera().SetClippingRange(100, 100000)
             self.gmap_ren.GetActiveCamera().Dolly(1.75)
 
+            self.count = self.init_count
+
         # Update the little text in the bottom left
         self.interactor.updateModeText()
 
         if self.record:
             self.interactor.writeVideo()
 
-        if self.running or self.count == 0:
+        if self.running or self.count == self.init_count:
             self.count += 1
 
         iren.GetRenderWindow().Render()
 
-    def projectPointsOnImg(self, I, t):
-        car_pos = self.imu_transforms[t, 0:3, 3]
+    def projectPointsOnImg(self, I):
+        car_pos = self.imu_transforms[self.t, 0:3, 3]
 
         # Project the points onto the image
         for num in xrange(self.num_lanes):
@@ -1230,8 +1237,10 @@ class Blockworld:
                 lane = self.lane_clouds[num].xyz[nearby_idx, :3]
 
                 if lane.shape[0] > 0:
-                    pix, mask = lidarPtsToPixels(lane, self.imu_transforms[t, :,:],
-                                                 self.T_from_i_to_l, self.cam_params)
+                    xform = self.imu_transforms[self.t, :, :]
+                    pix, mask = lidarPtsToPixels(lane, xform,
+                                                 self.T_from_i_to_l,
+                                                 self.cam_params)
                     intensity = np.ones((pix.shape[0], 1)) * num
                     heat_colors = heatColorMapFast(
                         intensity, 0, self.num_colors)
