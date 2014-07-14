@@ -1101,9 +1101,15 @@ class Blockworld:
             sel.move(vector)
             sel.highlight()
 
-        t = np.arange(0, lane.shape[0])
-        zinter = UnivariateSpline(t, lane[:, 2], s=10)
-        lane[:, 2] = zinter(t)
+        if lane.shape[0] > 30:
+            t = np.arange(0, lane.shape[0])
+            xinter = UnivariateSpline(t, lane[:, 0], s=10)
+            yinter = UnivariateSpline(t, lane[:, 1], s=10)
+            zinter = UnivariateSpline(t, lane[:, 2], s=10)
+            lane[:, 0] = xinter(t)
+            lane[:, 1] = yinter(t)
+            lane[:, 2] = zinter(t)
+
         print '\tFixed lane %d changes: %d' % (num, close_lane.shape[0])
 
         selection = Selection(self.interactor, self.lane_actors[num], 0,
