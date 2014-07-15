@@ -253,6 +253,7 @@ class Selection:
             self.end_point = Point(actor, end_idx, self.blockworld)
 
         elif self.mode == Selection.All:
+            self.point = Point(actor, 0, self.blockworld)
             self.end_point = Point(actor, self.point.pos.shape[0] - 1,
                                    self.blockworld)
 
@@ -278,9 +279,10 @@ class Selection:
             raise RuntimeError('Bad selection mode: ' + self.mode)
 
         # Make sure the start point always comes before the end point
-        if self.mode in [Selection.Symmetric, Selection.Delete, Selection.Copy]:
-            # Symmetric, Delete, and Copy selections can use point idx because
-            # all points are on the same actor
+        if self.mode in [Selection.Symmetric, Selection.Delete, Selection.Copy,
+                         Selection.All]:
+            # Symmetric, Delete, and Copy, All selections can use point idx
+            # because all points are on the same actor
             if self.end_point.idx < self.point.idx:
                 self.end_point, self.point = self.point, self.end_point
         else:
@@ -521,6 +523,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         self.num_to_move = 50
 
+        self.highlighted_lanes = []
+
         self.SetMotionFactor(10.0)
 
         self.AutoAdjustCameraClippingRangeOff()
@@ -687,8 +691,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             self.Render()
 
     def lowlightAll(self):
-        for i in xrange(self.parent.num_lanes):
+        for i in self.highlighted_lanes:
             self.lowlightLane(i)
+        self.highlighted_lanes = []
 
     def lowlightLane(self, num):
         actor = self.parent.lane_actors[num]
@@ -700,6 +705,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.parent.raw_actor.SetPickable(not lane)
         for l in self.parent.lane_actors:
             l.SetPickable(lane)
+
+    def listLaneModes(self):
+        return [str(i) for i in xrange(self.parent.num_lanes)]
 
     def KeyHandler(self, obj=None, event=None, key=None):
         # Symbol names are declared in
@@ -743,15 +751,29 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.num_to_move = max(self.num_to_move - 1, 1)
                 self.mode = 'edit'
 
-            elif key in [str(i) for i in xrange(self.parent.num_lanes)]:
+            elif key in self.listLaneModes():
                 self.lowlightAll()
-                lane = Selection(self, self.parent.lane_actors[int(key)], 0,
-                                 Selection.All)
+                if self.mode + key in self.listLaneModes():
+                    self.mode += key
+                else:
+                    self.mode = key
+                actor = self.parent.lane_actors[int(self.mode)]
+                lane = Selection(self, actor, 0, Selection.All)
+                self.highlighted_lanes.append(int(self.mode))
                 lane.highlight()
-                self.mode = key
 
             elif key == 'd':
-                if self.mode != Selection.Delete:
+                if self.mode in self.listLaneModes():
+                    self.lowlightAll()
+                    lane_selection = Selection(self,
+                                     self.parent.lane_actors[int(self.mode)],
+                                     0, Selection.All)
+                    lane_selection.highlight()
+                    del_section, lane_num = lane_selection.delete()
+                    change = DeleteChange(lane_selection, del_section, lane_num)
+                    self.undoer.addChange(change)
+                    self.KeyHandler(key='Escape')
+                elif self.mode != Selection.Delete:
                     self.mode = Selection.Delete
                 elif self.selection != None and self.selection.isSelected():
                     del_selection, lane = self.selection.delete()
@@ -780,8 +802,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if self.mode == 'edit':
                     print 'Fixing up all lanes'
                     self.parent.fixupLanes()
-                elif self.mode in [str(i) for i in
-                                   xrange(self.parent.num_lanes)]:
+                elif self.mode in self.listLaneModes():
                     print 'Fixing up lane', self.mode
                     self.parent.fixupLane(int(self.mode))
                 print 'Fixup finished'
@@ -832,7 +853,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         if mode == 'edit':
             txt += ('Click to move lane | Move window [%d] | (i) - insert ' +
                     'mode | (d) - delete mode') % self.num_to_move
-        elif mode in [str(i) for i in xrange(self.parent.num_lanes)]:
+        elif mode in self.listLaneModes():
             txt += 'Lane %s - All points' % mode
         elif mode == Selection.Delete:
             if self.selection == None:
@@ -1072,13 +1093,10 @@ class Blockworld:
 
     def removeLane(self, lane):
         actor = self.lane_actors[lane]
-        cloud = self.lane_clouds[lane]
-        tree = self.lane_kdtrees[lane]
-
-        self.lane_clouds.remove(cloud)
         self.cloud_ren.RemoveActor(actor)
-        self.lane_actors.remove(actor)
-        self.lane_kdtrees.remove(tree)
+        del self.lane_actors[lane]
+        del self.lane_clouds[lane]
+        del self.lane_kdtrees[lane]
         self.num_lanes -= 1
 
     def fixupLanes(self):
@@ -1102,7 +1120,6 @@ class Blockworld:
             sel = Selection(self.interactor, self.lane_actors[num],
                             close_lane[i], end_idx=close_lane[i] + 50)
             sel.move(vector)
-            sel.highlight()
 
         if lane.shape[0] > 30:
             t = np.arange(0, lane.shape[0])
