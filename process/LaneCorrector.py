@@ -1186,7 +1186,8 @@ class Blockworld:
             gmap_vtk = VtkImage(gmap)
             self.gmap_ren.RemoveActor(self.gmap_actor)
             self.gmap_actor = gmap_vtk.get_vtk_image()
-            # TODO: gmap_actor.SetOrigin()
+            center = (200, 200, 0)
+            self.gmap_actor.SetOrigin(center)
             self.gmap_actor.RotateZ(self.gps_data[self.t, 9] + 90)
             self.gmap_ren.AddActor(self.gmap_actor)
 
