@@ -3,20 +3,18 @@
 # Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
 
 from collections import deque
-import cv2
 import math
 import multiprocessing
 import os
 import sys
 import time
 import urllib
-import vtk
 
+import cv2
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 from scipy.spatial import cKDTree
-from scipy.spatial.distance import cdist
-from transformations import euler_from_matrix
+import vtk
 
 from ArgParser import parse_args
 from ColorMap import heatColorMapFast
@@ -712,7 +710,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         if key == 'q':
             self.KeyHandler(key='s')
-            # Todo: confirm quit
+            # TODO: confirm quit
             self.iren.TerminateApp()
             return
 
@@ -734,6 +732,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.selection = None
                 self.lowlightAll()
 
+            #TODO: Change the size of lane points when shift is down too
             if key == 'bracketright':
                 # Increase the number of points selected
                 self.num_to_move += 1
@@ -1107,9 +1106,9 @@ class Blockworld:
 
         if lane.shape[0] > 30:
             t = np.arange(0, lane.shape[0])
-            xinter = UnivariateSpline(t, lane[:, 0], s=10)
-            yinter = UnivariateSpline(t, lane[:, 1], s=10)
-            zinter = UnivariateSpline(t, lane[:, 2], s=10)
+            xinter = UnivariateSpline(t, lane[:, 0], s=3)
+            yinter = UnivariateSpline(t, lane[:, 1], s=3)
+            zinter = UnivariateSpline(t, lane[:, 2], s=3)
             lane[:, 0] = xinter(t)
             lane[:, 1] = yinter(t)
             lane[:, 2] = zinter(t)
@@ -1187,6 +1186,7 @@ class Blockworld:
             gmap_vtk = VtkImage(gmap)
             self.gmap_ren.RemoveActor(self.gmap_actor)
             self.gmap_actor = gmap_vtk.get_vtk_image()
+            # TODO: gmap_actor.SetOrigin()
             self.gmap_actor.RotateZ(self.gps_data[self.t, 9] + 90)
             self.gmap_ren.AddActor(self.gmap_actor)
 
