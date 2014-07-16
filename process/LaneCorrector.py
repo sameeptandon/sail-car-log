@@ -22,7 +22,7 @@ from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
 from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
-from VtkRenderer import VtkPointCloud, VtkBoundingBox, VtkText, VtkImage
+from VtkRenderer import VtkPointCloud, VtkText, VtkImage
 
 
 def vtk_transform_from_np(np4x4):
@@ -1019,8 +1019,6 @@ class Blockworld:
             interp_lane = npz['lane' + str(i)]
             self.addLane(interp_lane)
 
-        # self.calculateZError(pts)
-
         print 'Adding car'
         self.car = load_ply('../mapping/viz/gtr.ply')
         self.car.SetPickable(0)
@@ -1105,10 +1103,17 @@ class Blockworld:
             self.fixupLane(l)
         self.interactor.Render()
 
+    def calculateError(self, lane_num):
+        # Calculates median z-error of interpolated lanes to points
+        lane = self.lane_clouds[lane_num].xyz
+        d, _ = self.raw_kdtree.query(lane)
+        return np.median(d)
+
     def fixupLane(self, num):
         lane = self.lane_clouds[num].xyz
         orig_lane = self.lane_clouds[num].xyz.copy()
 
+        err_start = self.calculateError(num)
         (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.25)
 
         mask = d < float('inf')
@@ -1130,7 +1135,10 @@ class Blockworld:
             lane[:, 1] = yinter(t)
             lane[:, 2] = zinter(t)
 
-        print '\tFixed lane %d changes: %d' % (num, close_lane.shape[0])
+        err_end = self.calculateError(num)
+        print '\tFixed lane %d changes: %d Error: %f -> %f' % \
+            (num, close_lane.shape[0], err_start, err_end)
+
 
         selection = Selection(self.interactor, self.lane_actors[num], 0,
                               Selection.All)
@@ -1138,18 +1146,6 @@ class Blockworld:
         self.interactor.undoer.addChange(big_change)
 
         self.interactor.Render()
-
-    def calculateZError(self, pts):
-        # Calculates median z-error of interpolated lanes to points
-        tree = cKDTree(pts[:, :3])
-        for num in xrange(self.num_lanes):
-            lane = self.lane_clouds[num].xyz[:4910, :]
-            z_dist = []
-            for p in lane:
-                (d, i) = tree.query(p)
-                z_dist.append(abs(p[2] - pts[i, 2]))
-            z_dist = np.array(z_dist)
-            print 'Median Error in Lane %d: %f' % (num, np.median(z_dist))
 
     def getCameraPosition(self, t, focus=10):
         offset = np.array([-75.0, 0, 25.0]) / 4
