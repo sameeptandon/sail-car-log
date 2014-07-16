@@ -740,15 +740,27 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.selection = None
                 self.lowlightAll()
 
-            #TODO: Change the size of lane points when shift is down too
-            if key == 'bracketright':
-                # Increase the number of points selected
-                self.num_to_move += 1
+            elif key == 'bracketright':
+                for actor in self.parent.lane_actors:
+                    size = actor.GetProperty().GetPointSize() + 0.5
+                    actor.GetProperty().SetPointSize(size)
+                self.mode = 'edit'
+            elif key == 'bracketleft':
+                for actor in self.parent.lane_actors:
+                    size = max(actor.GetProperty().GetPointSize() - 0.5, 1)
+                    actor.GetProperty().SetPointSize(size)
                 self.mode = 'edit'
 
-            elif key == 'bracketleft':
+            elif key == 'braceright':
+                op = min(self.parent.raw_actor.GetProperty().GetOpacity() +
+                         0.05, 1)
+                self.parent.raw_actor.GetProperty().SetOpacity(op)
+                self.mode = 'edit'
+            elif key == 'braceleft':
                 # Decrease the number of points selected
-                self.num_to_move = max(self.num_to_move - 1, 1)
+                op = max(self.parent.raw_actor.GetProperty().GetOpacity() -
+                         0.05, 0.05)
+                self.parent.raw_actor.GetProperty().SetOpacity(op)
                 self.mode = 'edit'
 
             elif key in self.listLaneModes():
@@ -930,6 +942,7 @@ class Blockworld:
         self.step = 10
         self.end = self.step * 500
         self.count = 0
+        self.startup_complete = False
 
         ##### Grab all the transforms ######
         self.imu_transforms, self.gps_data = get_transforms(args)
@@ -1221,7 +1234,7 @@ class Blockworld:
             self.manual_change = 0
 
         # Initialization
-        if self.count == 0:
+        if not self.startup_complete:
             cloud_cam.SetViewUp(0, 0, 1)
             self.img_ren.ResetCamera()
             # These units are pixels
@@ -1234,13 +1247,15 @@ class Blockworld:
 
             self.count = self.init_count
 
+            self.startup_complete = True
+
         # Update the little text in the bottom left
         self.interactor.updateModeText()
 
         if self.record:
             self.interactor.writeVideo()
 
-        if self.running or self.count == self.init_count:
+        if self.running:
             self.count += 1
 
         iren.GetRenderWindow().Render()
