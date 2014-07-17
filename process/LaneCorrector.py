@@ -743,7 +743,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             if key == 'Escape':
                 self.togglePick(lane=True)
                 self.mode = 'edit'
-                self.selection = None
+                if self.selection != None:
+                    self.selection.lowlight()
+                    self.selection = None
                 self.lowlightAll()
 
             elif key == 'bracketright':
