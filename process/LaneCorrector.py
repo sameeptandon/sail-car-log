@@ -1202,7 +1202,7 @@ class Blockworld:
         cloud_cam = self.cloud_ren.GetActiveCamera()
 
         # If we have gone backwards in time we need use setframe (slow)
-        if self.manual_change == -1 or not self.startup_complete:
+        if self.manual_change == -1:
             self.video_reader.setFrame(self.t - 1)
 
         if self.finished():
@@ -1261,6 +1261,7 @@ class Blockworld:
             self.count = self.init_count
 
             self.startup_complete = True
+            self.manual_change = -1
 
         # Update the little text in the bottom left
         self.interactor.updateModeText()
