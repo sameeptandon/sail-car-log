@@ -3,6 +3,7 @@
 # Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
 
 from collections import deque
+from colorsys import hsv_to_rgb
 import math
 import multiprocessing
 import os
@@ -17,7 +18,6 @@ from scipy.spatial import cKDTree
 import vtk
 
 from ArgParser import parse_args
-from ColorMap import heatColorMapFast
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
 from MapReproject import lidarPtsToPixels
@@ -321,7 +321,8 @@ class Selection:
         self.setColor(self.point.lane % self.blockworld.num_colors)
 
     def setColor(self, color):
-        self.point.color[[i for i in self.nextPoint()]] = color
+        points = [i for i in self.nextPoint()]
+        self.point.color[points] = self.blockworld.colors[color]
         self.point.data.Modified()
 
     def move(self, vector):
@@ -1028,6 +1029,12 @@ class Blockworld:
 
         self.num_lanes = 0
         self.num_colors = 10
+        self.colors = [hsv_to_rgb(float(i)/self.num_colors, 1., 1.) for i
+                       in xrange(self.num_colors)]
+        # The last color is for highlighting
+        self.colors.append([.7,.7,.7])
+        self.colors = 255 * np.array(self.colors)
+
         self.lane_size = 3
 
         self.lane_clouds = []
@@ -1082,9 +1089,9 @@ class Blockworld:
             lane_num = lane
             old_actor = self.lane_actors[lane]
 
-        cloud = VtkPointCloud(data[:, :3], np.ones((num_pts)) *
-                              (lane_num % self.num_colors))
-        actor = cloud.get_vtk_cloud(zMin=0, zMax=self.num_colors)
+        cloud = VtkPointCloud(data[:, :3], np.ones((num_pts, 3)) *
+                              (self.colors[lane_num % self.num_colors]))
+        actor = cloud.get_vtk_color_cloud()
 
         actor.GetProperty().SetPointSize(self.lane_size)
 
@@ -1280,20 +1287,18 @@ class Blockworld:
 
             if nearby_idx.shape[0] > 0:
                 lane = self.lane_clouds[num].xyz[nearby_idx, :3]
-
+                # Reverse the color (RGB->BGR)
+                color = self.lane_clouds[num].intensity[0, :][::-1]
                 if lane.shape[0] > 0:
                     xform = self.imu_transforms[self.t, :, :]
                     pix, mask = lidarPtsToPixels(lane, xform,
                                                  self.T_from_i_to_l,
                                                  self.cam_params)
-                    intensity = np.ones((pix.shape[0], 1)) * num
-                    heat_colors = heatColorMapFast(
-                        intensity, 0, self.num_colors)
                     for p in range(4):
-                        I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
-                        I[pix[1, mask]-p, pix[0, mask], :] = heat_colors[0,:,:]
-                        I[pix[1, mask], pix[0, mask]-p, :] = heat_colors[0,:,:]
+                        I[pix[1, mask]+p, pix[0, mask], :] = color
+                        I[pix[1, mask], pix[0, mask]+p, :] = color
+                        I[pix[1, mask]-p, pix[0, mask], :] = color
+                        I[pix[1, mask], pix[0, mask]-p, :] = color
 
         return I
 
