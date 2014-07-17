@@ -618,6 +618,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.selection = Selection(self, self.selection.point.actor,
                                                    self.selection.point.idx, self.mode,
                                                    idx, join_lane_actor)
+                        self.selection.lowlight()
                         if self.mode in [Selection.Append, Selection.Fork]:
                             pts = self.selection.append()
                         elif self.mode == Selection.Join:
@@ -627,14 +628,18 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                               self.selection.point.lane)
                         self.undoer.addChange(change)
 
-                        if self.mode == Selection.Append:
-                            # Choose which point to start the new append from
-                            if self.selection.point.idx == 0:
-                                next_point = self.selection.point
-                            else:
-                                # If we extended off the end, make end_point
-                                # the starting point for a new segment
+                        if self.mode in [Selection.Append, Selection.Fork]:
+                            if self.mode == Selection.Fork:
+                                self.mode = Selection.Append
                                 next_point = self.selection.end_point
+                            else:
+                                # Choose which point to start the new append from
+                                if self.selection.point.idx == 0:
+                                    next_point = self.selection.point
+                                else:
+                                    # If we extended off the end, make end_point
+                                    # the starting point for a new segment
+                                    next_point = self.selection.end_point
 
                             self.selection = Selection(self, next_point.actor,
                                                        next_point.idx,
