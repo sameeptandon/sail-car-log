@@ -741,14 +741,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.lowlightAll()
 
             elif key == 'bracketright':
+                self.parent.lane_size = self.parent.lane_size + 0.5
                 for actor in self.parent.lane_actors:
-                    size = actor.GetProperty().GetPointSize() + 0.5
-                    actor.GetProperty().SetPointSize(size)
+                    actor.GetProperty().SetPointSize(self.parent.lane_size)
                 self.mode = 'edit'
             elif key == 'bracketleft':
+                self.parent.lane_size = max(self.parent.lane_size - 0.5, 1)
                 for actor in self.parent.lane_actors:
-                    size = max(actor.GetProperty().GetPointSize() - 0.5, 1)
-                    actor.GetProperty().SetPointSize(size)
+                    actor.GetProperty().SetPointSize(self.parent.lane_size)
                 self.mode = 'edit'
 
             elif key == 'braceright':
@@ -1023,6 +1023,7 @@ class Blockworld:
 
         self.num_lanes = 0
         self.num_colors = 10
+        self.lane_size = 3
 
         self.lane_clouds = []
         self.lane_actors = []
@@ -1080,7 +1081,7 @@ class Blockworld:
                               (lane_num % self.num_colors))
         actor = cloud.get_vtk_cloud(zMin=0, zMax=self.num_colors)
 
-        actor.GetProperty().SetPointSize(3)
+        actor.GetProperty().SetPointSize(self.lane_size)
 
         self.cloud_ren.RemoveActor(old_actor)
         self.cloud_ren.AddActor(actor)
