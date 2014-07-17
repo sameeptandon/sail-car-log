@@ -597,11 +597,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 # If we are in copy mode and we have selected a lane point
                 if self.mode == Selection.Copy and self.selection.copy_ready \
                    and actor == self.parent.raw_actor:
+                    self.selection.lowlight()
                     pts = self.selection.copy(idx)
                     change = InsertChange(self.selection, pts,
                                           self.selection.point.lane)
                     self.undoer.addChange(change)
-                    self.selection.lowlight()
                     self.KeyHandler(key='Escape')
 
             elif self.mode in [Selection.Append, Selection.Fork, Selection.Join]:
