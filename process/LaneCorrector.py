@@ -630,7 +630,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 else:
                     # Actors must be different for append, fork, and join
                     if actor != self.selection.point.actor:
-                        join_lane_actor = actor if self.mode == Selection.Join else None
+                        join_lane_actor = actor if self.mode == Selection.Join \
+                                          else None
 
                         self.selection = Selection(self, self.selection.point.actor,
                                                    self.selection.point.idx, self.mode,
@@ -650,7 +651,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                 self.mode = Selection.Append
                                 next_point = self.selection.end_point
                             else:
-                                # Choose which point to start the new append from
+                                # Choose which point to start the new append
+                                # from
                                 if self.selection.point.idx == 0:
                                     next_point = self.selection.point
                                 else:
@@ -677,7 +679,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.selection = Selection(self, self.selection.point.actor,
                                                self.selection.point.idx,
                                                Selection.Append)
-
 
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
@@ -816,12 +817,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             elif key == 'd':
                 if self.mode in self.listLaneModes():
                     self.lowlightAll()
-                    lane_selection = Selection(self,
-                                     self.parent.lane_actors[int(self.mode)],
-                                     0, Selection.All)
+                    actor = self.parent.lane_actors[int(self.mode)]
+                    lane_selection = Selection(self, actor, 0, Selection.All)
                     lane_selection.highlight()
                     del_section, lane_num = lane_selection.delete()
-                    change = DeleteChange(lane_selection, del_section, lane_num)
+                    change = DeleteChange(lane_selection, del_section,
+                                          lane_num)
                     self.undoer.addChange(change)
                     self.KeyHandler(key='Escape')
                 elif self.mode != Selection.Delete:
@@ -1069,10 +1070,10 @@ class Blockworld:
 
         self.num_lanes = 0
         self.num_colors = 10
-        self.colors = [hsv_to_rgb(float(i)/self.num_colors, 1., 1.) for i
+        self.colors = [hsv_to_rgb(float(i) / self.num_colors, 1., 1.) for i
                        in xrange(self.num_colors)]
         # The last color is for highlighting
-        self.colors.append([.7,.7,.7])
+        self.colors.append([.7, .7, .7])
         self.colors = 255 * np.array(self.colors)
 
         self.lane_size = 3
@@ -1205,7 +1206,6 @@ class Blockworld:
         print '\tFixed lane %d changes: %d Error: %f -> %f' % \
             (num, close_lane.shape[0], err_start, err_end)
 
-
         selection = Selection(self.interactor, self.lane_actors[num], 0,
                               Selection.All)
         big_change = BigChange(selection, lane - orig_lane)
@@ -1226,7 +1226,7 @@ class Blockworld:
     def exportData(self, file_name):
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
-        lanes['saved_count']= self.count
+        lanes['saved_count'] = self.count
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
             lanes['lane' + str(num)] = lane
@@ -1331,7 +1331,7 @@ class Blockworld:
                 # Reverse the color (RGB->BGR)
                 color = self.lane_clouds[num].intensity[0, :][::-1]
                 if lane.shape[0] > 0:
-                    xform = self.imu_transforms[self.t, :, :]
+                    xform = self.imu_transforms[self.t, :,:]
                     pix, mask = lidarPtsToPixels(lane, xform,
                                                  self.T_from_i_to_l,
                                                  self.cam_params)
