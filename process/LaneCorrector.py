@@ -89,7 +89,8 @@ class Change (object):
         self.vector = vector
 
     def __str__(self):
-        return '(%d, %d) %s' % (self.selection.lane, self.selection.idx,
+        return '(%d, %d) %s' % (self.selection.point.lane,
+                                self.selection.point.idx,
                                 self.vector)
 
     def performChange(self, direction=1):
@@ -116,6 +117,9 @@ class DeleteChange (Change):
             self.selection.undelete(self.removed_points, self.lane)
         else:
             self.selection.delete()
+
+    def __str__(self):
+        return '(%d) %s...' % (self.lane, self.removed_points[0, :])
 
 
 class InsertChange (DeleteChange):
@@ -232,6 +236,7 @@ class Selection:
     Fork = 'fork'
     Copy = 'copy'
     Join = 'join'
+    New = 'new'
 
     def __init__(self, parent, actor, idx, mode=Symmetric, end_idx=-1,
                  join_lane_actor=None):
@@ -275,10 +280,13 @@ class Selection:
                                        self.blockworld)
                 self.end_point.selectExtreme()
 
+        elif self.mode == Selection.New:
+            self.point = Point(actor, 0, self.blockworld)
+            self.end_point = Point(actor, 0, self.blockworld)
         else:
             raise RuntimeError('Bad selection mode: ' + self.mode)
 
-        # Make sure the start point always comes before the end point
+        # Make Sure the start point always comes before the end point
         if self.mode in [Selection.Symmetric, Selection.Delete, Selection.Copy,
                          Selection.All]:
             # Symmetric, Delete, and Copy, All selections can use point idx
@@ -291,6 +299,14 @@ class Selection:
                 # Make sure the end point is not the raw points
                 if self.end_point.actor != self.blockworld.raw_actor:
                     self.end_point, self.point = self.point, self.end_point
+
+    @staticmethod
+    def fromGround(parent, ground_idx):
+        blockworld = parent.parent
+        ground_pos = blockworld.raw_cloud.xyz[ground_idx, :]
+        ground_pos = np.array([ground_pos])
+        lane = blockworld.addLane(ground_pos)
+        return Selection(parent, lane, 0, Selection.New)
 
     def isSelected(self):
         if self.mode == Selection.Symmetric:
@@ -648,6 +664,21 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         else:
                             self.KeyHandler(key='Escape')
 
+            elif self.mode == Selection.New:
+                if actor == self.parent.raw_actor:
+                    self.selection = Selection.fromGround(self, idx)
+
+                    pt = np.array([self.selection.point.pos[0, :]])
+                    change = InsertChange(self.selection, pt,
+                                          self.selection.point.lane)
+                    self.undoer.addChange(change)
+
+                    self.mode = Selection.Append
+                    self.selection = Selection(self, self.selection.point.actor,
+                                               self.selection.point.idx,
+                                               Selection.Append)
+
+
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
             end_pos = self.selection.getPosition()
@@ -812,6 +843,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.mode = Selection.Join
                 elif key == 'c':
                     self.mode = Selection.Copy
+                elif key == 'n':
+                    self.mode = Selection.New
+                    self.togglePick(lane=False)
             elif self.mode == Selection.Copy:
                 if key == 'c':
                     if self.selection:
@@ -884,7 +918,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 txt += '(d) - delete selected segment | click - ' + \
                        'change segment | (esc) - start over'
         elif mode == 'insert':
-            txt += '(a) - append | (f) - fork | (c) - copy | (j) - join'
+            txt += '(a) - append | (f) - fork | (c) - copy | (j) - join | ' + \
+                   '(n) - new point'
         elif mode == Selection.Append:
             if self.selection == None:
                 txt += 'Appending (1/2). Select a lane. Append will add ' + \
@@ -910,7 +945,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 txt += 'Copy (2/3). (c)- confirm selection | click - ' + \
                        'change segment | (esc) - start over'
             else:
-                txt += 'Copy (3/3). Select ground point to begin copy'
+                txt += 'Copy (3/3). Select a ground point to begin copy'
+        elif mode == Selection.New:
+            if self.selection == None:
+                txt += 'New Point (1/1). Select a ground point to create a new lane'
         else:
             txt += 'All Lanes - %d' % self.num_to_move
 
