@@ -256,6 +256,7 @@ class Selection:
         # Change this value to allow the copy to run
         self.copy_ready = False
         self.copying = False
+        self.deleted = False
 
         if self.mode == Selection.Symmetric:
             assert end_idx != -1
@@ -403,6 +404,7 @@ class Selection:
             self.point = Point(old_lane_actor, start, self.blockworld)
             self.end_point = Point(new_lane_actor, 0, self.blockworld)
 
+        self.deleted = True
         return del_segment, lane
 
     def undelete(self, points, lane):
@@ -448,6 +450,8 @@ class Selection:
             self.end_point = Point(undeleted_lane,
                                    self.point.idx + len(points) - 1,
                                    self.blockworld)
+
+        self.deleted = False
 
     def append(self):
         if self.isSelected() and self.mode in [Selection.Append,
@@ -799,7 +803,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if self.selection != None:
                     if self.selection.copying:
                         return
-                    self.selection.lowlight()
+                    if not self.selection.deleted:
+                        self.selection.lowlight()
                     self.selection = None
                 self.togglePick(lane=True)
                 self.mode = 'edit'
@@ -1236,7 +1241,8 @@ class Blockworld:
             sel.move(vector)
 
         # Ignore the 0th point, it is generally not correct
-        # Run a low pass filter across the point (10 Hz) -- magic number
+        # Run a low pass filter across the point (0.1 Hz cutoff) -- magic
+        # number
         b, a = butter(4, .1, 'low')
         lane[1:, 2] = filtfilt(b, a, lane[1:, 2], padtype='constant')
 
