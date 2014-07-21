@@ -17,7 +17,6 @@ import numpy as np
 from scipy.interpolate import UnivariateSpline
 from scipy.spatial import cKDTree
 from scipy.signal import butter, filtfilt
-from sklearn.cluster import DBSCAN
 import vtk
 
 from ArgParser import parse_args
@@ -1017,8 +1016,7 @@ class Blockworld:
         args = parse_args(sys.argv[1], sys.argv[2])
 
         self.start = 0
-        self.step = 10
-        self.end = self.step * 500
+        self.step = 20
         self.count = 0
         self.startup_complete = False
 
@@ -1026,8 +1024,7 @@ class Blockworld:
         self.imu_transforms, self.gps_data = get_transforms(args)
         self.cur_imu_transform = self.imu_transforms[0, :,:]
 
-        self.trans_wrt_imu = self.imu_transforms[
-            self.start:self.end:self.step, 0:3, 3]
+        self.trans_wrt_imu = self.imu_transforms[self.start::self.step, 0:3, 3]
         self.params = args['params']
         self.lidar_params = self.params['lidar']
         self.T_from_i_to_l = np.linalg.inv(self.lidar_params['T_from_l_to_i'])
@@ -1270,14 +1267,14 @@ class Blockworld:
 
         self.interactor.Render()
 
-    def getCameraPosition(self, t, focus=10):
+    def getCameraPosition(self, t, focus=100):
         offset = np.array([-75.0, 0, 25.0]) / 4
         # Rotate the camera so it is behind the car
         position = np.dot(self.imu_transforms[t, 0:3, 0:3], offset)
         position += self.imu_transforms[t, 0:3, 3] + position
 
         # Focus 10 frames in front of the car
-        focal_point = self.imu_transforms[t + focus * self.step, 0:3, 3]
+        focal_point = self.imu_transforms[t + focus, 0:3, 3]
         return position, focal_point
 
     def exportData(self, file_name):
