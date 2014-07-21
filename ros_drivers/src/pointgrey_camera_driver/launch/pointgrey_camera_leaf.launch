@@ -1,0 +1,11 @@
+<launch>
+
+  <group ns="fwd_center">
+  <node pkg="pointgrey_camera_driver" type="pointgrey_camera_driver" output="screen" name="pg_cam">
+      <param name="serial" value="13460348" />
+      <param name="camera_type" value="narrow"/>
+  </node>
+  <node pkg="image_proc" type="image_proc" name="image_proc" />
+  </group>
+ 
+</launch>

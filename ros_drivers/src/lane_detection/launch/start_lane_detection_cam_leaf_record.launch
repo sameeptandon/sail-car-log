@@ -1,0 +1,12 @@
+<launch>
+    <arg name="output" default="lane_detection_video"/>
+    <include file="$(find pointgrey_camera_driver)/launch/pointgrey_camera_leaf.launch" />
+    <node pkg="lane_detection" type="LanePredictionNode" name="LanePredictionNode" output="screen" args="/home/smart/jpazhaya/q50_data/q50_635x363_stride2_network2_2cam_sane_data_step0.000005_cont102760_iter27160_0.npy /fwd_center/image_raw $(arg output)">
+    </node>
+
+    <node pkg="lane_detection" type="LaneSubscriber" name="lane_can_output" args="0" output="screen"/>
+
+    <node name="rosbag_record" pkg="rosbag" type="record" output="screen" args="-o $(arg output) -e /lane_detection/(.*)" />
+
+</launch>
+

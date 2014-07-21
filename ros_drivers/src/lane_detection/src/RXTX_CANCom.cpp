@@ -40,7 +40,7 @@ bool CCANCom::connect(int chNum)
   //CANHandle = canOpenChannel(ChNum,canOPEN_EXCLUSIVE);
   //m_canHandle = canOpenChannel(ChNum, canWANT_EXCLUSIVE);
   m_can_handle = canOpenChannel(chNum, canOPEN_ACCEPT_VIRTUAL);
-
+  
   if ( m_can_handle >= canOK ) {
     // Initialization
     if ( canSetBusParams(m_can_handle, BAUD_500K, 0, 0, 0, 0, 0) == canOK ) {

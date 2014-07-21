@@ -1,0 +1,10 @@
+<launch>
+
+    <include file="$(find pointgrey_camera_driver)/launch/pointgrey_camera_leaf.launch" />
+    <node pkg="lane_detection" type="LanePredictionNode" name="LanePredictionNode" output="screen" args="/home/smart/jpazhaya/q50_data/q50_635x363_stride2_network2_2cam_sane_data_step0.000005_cont102760_iter81480_0.npy /fwd_center/image_raw">
+    </node>
+
+    <node pkg="lane_detection" type="LaneSubscriber" name="lane_can_output" args="0" output="screen"/>
+
+</launch>
+

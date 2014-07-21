@@ -44,6 +44,7 @@ endif ( MPI_FOUND )
 include_directories(${FASTCPP_INCLUDE_DIR}/fastcpp)
 link_directories(${FASTCPP_LIBRARY_DIR})
 set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
+set(lane_detector_LIBS ${lane_detector_LIBS} "~/can_interface/linuxcan/canlib/libcanlib.so")
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -139,8 +140,8 @@ target_link_libraries(VideoProducer ${lane_detector_LIBS} ${catkin_LIBRARIES})
 cuda_add_executable(LanePredictionNode src/LanePredictionNode.cpp src/LanePredictor_honda.cu src/LanePredictor_Q50.cu)
 target_link_libraries(LanePredictionNode ${lane_detector_LIBS} ${catkin_LIBRARIES})
 
-add_executable(LaneSubscriber src/LaneSubscriber.cpp )
-target_link_libraries(LaneSubscriber ${catkin_LIBRARIES})
+add_executable(LaneSubscriber src/LaneSubscriber.cpp src/RXTX_CANCom.cpp)
+target_link_libraries(LaneSubscriber ${lane_detector_LIBS} ${catkin_LIBRARIES})
 
 ## Declare a cpp library
 # add_library(lane_detection
