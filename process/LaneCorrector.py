@@ -252,6 +252,7 @@ class Selection:
 
         # Change this value to allow the copy to run
         self.copy_ready = False
+        self.copying = False
 
         if self.mode == Selection.Symmetric:
             assert end_idx != -1
@@ -615,6 +616,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if self.mode == Selection.Copy and self.selection.copy_ready \
                    and actor == self.parent.raw_actor:
                     self.selection.lowlight()
+
+                    self.selection.copying = False
+                    self.parent.removeLane(self.selection.point.lane)
+
                     pts = self.selection.copy(idx)
                     change = InsertChange(self.selection, pts,
                                           self.selection.point.lane)
@@ -728,6 +733,21 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             self.Render()
 
+        x, y = self.iren.GetEventPosition()
+        self.picker.Pick(x, y, 0, self.ren)
+        idx = self.picker.GetPointId()
+        actor = self.picker.GetActor()
+        if idx >= 0 and self.selection and self.mode == Selection.Copy:
+            # If we are in copy mode and we have selected a lane point
+            if self.selection.copy_ready and actor == self.parent.raw_actor:
+                if self.selection.copying:
+                    self.parent.removeLane(self.selection.point.lane)
+                else:
+                    # Don't remove the lane the first time
+                    self.selection.lowlight()
+                    self.selection.copying = True
+                pts = self.selection.copy(idx)
+
     def lowlightAll(self):
         for i in self.highlighted_lanes:
             self.lowlightLane(i)
@@ -773,11 +793,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         if not self.moving:
             if key == 'Escape':
-                self.togglePick(lane=True)
-                self.mode = 'edit'
                 if self.selection != None:
+                    if self.selection.copying:
+                        return
                     self.selection.lowlight()
                     self.selection = None
+                self.togglePick(lane=True)
+                self.mode = 'edit'
                 self.lowlightAll()
 
             elif key == 'bracketright':
