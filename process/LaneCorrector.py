@@ -12,9 +12,12 @@ import time
 import urllib
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 from scipy.spatial import cKDTree
+from scipy.signal import butter, filtfilt
+from sklearn.cluster import DBSCAN
 import vtk
 
 from ArgParser import parse_args
@@ -875,14 +878,15 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.selection.copy_ready = True
                         self.togglePick(lane=False)
 
-            elif key == 'f':
+            elif key == 'F':
                 if self.mode == 'edit':
                     print 'Fixing up all lanes'
                     self.parent.fixupLanes()
+                    print 'Fixup finished'
                 elif self.mode in self.listLaneModes():
                     print 'Fixing up lane', self.mode
                     self.parent.fixupLane(int(self.mode))
-                print 'Fixup finished'
+                    print 'Fixup finished'
 
             elif key == 'space':
                 self.parent.running = not self.parent.running
@@ -1200,6 +1204,10 @@ class Blockworld:
 
     def fixupLane(self, num):
         lane = self.lane_clouds[num].xyz
+        if lane.shape[0] < 20:
+            print 'Lane was too small to smooth'
+            return
+
         orig_lane = self.lane_clouds[num].xyz.copy()
 
         err_start = self.calculateError(num)
@@ -1209,20 +1217,41 @@ class Blockworld:
         close_lane = np.nonzero(mask)[0]
         close_raw = idx[mask]
 
+        # Build the clusters by grouping indices
+        clusters = []
+        cluster = []
+        for i, lane_idx in enumerate(close_lane):
+            if i == len(close_lane) - 1:
+                break
+            cluster.append(i)
+            if abs(close_lane[i] - close_lane[i+1]) >= 2:
+                clusters.append(cluster[len(cluster)/2])
+                cluster = []
+
+        # Move the middle point in the cluster
         for i in xrange(close_lane.shape[0]):
             vector = self.raw_cloud.xyz[close_raw[i]] - lane[close_lane[i]]
             sel = Selection(self.interactor, self.lane_actors[num],
                             close_lane[i], end_idx=close_lane[i] + 50)
             sel.move(vector)
 
-        if lane.shape[0] > 30:
-            t = np.arange(0, lane.shape[0])
-            xinter = UnivariateSpline(t, lane[:, 0], s=3)
-            yinter = UnivariateSpline(t, lane[:, 1], s=3)
-            zinter = UnivariateSpline(t, lane[:, 2], s=3)
-            lane[:, 0] = xinter(t)
-            lane[:, 1] = yinter(t)
-            lane[:, 2] = zinter(t)
+        # Ignore the 0th point, it is generally not correct
+        # Run a low pass filter across the point (10 Hz) -- magic number
+        b, a = butter(4, .1, 'low')
+        lane[1:, 2] = filtfilt(b, a, lane[1:, 2], padtype='constant')
+
+        # Respace the points and try to smooth a little bit
+        t = np.arange(1, lane.shape[0])
+        xinter = UnivariateSpline(t, lane[1:, 0], s=0)
+        yinter = UnivariateSpline(t, lane[1:, 1], s=0)
+        zinter = UnivariateSpline(t, lane[1:, 2], s=5)
+        lane[1:, 0] = xinter(t)
+        lane[1:, 1] = yinter(t)
+        lane[1:, 2] = zinter(t)
+
+        # t = np.arange(0, lane.shape[0])
+        # plt.plot(t, orig_lane[:, 2], 'r--', t, lane[:, 2], 'g--')
+        # plt.show()
 
         err_end = self.calculateError(num)
         print '\tFixed lane %d changes: %d Error: %f -> %f' % \
