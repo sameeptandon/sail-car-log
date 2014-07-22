@@ -222,6 +222,9 @@ class Point:
         other_pos = other_point.getPosition()
         return np.linalg.norm(pos) < np.linalg.norm(other_pos)
 
+    def dist(self, other):
+        return np.linalg.norm(other.pos[other.idx, :] - self.pos[self.idx, :])
+
     def __str__(self):
         return '%d, %d: %s' % (self.lane, self.idx, self.getPosition())
 
@@ -455,7 +458,12 @@ class Selection:
     def append(self):
         if self.isSelected() and self.mode in [Selection.Append,
                                                Selection.Fork]:
+            if self.point.dist(self.end_point) < 0.5:
+                print 'Points were too close! Try a new point'
+                return np.array([])
+
             _, new_pts = self.interpolate(self.point, self.end_point)
+
             if self.mode == Selection.Append:
                 # Check to see if we are adding to the end or the beginning
                 at_end = self.point.idx > 0
@@ -653,9 +661,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         elif self.mode == Selection.Join:
                             pts = self.selection.join()
 
-                        change = InsertChange(self.selection, pts,
-                                              self.selection.point.lane)
-                        self.undoer.addChange(change)
+                        if pts.shape[0] > 0:
+                            change = InsertChange(self.selection, pts,
+                                                  self.selection.point.lane)
+                            self.undoer.addChange(change)
 
                         if self.mode in [Selection.Append, Selection.Fork]:
                             if self.mode == Selection.Fork:
