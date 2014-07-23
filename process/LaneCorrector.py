@@ -876,6 +876,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.KeyHandler(key='Escape')
 
             elif key == 'i':
+                self.KeyHandler(key='Escape')
                 self.mode = 'insert'
             elif self.mode == 'insert':
                 if key == 'a':
@@ -1112,11 +1113,11 @@ class Blockworld:
             self.init_t = 0
 
         self.num_lanes = 0
-        self.num_colors = 10
-        self.colors = [hsv_to_rgb(float(i) / self.num_colors, 1., 1.) for i
+        self.num_colors = 15
+        self.colors = [hsv_to_rgb(float(i) / self.num_colors, .9, 1.) for i
                        in xrange(self.num_colors)]
         # The last color is for highlighting
-        self.colors.append([.7, .7, .7])
+        self.colors.append([1, 1, .4])
         self.colors = 255 * np.array(self.colors)
 
         self.lane_size = 3
