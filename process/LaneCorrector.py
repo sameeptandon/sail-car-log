@@ -1323,7 +1323,7 @@ class Blockworld:
         np.savez(file_name, **lanes)
 
     def finished(self, focus = 100):
-        return self.t + focus > self.video_reader.total_frame_count
+        return self.t + 2 * focus > self.video_reader.total_frame_count
 
     def update(self, iren, event):
         # Transform the car
@@ -1332,11 +1332,6 @@ class Blockworld:
         # If we have gone backwards in time we need use setframe (slow)
         if self.manual_change != 0:
             self.video_reader.setFrame(self.t - 1)
-
-        if self.finished():
-            if self.running == True:
-                self.interactor.KeyHandler(key='space')
-            return
 
         while self.video_reader.framenum <= self.t:
             (success, self.I) = self.video_reader.getNextFrame()
@@ -1402,6 +1397,11 @@ class Blockworld:
 
         if self.running:
             self.t += self.large_step
+
+        if self.finished():
+            self.t -= self.large_step
+            if self.running == True:
+                self.interactor.KeyHandler(key='space')
 
         iren.GetRenderWindow().Render()
 
