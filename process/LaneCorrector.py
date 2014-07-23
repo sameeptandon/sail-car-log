@@ -493,7 +493,22 @@ class Selection:
             return new_pts
 
     def join(self):
+        if self.point.idx == 0 and self.end_point.idx == 0 or \
+           self.point.idx > 0 and self.end_point.idx > 0:
+            print 'Error: Joining from start to start or end to end'
+            return None
+
         data, new_pts = self.interpolate(self.point, self.end_point)
+
+        if new_pts.shape[0] == 0:
+            return None
+
+        dist = np.linalg.norm(data, axis=1)
+        diff = np.diff(dist)
+        if np.any(diff < -.5 * np.max(dist)):
+            print 'Error: Points too far apart'
+            return None
+
         lane = self.blockworld.addLane(data, self.point.lane, replace=True)
         self.blockworld.removeLane(self.end_point.lane)
 
@@ -509,15 +524,13 @@ class Selection:
         norm = np.linalg.norm(vector)
         n_vector = vector / norm
 
-        new_pts = []
         step = 0.5
+        alpha = np.arange(step, norm, step)
 
-        for i in np.arange(step, norm, step):
-            new_pts.append(start + n_vector * i)
+        new_pts = start + np.tile(n_vector, (len(alpha), 1)) * alpha[:, np.newaxis]
+        data = np.concatenate((p1.pos, new_pts, p2.pos), axis=0)
 
-        data = np.concatenate((p1.pos, np.array(new_pts), p2.pos), axis=0)
-
-        return (data, np.array(new_pts))
+        return (data, new_pts)
 
     def copy(self, ground_idx):
         ground_pos = self.blockworld.raw_cloud.xyz[ground_idx, :]
@@ -663,7 +676,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         elif self.mode == Selection.Join:
                             pts = self.selection.join()
 
-                        if pts.shape[0] > 0:
+                        if pts != None and pts.shape[0] > 0:
                             change = InsertChange(self.selection, pts,
                                                   self.selection.point.lane)
                             self.undoer.addChange(change)
