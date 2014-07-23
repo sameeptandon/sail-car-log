@@ -570,6 +570,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.num_to_move = 50
 
         self.hover_lane = 0
+        self.hover_point = 0
         self.highlighted_lanes = []
 
         self.SetMotionFactor(10.0)
@@ -779,6 +780,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 pts = self.selection.copy(idx)
         if actor in self.parent.lane_actors and self.mode == 'edit':
             self.hover_lane = self.parent.lane_actors.index(actor)
+            self.hover_point = idx
 
     def lowlightAll(self):
         for i in self.highlighted_lanes:
@@ -960,11 +962,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         frame_num = self.parent.t
         tot_num = self.parent.video_reader.total_frame_count
         mode = self.mode
+        txt = 'Frame (%d/%d) | Lane (%d, %d)\n' % (frame_num, tot_num,
+                                                   self.hover_lane,
+                                                   self.hover_point)
 
-        txt = '(%d/%d) ' % (frame_num, tot_num)
         if mode == 'edit':
-            txt += ('Click to move lane | Hovering over lane %d | (i) - insert ' +
-                    'mode | (d) - delete mode') % self.hover_lane
+            txt += 'Click to move lane | (i) - insert mode | (d) - ' + \
+                   'delete mode'
         elif mode in self.listLaneModes():
             txt += 'Lane %s - All points' % mode
         elif mode == Selection.Delete:
@@ -1010,6 +1014,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         else:
             txt += 'All Lanes - %d' % self.num_to_move
 
+        self.parent.selectModeActor.GetTextProperty().BoldOn()
+        self.parent.selectModeActor.GetTextProperty().SetFontSize(24)
         self.parent.selectModeActor.SetInput(txt)
         self.parent.selectModeActor.Modified()
 
