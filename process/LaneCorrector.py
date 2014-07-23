@@ -59,8 +59,10 @@ def load_ply(ply_file):
     return actor
 
 
-def load_gmaps(latlon):
-    latlon_str, dirname, fname = get_gmap_fname(latlon)
+def load_gmaps(framelatlon):
+    frame, latlon = framelatlon
+    latlon_str = '%f,%f' % tuple(latlon)
+    dirname, fname = get_gmap_fname(frame)
     url = ('http://maps.googleapis.com/maps/api/staticmap' +
            '?center=%s&zoom=19&size=400x400&maptype=satellite' +
            '&key=AIzaSyDNypM9M7HEdctMR4_hMo3jTadOwr-LR4Q') % \
@@ -77,11 +79,10 @@ def load_gmaps(latlon):
         f.write(req.read())
 
 
-def get_gmap_fname(latlon):
-    latlon_str = '%f,%f' % tuple(latlon)
+def get_gmap_fname(frame):
     dirname = sys.argv[1] + '/gmaps/'
-    fname = dirname + latlon_str + '.jpg'
-    return latlon_str, dirname, fname
+    fname = dirname + str(frame) + '.jpg'
+    return dirname, fname
 
 
 class Change (object):
@@ -928,19 +929,19 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             elif key == 'Down':
                 if not self.parent.running:
-                    if self.parent.count > 0:
-                        self.parent.count -= 1
+                    if self.parent.t > 0:
+                        self.parent.t -= self.parent.small_step
                         self.parent.manual_change = -1
 
             elif key == 'Up':
                 if not self.parent.running:
                     if not self.parent.finished():
-                        self.parent.count += 1
+                        self.parent.t += self.parent.small_step
                         self.parent.manual_change = 1
 
     def updateModeText(self):
-        frame_num = self.parent.count
-        tot_num = self.parent.video_reader.total_frame_count / self.parent.step
+        frame_num = self.parent.t
+        tot_num = self.parent.video_reader.total_frame_count
         mode = self.mode
 
         txt = '(%d/%d) ' % (frame_num, tot_num)
@@ -1024,16 +1025,15 @@ class Blockworld:
     def __init__(self):
         args = parse_args(sys.argv[1], sys.argv[2])
 
-        self.start = 0
-        self.step = 20
-        self.count = 0
+        self.t = 1
+        self.small_step = 10
+        self.large_step = 50
         self.startup_complete = False
 
         ##### Grab all the transforms ######
         self.imu_transforms, self.gps_data = get_transforms(args)
         self.cur_imu_transform = self.imu_transforms[0, :,:]
 
-        self.trans_wrt_imu = self.imu_transforms[self.start::self.step, 0:3, 3]
         self.params = args['params']
         self.lidar_params = self.params['lidar']
         self.T_from_i_to_l = np.linalg.inv(self.lidar_params['T_from_l_to_i'])
@@ -1041,11 +1041,14 @@ class Blockworld:
         self.cam_params = self.params['cam'][cam_num - 1]
 
         # Store the images
+        gmap_step = 100
         pool = multiprocessing.Pool(processes=50)
-        latlons = [tuple(row)
-                   for row in self.gps_data[:, 1:3]][::10 * self.step]
-        pool.map(load_gmaps, latlons)
+        latlons = [tuple(row) for i, row in
+                   enumerate(self.gps_data[::gmap_step, 1:3])]
+        frames = [x * gmap_step for x in xrange(len(latlons))]
+        pool.map(load_gmaps, zip(frames, latlons))
         pool.terminate()
+        self.gmap = None
 
         # Whether to write video
         self.record = False
@@ -1100,10 +1103,10 @@ class Blockworld:
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
         init_num_lanes = int(npz['num_lanes'])
-        if 'saved_count' in npz:
-            self.init_count = int(npz['saved_count'])
+        if 'saved_t' in npz:
+            self.init_t = int(npz['saved_t'])
         else:
-            self.init_count = 0
+            self.init_t = 0
 
         self.num_lanes = 0
         self.num_colors = 10
@@ -1289,26 +1292,27 @@ class Blockworld:
     def exportData(self, file_name):
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
-        lanes['saved_count'] = self.count
+        lanes['saved_t'] = self.t
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
             lanes['lane' + str(num)] = lane
 
         np.savez(file_name, **lanes)
 
-    def finished(self):
-        return self.t + 10 * self.step > self.video_reader.total_frame_count
+    def finished(self, focus = 100):
+        return self.t + focus > self.video_reader.total_frame_count
 
     def update(self, iren, event):
         # Transform the car
-        self.t = self.start + self.step * self.count
         cloud_cam = self.cloud_ren.GetActiveCamera()
 
         # If we have gone backwards in time we need use setframe (slow)
-        if self.manual_change == -1:
+        if self.manual_change != 0:
             self.video_reader.setFrame(self.t - 1)
 
         if self.finished():
+            if self.running == True:
+                self.interactor.KeyHandler(key='space')
             return
 
         while self.video_reader.framenum <= self.t:
@@ -1323,9 +1327,10 @@ class Blockworld:
         self.img_actor = vtkimg.get_vtk_image()
         self.img_ren.AddActor(self.img_actor)
 
-        gmap = self.get_gmap(self.gps_data[self.t, 1:3])
-        if gmap != None:
-            gmap_vtk = VtkImage(gmap)
+        if self.gmap != self.get_gmap():
+            self.gmap = self.get_gmap()
+            gmap_img = cv2.imread(self.gmap)
+            gmap_vtk = VtkImage(gmap_img)
             self.gmap_ren.RemoveActor(self.gmap_actor)
             self.gmap_actor = gmap_vtk.get_vtk_image()
             center = (200, 200, 0)
@@ -1361,7 +1366,7 @@ class Blockworld:
             self.gmap_ren.GetActiveCamera().SetClippingRange(100, 100000)
             self.gmap_ren.GetActiveCamera().Dolly(1.75)
 
-            self.count = self.init_count
+            self.t = self.init_t
 
             self.startup_complete = True
             self.manual_change = -1
@@ -1373,7 +1378,7 @@ class Blockworld:
             self.interactor.writeVideo()
 
         if self.running:
-            self.count += 1
+            self.t += self.large_step
 
         iren.GetRenderWindow().Render()
 
@@ -1406,11 +1411,11 @@ class Blockworld:
 
         return I
 
-    def get_gmap(self, latlon):
-        fname = get_gmap_fname(latlon)[2]
+    def get_gmap(self):
+        _, fname = get_gmap_fname((self.t / 100) * 100)
         if not os.path.isfile(fname):
             return None
-        return cv2.imread(fname)
+        return fname
 
 
 if __name__ == '__main__':
