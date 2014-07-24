@@ -1500,7 +1500,7 @@ class Blockworld:
         return I
 
     def get_gmap(self):
-        _, fname = get_gmap_fname((self.t / 100) * 100)
+        _, fname = get_gmap_fname((self.t / 100 + 1) * 100)
         if not os.path.isfile(fname):
             return None
         return fname
