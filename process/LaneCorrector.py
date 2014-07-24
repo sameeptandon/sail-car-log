@@ -155,6 +155,7 @@ class Undoer:
             undo = self.undo_queue.pop()
             self.redo_queue.append(undo)
             undo.performChange(-1)
+            self.parent.parent.refreshLaneColors()
         except IndexError:
             print 'Undo queue empty!'
 
@@ -163,6 +164,7 @@ class Undoer:
             redo = self.redo_queue.pop()
             self.undo_queue.append(redo)
             redo.performChange()
+            self.parent.parent.refreshLaneColors()
         except IndexError:
             print 'Redo queue empty!'
 
@@ -346,11 +348,20 @@ class Selection:
         self.setColor(self.blockworld.num_colors)
 
     def lowlight(self):
-        self.setColor(self.point.lane % self.blockworld.num_colors)
+        color = self.point.lane % self.blockworld.num_colors
+        self.setColor(color)
 
-    def setColor(self, color):
-        points = [i for i in self.nextPoint()]
-        self.point.color[points] = self.blockworld.colors[color]
+    def refreshColor(self):
+        color = self.point.lane % self.blockworld.num_colors
+        self.setColor(color, True)
+
+
+    def setColor(self, color, all_points=False):
+        if all_points:
+            self.point.color[:] = self.blockworld.colors[color]
+        else:
+            points = [i for i in self.nextPoint()]
+            self.point.color[points] = self.blockworld.colors[color]
         self.point.data.Modified()
 
     def move(self, vector):
@@ -410,6 +421,8 @@ class Selection:
 
             self.point = Point(old_lane_actor, start, self.blockworld)
             self.end_point = Point(new_lane_actor, 0, self.blockworld)
+
+            self.blockworld.refreshLaneColors()
 
         self.deleted = True
         return del_segment, lane
@@ -1332,6 +1345,11 @@ class Blockworld:
             self.num_lanes += 1
 
         return actor
+
+    def refreshLaneColors(self):
+        for actor in self.lane_actors:
+            sel = Selection(self.interactor, actor, 0, Selection.All)
+            sel.refreshColor()
 
     def removeLane(self, lane):
         actor = self.lane_actors[lane]
