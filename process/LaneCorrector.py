@@ -243,6 +243,8 @@ class Selection:
     Copy = 'copy'
     Join = 'join'
     New = 'new'
+    # Fixup
+    Fixup = 'fixup'
 
     def __init__(self, parent, actor, idx, mode=Symmetric, end_idx=-1,
                  join_lane_actor=None):
@@ -270,7 +272,7 @@ class Selection:
             self.end_point = Point(actor, self.point.pos.shape[0] - 1,
                                    self.blockworld)
 
-        elif self.mode in [Selection.Delete, Selection.Copy]:
+        elif self.mode in [Selection.Delete, Selection.Copy, Selection.Fixup]:
             if end_idx != -1:
                 self.end_point = Point(actor, end_idx, self.blockworld)
 
@@ -296,7 +298,7 @@ class Selection:
 
         # Make Sure the start point always comes before the end point
         if self.mode in [Selection.Symmetric, Selection.Delete, Selection.Copy,
-                         Selection.All]:
+                         Selection.All, Selection.Fixup]:
             # Symmetric, Delete, and Copy, All selections can use point idx
             # because all points are on the same actor
             if self.end_point.idx < self.point.idx:
@@ -545,6 +547,80 @@ class Selection:
         self.end_point = Point(lane, len(data) - 1, self.blockworld)
 
         return data
+
+    def calculateError(self):
+        # Calculates median z-error of interpolated lanes to points
+        lane = self.point.pos[self.point.idx:self.end_point.idx]
+        d, _ = self.blockworld.raw_kdtree.query(lane)
+        return np.median(d)
+
+    def fixup(self):
+        lane = self.point.pos[self.point.idx:self.end_point.idx + 1, :]
+        if lane.shape[0] < 20:
+            print 'Lane was too small to smooth'
+            return
+        orig_lane = lane.copy()
+
+        actor = self.point.actor
+
+        err_start = self.calculateError()
+
+        raw_kdtree = self.blockworld.raw_kdtree
+        (d, idx) = raw_kdtree.query(lane, distance_upper_bound=0.25)
+
+        mask = d < float('inf')
+        close_lane = np.nonzero(mask)[0]
+        close_raw = idx[mask]
+
+        # Build the clusters by grouping indices
+        clusters = []
+        cluster = []
+        for i, lane_idx in enumerate(close_lane):
+            if i == len(close_lane) - 1:
+                break
+            cluster.append(i)
+            if abs(close_lane[i] - close_lane[i+1]) >= 2:
+                clusters.append(cluster[len(cluster)/2])
+                cluster = []
+
+        # Move the middle point in the cluster
+        for i in xrange(close_lane.shape[0]):
+            raw_pos = self.blockworld.raw_cloud.xyz[close_raw[i]]
+            lane_pos = lane[close_lane[i]]
+            vector = raw_pos - lane_pos
+            sel = Selection(self.parent, actor, close_lane[i],
+                            end_idx=close_lane[i] + 50)
+            sel.move(vector)
+
+        # Ignore the 0th point, it is generally not correct
+        # Run a low pass filter across the point (0.1 Hz cutoff) -- magic
+        # number
+        b, a = butter(4, .1, 'low')
+        lane[1:, 2] = filtfilt(b, a, lane[1:, 2], padtype='constant')
+
+        # Respace the points and try to smooth a little bit
+        t = np.arange(1, lane.shape[0])
+        xinter = UnivariateSpline(t, lane[1:, 0], s=0)
+        yinter = UnivariateSpline(t, lane[1:, 1], s=0)
+        zinter = UnivariateSpline(t, lane[1:, 2], s=5)
+        lane[1:, 0] = xinter(t)
+        lane[1:, 1] = yinter(t)
+        lane[1:, 2] = zinter(t)
+
+        # t = np.arange(0, lane.shape[0])
+        # plt.plot(t, orig_lane[:, 2], 'r--', t, lane[:, 2], 'g--')
+        # plt.show()
+
+        err_end = self.calculateError()
+        print '\tFixed lane %d changes: %d Error: %f -> %f' % \
+            (self.point.lane, close_lane.shape[0], err_start, err_end)
+
+        actor = self.blockworld.lane_actors[self.point.lane]
+        selection = Selection(self.parent, actor, 0, Selection.All)
+        big_change = BigChange(selection, lane - orig_lane)
+        self.parent.undoer.addChange(big_change)
+
+        self.parent.Render()
 
     def __str__(self):
         return '%s, %s' % (self.point, self.end_point)
@@ -911,14 +987,22 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.selection.copy_ready = True
                         self.togglePick(lane=False)
 
+            elif key == 'f':
+                if self.mode != Selection.Fixup:
+                    self.mode = Selection.Fixup
+                elif self.selection != None and self.selection.isSelected():
+                    self.parent.fixupSection(self.selection)
             elif key == 'F':
                 if self.mode == 'edit':
                     print 'Fixing up all lanes'
-                    self.parent.fixupLanes()
+                    self.parent.fixupAllLanes()
                     print 'Fixup finished'
                 elif self.mode in self.listLaneModes():
                     print 'Fixing up lane', self.mode
-                    self.parent.fixupLane(int(self.mode))
+                    num = int(self.mode)
+                    actor = self.parent.lane_actors[num]
+                    sel = Selection(self, actor, 0, Selection.All)
+                    sel.fixup()
                     print 'Fixup finished'
 
             elif key == 'space':
@@ -1011,8 +1095,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         elif mode == Selection.New:
             if self.selection == None:
                 txt += 'New Point (1/1). Select a ground point to create a new lane'
-        else:
-            txt += 'All Lanes - %d' % self.num_to_move
+        elif mode == Selection.Fixup:
+            if self.selection == None:
+                txt += 'Click to start fixup segment | (esc) - edit mode'
+            elif not self.selection.isSelected():
+                txt = txt + 'Select another point to create fixup segment'
+            else:
+                txt += '(f) - fixup selected segment | click - ' + \
+                       'change segment | (esc) - start over'
 
         self.parent.text_info_actor.SetInput(txt)
         self.parent.text_info_actor.Modified()
@@ -1235,80 +1325,13 @@ class Blockworld:
         del self.lane_kdtrees[lane]
         self.num_lanes -= 1
 
-    def fixupLanes(self):
-        self.interactor.lowlightAll()
+    def fixupAllLanes(self):
         for l in xrange(self.num_lanes):
-            self.fixupLane(l)
-        self.interactor.Render()
-
-    def calculateError(self, lane_num):
-        # Calculates median z-error of interpolated lanes to points
-        lane = self.lane_clouds[lane_num].xyz
-        d, _ = self.raw_kdtree.query(lane)
-        return np.median(d)
-
-    def fixupLane(self, num):
-        lane = self.lane_clouds[num].xyz
-        if lane.shape[0] < 20:
-            print 'Lane was too small to smooth'
-            return
-
-        orig_lane = self.lane_clouds[num].xyz.copy()
-
-        err_start = self.calculateError(num)
-        (d, idx) = self.raw_kdtree.query(lane, distance_upper_bound=0.25)
-
-        mask = d < float('inf')
-        close_lane = np.nonzero(mask)[0]
-        close_raw = idx[mask]
-
-        # Build the clusters by grouping indices
-        clusters = []
-        cluster = []
-        for i, lane_idx in enumerate(close_lane):
-            if i == len(close_lane) - 1:
-                break
-            cluster.append(i)
-            if abs(close_lane[i] - close_lane[i+1]) >= 2:
-                clusters.append(cluster[len(cluster)/2])
-                cluster = []
-
-        # Move the middle point in the cluster
-        for i in xrange(close_lane.shape[0]):
-            vector = self.raw_cloud.xyz[close_raw[i]] - lane[close_lane[i]]
-            sel = Selection(self.interactor, self.lane_actors[num],
-                            close_lane[i], end_idx=close_lane[i] + 50)
-            sel.move(vector)
-
-        # Ignore the 0th point, it is generally not correct
-        # Run a low pass filter across the point (0.1 Hz cutoff) -- magic
-        # number
-        b, a = butter(4, .1, 'low')
-        lane[1:, 2] = filtfilt(b, a, lane[1:, 2], padtype='constant')
-
-        # Respace the points and try to smooth a little bit
-        t = np.arange(1, lane.shape[0])
-        xinter = UnivariateSpline(t, lane[1:, 0], s=0)
-        yinter = UnivariateSpline(t, lane[1:, 1], s=0)
-        zinter = UnivariateSpline(t, lane[1:, 2], s=5)
-        lane[1:, 0] = xinter(t)
-        lane[1:, 1] = yinter(t)
-        lane[1:, 2] = zinter(t)
-
-        # t = np.arange(0, lane.shape[0])
-        # plt.plot(t, orig_lane[:, 2], 'r--', t, lane[:, 2], 'g--')
-        # plt.show()
-
-        err_end = self.calculateError(num)
-        print '\tFixed lane %d changes: %d Error: %f -> %f' % \
-            (num, close_lane.shape[0], err_start, err_end)
-
-        selection = Selection(self.interactor, self.lane_actors[num], 0,
-                              Selection.All)
-        big_change = BigChange(selection, lane - orig_lane)
-        self.interactor.undoer.addChange(big_change)
-
-        self.interactor.Render()
+            sel = Selection(self.interactor, self.lane_actors[l], 0,
+                            Selection.All)
+            sel.highlight()
+            sel.fixup()
+            sel.lowlight()
 
     def getCameraPosition(self, t, focus=100):
         offset = np.array([-75.0, 0, 25.0]) / 4
