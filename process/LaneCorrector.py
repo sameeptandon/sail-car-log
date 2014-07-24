@@ -507,9 +507,10 @@ class Selection:
         if new_pts.shape[0] == 0:
             return None
 
+        # Don't let points connect if it will cause a discontenuity
         dist = np.linalg.norm(data, axis=1)
         diff = np.diff(dist)
-        if np.any(diff < -.5 * np.max(dist)):
+        if np.any(diff < -.05 * np.max(dist)):
             print 'Error: Points too far apart'
             return None
 
