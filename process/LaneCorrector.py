@@ -228,7 +228,7 @@ class Point:
         return np.linalg.norm(pos) < np.linalg.norm(other_pos)
 
     def dist(self, other):
-        return np.linalg.norm(other.pos[other.idx, :] - self.pos[self.idx, :])
+        return np.linalg.norm(other.pos[other.idx, :] - self.pos[self.idx,:])
 
     def __str__(self):
         return '%d, %d: %s' % (self.lane, self.idx, self.getPosition())
@@ -354,7 +354,6 @@ class Selection:
     def refreshColor(self):
         color = self.point.lane % self.blockworld.num_colors
         self.setColor(color, True)
-
 
     def setColor(self, color, all_points=False):
         if all_points:
@@ -545,7 +544,8 @@ class Selection:
         step = 0.5
         alpha = np.arange(step, norm, step)
 
-        new_pts = start + np.tile(n_vector, (len(alpha), 1)) * alpha[:, np.newaxis]
+        new_pts = start + \
+            np.tile(n_vector, (len(alpha), 1)) * alpha[:, np.newaxis]
         data = np.concatenate((p1.pos, new_pts, p2.pos), axis=0)
 
         return (data, new_pts)
@@ -595,8 +595,8 @@ class Selection:
             if i == len(close_lane) - 1:
                 break
             cluster.append(i)
-            if abs(close_lane[i] - close_lane[i+1]) >= 2:
-                clusters.append(cluster[len(cluster)/2])
+            if abs(close_lane[i] - close_lane[i + 1]) >= 2:
+                clusters.append(cluster[len(cluster) / 2])
                 cluster = []
 
         # Move the middle point in the cluster
@@ -605,7 +605,7 @@ class Selection:
         lane[close_lane, :] += raw_pos - lane_pos
 
         # Sometimes the 0th point is very far away and it causes problems
-        start = 1 if np.linalg.norm(lane[0, :] - lane[1, :]) > 1 else 0
+        start = 1 if np.linalg.norm(lane[0, :] - lane[1,:]) > 1 else 0
         # Respace the points and try to smooth a little bit
         num = lane.shape[0]
 
@@ -616,8 +616,8 @@ class Selection:
         w[close_lane] = 2.
         w = w[start:]
 
-        s_small = max(num/100, 1)
-        s_big = max(num/50, 1)
+        s_small = max(num / 100, 1)
+        s_big = max(num / 50, 1)
         xinter = UnivariateSpline(t, lane[start:, 0], w, s=s_small)
         yinter = UnivariateSpline(t, lane[start:, 1], w, s=s_small)
         zinter = UnivariateSpline(t, lane[start:, 2], w, s=s_big)
@@ -643,7 +643,7 @@ class Selection:
         actor = self.blockworld.lane_actors[self.point.lane]
         selection = Selection(self.parent, actor, self.point.idx,
                               Selection.Fixup, self.end_point.idx)
-        print '\t', np.median(lane-orig_lane, axis=0)
+        print '\t', np.median(lane - orig_lane, axis=0)
         big_change = BigChange(selection, lane - orig_lane)
         self.parent.undoer.addChange(big_change)
 
@@ -771,7 +771,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     # Actors must be different for append, fork, and join
                     if actor != self.selection.point.actor:
                         join_lane_actor = actor if self.mode == Selection.Join \
-                                          else None
+                            else None
 
                         self.selection = Selection(self, self.selection.point.actor,
                                                    self.selection.point.idx, self.mode,
@@ -1286,7 +1286,7 @@ class Blockworld:
 
         for actor in [self.text_shadow_actor, self.text_info_actor]:
             if actor == self.text_shadow_actor:
-                actor.GetTextProperty().SetColor((0,0,0))
+                actor.GetTextProperty().SetColor((0, 0, 0))
             actor.GetTextProperty().BoldOn()
             actor.GetTextProperty().SetFontSize(24)
             self.cloud_ren.AddActor(actor)
@@ -1387,7 +1387,7 @@ class Blockworld:
 
         np.savez(file_name, **lanes)
 
-    def finished(self, focus = 100):
+    def finished(self, focus=100):
         return self.t + 2 * focus > self.video_reader.total_frame_count
 
     def update(self, iren, event):
