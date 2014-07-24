@@ -1014,10 +1014,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         else:
             txt += 'All Lanes - %d' % self.num_to_move
 
-        self.parent.selectModeActor.GetTextProperty().BoldOn()
-        self.parent.selectModeActor.GetTextProperty().SetFontSize(24)
-        self.parent.selectModeActor.SetInput(txt)
-        self.parent.selectModeActor.Modified()
+        self.parent.text_info_actor.SetInput(txt)
+        self.parent.text_info_actor.Modified()
+        self.parent.text_shadow_actor.SetInput(txt)
+        self.parent.text_shadow_actor.Modified()
 
     def Render(self):
         self.iren.GetRenderWindow().Render()
@@ -1160,9 +1160,17 @@ class Blockworld:
         self.iren.SetInteractorStyle(self.interactor)
 
         # Tell the user which mode we are in
-        selectMode = VtkText('Starting...', (10, 10))
-        self.selectModeActor = selectMode.get_vtk_text()
-        self.cloud_ren.AddActor(self.selectModeActor)
+        text_shadow = VtkText('Starting...', (8, 8))
+        self.text_shadow_actor = text_shadow.get_vtk_text()
+        text_info = VtkText('Starting...', (10, 10))
+        self.text_info_actor = text_info.get_vtk_text()
+
+        for actor in [self.text_shadow_actor, self.text_info_actor]:
+            if actor == self.text_shadow_actor:
+                actor.GetTextProperty().SetColor((0,0,0))
+            actor.GetTextProperty().BoldOn()
+            actor.GetTextProperty().SetFontSize(24)
+            self.cloud_ren.AddActor(actor)
 
         ###### 2D Projection Actors ######
         self.video_reader = VideoReader(args['video'])
