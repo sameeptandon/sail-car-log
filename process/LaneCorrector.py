@@ -104,7 +104,9 @@ class Change (object):
 class BigChange (Change):
 
     def performChange(self, direction=1):
-        self.selection.point.pos += direction * self.vector
+        start = self.selection.point.idx
+        end = self.selection.end_point.idx + 1
+        self.selection.point.pos[start:end, :] += direction * self.vector
         self.selection.lowlight()
 
 
@@ -550,7 +552,7 @@ class Selection:
 
     def calculateError(self):
         # Calculates median z-error of interpolated lanes to points
-        lane = self.point.pos[self.point.idx:self.end_point.idx]
+        lane = self.point.pos[self.point.idx:self.end_point.idx + 1]
         d, _ = self.blockworld.raw_kdtree.query(lane)
         return np.median(d)
 
@@ -584,28 +586,37 @@ class Selection:
                 cluster = []
 
         # Move the middle point in the cluster
-        for i in xrange(close_lane.shape[0]):
-            raw_pos = self.blockworld.raw_cloud.xyz[close_raw[i]]
-            lane_pos = lane[close_lane[i]]
-            vector = raw_pos - lane_pos
-            sel = Selection(self.parent, actor, close_lane[i],
-                            end_idx=close_lane[i] + 50)
-            sel.move(vector)
+        raw_pos = self.blockworld.raw_cloud.xyz[close_raw, :]
+        lane_pos = lane[close_lane, :]
+        lane[close_lane, :] += raw_pos - lane_pos
 
-        # Ignore the 0th point, it is generally not correct
-        # Run a low pass filter across the point (0.1 Hz cutoff) -- magic
-        # number
-        b, a = butter(4, .1, 'low')
-        lane[1:, 2] = filtfilt(b, a, lane[1:, 2], padtype='constant')
-
+        # Sometimes the 0th point is very far away and it causes problems
+        start = 1 if np.linalg.norm(lane[0, :] - lane[1, :]) > 1 else 0
         # Respace the points and try to smooth a little bit
-        t = np.arange(1, lane.shape[0])
-        xinter = UnivariateSpline(t, lane[1:, 0], s=0)
-        yinter = UnivariateSpline(t, lane[1:, 1], s=0)
-        zinter = UnivariateSpline(t, lane[1:, 2], s=5)
-        lane[1:, 0] = xinter(t)
-        lane[1:, 1] = yinter(t)
-        lane[1:, 2] = zinter(t)
+        num = lane.shape[0]
+
+        t = np.arange(start, num)
+
+        # Weight points that are on lane points higher
+        w = np.ones(lane.shape[0], dtype=np.float32)
+        w[close_lane] = 2.
+        w = w[start:]
+
+        s_small = max(num/100, 1)
+        s_big = max(num/50, 1)
+        xinter = UnivariateSpline(t, lane[start:, 0], w, s=s_small)
+        yinter = UnivariateSpline(t, lane[start:, 1], w, s=s_small)
+        zinter = UnivariateSpline(t, lane[start:, 2], w, s=s_big)
+        lane[start:, 0] = xinter(t)
+        lane[start:, 1] = yinter(t)
+        lane[start:, 2] = zinter(t)
+
+        # Run a low pass filter across the point (0.9 Hz cutoff) -- magic
+        # number
+        # b, a = butter(4, 0.01, 'low')
+        # f = filtfilt(b, a, self.point.pos, axis=0)
+        # f = f[self.point.idx:self.end_point.idx + 1, :]
+        # lane[start:, 2] =  f[:, 2]
 
         # t = np.arange(0, lane.shape[0])
         # plt.plot(t, orig_lane[:, 2], 'r--', t, lane[:, 2], 'g--')
@@ -616,10 +627,13 @@ class Selection:
             (self.point.lane, close_lane.shape[0], err_start, err_end)
 
         actor = self.blockworld.lane_actors[self.point.lane]
-        selection = Selection(self.parent, actor, 0, Selection.All)
+        selection = Selection(self.parent, actor, self.point.idx,
+                              Selection.Fixup, self.end_point.idx)
+        print '\t', np.median(lane-orig_lane, axis=0)
         big_change = BigChange(selection, lane - orig_lane)
         self.parent.undoer.addChange(big_change)
 
+        self.point.data.Modified()
         self.parent.Render()
 
     def __str__(self):
@@ -698,7 +712,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                            idx + self.num_to_move)
                 self.moving = True
 
-            elif self.mode in [Selection.Delete, Selection.Copy]:
+            elif self.mode in [Selection.Delete, Selection.Copy,
+                               Selection.Fixup]:
                 if self.selection == None:
                     self.selection = Selection(self, actor, idx, self.mode)
                 else:
@@ -854,7 +869,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.selection.lowlight()
                     self.selection.copying = True
                 pts = self.selection.copy(idx)
-        if actor in self.parent.lane_actors and self.mode == 'edit':
+        if actor in self.parent.lane_actors:
             self.hover_lane = self.parent.lane_actors.index(actor)
             self.hover_point = idx
 
@@ -991,7 +1006,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if self.mode != Selection.Fixup:
                     self.mode = Selection.Fixup
                 elif self.selection != None and self.selection.isSelected():
-                    self.parent.fixupSection(self.selection)
+                    self.selection.fixup()
             elif key == 'F':
                 if self.mode == 'edit':
                     print 'Fixing up all lanes'
@@ -1052,7 +1067,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         if mode == 'edit':
             txt += 'Click to move lane | (i) - insert mode | (d) - ' + \
-                   'delete mode'
+                   'delete mode | (f) - fixup mode'
         elif mode in self.listLaneModes():
             txt += 'Lane %s - All points' % mode
         elif mode == Selection.Delete:
