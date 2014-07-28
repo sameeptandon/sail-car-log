@@ -297,8 +297,9 @@ class Selection:
                 self.end_point.selectExtreme()
 
         elif self.mode == Selection.New:
-            self.point = Point(actor, 0, self.blockworld)
-            self.end_point = Point(actor, 0, self.blockworld)
+            self.point = Point(actor, idx, self.blockworld)
+            if end_idx > -1:
+                self.end_point = Point(actor, end_idx, self.blockworld)
         else:
             raise RuntimeError('Bad selection mode: ' + self.mode)
 
@@ -311,18 +312,11 @@ class Selection:
                 self.end_point, self.point = self.point, self.end_point
         else:
             # All other modes must use distance from the origin
-            if self.end_point.actor != self.blockworld.raw_actor:
+            if self.end_point.actor != self.blockworld.raw_actor or \
+               self.end_point.actor == self.point.actor:
                 if self.end_point.isCloser(self.point):
                     # Make sure the end point is not the raw points
                     self.end_point, self.point = self.point, self.end_point
-
-    @staticmethod
-    def fromGround(parent, ground_idx):
-        blockworld = parent.parent
-        ground_pos = blockworld.raw_cloud.xyz[ground_idx, :]
-        ground_pos = np.array([ground_pos])
-        lane = blockworld.addLane(ground_pos)
-        return Selection(parent, lane, 0, Selection.New)
 
     def isSelected(self):
         if self.mode == Selection.Symmetric:
@@ -482,7 +476,7 @@ class Selection:
                 print 'Points were too close! Try a new point'
                 return np.array([])
 
-            _, new_pts = self.interpolate(self.point, self.end_point)
+            new_pts = self.interpolate(self.point, self.end_point, all=False)
 
             if self.mode == Selection.Append:
                 # Check to see if we are adding to the end or the beginning
@@ -539,7 +533,7 @@ class Selection:
         self.blockworld.refreshLaneColors()
         return new_pts
 
-    def interpolate(self, p1, p2):
+    def interpolate(self, p1, p2, all=True):
         start = p1.pos[p1.idx, :3]
         end = p2.pos[p2.idx, :3]
         vector = end - start
@@ -551,9 +545,12 @@ class Selection:
 
         new_pts = start + \
             np.tile(n_vector, (len(alpha), 1)) * alpha[:, np.newaxis]
-        data = np.concatenate((p1.pos, new_pts, p2.pos), axis=0)
 
-        return (data, new_pts)
+        if all:
+            data = np.concatenate((p1.pos, new_pts, p2.pos), axis=0)
+            return (data, new_pts)
+        else:
+            return new_pts
 
     def copy(self, ground_idx):
         ground_pos = self.blockworld.raw_cloud.xyz[ground_idx, :]
@@ -568,6 +565,18 @@ class Selection:
         self.end_point = Point(lane, len(data) - 1, self.blockworld)
 
         return data
+
+    def new(self):
+        if self.point.dist(self.end_point) < 0.5:
+            print 'Error: Points were too close'
+            return None
+
+        new_pts = self.interpolate(self.point, self.end_point, all=False)
+        lane = self.blockworld.addLane(new_pts)
+        self.point = Point(lane, 0, self.blockworld)
+        self.end_point = Point(lane, new_pts.shape[0] - 1, self.blockworld)
+
+        return new_pts
 
     def calculateError(self):
         # Calculates median z-error of interpolated lanes to points
@@ -817,17 +826,22 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             elif self.mode == Selection.New:
                 if actor == self.parent.raw_actor:
-                    self.selection = Selection.fromGround(self, idx)
+                    if self.selection == None:
+                        self.selection = Selection(self, actor, idx,
+                                                   Selection.New)
+                    else:
+                        self.selection = Selection(self, actor,
+                                                   self.selection.point.idx,
+                                                   Selection.New, idx)
+                        pts = self.selection.new()
+                        change = InsertChange(self.selection, pts,
+                                              self.selection.point.lane)
+                        self.undoer.addChange(change)
 
-                    pt = np.array([self.selection.point.pos[0, :]])
-                    change = InsertChange(self.selection, pt,
-                                          self.selection.point.lane)
-                    self.undoer.addChange(change)
-
-                    self.mode = Selection.Append
-                    self.selection = Selection(self, self.selection.point.actor,
-                                               self.selection.point.idx,
-                                               Selection.Append)
+                        self.mode = Selection.Append
+                        end_pt = self.selection.end_point
+                        self.selection = Selection(self, end_pt.actor,
+                                                   end_pt.idx, Selection.Append)
 
     def LeftButtonReleaseEvent(self, obj, event):
         if self.moving and self.mode == 'edit':
@@ -1132,7 +1146,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 txt += 'Copy (3/3). Select a ground point to begin copy'
         elif mode == Selection.New:
             if self.selection == None:
-                txt += 'New Point (1/1). Select a ground point to create a new lane'
+                txt += 'New Point (1/2). Select a ground point to start a new lane'
+            else:
+                txt += 'New Point (2/2). Select a ground point to end a new lane'
         elif mode == Selection.Fixup:
             if self.selection == None:
                 txt += 'Click to start fixup segment | (esc) - edit mode'
