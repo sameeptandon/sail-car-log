@@ -225,10 +225,12 @@ class Point:
     def isCloser(self, other_point):
         pos = self.getPosition()
         other_pos = other_point.getPosition()
-        return np.linalg.norm(pos) < np.linalg.norm(other_pos)
+        _, pos_idx = self.blockworld.imu_kdtree.query(pos)
+        _, other_pos_idx = self.blockworld.imu_kdtree.query(other_pos)
+        return pos_idx < other_pos_idx
 
     def dist(self, other):
-        return np.linalg.norm(other.pos[other.idx, :] - self.pos[self.idx,:])
+        return np.linalg.norm(other.getPosition() - self.getPosition())
 
     def __str__(self):
         return '%d, %d: %s' % (self.lane, self.idx, self.getPosition())
@@ -309,9 +311,9 @@ class Selection:
                 self.end_point, self.point = self.point, self.end_point
         else:
             # All other modes must use distance from the origin
-            if self.end_point.isCloser(self.point):
-                # Make sure the end point is not the raw points
-                if self.end_point.actor != self.blockworld.raw_actor:
+            if self.end_point.actor != self.blockworld.raw_actor:
+                if self.end_point.isCloser(self.point):
+                    # Make sure the end point is not the raw points
                     self.end_point, self.point = self.point, self.end_point
 
     @staticmethod
@@ -501,10 +503,9 @@ class Selection:
                 self.end_point = Point(lane, self.point.idx + len(new_pts) - 1,
                                        self.blockworld)
             else:
-                data = np.array(new_pts)
                 if self.end_point.isCloser(self.point):
-                    data = data[::-1]
-                lane = self.blockworld.addLane(data)
+                    new_pts = new_pts[::-1]
+                lane = self.blockworld.addLane(new_pts)
 
                 self.point = Point(lane, 0, self.blockworld)
                 self.end_point = Point(lane, len(new_pts) - 1, self.blockworld)
@@ -1183,6 +1184,7 @@ class Blockworld:
         ##### Grab all the transforms ######
         self.imu_transforms, self.gps_data = get_transforms(args)
         self.cur_imu_transform = self.imu_transforms[0, :,:]
+        self.imu_kdtree = cKDTree(self.imu_transforms[:, :3, 3])
 
         self.params = args['params']
         self.lidar_params = self.params['lidar']
