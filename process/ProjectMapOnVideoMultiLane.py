@@ -83,7 +83,7 @@ if __name__ == '__main__':
     if rootdir[-1]=='/':
       rootdir = rootdir[0:-1] # remove trailing '/'
     
-    cam_num = 3
+    cam_num = 1
     for root, subfolders, files in os.walk(rootdir):
       files1 = filter(lambda z: 'vail' not in z, files)
       files1 = filter(lambda z: '_gps.out' in z, files1)
@@ -93,7 +93,6 @@ if __name__ == '__main__':
       if '4-10-14' in root:
         files1 = filter(lambda z: '680s_a' not in z, files1)
         files1 = filter(lambda z: '237_a' not in z, files1)
-      files1 = filter(lambda z: 'sandhill' not in z, files1)
       if len(sys.argv)>2:
         files = filter(lambda z: sys.argv[2] in z, files1)
         if len(files1)==len(files):
@@ -115,24 +114,18 @@ if __name__ == '__main__':
         T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
         print gpsname[0:-8]
    
-        labelname = gpsname[0:-8]+'_interp_lanes.pickle'
-        labelname = string.replace(labelname, 'q50_data', '640x480_Q50') 
-        #labelname = string.replace(labelname, 'sameep', '640x480_Q50') 
-        labelfid = open(labelname,'r') 
-
-        new_vid_name = string.replace(video_file, 'q50_data', '640x480_label_videos_nodistort')
-        #new_vid_name = string.replace(video_file, 'sameep', '640x480_label_videos_nodistort')
+        labelname = '/scail/group/deeplearning/driving_data/twangcat/multilane_points.npz'#gpsname[0:-8]+'_interp_lanes.pickle'
+        new_vid_name = string.replace(video_file, 'sameep', '640x480_label_videos_nodistort')
         new_vid_name = string.replace(new_vid_name, '.avi', '')
         print 'writing to '+ new_vid_name
         #writer = cv2.VideoWriter(new_vid_name,cv.CV_FOURCC('M','J','P','G'),50,(640,320))
         
-        all_data = pickle.load(labelfid)
-        labelfid.close()
-        left_data = all_data['left']
-        right_data = all_data['right']
+        all_data = np.load(labelname)#pickle.load(labelfid)
+        left_data = all_data['lane0']
+        right_data = all_data['lane1']
         # map points are defined w.r.t the IMU position at time 0
         # each entry in map_data is (x,y,z,intensity,framenum). 
-
+        print GPSData
         blue = [255,0,0] 
         green = [0,255,0] 
         red = [0,0,255]
@@ -153,19 +146,6 @@ if __name__ == '__main__':
           #right_data_copy = array(right_data[t+1:t+WINDOW+1, :]);
           #imu_data_copy = array(imu_transforms[t+1:t+WINDOW+1, 0:3, 3])
           # reproject
-
-
-          (pix, mask) = localMapToPixelsTrajectory(imu_transforms[t+1:t+WINDOW+1, :, :], imu_transforms[t,:,:], T_from_i_to_l, cam, height=lidar_height); 
-          # find horizon
-          #horizon = np.min(pix[1,mask])
-          
-          # draw
-          for p in range(4):
-            I[pix[1,mask]+p, pix[0,mask], :] = green
-            I[pix[1,mask], pix[0,mask]+p, :] = green
-            I[pix[1,mask]+p, pix[0,mask], :] = green
-            I[pix[1,mask], pix[0,mask]+p, :] = green
-
 
 
           # reproject
@@ -190,17 +170,12 @@ if __name__ == '__main__':
           #I[horizon-1:horizon+2, :, :]=red
           
           I = cv2.resize(I, (640, 480))
-          #writer.write(I)
-          #cv2.imshow('vid', cv2.pyrDown(I))
-          #cv2.waitKey(1)
-          cv2.imwrite(new_vid_name+str(cnt)+'.png',I)
           cnt +=1
-          #I = I[:,:,[2,1,0]]
-          #pl.ion()
-          #pl.imshow(I)
-          ##pl.pause(.1)
-          #pl.draw()
-          #pl.clf()
-          #pl.ioff()
-        subprocess.call('ffmpeg -i '+ new_vid_name+'%d.png -r 50 -s 640x480 -vb 20M '+ new_vid_name+'.avi', shell=True)
-        subprocess.call('rm '+ new_vid_name+'*.png', shell=True)
+          I = I[:,:,[2,1,0]]
+          pl.ion()
+          pl.imshow(I)
+          pl.draw()
+          pl.clf()
+          pl.ioff()
+        #subprocess.call('ffmpeg -i '+ new_vid_name+'%d.png -r 50 -s 640x480 -vb 20M '+ new_vid_name+'.avi', shell=True)
+        #subprocess.call('rm '+ new_vid_name+'*.png', shell=True)

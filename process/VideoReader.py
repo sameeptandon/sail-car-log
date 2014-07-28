@@ -1,4 +1,4 @@
-import matplotlib.pylab as pp
+#import matplotlib.pylab as pp
 import cv2, cv
 import os
 

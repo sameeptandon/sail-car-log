@@ -1,6 +1,6 @@
 from Q50_config import *
 import sys, os
-from GPSReader import *
+from GPSReaderNew import *
 from GPSReprojection import *
 from GPSTransforms import *
 from VideoReader import *
@@ -9,9 +9,9 @@ from ColorMap import *
 from transformations import euler_matrix
 import numpy as np
 import cv2
-from ArgParser import *
-from matplotlib import pyplot as plt
-import pylab as pl
+from ArgParserNew import *
+#from matplotlib import pyplot as plt
+#import pylab as pl
 import pickle
 import string
 import subprocess
@@ -83,10 +83,11 @@ if __name__ == '__main__':
     if rootdir[-1]=='/':
       rootdir = rootdir[0:-1] # remove trailing '/'
     
-    cam_num = 3
+    cam_num = 2
     for root, subfolders, files in os.walk(rootdir):
       files1 = filter(lambda z: 'vail' not in z, files)
-      files1 = filter(lambda z: '_gps.out' in z, files1)
+      files1 = filter(lambda z: '_gpsmark2.out' in z, files1)
+      name_offset = len('_gpsmark2.out')
       if '4-2-14-monterey' in root:
         files1 = filter(lambda z: '1S_g' not in z, files1)
         files1 = filter(lambda z: '17N_c' not in z, files1)
@@ -100,22 +101,23 @@ if __name__ == '__main__':
           print 'warning: filter '+sys.argv[2]+' not found in files, including all files.'
       else:
         files = files1
+      print files
       for f in files:
         
-        args = parse_args(root, f[0:-8]+str(cam_num)+'.avi')
+        args = parse_args(root, f[0:-name_offset]+str(cam_num)+'.avi')
         video_file = args['video']
         params = args['params']
         cam = params['cam'][cam_num-1]
         video_reader = VideoReader(video_file)
-        gpsname = args['gps']
+        gpsname = args['gps_mark2']
         gps_reader = GPSReader(gpsname)
         GPSData = gps_reader.getNumericData()
         imu_transforms = IMUTransforms(GPSData)
         lidar_height = params['lidar']['height'] 
         T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
-        print gpsname[0:-8]
+        print gpsname[0:-name_offset]
    
-        labelname = gpsname[0:-8]+'_interp_lanes.pickle'
+        labelname = gpsname[0:-name_offset]+'_interp_lanes.pickle'
         labelname = string.replace(labelname, 'q50_data', '640x480_Q50') 
         #labelname = string.replace(labelname, 'sameep', '640x480_Q50') 
         labelfid = open(labelname,'r') 
@@ -137,7 +139,7 @@ if __name__ == '__main__':
         green = [0,255,0] 
         red = [0,0,255]
         cnt=1
-        t=0 
+        t=0
         while t<left_data.shape:
           #while video_reader.framenum<7000:
           #  (success, I) = video_reader.getNextFrame()

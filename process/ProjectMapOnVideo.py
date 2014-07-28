@@ -1,7 +1,6 @@
 from Q50_config import *
 import sys, os
 from GPSReader import *
-from GPSReprojection import *
 from GPSTransforms import *
 from VideoReader import *
 from LidarTransforms import *
@@ -10,12 +9,10 @@ from transformations import euler_matrix
 import numpy as np
 import cv2
 from ArgParser import *
-from matplotlib import pyplot as plt
-import pylab as pl
 import pickle
-WINDOW = 50*5
+WINDOW = 50*2.5
 
-def cloudToPixels(cam, pts_wrt_cam): 
+def cloudToPixels(cam, pts_wrt_cam):
 
     width = 4
     (pix, J) = cv2.projectPoints(pts_wrt_cam.transpose(), np.array([0.0,0.0,0.0]), np.array([0.0,0.0,0.0]), cam['KK'], cam['distort'])
@@ -32,10 +29,11 @@ def cloudToPixels(cam, pts_wrt_cam):
     mask = np.logical_and(mask, dist_sqr > 3)
 
     return (pix, mask)
+
 def localMapToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
     # load nearby map frames
     pts_wrt_imu_0 = array(map_data[:,0:3]).transpose()
-    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0, 
+    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0,
         np.ones((1,pts_wrt_imu_0.shape[1]))))
     # transform points from imu_0 to imu_t
     pts_wrt_imu_t = np.dot( np.linalg.inv(imu_transforms_t), pts_wrt_imu_0)
@@ -43,8 +41,14 @@ def localMapToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
     pts_wrt_lidar_t = np.dot(T_from_i_to_l, pts_wrt_imu_t);
     # transform points from lidar_t to camera_t
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
-    pts_wrt_camera_t = dot(R_to_c_from_l(cam), 
+    pts_wrt_camera_t = dot(R_to_c_from_l(cam),
             pts_wrt_camera_t.transpose())
+
+    pts_wrt_camera_t = np.vstack((pts_wrt_camera_t,
+        np.ones((1,pts_wrt_camera_t.shape[1]))))
+    pts_wrt_camera_t = dot(cam['E'], pts_wrt_camera_t)
+    pts_wrt_camera_t = pts_wrt_camera_t[0:3,:]
+
     # reproject camera_t points in camera frame
     (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
 
@@ -71,16 +75,17 @@ if __name__ == '__main__':
     T_from_i_to_l = np.linalg.inv(params['lidar']['T_from_l_to_i'])
 
     #all_data = np.load(sys.argv[3])
+    #map_data = all_data['data']
     all_data = pickle.load(open(sys.argv[3],'r'))
     map_data = np.concatenate((all_data['left'], all_data['right']), axis=0)
-    map_data = map_data[map_data[:,3] > 60, :] # intensity filter
+    #map_data = map_data[map_data[:,3] > 60, :]
     # map points are defined w.r.t the IMU position at time 0
-    # each entry in map_data is (x,y,z,intensity,framenum). 
-    cnt=1
+    # each entry in map_data is (x,y,z,intensity,framenum).
+
+    print "Hit 'q' to quit"
+    trackbarInit = False
     while True:
-        #while video_reader.framenum<2000:
-        #  (success, I) = video_reader.getNextFrame()
-        for count in range(100):
+        for count in range(20):
             (success, I) = video_reader.getNextFrame()
 
         if not success:
@@ -92,9 +97,9 @@ if __name__ == '__main__':
         map_data_copy = array(map_data[mask_window, :]);
 
         # reproject
-        (pix, mask) = localMapToPixels(map_data_copy, imu_transforms[t,:,:], T_from_i_to_l, cam); 
+        (pix, mask) = localMapToPixels(map_data_copy, imu_transforms[t,:,:], T_from_i_to_l, cam);
 
-        # draw 
+        # draw
         intensity = map_data_copy[mask, 3]
         heat_colors = heatColorMapFast(intensity, 0, 100)
         for p in range(4):
@@ -102,17 +107,16 @@ if __name__ == '__main__':
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
             I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
             I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
-        I = cv2.resize(I, (640, 480))
-        #cv2.imshow('vid', cv2.pyrDown(I))
-        #cv2.waitKey(1)
-        #cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/280N_New_vis/'+str(cnt)+'.png',I)
-        #cnt +=1
-        #cv2.imshow('vid', cv2.pyrDown(I))
-        #cv2.waitKey(1)
-        I = I[:,:,[2,1,0]]
-        pl.ion()
-        pl.imshow(I)
-        #pl.pause(.1)
-        pl.draw()
-        pl.clf()
-        pl.ioff()
+
+        cv2.imshow(video_file, cv2.pyrDown(I))
+        if not trackbarInit:
+            cv2.createTrackbar('trackbar', video_file, 0, int(video_reader.total_frame_count), lambda x: trackbarOnchange(x, t))
+            trackbarInit = True
+        else:
+            cv2.setTrackbarPos('trackbar', video_file, t)
+
+        keycode = cv2.waitKey(2)
+        if keycode == 113:
+            break
+
+    print 'Played %d frames' % t
