@@ -502,6 +502,8 @@ class Selection:
                                        self.blockworld)
             else:
                 data = np.array(new_pts)
+                if self.end_point.isCloser(self.point):
+                    data = data[::-1]
                 lane = self.blockworld.addLane(data)
 
                 self.point = Point(lane, 0, self.blockworld)
