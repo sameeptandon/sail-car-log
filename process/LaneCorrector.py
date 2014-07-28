@@ -663,7 +663,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.ren = ren
         self.parent = parent
         self.picker = vtk.vtkPointPicker()
-        self.picker.SetTolerance(0.005)
+        self.picker.SetTolerance(0.003)
         self.iren.SetPicker(self.picker)
 
         self.undoer = Undoer(self)
