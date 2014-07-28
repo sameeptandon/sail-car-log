@@ -784,10 +784,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         elif self.mode == Selection.Join:
                             pts = self.selection.join()
 
-                        if pts != None and pts.shape[0] > 0:
-                            change = InsertChange(self.selection, pts,
-                                                  self.selection.point.lane)
-                            self.undoer.addChange(change)
+                        if pts == None or pts.shape[0] == 0:
+                            self.KeyHandler(key='Escape')
+                            return
+
+                        change = InsertChange(self.selection, pts,
+                                              self.selection.point.lane)
+                        self.undoer.addChange(change)
 
                         if self.mode in [Selection.Append, Selection.Fork]:
                             if self.mode == Selection.Fork:
