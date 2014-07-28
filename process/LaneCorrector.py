@@ -470,6 +470,7 @@ class Selection:
                                    self.point.idx + len(points) - 1,
                                    self.blockworld)
 
+        self.blockworld.refreshLaneColors()
         self.deleted = False
 
     def append(self):
@@ -532,6 +533,7 @@ class Selection:
         self.point = Point(lane, self.point.idx + 1, self.blockworld)
         self.end_point = Point(lane, self.point.idx + len(new_pts) - 1,
                                self.blockworld)
+        self.blockworld.refreshLaneColors()
         return new_pts
 
     def interpolate(self, p1, p2):
