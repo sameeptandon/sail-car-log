@@ -1019,15 +1019,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.togglePick(lane=False)
 
             elif key == 'f':
-                if self.mode != Selection.Fixup:
-                    self.mode = Selection.Fixup
-                elif self.selection != None and self.selection.isSelected():
+                if self.selection and self.selection.isSelected():
                     self.selection.fixup()
-            elif key == 'F':
-                if self.mode == 'edit':
-                    print 'Fixing up all lanes'
-                    self.parent.fixupAllLanes()
-                    print 'Fixup finished'
                 elif self.mode in self.listLaneModes():
                     print 'Fixing up lane', self.mode
                     num = int(self.mode)
@@ -1035,6 +1028,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     sel = Selection(self, actor, 0, Selection.All)
                     sel.fixup()
                     print 'Fixup finished'
+                elif self.mode != Selection.Fixup:
+                    self.mode = Selection.Fixup
+
+            # elif key == 'F':
+            #     if self.mode == 'edit':
+            #         print 'Fixing up all lanes'
+            #         self.parent.fixupAllLanes()
+            #         print 'Fixup finished'
 
             elif key == 'space':
                 self.parent.running = not self.parent.running
