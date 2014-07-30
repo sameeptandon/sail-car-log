@@ -64,6 +64,15 @@ def saveClusters(lanes, times, lane_idx, num_lanes):
 
     np.savez('multilane_points', **out)
 
+def saveInterp(interp, num_lanes):
+    out = {}
+    out['num_lanes'] = np.array(num_lanes)
+    for i in xrange(num_lanes):
+        out['lane' + str(i)] = interp[:,:,i]
+
+    print 'Saved multilane shifted points'
+    np.savez('multilane_points', **out)
+
 class Blockworld:
 
     def __init__(self):
@@ -83,9 +92,10 @@ class Blockworld:
         self.params = args['params']
         self.lidar_params = self.params['lidar']
 
-        ml = MultiLane(sys.argv[3], sys.argv[4], 1, 4)
+        ml = MultiLane(sys.argv[3], sys.argv[4], 2, 2)
 
         ml.extendLanes()
+        saveInterp(ml.interp, ml.rightLanes + ml.leftLanes)
         ml.filterLaneMarkings()
 
         print 'Adding filtered points'

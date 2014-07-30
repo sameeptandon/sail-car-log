@@ -170,7 +170,11 @@ def transform_points_by_times(pts, t_pts, imu_transforms, gps_times):
 
         fnum1 = bisect.bisect(gps_times, t) - 1
         fnum2 = fnum1 + 1
-        alpha = (1 - (t - gps_times[fnum1])) / float(gps_times[fnum2] - gps_times[fnum1])
+        try:
+            alpha = (1 - (t - gps_times[fnum1])) / float(gps_times[fnum2] -
+                                                         gps_times[fnum1])
+        except IndexError:
+            continue
 
         T1 = imu_transforms[fnum1, :, :]
         T2 = imu_transforms[fnum2, :, :]
