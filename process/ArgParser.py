@@ -1,11 +1,13 @@
 from Q50_config import LoadParameters
 
 def parse_args(folder, video_file):
-    """Folder is the top level folder.
-       video_file is the name of the camera split to use
-       ex: parse_args('data/280S', '280S_a2.avi')
-       returns a dictionary with keys: ('map', 'frames', 'radar' 'gps', 'video', 'params') 
-       corresponding to file names.
+    """
+    Folder is the top level folder.
+    video_file is the name of the camera split to use
+    ex: parse_args('data/280S', '280S_a2.avi')
+    returns a dictionary with keys:
+    ('map', 'frames', 'radar' 'gps', 'video', 'params')
+    corresponding to file names.
     """
 
     basename = video_file[:-5]
@@ -13,11 +15,11 @@ def parse_args(folder, video_file):
 
     map_file = fullname + '.map'
     lidar_folder = fullname + '_frames/'
-    radar_folder = fullname + '_rdr/'
+    radar_folder = fullname + '_radar/'
     gps_file = fullname + '_gps.out'
     gps_mark1_file = fullname + '_gpsmark1.out'
     gps_mark2_file = fullname + '_gpsmark2.out'
-   
+
     video_file_num = video_file[-5]
 
     video_file = folder + '/' + video_file
@@ -35,4 +37,3 @@ def parse_args(folder, video_file):
             'basename': basename,
             'cam_num': int(video_file[-5]),
             'params': LoadParameters(params)}
-
