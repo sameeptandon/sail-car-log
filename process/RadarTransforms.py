@@ -62,11 +62,9 @@ class RDRLoader(object):
         self.rdr_start_times = self.rdr_end_times - SWEEP_TIME_MICROSEC
         self.rdr_files = np.array(rdr_files)
 
-    def loadRDRWindow(self, microsec_since_epoch, time_window_sec=0.6,
-                      fmt='O'):
+    def loadRDRWindow(self, microsec_since_epoch, fmt='O'):
         """
-        Loads a window of radar outputs starting at microseconds_since_epoch
-        and ending at  microseconds_since_epoch + time_window_sec * 1e6
+        Loads a window of radar outputs closest to microseconds_since_epoch
         fmt can be 'O', 'T', or 'OT'.
         'O' returns raw objects - This should be used most of the time
         'O' format = id, dist, lat_dist, rel_spd, dyn_prop, rcs, w, l
@@ -78,23 +76,23 @@ class RDRLoader(object):
 
         'OT' - returns a tuple of both 'O' and 'T' objects
         """
-        time_window = time_window_sec * 1e6
-
-        start_time = microsec_since_epoch - time_window / \
-                     2.0 - SWEEP_TIME_MICROSEC
-        end_time = (microsec_since_epoch + time_window / \
-                    2.0 + SWEEP_TIME_MICROSEC)
+        start_time = microsec_since_epoch - SWEEP_TIME_MICROSEC
+        end_time = microsec_since_epoch + SWEEP_TIME_MICROSEC
         mask = (self.rdr_start_times >= start_time) & \
                (self.rdr_end_times <= end_time)
 
+        O_pts = None
+        T_pts = None
+
         rdr_files = self.rdr_files[mask].tolist()
 
-        rdr_file = rdr_files[len(rdr_files)/2]
-        (O, T) = loadRDR(rdr_file)
-        if fmt == 'O' or fmt == 'OT':
-            O_pts = O
-        elif fmt == 'T' or fmt == 'OT':
-            T_pts = T
+        if len(rdr_files) > 0:
+            rdr_file = rdr_files[len(rdr_files)/2]
+            (O, T) = loadRDR(rdr_file)
+            if fmt == 'O' or fmt == 'OT':
+                O_pts = O
+            elif fmt == 'T' or fmt == 'OT':
+                T_pts = T
 
         if fmt == 'O':
             return O_pts

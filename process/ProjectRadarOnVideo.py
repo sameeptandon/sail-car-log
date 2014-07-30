@@ -72,7 +72,8 @@ if __name__ == '__main__':
 
         cur_time = gps_times_mark1[frame_num]
         radar_data = rdr_loader.loadRDRWindow(cur_time)
-
+        if radar_data == None:
+            continue
         if radar_data.shape[0] > 0:
             # Remove points that have a low radar cross-section
             mask = (radar_data[:, 5] > 5)
