@@ -24,6 +24,5 @@ if __name__ == '__main__':
     right = int(sys.argv[3])
     ml = MultiLane(sys.argv[1], left, right, sys.argv[4])
     ml.extendLanes()
-    ml.offsetInterpolated()
+    # ml.offsetInterpolated()
     saveInterp(sys.argv[5], ml.interp, left, right)
-
