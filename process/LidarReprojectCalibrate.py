@@ -62,10 +62,10 @@ def cloudToPixels(cam, pts_wrt_cam):
     pix = pix.astype(np.int32)
     mask = np.logical_and(True, pix[0,:] > 0 + width/2)
     mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
-    #mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
-    #mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
-    mask = np.logical_and(mask, pix[1,:] < 1039 - width/2)
-    mask = np.logical_and(mask, pix[0,:] < 2079 - width/2)
+    mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
+    mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
+    #mask = np.logical_and(mask, pix[1,:] < 1039 - width/2)
+    #mask = np.logical_and(mask, pix[0,:] < 2079 - width/2)
     mask = np.logical_and(mask, pts_wrt_cam[2,:] > 0)
     dist_sqr = np.sum( pts_wrt_cam[0:3, :] ** 2, axis = 0)
     mask = np.logical_and(mask, dist_sqr > 3)
@@ -110,13 +110,17 @@ if __name__ == '__main__':
     while not paramInit:
         time.sleep(1)
 
+    print int(sys.argv[3])
     video_reader.setFrame(int(sys.argv[3]))
     (success, orig) = video_reader.getNextFrame()
     while True:
         I = orig.copy()
-        fnum = video_reader.framenum*2
+        fnum = video_reader.framenum
+        print fnum
         t = utc_from_gps_log(gps_data[fnum,:])
-        data = lidar_loader.loadLDRWindow(t, 0.1)
+        data, data_times = lidar_loader.loadLDRWindow(t, 0.1)
+        print data.shape
+        print imu_transforms.shape
         (pix, mask) = lidarPtsToPixels(data[:,0:3].transpose(), imu_transforms[fnum,:,:], cam); 
         intensity = data[mask, 3]
         heat_colors = heatColorMapFast(intensity, 0, 100)
