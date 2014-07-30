@@ -253,7 +253,7 @@ fname = 'split_0_from_gilroy_b1'
 video_name = '/scail/group/deeplearning/driving_data/q50_data/4-3-14-gilroy/'+fname+'.avi'
 capture = cv2.VideoCapture(video_name)
 
-car_pred = pickle.load(open('/scail/group/deeplearning/driving_data/brodyh/driving_demo/4-3-14-gilroy/'+fname+'.pkl','r'))
+car_pred = pickle.load(open('/scail/group/deeplearning/driving_data/brodyh/driving_demo/4-3-14-gilroy/'+fname+'_v2.pkl','r'))
 lane_pred_3d = pickle.load(open('/scail/group/deeplearning/driving_data/twangcat/'+fname+'_lane3D.pickle','r'))
 lane_pred_2d = pickle.load(open('/scail/group/deeplearning/driving_data/twangcat/'+fname+'_lane2D.pickle','r'))
 
@@ -275,7 +275,8 @@ while success and fCnt<2600:#lane_pred_3d.shape[3]:
 
   #cv2.imshow("video", cv2.resize(np.concatenate((img2d, img3d), axis=1), (1120,480)))
   #key = cv2.waitKey(2)
-  cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/pitchdeck/'+str(fCnt-start_frame+1)+'.png',np.concatenate((img2d, img3d), axis=1))
+  #cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/pitchdeck/'+str(fCnt-start_frame+1)+'.png',np.concatenate((img2d, img3d), axis=1))
+  cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/pitchdeck/'+str(fCnt-start_frame+1)+'.png',img2d)
   fCnt+=step
   print fCnt
 
