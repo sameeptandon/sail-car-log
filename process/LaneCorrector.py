@@ -942,13 +942,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             return
 
         elif key == 's':
-            folder = sys.argv[1] + 'corrected_lanes/'
+            folder = sys.argv[1] + '/corrected_lanes/'
             try:
                 os.mkdir(folder)
             except OSError:
                 pass
             file_name = str(int(time.time()) / 10) + '0.npz'
-            print 'Saved', file_name
+            print 'Saved', folder + file_name
             file_name = folder + file_name
             self.parent.exportData(file_name)
 
