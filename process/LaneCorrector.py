@@ -499,12 +499,17 @@ class Selection:
             else:
                 if self.end_point.isCloser(self.point):
                     new_pts = new_pts[::-1]
+                    at_end = False
+                else:
+                    at_end = True
                 lane = self.blockworld.addLane(new_pts)
 
                 self.point = Point(lane, 0, self.blockworld)
                 self.end_point = Point(lane, len(new_pts) - 1, self.blockworld)
 
-            return new_pts
+            # Choose which point to start the new append
+            next_point = self.end_point if at_end else self.point
+            return new_pts, next_point
 
     def join(self):
         if self.point.idx == 0 and self.end_point.idx == 0 or \
@@ -792,7 +797,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                                    idx, join_lane_actor)
                         self.selection.lowlight()
                         if self.mode in [Selection.Append, Selection.Fork]:
-                            pts = self.selection.append()
+                            pts, next_point = self.selection.append()
                         elif self.mode == Selection.Join:
                             pts = self.selection.join()
 
@@ -807,17 +812,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         if self.mode in [Selection.Append, Selection.Fork]:
                             if self.mode == Selection.Fork:
                                 self.mode = Selection.Append
-                                next_point = self.selection.end_point
-                            else:
-                                # Choose which point to start the new append
-                                # from
-                                if self.selection.point.idx == 0:
-                                    next_point = self.selection.point
-                                else:
-                                    # If we extended off the end, make end_point
-                                    # the starting point for a new segment
-                                    next_point = self.selection.end_point
-
                             self.selection = Selection(self, next_point.actor,
                                                        next_point.idx,
                                                        Selection.Append)
