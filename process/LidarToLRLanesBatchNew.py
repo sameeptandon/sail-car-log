@@ -230,7 +230,7 @@ if __name__ == '__main__':
         cam = params['cam'][cam_num-1]       
         
         # 50Hz gps data                     
-        gps_name = args['gps_mark2']                                     
+        gps_name = args['gps_mark1']                                     
         gps_reader = GPSReader(gps_name)                           
         GPSData = gps_reader.getNumericData()                     
         imu_transforms = IMUTransforms(GPSData)                   
@@ -299,7 +299,7 @@ if __name__ == '__main__':
         infid= open(savename1,'r')
         all_data = pickle.load(infid)
         infid.close()
-        laneData = interpolatePoints(all_data['left'], all_data['right'],all_time['left'], all_time['right'], imu_transforms2, sideways_start, lidar_height = lidar_height) 
+        laneData = interpolatePoints(all_data['left'], all_data['right'],all_time['left'], all_time['right'], imu_transforms, sideways_start, lidar_height = lidar_height) 
         savefid = open(savename2,'w')
         pickle.dump(laneData, savefid)
         savefid.close()
