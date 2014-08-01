@@ -895,12 +895,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         if idx >= 0 and self.selection and self.mode == Selection.Copy:
             # If we are in copy mode and we have selected a lane point
             if self.selection.copy_ready and actor == self.parent.raw_actor:
-                if self.selection.copying:
-                    self.parent.removeLane(self.selection.point.lane)
-                else:
+                if not self.selection.copying:
                     # Don't remove the lane the first time
                     self.selection.lowlight()
                     self.selection.copying = True
+                else:
+                    self.parent.removeLane(self.selection.point.lane)
                 pts = self.selection.copy(idx)
         if actor in self.parent.lane_actors:
             self.hover_lane = self.parent.lane_actors.index(actor)
@@ -996,6 +996,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 lane.highlight()
 
             elif key == 'd':
+                # Don't allow changes when copying due to temporary lanes
+                if self.mode == Selection.Copy:
+                    return
                 if self.mode in self.listLaneModes():
                     self.lowlightAll()
                     actor = self.parent.lane_actors[int(self.mode)]
@@ -1006,7 +1009,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                                           lane_num)
                     self.undoer.addChange(change)
                     self.KeyHandler(key='Escape')
-                elif self.mode != Selection.Delete:
+                elif not self.mode in [Selection.Delete, Selection.Copy]:
                     self.mode = Selection.Delete
                 elif self.selection != None and self.selection.isSelected():
                     del_selection, lane = self.selection.delete()
@@ -1015,6 +1018,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.KeyHandler(key='Escape')
 
             elif key == 'i':
+                # Don't allow changes when copying due to temporary lanes
+                if self.mode == Selection.Copy:
+                    return
                 self.KeyHandler(key='Escape')
                 self.mode = 'insert'
             elif self.mode == 'insert':
