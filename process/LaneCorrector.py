@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
 
+import bisect
 from collections import deque
 from colorsys import hsv_to_rgb
 import math
@@ -22,6 +23,7 @@ import vtk
 from ArgParser import parse_args
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
+from LidarTransforms import utc_from_gps_log_all
 from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage
@@ -37,12 +39,13 @@ def vtk_transform_from_np(np4x4):
     return transform
 
 
-def get_transforms(args):
+def get_transforms(args, mark='mark1'):
     """ Gets the IMU transforms for a run """
-    gps_reader = GPSReader(args['gps'])
+    gps_reader = GPSReader(args['gps_' + mark])
     gps_data = gps_reader.getNumericData()
+    gps_times = utc_from_gps_log_all(gps_data)
     imu_transforms = IMUTransforms(gps_data)
-    return imu_transforms, gps_data
+    return imu_transforms, gps_data, gps_times
 
 
 def load_ply(ply_file):
@@ -1078,18 +1081,18 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             elif key == 'Down':
                 if not self.parent.running:
-                    if self.parent.t > 0:
-                        self.parent.t -= self.parent.small_step
+                    if self.parent.mk2_t > 0:
+                        self.parent.mk2_t -= self.parent.small_step
                         self.parent.manual_change = -1
 
             elif key == 'Up':
                 if not self.parent.running:
                     if not self.parent.finished():
-                        self.parent.t += self.parent.small_step
+                        self.parent.mk2_t += self.parent.small_step
                         self.parent.manual_change = 1
 
     def updateModeText(self):
-        frame_num = self.parent.t
+        frame_num = self.parent.mk2_t
         tot_num = self.parent.video_reader.total_frame_count
         mode = self.mode
         txt = 'Frame (%d/%d) | Lane (%d, %d)\n' % (frame_num, tot_num,
@@ -1186,15 +1189,24 @@ class Blockworld:
     def __init__(self):
         args = parse_args(sys.argv[1], sys.argv[2])
 
-        self.t = 1
         self.small_step = 10
         self.large_step = 50
         self.startup_complete = False
 
         ##### Grab all the transforms ######
-        self.imu_transforms, self.gps_data = get_transforms(args)
-        self.cur_imu_transform = self.imu_transforms[0, :,:]
-        self.imu_kdtree = cKDTree(self.imu_transforms[:, :3, 3])
+        (self.imu_transforms_mk1,
+         self.gps_data_mk1,
+         self.gps_times_mk1) = get_transforms(args, 'mark1')
+
+        (self.imu_transforms_mk2,
+         self.gps_data_mk2,
+         self.gps_times_mk2) = get_transforms(args, 'mark2')
+
+        self.mk2_t = 0
+        self.t = self.mk2_to_mk1(self.mk2_t)
+
+        self.cur_imu_transform = self.imu_transforms_mk1[self.t, :,:]
+        self.imu_kdtree = cKDTree(self.imu_transforms_mk1[:, :3, 3])
 
         self.params = args['params']
         self.lidar_params = self.params['lidar']
@@ -1206,7 +1218,7 @@ class Blockworld:
         gmap_step = 100
         pool = multiprocessing.Pool(processes=50)
         latlons = [tuple(row) for i, row in
-                   enumerate(self.gps_data[::gmap_step, 1:3])]
+                   enumerate(self.gps_data_mk1[::gmap_step, 1:3])]
         frames = [x * gmap_step for x in xrange(len(latlons))]
         pool.map(load_gmaps, zip(frames, latlons))
         pool.terminate()
@@ -1326,6 +1338,11 @@ class Blockworld:
 
         self.iren.Start()
 
+    def mk2_to_mk1(self, mk2_idx):
+        t = self.gps_times_mk2[mk2_idx]
+        mk1_idx = bisect.bisect(self.gps_times_mk1, t) - 1
+        return mk1_idx
+
     def addLane(self, data, lane=-1, replace=False):
         """ Appends a new lane to the dataset or replaces an index given by
         'lane'. If 'replace' is true, replace the index given by lane"""
@@ -1390,17 +1407,17 @@ class Blockworld:
     def getCameraPosition(self, t, focus=100):
         offset = np.array([-75.0, 0, 25.0]) / 4
         # Rotate the camera so it is behind the car
-        position = np.dot(self.imu_transforms[t, 0:3, 0:3], offset)
-        position += self.imu_transforms[t, 0:3, 3] + position
+        position = np.dot(self.imu_transforms_mk1[t, 0:3, 0:3], offset)
+        position += self.imu_transforms_mk1[t, 0:3, 3] + position
 
         # Focus 10 frames in front of the car
-        focal_point = self.imu_transforms[t + focus, 0:3, 3]
+        focal_point = self.imu_transforms_mk1[t + focus, 0:3, 3]
         return position, focal_point
 
     def exportData(self, file_name):
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
-        lanes['saved_t'] = self.t
+        lanes['saved_t'] = self.mk2_t
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
             lanes['lane' + str(num)] = lane
@@ -1408,7 +1425,7 @@ class Blockworld:
         np.savez(file_name, **lanes)
 
     def finished(self, focus=100):
-        return self.t + 2 * focus > self.video_reader.total_frame_count
+        return self.mk2_t + 2 * focus > self.video_reader.total_frame_count
 
     def update(self, iren, event):
         # Transform the car
@@ -1416,9 +1433,9 @@ class Blockworld:
 
         # If we have gone backwards in time we need use setframe (slow)
         if self.manual_change != 0:
-            self.video_reader.setFrame(self.t - 1)
+            self.video_reader.setFrame(self.mk2_t - 1)
 
-        while self.video_reader.framenum <= self.t:
+        while self.video_reader.framenum <= self.mk2_t:
             (success, self.I) = self.video_reader.getNextFrame()
 
         # Copy the image so we can project points onto it
@@ -1438,7 +1455,7 @@ class Blockworld:
             self.gmap_actor = gmap_vtk.get_vtk_image()
             center = (200, 200, 0)
             self.gmap_actor.SetOrigin(center)
-            self.gmap_actor.RotateZ(self.gps_data[self.t, 9] + 90)
+            self.gmap_actor.RotateZ(self.gps_data_mk1[self.t, 9] + 90)
             self.gmap_ren.AddActor(self.gmap_actor)
 
         if self.running or self.manual_change:
@@ -1448,7 +1465,7 @@ class Blockworld:
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            self.cur_imu_transform = self.imu_transforms[self.t, :,:]
+            self.cur_imu_transform = self.imu_transforms_mk1[self.t, :,:]
             transform = vtk_transform_from_np(self.cur_imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
@@ -1469,7 +1486,8 @@ class Blockworld:
             self.gmap_ren.GetActiveCamera().SetClippingRange(100, 100000)
             self.gmap_ren.GetActiveCamera().Dolly(1.75)
 
-            self.t = self.init_t
+            self.mk2_t = self.init_t
+            self.t = self.mk2_to_mk1(self.mk2_t)
 
             self.startup_complete = True
             self.manual_change = -1
@@ -1481,17 +1499,19 @@ class Blockworld:
             self.interactor.writeVideo()
 
         if self.running:
-            self.t += self.large_step
+            self.mk2_t += self.large_step
 
         if self.finished():
-            self.t -= self.large_step
+            self.mk2_t -= self.large_step
             if self.running == True:
                 self.interactor.KeyHandler(key='space')
+
+        self.t = self.mk2_to_mk1(self.mk2_t)
 
         iren.GetRenderWindow().Render()
 
     def projectPointsOnImg(self, I):
-        car_pos = self.imu_transforms[self.t, 0:3, 3]
+        car_pos = self.imu_transforms_mk1[self.t, 0:3, 3]
 
         # Project the points onto the image
         for num in xrange(self.num_lanes):
@@ -1507,7 +1527,7 @@ class Blockworld:
                 # Reverse the color (RGB->BGR)
                 color = self.lane_clouds[num].intensity[0, :][::-1]
                 if lane.shape[0] > 0:
-                    xform = self.imu_transforms[self.t, :,:]
+                    xform = self.imu_transforms_mk1[self.t, :,:]
                     pix, mask = lidarPtsToPixels(lane, xform,
                                                  self.T_from_i_to_l,
                                                  self.cam_params)
