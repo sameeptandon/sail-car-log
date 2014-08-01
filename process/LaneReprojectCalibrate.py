@@ -187,7 +187,27 @@ if __name__ == '__main__':
       I = orig.copy()
       fnum = video_reader.framenum
       t = gps_times[fnum]
+      data, data_times = lidar_loader.loadLDRWindow(t-50000, 0.1)
 
+      # Transform data into IMU frame at time t
+      pts = data[:, 0:3].transpose()
+      pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
+      pts = np.dot(T_from_l_to_i, pts)
+
+      # Shift points according to timestamps instead of using transform of full sweep
+      #transform_points_by_times(pts, t_data, imu_transforms_mark1, gps_times_mark1)
+      transform_points_by_times(pts, data_times, imu_transforms, gps_times)
+
+      (pix, mask) = lidarPtsToPixels(pts, imu_transforms[fnum,:,:], T_from_i_to_l,cam); 
+      intensity = data[mask, 3]
+      heat_colors = heatColorMapFast(intensity, 0, 100)
+      for p in range(4):
+        I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
+        I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
+        I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
+        I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
+
+      # now draw interpolated lanes
       ids = range(fnum, fnum+300)
       for l in range(lanes['num_lanes']):
         lane_key = 'lane'+str(l)
