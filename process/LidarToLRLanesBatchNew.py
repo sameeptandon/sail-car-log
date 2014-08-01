@@ -36,7 +36,7 @@ def integrateClouds(lidar_loader, imuTransforms, start_time, end_time, step_time
         data, t_data = lidar_loader.loadLDRWindow(current_time,scan_window)
         #print np.min(t_data)
         #print np.min(GPSTime)
-        if data is None:
+        if data is None or data.shape[0]==0:
             current_time += step_time * 1e6
             continue
         dist = np.sqrt(np.sum( data[:, 0:3] ** 2, axis = 1))
@@ -185,12 +185,12 @@ def interpolatePoints(left_data, right_data, left_t, right_t, imu_transforms, si
     output_left[:,0] += smoothData(spline_left_x(all_time));
     output_left[:,1] += smoothData(spline_left_y(all_time));
     output_left[:,2] += smoothData(spline_left_z(all_time));
-
+    output_left[0,:] += aa[0,:] # first frame hasn't been shifted down to ground. do that now.
     output_right = np.copy(imu_transforms[:,0:3,3]);
     output_right[:,0] += smoothData(spline_right_x(all_time));
     output_right[:,1] += smoothData(spline_right_y(all_time));
     output_right[:,2] += smoothData(spline_right_z(all_time));
-    
+    output_right[0,:] += aa[0,:]
     laneData = dict()
     laneData['left']=output_left
     laneData['right']=output_right
