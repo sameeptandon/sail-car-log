@@ -1239,16 +1239,16 @@ class Blockworld:
 
         ###### Set up the renderers ######
         self.cloud_ren = vtk.vtkRenderer()
-        self.cloud_ren.SetViewport(0, 0, 0.6, 1.0)
+        self.cloud_ren.SetViewport(0, 0, 0.7, 1.0)
         self.cloud_ren.SetBackground(0, 0, 0)
 
         self.img_ren = vtk.vtkRenderer()
-        self.img_ren.SetViewport(0.6, 0.0, 1.0, 0.5)
+        self.img_ren.SetViewport(0.7, 0.0, 1.0, 0.37)
         # self.img_ren.SetInteractive(False)
-        # self.img_ren.SetBackground(0.1, 0.1, 0.1)
+        self.img_ren.SetBackground(0.1, 0.1, 0.1)
 
         self.gmap_ren = vtk.vtkRenderer()
-        self.gmap_ren.SetViewport(0.75, 0.5, 1.0, 0.75)
+        self.gmap_ren.SetViewport(0.75, 0.4, 1.0, 0.65)
         # self.gmap_ren.SetInteractive(False)
         self.gmap_ren.SetBackground(0.1, 0.1, 0.1)
 
