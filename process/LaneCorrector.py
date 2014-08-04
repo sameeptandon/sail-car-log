@@ -1193,7 +1193,22 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 class Blockworld:
 
     def __init__(self):
+        if len(sys.argv) <= 2 or '-h' or '--help' in sys.argv:
+            print """Usage:
+            LaneCorrector.py folder/ video.avi
+            LaneCorrector.py folder/ video.avi lane_points.npz
+            LaneCorrector.py folder/ video.avi background.npz lane_points.npz"""
+            sys.exit(-1)
         args = parse_args(sys.argv[1], sys.argv[2])
+        if len(sys.argv) == 4:
+            sys.argv.insert(-1, args['fullname'] + '_bg.npz')
+        else:
+            if len(sys.argv) == 3:
+                sys.argv.append(args['fullname'] + '_bg.npz')
+            if len(sys.argv) <= 4:
+                sys.argv.append(sys.argv[1] + '/multilane_points.npz')
+
+        print sys.argv
 
         self.small_step = 10
         self.large_step = 50
