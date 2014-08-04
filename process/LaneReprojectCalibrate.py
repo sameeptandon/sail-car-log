@@ -17,7 +17,8 @@ from ArgParser import *
 import SocketServer
 import threading
 import random
-
+import string
+from scipy.spatial import cKDTree
 global rx, ry, rz, crx, crz, R, cR, paramInit, port
 
 paramInit = False
@@ -26,7 +27,31 @@ port = 3000 + int(random.random()*10000)
 def ParametersToString(rx,ry,rz,crx,cry,crz):
     return "%f,%f,%f,%f,%f,%f\n" % (rx,ry,rz,crx,cry,crz)
 
+class RequestHandler(SocketServer.BaseRequestHandler):
+    def handle(self):
+        global rx, ry, rz, crx, cry, crz, R, cR, paramInit 
 
+        data = self.request[0].strip()
+        print data
+        (rx,ry,rz,crx,cry,crz) = map(lambda x: float(x), data.split(','))
+        
+        R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
+        #cR = euler_matrix(crx, cry, crz)[0:3,0:3]
+        cR = euler_matrix(crx, cry, crz)[0:3,0:3]
+        paramInit = True
+
+
+class ThreadedServer(threading.Thread):
+    def __init__(self, port):
+        self.server = None
+        self.port = port
+        threading.Thread.__init__(self)
+    def run(self):
+        if self.server == None:
+            address = ('localhost', self.port)
+            self.server = SocketServer.UDPServer(address, RequestHandler)
+        print 'starting server'
+        self.server.serve_forever()
 
 
 def zDistances(self, distances, global_frame, starting_point, meters_per_point, points_fwd):
@@ -55,38 +80,6 @@ def lanePos(map_pos, imu_transforms_t, cam, T_from_i_to_l):
     pts_wrt_camera_t = dot(cam['E'], pts_wrt_camera_t)
     pts_wrt_camera_t = pts_wrt_camera_t[0:3,:]
     return pts_wrt_camera_t
-
-
-
-
-
-
-class RequestHandler(SocketServer.BaseRequestHandler):
-    def handle(self):
-        global rx, ry, rz, crx, cry, crz, R, cR, paramInit 
-
-        data = self.request[0].strip()
-        print data
-        (rx,ry,rz,crx,cry,crz) = map(lambda x: float(x), data.split(','))
-        
-        R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
-        #cR = euler_matrix(crx, cry, crz)[0:3,0:3]
-        cR = euler_matrix(crx, cry, crz)[0:3,0:3]
-        paramInit = True
-
-
-class ThreadedServer(threading.Thread):
-    def __init__(self, port):
-        self.server = None
-        self.port = port
-        threading.Thread.__init__(self)
-    def run(self):
-        if self.server == None:
-            address = ('localhost', self.port)
-            self.server = SocketServer.UDPServer(address, RequestHandler)
-        print 'starting server'
-        self.server.serve_forever()
-
 
 def cloudToPixels(cam, pts_wrt_cam): 
 
@@ -162,7 +155,7 @@ if __name__ == '__main__':
     imu_transforms = IMUTransforms(gps_data)
     gps_times = utc_from_gps_log_all(gps_data)
     
-    lane_filename = prefix+'_multilane_points_done.npz'
+    lane_filename = string.replace(prefix+'_multilane_points_done.npz', 'q50_data', '640x480_Q50')
     lanes = np.load(lane_filename)
 
     # parameter server
@@ -175,20 +168,29 @@ if __name__ == '__main__':
     while not paramInit:
         time.sleep(1)
 
-    print int(sys.argv[3])
-    video_reader.setFrame(int(sys.argv[3]))
-    (success, orig) = video_reader.getNextFrame()
     T_from_l_to_i = params['lidar']['T_from_l_to_i']
     T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
     fwd_range=100
     colors = [(255,0,0),(0,255,0),(0,0,255),(255,255,0),(255,0,255),(0,255,255),(128,128,255),(128,255,128),(255,128,128),(128,128,0),(128,0,128),(0,128,128),(0,128,255),(0,255,128),(128,0,255),(128,255,0),(255,0,128),(255,128,0)]
+    counter = int(sys.argv[3])
+    bg_filename = string.replace(prefix+'2_bg.npz', 'q50_data', '640x480_Q50')
     while True:
         
+      video_reader.setFrame(counter)
+      (success, orig) = video_reader.getNextFrame()
       I = orig.copy()
       fnum = video_reader.framenum
       t = gps_times[fnum]
       data, data_times = lidar_loader.loadLDRWindow(t-50000, 0.1)
-
+      bg_data = np.load(bg_filename)['data']
+      tree = cKDTree(bg_data[:,:3])
+      nearby_idx = np.array(tree.query_ball_point(imu_transforms[fnum,0:3,3], r=100.0))
+      #print bg_data
+      #print imu_transforms[fnum,0:3,3]
+      #print nearby_idx
+      bg_pts=bg_data[nearby_idx,:3].transpose()
+      bg_pts = np.vstack((bg_pts, np.ones((1, bg_pts.shape[1]))))
+      
       # Transform data into IMU frame at time t
       pts = data[:, 0:3].transpose()
       pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
@@ -197,15 +199,15 @@ if __name__ == '__main__':
       # Shift points according to timestamps instead of using transform of full sweep
       #transform_points_by_times(pts, t_data, imu_transforms_mark1, gps_times_mark1)
       transform_points_by_times(pts, data_times, imu_transforms, gps_times)
-
-      (pix, mask) = lidarPtsToPixels(pts, imu_transforms[fnum,:,:], T_from_i_to_l,cam); 
-      intensity = data[mask, 3]
-      heat_colors = heatColorMapFast(intensity, 0, 100)
+      (pix, mask) = lidarPtsToPixels(bg_pts, imu_transforms[fnum,:,:], T_from_i_to_l,cam); 
+      #(pix, mask) = lidarPtsToPixels(pts, imu_transforms[fnum,:,:], T_from_i_to_l,cam); 
+      #intensity = data[mask, 3]
+      #heat_colors = heatColorMapFast(intensity, 0, 100)
       for p in range(4):
-        I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
-        I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
-        I[pix[1,mask]+p, pix[0,mask], :] = heat_colors[0,:,:]
-        I[pix[1,mask], pix[0,mask]+p, :] = heat_colors[0,:,:]
+        I[pix[1,mask]+p, pix[0,mask], :] = [255,255,255]#heat_colors[0,:,:]
+        I[pix[1,mask], pix[0,mask]+p, :] = [255,255,255]#heat_colors[0,:,:]
+        I[pix[1,mask]+p, pix[0,mask], :] = [255,255,255]#heat_colors[0,:,:]
+        I[pix[1,mask], pix[0,mask]+p, :] = [255,255,255]#heat_colors[0,:,:]
 
       # now draw interpolated lanes
       ids = range(fnum, fnum+300)
@@ -222,11 +224,14 @@ if __name__ == '__main__':
         nearid = np.argmin(dist_near[dist_mask]) # for those valid points, find the one closet to 'near' position.
         farid = np.argmin(dist_far[dist_mask]) #and far position
         lids = range(dist_mask[nearid], dist_mask[farid]+1) # convert back to global id and make it into a consecutive list. 
-        lane3d = lanePos(lane[lids,:], imu_transforms[fnum,:,:], cam,T_from_i_to_l) # lane markings in current camera frame
-        if np.all(lane3d[2,:]<=0):
-          continue
-        lane3d = lane3d[:,lane3d[2,:]>0] # make sure in front of camera
-        (pix, mask) = cloudToPixels(cam, lane3d)
+        #lane3d = lanePos(lane[lids,:], imu_transforms[fnum,:,:], cam,T_from_i_to_l) # lane markings in current camera frame
+        #if np.all(lane3d[2,:]<=0):
+        #  continue
+        #lane3d = lane3d[:,lane3d[2,:]>0] # make sure in front of camera
+        #(pix, mask) = cloudToPixels(cam, lane3d)
+        pts = lane[lids, :].transpose()
+        pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
+        (pix, mask) = lidarPtsToPixels(pts, imu_transforms[fnum,:,:], T_from_i_to_l,cam);
         for p in range(4):
             I[pix[1,mask]+p, pix[0,mask], :] = colors[(l)%18]
             I[pix[1,mask], pix[0,mask]+p, :] = colors[(l)%18]
@@ -236,11 +241,12 @@ if __name__ == '__main__':
       cv2.imshow('vid', I)
       key = cv2.waitKey(10)
       if key == -1:
+        counter+=1
         continue
       key = chr(key & 255)
-      if key == 'a':
+      if key == 'd':
         cry += 0.001
-      elif key == 'd':
+      elif key == 'a':
         cry -= 0.001
       elif key == 'w':
         crx += 0.001
@@ -251,8 +257,10 @@ if __name__ == '__main__':
       elif key == '_' or key == '-':
         crz -= 0.001
       else:
+        counter+=1
         continue
     
-      print (crx, cry, crz)
+      #print (crx, cry, crz)
       cR = euler_matrix(crx, cry, crz)[0:3,0:3]
       sock.sendto('PARAMETER_UPDATE:'+str(port)+':'+ParametersToString(rx,ry,rz,crx,cry,crz), ('localhost', 2929))
+      counter+=1
