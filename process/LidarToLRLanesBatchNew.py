@@ -44,8 +44,8 @@ def integrateClouds(lidar_loader, imuTransforms, start_time, end_time, step_time
         data_filter_mask = (dist > 3)                  & \
                            (dist < 10)                  & \
                            (data[:,3] > 40)            & \
-                           (data[:,2] < -(lidar_height-0.05))          & \
-                           (data[:,2] > -(lidar_height+0.05))          
+                           (data[:,2] < -(lidar_height-0.1))          & \
+                           (data[:,2] > -(lidar_height+0.1))          
         left_mask = data_filter_mask & (data[:,1] < 2.2) & (data[:,1] > 1.2)
         #left_mask = data_filter_mask & (data[:,1] < 2.6) & (data[:,1] > 1.2)
         right_mask = data_filter_mask & (data[:,1] > -2.4) & (data[:,1] < -1.4)
@@ -173,7 +173,7 @@ def interpolatePoints(left_data, right_data, left_t, right_t, imu_transforms, si
     right_time_array = np.where(rightLaneData[:, 0] < 5e5 )[0]
     print right_time_array.shape
     polynomial_fit=1
-    smoothing = 15
+    smoothing = 1
     spline_left_x = scipy.interpolate.UnivariateSpline(left_time_array, leftLaneData[left_time_array, 0], k=polynomial_fit, s=smoothing)
     spline_left_y = scipy.interpolate.UnivariateSpline(left_time_array, leftLaneData[left_time_array, 1], k=polynomial_fit, s=smoothing)
     spline_left_z = scipy.interpolate.UnivariateSpline(left_time_array, leftLaneData[left_time_array, 2], k=polynomial_fit, s=smoothing)
@@ -206,6 +206,7 @@ if __name__ == '__main__':
     path, directory = os.path.split(rootdir)
     targetfolder = '/scail/group/deeplearning/driving_data/640x480_Q50/' + directory + '/'
     cam_num = 2
+    #name_offset = len('_gpsmark1.out')
     name_offset = len('_gpsmark1.out')
     for root, subfolders, files in os.walk(rootdir):
       files1 = filter(lambda z: 'vail' not in z, files)
@@ -230,7 +231,9 @@ if __name__ == '__main__':
         cam = params['cam'][cam_num-1]       
         
         # 50Hz gps data                     
-        gps_name = args['gps_mark1']                                     
+        gps_name = args['gps']                                     
+        #gps_name = args['gps_mark1']       
+        print gps_name                              
         gps_reader = GPSReader(gps_name)                           
         GPSData = gps_reader.getNumericData()                     
         imu_transforms = IMUTransforms(GPSData)                   

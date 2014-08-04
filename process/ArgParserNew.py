@@ -10,6 +10,7 @@ corresponding to file names.
 
     basename = folder + '/' + video_file[:-5]
 
+    print basename
     map_file = basename + '.map'
     lidar_folder = basename + '_frames/'
     radar_folder = basename + '_rdr/'

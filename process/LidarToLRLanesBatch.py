@@ -168,7 +168,7 @@ def interpolatePoints(left_data, right_data, imu_transforms, sideways, lidar_hei
     right_time_array = np.where(rightLaneData[:, 0] < 5e5 )[0]
     print right_time_array.shape
     polynomial_fit=1
-    smoothing = 15
+    smoothing = 1
     spline_left_x = scipy.interpolate.UnivariateSpline(left_time_array, leftLaneData[left_time_array, 0], k=polynomial_fit, s=smoothing)
     spline_left_y = scipy.interpolate.UnivariateSpline(left_time_array, leftLaneData[left_time_array, 1], k=polynomial_fit, s=smoothing)
     spline_left_z = scipy.interpolate.UnivariateSpline(left_time_array, leftLaneData[left_time_array, 2], k=polynomial_fit, s=smoothing)

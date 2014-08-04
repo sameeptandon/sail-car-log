@@ -83,7 +83,7 @@ if __name__ == '__main__':
     if rootdir[-1]=='/':
       rootdir = rootdir[0:-1] # remove trailing '/'
     
-    cam_num = 3
+    cam_num = 2
     for root, subfolders, files in os.walk(rootdir):
       files1 = filter(lambda z: 'vail' not in z, files)
       files1 = filter(lambda z: '_gps.out' in z, files1)
@@ -116,9 +116,12 @@ if __name__ == '__main__':
         print gpsname[0:-8]
    
         labelname = gpsname[0:-8]+'_interp_lanes.pickle'
+        mapname = gpsname[0:-8]+'_lidarmap.pickle'
         labelname = string.replace(labelname, 'q50_data', '640x480_Q50') 
+        mapname = string.replace(mapname, 'q50_data', '640x480_Q50') 
         #labelname = string.replace(labelname, 'sameep', '640x480_Q50') 
         labelfid = open(labelname,'r') 
+        mapfid = open(mapname,'r') 
 
         new_vid_name = string.replace(video_file, 'q50_data', '640x480_label_videos_nodistort')
         #new_vid_name = string.replace(video_file, 'sameep', '640x480_label_videos_nodistort')
@@ -130,6 +133,12 @@ if __name__ == '__main__':
         labelfid.close()
         left_data = all_data['left']
         right_data = all_data['right']
+        
+
+        all_map = pickle.load(mapfid)
+        mapfid.close()
+        left_map = all_map['left']
+        right_map = all_map['right']
         # map points are defined w.r.t the IMU position at time 0
         # each entry in map_data is (x,y,z,intensity,framenum). 
 
@@ -166,6 +175,23 @@ if __name__ == '__main__':
             I[pix[1,mask]+p, pix[0,mask], :] = green
             I[pix[1,mask], pix[0,mask]+p, :] = green
 
+          # reproject
+          (pix, mask) = localMapToPixels(left_map, imu_transforms[t,:,:], T_from_i_to_l, cam); 
+          # draw
+          for p in range(4):
+            I[pix[1,mask]+p, pix[0,mask], :] = red
+            I[pix[1,mask], pix[0,mask]+p, :] = red
+            I[pix[1,mask]+p, pix[0,mask], :] = red
+            I[pix[1,mask], pix[0,mask]+p, :] = red
+          # reproject
+          (pix, mask) = localMapToPixels(right_map, imu_transforms[t,:,:], T_from_i_to_l, cam); 
+          #horizon = min(horizon, np.min(pix[1,mask]))
+          # draw
+          for p in range(4):
+            I[pix[1,mask]+p, pix[0,mask], :] = red
+            I[pix[1,mask], pix[0,mask]+p, :] = red
+            I[pix[1,mask]+p, pix[0,mask], :] = red
+            I[pix[1,mask], pix[0,mask]+p, :] = red
 
 
           # reproject
@@ -189,11 +215,11 @@ if __name__ == '__main__':
           # draw horizon
           #I[horizon-1:horizon+2, :, :]=red
           
-          I = cv2.resize(I, (640, 480))
+          #I = cv2.resize(I, (640, 480))
           #writer.write(I)
-          #cv2.imshow('vid', cv2.pyrDown(I))
-          #cv2.waitKey(1)
-          cv2.imwrite(new_vid_name+str(cnt)+'.png',I)
+          cv2.imshow('vid', I)
+          cv2.waitKey(2)
+          #cv2.imwrite(new_vid_name+str(cnt)+'.png',I)
           cnt +=1
           #I = I[:,:,[2,1,0]]
           #pl.ion()
@@ -202,5 +228,5 @@ if __name__ == '__main__':
           #pl.draw()
           #pl.clf()
           #pl.ioff()
-        subprocess.call('ffmpeg -i '+ new_vid_name+'%d.png -r 50 -s 640x480 -vb 20M '+ new_vid_name+'.avi', shell=True)
-        subprocess.call('rm '+ new_vid_name+'*.png', shell=True)
+        #subprocess.call('ffmpeg -i '+ new_vid_name+'%d.png -r 50 -s 640x480 -vb 20M '+ new_vid_name+'.avi', shell=True)
+        #subprocess.call('rm '+ new_vid_name+'*.png', shell=True)
