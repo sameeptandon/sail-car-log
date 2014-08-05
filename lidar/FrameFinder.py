@@ -27,10 +27,10 @@ class FrameFinder:
     def __init__(self, gps_file, frames_folder, radar_bag_file, write_to_file):
         if frames_folder[-1] == '/':
             frames_folder = frames_folder[0:-1]
-        
+
         basename = frames_folder.replace('_frames', '')
         self.map_file_name = basename + ".map"
-        
+
         reader = GPSReader(gps_file)
 
         # Camera time should already be sorted because frame # always increases
@@ -103,9 +103,9 @@ def utc_from_gps(gps_week, seconds, leap_seconds=16):
                 - leap_seconds) * 1000000)
 
 def unpack_bag(basename, radar_bag_file):
-    """ Unpacks the bag and writes individual segments to files. 
-    The ouput folder is the basename + _rdr. 
-    Each file name is the time of the starting segment 
+    """ Unpacks the bag and writes individual segments to files.
+    The ouput folder is the basename + _rdr.
+    Each file name is the time of the starting segment
     """
     radar_bag = rosbag.Bag(radar_bag_file)
     times = []
@@ -120,7 +120,7 @@ def unpack_bag(basename, radar_bag_file):
             time = msg.header.stamp.to_nsec()/1000 - 66000
             times.append(time)
             cur_file = open(rdr_dir + str(time) + '.rdr', 'w')
-            
+
         if cur_file != None:
             if msg.obj_id == 0 or msg.obj_id == 62:
                 continue
@@ -129,20 +129,20 @@ def unpack_bag(basename, radar_bag_file):
                 if msg.isMeasurd == True:
                     fmt = 'O {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {rcs} {w} {l}'
                     line = fmt.format(
-                        id = msg.obj_id, 
-                        dist = msg.dist, 
+                        id = msg.obj_id,
+                        dist = msg.dist,
                         lat_dist = msg.lat_dist,
                         rel_spd = msg.relative_spd,
                         dyn_prop = msg.dyn_prop,
                         rcs = msg.rcs,
                         w = msg.width,
-                        l = msg.length) 
+                        l = msg.length)
             else:
                 if msg.status > 0:
                     fmt = 'T {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {traj} {w} {l} {obst_probab} {exist_probab} {rel_acc} {type} {lost_reason}'
                     line = fmt.format(
-                        id = msg.obj_id, 
-                        dist = msg.dist, 
+                        id = msg.obj_id,
+                        dist = msg.dist,
                         lat_dist = msg.lat_dist,
                         rel_spd = msg.relative_spd,
                         dyn_prop = msg.dyn_prop,

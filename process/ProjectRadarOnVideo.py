@@ -30,7 +30,7 @@ def projectPoints(radar_data, args):
     pts_wrt_cam = pts + cam['displacement_from_l_to_c_in_lidar_frame']
     pts_wrt_cam = np.dot(R_to_c_from_l(cam), pts_wrt_cam.transpose())
 
-    (pix, J)  = cv2.projectPoints(pts_wrt_cam.transpose(),
+    (pix, J) = cv2.projectPoints(pts_wrt_cam.transpose(),
         np.array([0.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.0]),
         cam['KK'], cam['distort'])
     pix = pix.transpose()
@@ -38,7 +38,7 @@ def projectPoints(radar_data, args):
     pix = pix.astype(np.int32)
 
     # Filter the points to remove points that exist outside the video frame
-    # This is not a problem for the radar because the cameras see everything 
+    # This is not a problem for the radar because the cameras see everything
     # the radar does
     # dist_sqr = np.sum(pts_wrt_cam[0:3, :] ** 2, axis = 0)
     # mask = (pix[0,:] > 0) & (pix[1,:] > 0) & \
@@ -54,18 +54,26 @@ if __name__ == '__main__':
     params = args['params']
 
     video_reader = VideoReader(args['video'])
-    rdr_map = loadRDRCamMap(args['map'])
-    
+    print args['radar']
+    rdr_loader = RDRLoader(args['radar'])
+
+    gps_reader_mark1 = GPSReader(args['gps_mark1'])
+    gps_data_mark1 = gps_reader_mark1.getNumericData()
+    gps_times_mark1 = utc_from_gps_log_all(gps_data_mark1)
+
     writer = cv2.VideoWriter('radar_test.avi', cv.CV_FOURCC('X','V', 'I', 'D'),
-                    50.0, (1280,960) )
+                             50.0, (1280,960))
 
     while True:
         for t in xrange(5):
             (success, I) = video_reader.getNextFrame()
 
         frame_num = video_reader.framenum
-        radar_data = loadRDR(rdr_map[frame_num])[0]
 
+        cur_time = gps_times_mark1[frame_num]
+        radar_data = rdr_loader.loadRDRWindow(cur_time)
+        if radar_data == None:
+            continue
         if radar_data.shape[0] > 0:
             # Remove points that have a low radar cross-section
             mask = (radar_data[:, 5] > 5)
@@ -77,7 +85,7 @@ if __name__ == '__main__':
             front_right_pts = np.array(radar_data)
             front_right_pts[:,0] += radar_data[:,3]
             front_right_pts[:,1] += radar_data[:,4] / 2.
-            
+
             front_left_pts = np.array(radar_data)
             front_left_pts[:,0] += radar_data[:,3]
             front_left_pts[:,1] -= radar_data[:,4] / 2.

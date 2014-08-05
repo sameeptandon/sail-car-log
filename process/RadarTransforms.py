@@ -1,9 +1,11 @@
 import numpy as np
 import os
+import glob
+
+# PARAM
+SWEEP_TIME_MICROSEC = 60000
 
 def loadRDR(rdrfile):
-    # OBJ_fmt = 'O {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {rcs} {w} {l}'
-    # TGT_fmt = 'T {id} {dist} {lat_dist} {rel_spd} {dyn_prop} {traj} {w} {l} {obst_probab} {exist_probab} {rel_acc} {type} {lost_reason}'
     T_pts = []
     O_pts = []
     for line in open(rdrfile):
@@ -36,7 +38,7 @@ def loadRDRCamMap(frame_cloud_map):
         else:
             map_file.close()
             return None
-    
+
     map_file.close()
     return points
 
@@ -49,3 +51,57 @@ def calibrateRadarPts(pts, params):
     pts[:, 2] += params['T_from_r_to_l'][2]
 
     return np.dot(R, pts.transpose()).transpose()
+
+class RDRLoader(object):
+    def __init__(self, rdr_dir):
+        rdr_files = sorted(list(glob.glob(os.path.join(rdr_dir, '*.rdr'))))
+        file_times = [int(os.path.splitext(os.path.basename(f))[0]) for f in
+                      rdr_files]
+        file_times = np.array(file_times, dtype=np.int64)
+        self.rdr_end_times = file_times
+        self.rdr_start_times = self.rdr_end_times - SWEEP_TIME_MICROSEC
+        self.rdr_files = np.array(rdr_files)
+
+    def loadRDRWindow(self, microsec_since_epoch, fmt='O'):
+        """
+        Loads a window of radar outputs closest to microseconds_since_epoch
+        fmt can be 'O', 'T', or 'OT'.
+        'O' returns raw objects - This should be used most of the time
+        'O' format = id, dist, lat_dist, rel_spd, dyn_prop, rcs, w, l
+
+        'T' returns target objects - These rarely occur, but give more
+            information than 'O' objects
+        'T' format = id, dist, lat_dist, rel_spd, dyn_prop, traj, w, l,
+                     obst_probab, exist_probab, rel_acc, type, lost_reason
+
+        'OT' - returns a tuple of both 'O' and 'T' objects
+        """
+        start_time = microsec_since_epoch - SWEEP_TIME_MICROSEC
+        end_time = microsec_since_epoch + SWEEP_TIME_MICROSEC
+        mask = (self.rdr_start_times >= start_time) & \
+               (self.rdr_end_times <= end_time)
+
+        O_pts = None
+        T_pts = None
+
+        rdr_files = self.rdr_files[mask].tolist()
+
+        if len(rdr_files) > 0:
+            rdr_file = rdr_files[len(rdr_files)/2]
+            (O, T) = loadRDR(rdr_file)
+            if fmt == 'O' or fmt == 'OT':
+                O_pts = O
+            elif fmt == 'T' or fmt == 'OT':
+                T_pts = T
+
+        if fmt == 'O':
+            return O_pts
+        elif fmt == 'T':
+            return T_pts
+        elif fmt == 'OT':
+            return (O_pts, T_pts)
+
+if __name__ == "__main__":
+    import sys
+    loader = RDRLoader(sys.argv[1])
+    print loader.loadRDRWindow(1397083351092127, 1)
