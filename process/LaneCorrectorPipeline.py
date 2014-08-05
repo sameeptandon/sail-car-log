@@ -5,8 +5,9 @@ import os
 import subprocess
 import sys
 import shlex
+import shutil
 import os.path
-
+import glob
 
 class Config:
     def __init__(self, config_name):
@@ -68,10 +69,14 @@ if '-f' in sys.argv:
 
 if configurator.exists():
     configurator.get('downloaded')
-    configurator.get('mapped')
+    configurator.get('organized')
+    configurator.get('map')
+    configurator.get('multilane')
 else:
     configurator.set('downloaded', False)
-    configurator.set('mapped', False)
+    configurator.set('organized', False)
+    configurator.set('map', False)
+    configurator.set('multilane', False)
 
 print configurator.config
 
@@ -79,14 +84,46 @@ if configurator.config['downloaded'] == False:
     cmd = """rsync --progress -a --prune-empty-dirs --include="*.rdr" \
     --include="*.ldr" --include="*.avi" --include="*.out" \
     --include="params.ini" --include="*lanes.pickle" --filter="-! */" \
-    jkiske@gorgon33:~/q50_data/{remote} {local}""".format(
-        remote=remote_folder, local=local_folder)
+    jkiske@gorgon33:~/q50_data/{remote} data/""".format(
+        remote=remote_folder)
 
     tokens = shlex.split(cmd)
     if '-d' in sys.argv:
         tokens.insert(1, '--dry-run')
+        print 'DRY RUN'
 
-    print tokens
     subprocess.call(tokens)
 
-    configurator.set('downloaded', True)
+    if not '-d' in sys.argv:
+        configurator.set('downloaded', True)
+
+if configurator.config['organized'] == False:
+    for video in glob.glob(local_folder + '/split_0*1.avi'):
+        organized_folder = video.replace('split_0_', '').replace('1.avi', '')
+        try:
+            os.mkdir(organized_folder)
+        except OSError:
+            pass
+
+        tokens = organized_folder.split('/')
+        tokens[-1] = '*' + tokens[-1] + '*'
+        all_file_glob = '/'.join(tokens)
+
+        all_files = glob.glob(all_file_glob)
+
+        folder_name = organized_folder.split('/')[-1]
+        for file in all_files:
+            file_parts = file.split('/')
+            if file_parts[-1] != folder_name:
+                file_parts.insert(-1, folder_name)
+                old_file = file
+                new_file = '/'.join(file_parts)
+                print old_file, new_file
+                shutil.move(old_file, new_file)
+
+        params = local_folder + '/params.ini'
+        folder_params = local_folder + '/' + folder_name + '/params.ini'
+        shutil.copy(params, folder_params)
+
+    configurator.set('organized', True)
+
