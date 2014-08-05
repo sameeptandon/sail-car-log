@@ -8,6 +8,8 @@ import shlex
 import shutil
 import os.path
 import glob
+from MapBuilder import MapBuilder
+from ArgParser import parse_args
 
 class Config:
     def __init__(self, config_name):
@@ -127,3 +129,15 @@ if configurator.config['organized'] == False:
 
     configurator.set('organized', True)
 
+if configurator.config['map'] == False:
+    for run in glob.glob(local_folder + '/*/'):
+        if os.path.isdir(run):
+            base = run.split('/')[-2]
+            temp_vid = base + '2.avi'
+            args = parse_args(run, temp_vid)
+            mb = MapBuilder(args, 1, 600, 0.5, 0.1)
+            mb.buildMap(['no-trees'])
+            output = run + '/' + base + '_bg.npz'
+            mb.exportData(output)
+
+    configurator.set('map', True)
