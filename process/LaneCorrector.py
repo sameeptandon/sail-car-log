@@ -5,6 +5,7 @@
 import bisect
 from collections import deque
 from colorsys import hsv_to_rgb
+import glob
 import math
 import multiprocessing
 import os
@@ -1193,18 +1194,19 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 class Blockworld:
 
     def __init__(self):
-        if len(sys.argv) <= 2 or '-h' or '--help' in sys.argv:
+        if len(sys.argv) <= 2 or '-h' in sys.argv or '--help' in sys.argv:
             print """Usage:
             LaneCorrector.py folder/ video.avi
             LaneCorrector.py folder/ video.avi lane_points.npz
             LaneCorrector.py folder/ video.avi background.npz lane_points.npz"""
             sys.exit(-1)
         args = parse_args(sys.argv[1], sys.argv[2])
+        bg_file = glob.glob(args['fullname'] + '*bg.npz')[0]
         if len(sys.argv) == 4:
-            sys.argv.insert(-1, args['fullname'] + '_bg.npz')
+            sys.argv.insert(-1, bg_file)
         else:
             if len(sys.argv) == 3:
-                sys.argv.append(args['fullname'] + '_bg.npz')
+                sys.argv.append(bg_file)
             if len(sys.argv) <= 4:
                 sys.argv.append(sys.argv[1] + '/multilane_points.npz')
 
