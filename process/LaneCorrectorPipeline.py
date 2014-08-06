@@ -83,8 +83,8 @@ else:
 print configurator.config
 
 if configurator.config['downloaded'] == False:
-    cmd = """rsync --progress -a --prune-empty-dirs --include="*.rdr" \
-    --include="*.ldr" --include="*.avi" --include="*.out" \
+    cmd = """rsync --progress -a -L --prune-empty-dirs --include="*.rdr" \
+    --include="*.ldr" --include="*2.avi" --include="*.out" \
     --include="params.ini" --include="*lanes.pickle" --filter="-! */" \
     jkiske@gorgon33:~/q50_data/{remote} data/""".format(
         remote=remote_folder)
@@ -130,8 +130,9 @@ if configurator.config['organized'] == False:
     configurator.set('organized', True)
 
 if configurator.config['map'] == False:
-    for run in glob.glob(local_folder + '/*/'):
+    for run in sorted(glob.glob(local_folder + '/*/')):
         if os.path.isdir(run):
+            print run
             base = run.split('/')[-2]
             temp_vid = base + '2.avi'
             args = parse_args(run, temp_vid)
@@ -140,4 +141,44 @@ if configurator.config['map'] == False:
             output = run + '/' + base + '_bg.npz'
             mb.exportData(output)
 
+            mb.buildMap(['no-trees', 'ground'])
+            output = run + '/' + base + '_ground.npz'
+            mb.exportData(output)
+
     configurator.set('map', True)
+
+if configurator.config['multilane'] == False:
+    for run in sorted(glob.glob(local_folder + '/*/')):
+        if os.path.isdir(run):
+            print run
+            num_lanes_file_name = run + '/num_lanes.ini'
+            if os.path.exists(num_lanes_file_name):
+                with open(num_lanes_file_name, 'r') as num_lanes_file:
+                    lines = num_lanes_file.readlines()
+                    for line in lines:
+                        if 'left' in line.lower():
+                            left = int(line.split()[-1])
+                        else:
+                            right = int(line.split()[-1])
+            else:
+                temp_vid = glob.glob(run + '/split_0_*2.avi')[0]
+                mplayer_cmd = 'mplayer -speed 3 -quiet ' + temp_vid
+                subprocess.call(mplayer_cmd.split())
+
+                print 'Enter number of left lanes:'
+                left = sys.stdin.readline()
+                print 'Enter number of right lanes:'
+                right = sys.stdin.readline()
+
+                with open(num_lanes_file_name, 'w+') as num_lanes_file:
+                    num_lanes_file.write('left = ' + str(left))
+                    num_lanes_file.write('right = ' + str(right))
+
+            interp = glob.glob(run + '/*interp_lanes.pickle')[0]
+            bg = glob.glob(run + '/*_bg.npz')[0]
+            cmd = 'python OffsetLanes.py {interp} {l} {r} {bg} {folder}'
+            cmd =  cmd.format(interp=interp, l=left, r=right, bg=bg, folder=run)
+            print cmd
+            subprocess.call(cmd.split())
+
+    configurator.set('multilane', True)
