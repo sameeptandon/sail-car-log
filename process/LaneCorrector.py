@@ -1090,12 +1090,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if not self.parent.running:
                     if self.parent.mk2_t > 0:
                         self.parent.mk2_t -= self.parent.small_step
+                        self.parent.t = self.parent.mk2_to_mk1()
                         self.parent.manual_change = -1
 
             elif key == 'Up':
                 if not self.parent.running:
                     if not self.parent.finished():
                         self.parent.mk2_t += self.parent.small_step
+                        self.parent.t = self.parent.mk2_to_mk1()
                         self.parent.manual_change = 1
 
     def updateModeText(self):
@@ -1226,7 +1228,7 @@ class Blockworld:
          self.gps_times_mk2) = get_transforms(args, 'mark2')
 
         self.mk2_t = 0
-        self.t = self.mk2_to_mk1(self.mk2_t)
+        self.t = self.mk2_to_mk1()
 
         self.cur_imu_transform = self.imu_transforms_mk1[self.t, :,:]
         self.imu_kdtree = cKDTree(self.imu_transforms_mk1[:, :3, 3])
@@ -1361,7 +1363,9 @@ class Blockworld:
 
         self.iren.Start()
 
-    def mk2_to_mk1(self, mk2_idx):
+    def mk2_to_mk1(self, mk2_idx=-1):
+        if mk2_idx == -1:
+            mk2_idx = self.mk2_t
         t = self.gps_times_mk2[mk2_idx]
         mk1_idx = bisect.bisect(self.gps_times_mk1, t) - 1
         return mk1_idx
@@ -1510,7 +1514,7 @@ class Blockworld:
             self.gmap_ren.GetActiveCamera().Dolly(1.75)
 
             self.mk2_t = self.init_t
-            self.t = self.mk2_to_mk1(self.mk2_t)
+            self.t = self.mk2_to_mk1()
 
             self.startup_complete = True
             self.manual_change = -1
@@ -1529,9 +1533,9 @@ class Blockworld:
             if self.running == True:
                 self.interactor.KeyHandler(key='space')
 
-        self.t = self.mk2_to_mk1(self.mk2_t)
+        self.t = self.mk2_to_mk1()
 
-        iren.GetRenderWindow().Render()
+        self.iren.GetRenderWindow().Render()
 
     def projectPointsOnImg(self, I):
         car_pos = self.imu_transforms_mk1[self.t, 0:3, 3]
