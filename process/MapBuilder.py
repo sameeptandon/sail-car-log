@@ -17,9 +17,9 @@ import cv2
 import math
 
 
-class MapBuilder:
+class MapBuilder(object):
     def __init__(self, args, start_time, end_time, step_time, scan_window):
-        """ 
+        """
         start_time: seconds into the GPS Mark 1 log
         end_time: seconds into the GPS Mark 1 log
         step_time: seconds between adding points from scans
@@ -50,9 +50,10 @@ class MapBuilder:
         self.all_t = []
 
     def buildMap(self, filters=None):
-        """ 
-        Creates a map with a set of filters 
+        """
+        Creates a map with a set of filters
         filters: A list of filters.
+            'ground': Leaves the ground points
             'lanes': Filters out the lane markings
             'forward': Only takes the top half of the scan. This ensures points
                        appear in chronolgical order
@@ -71,11 +72,11 @@ class MapBuilder:
                 current_time += self.step_time * 1e6
                 continue
 
-            # Always remove low intensity points
-            filter_mask = data[:, 3] > 5
-
             if filters != None:
-                filter_mask = data[:, 3] > 30
+                if 'ground' in filters:
+                    filter_mask = data[:, 3] < 10
+                else:
+                    filter_mask = data[:, 3] > 30
                 if 'lanes' in filters:
                     filter_mask &=  (data[:,1] < 3) & (data [:,1] > -3) &\
                                     (data[:,2] < -1.9) & (data[:,2] > -2.1)
@@ -89,7 +90,7 @@ class MapBuilder:
 
             data = data[filter_mask, :]
             t_data = t_data[filter_mask]
-        
+
             # put in imu_t frame
             pts = data[:, 0:3].transpose()
             pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
