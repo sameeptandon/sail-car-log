@@ -1,5 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# Usage: GroundPlaneFitting
+
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
 
 import bisect
@@ -1090,14 +1094,12 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if not self.parent.running:
                     if self.parent.mk2_t > 0:
                         self.parent.mk2_t -= self.parent.small_step
-                        self.parent.t = self.parent.mk2_to_mk1()
                         self.parent.manual_change = -1
 
             elif key == 'Up':
                 if not self.parent.running:
                     if not self.parent.finished():
                         self.parent.mk2_t += self.parent.small_step
-                        self.parent.t = self.parent.mk2_to_mk1()
                         self.parent.manual_change = 1
 
     def updateModeText(self):
@@ -1228,7 +1230,7 @@ class Blockworld:
          self.gps_times_mk2) = get_transforms(args, 'mark2')
 
         self.mk2_t = 0
-        self.t = self.mk2_to_mk1()
+        self.t = self.mk2_to_mk1(self.mk2_t)
 
         self.cur_imu_transform = self.imu_transforms_mk1[self.t, :,:]
         self.imu_kdtree = cKDTree(self.imu_transforms_mk1[:, :3, 3])
@@ -1252,7 +1254,7 @@ class Blockworld:
         # Whether to write video
         self.record = False
         # Is the flyover running
-        self.running = False
+        self.running = True
         # Has the user changed the time
         self.manual_change = 0
 
@@ -1363,9 +1365,7 @@ class Blockworld:
 
         self.iren.Start()
 
-    def mk2_to_mk1(self, mk2_idx=-1):
-        if mk2_idx == -1:
-            mk2_idx = self.mk2_t
+    def mk2_to_mk1(self, mk2_idx):
         t = self.gps_times_mk2[mk2_idx]
         mk1_idx = bisect.bisect(self.gps_times_mk1, t) - 1
         return mk1_idx
@@ -1514,7 +1514,7 @@ class Blockworld:
             self.gmap_ren.GetActiveCamera().Dolly(1.75)
 
             self.mk2_t = self.init_t
-            self.t = self.mk2_to_mk1()
+            self.t = self.mk2_to_mk1(self.mk2_t)
 
             self.startup_complete = True
             self.manual_change = -1
@@ -1533,44 +1533,10 @@ class Blockworld:
             if self.running == True:
                 self.interactor.KeyHandler(key='space')
 
-        self.t = self.mk2_to_mk1()
+        self.t = self.mk2_to_mk1(self.mk2_t)
 
-        self.iren.GetRenderWindow().Render()
+        iren.GetRenderWindow().Render()
 
-    def projectPointsOnImg(self, I):
-        car_pos = self.imu_transforms_mk1[self.t, 0:3, 3]
-
-        # Project the points onto the image
-        for num in xrange(self.num_lanes):
-            # Find the closest point
-            tree = self.lane_kdtrees[num]
-            (d, closest_idx) = tree.query(car_pos)
-
-            # Find all the points nearby
-            nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
-
-            if nearby_idx.shape[0] > 0:
-                lane = self.lane_clouds[num].xyz[nearby_idx, :3]
-                # Reverse the color (RGB->BGR)
-                color = self.lane_clouds[num].intensity[0, :][::-1]
-                if lane.shape[0] > 0:
-                    xform = self.imu_transforms_mk1[self.t, :,:]
-                    pix, mask = lidarPtsToPixels(lane, xform,
-                                                 self.T_from_i_to_l,
-                                                 self.cam_params)
-                    for p in range(4):
-                        I[pix[1, mask]+p, pix[0, mask], :] = color
-                        I[pix[1, mask], pix[0, mask]+p, :] = color
-                        I[pix[1, mask]-p, pix[0, mask], :] = color
-                        I[pix[1, mask], pix[0, mask]-p, :] = color
-
-        return I
-
-    def get_gmap(self):
-        _, fname = get_gmap_fname((self.t / 100 + 1) * 100)
-        if not os.path.isfile(fname):
-            return None
-        return fname
 
 
 if __name__ == '__main__':
