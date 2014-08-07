@@ -100,8 +100,8 @@ if configurator.config['downloaded'] == False:
         configurator.set('downloaded', True)
 
 if configurator.config['organized'] == False:
-    for video in glob.glob(local_folder + '/split_0*1.avi'):
-        organized_folder = video.replace('split_0_', '').replace('1.avi', '')
+    for video in glob.glob(local_folder + '/split_0*2.avi'):
+        organized_folder = video.replace('split_0_', '').replace('2.avi', '')
         try:
             os.mkdir(organized_folder)
         except OSError:
