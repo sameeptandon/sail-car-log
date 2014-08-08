@@ -109,7 +109,10 @@ class MapBuilder:
 
         print (self.end_time - current_time) / 1e6
 
-
+    def getData(self):
+        export_data = np.row_stack(self.all_data)
+        export_t = np.concatenate(self.all_t)
+        return (export_data, export_t)
 
     def exportData(self, file_name):
         print 'exporting data'

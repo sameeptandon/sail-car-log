@@ -17,6 +17,7 @@ from ArgParser import *
 import SocketServer
 import threading
 import random
+from MapBuilder import MapBuilder
 
 global rx, ry, rz, crx, crz, R, cR, paramInit, port
 
@@ -35,7 +36,6 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         (rx,ry,rz,crx,cry,crz) = map(lambda x: float(x), data.split(','))
         
         R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
-        #cR = euler_matrix(crx, cry, crz)[0:3,0:3]
         cR = euler_matrix(crx, cry, crz)[0:3,0:3]
         paramInit = True
 
@@ -72,16 +72,27 @@ def cloudToPixels(cam, pts_wrt_cam):
 
     return (pix, mask)
 
-def lidarPtsToPixels(pts_wrt_lidar_t, imu_transforms_t, cam):
+def lidarPtsToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
+    # Transform points back to imu_t
+    pts_wrt_imu_0 = array(map_data[:, 0:3]).transpose()
+    pts_wrt_imu_0 = np.vstack((pts_wrt_imu_0,
+                               np.ones((1, pts_wrt_imu_0.shape[1]))))
+    pts_wrt_imu_t = np.dot(np.linalg.inv(imu_transforms_t), pts_wrt_imu_0)
+    #pts_wrt_imu_t = pts_wrt_imu_0
+
+    # transform points from imu_t to lidar_t
+    pts_wrt_lidar_t = np.dot(T_from_i_to_l, pts_wrt_imu_t)
+
     # transform points from lidar_t to camera_t
+
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
     pts_wrt_camera_t = np.dot(cR, np.dot(R_to_c_from_l_old(0), 
             pts_wrt_camera_t.transpose()))
 
     pts_wrt_camera_t = np.vstack((pts_wrt_camera_t,
-        np.ones((1,pts_wrt_camera_t.shape[1]))))
+                                  np.ones((1, pts_wrt_camera_t.shape[1]))))
     pts_wrt_camera_t = dot(cam['E'], pts_wrt_camera_t)
-    pts_wrt_camera_t = pts_wrt_camera_t[0:3,:]
+    pts_wrt_camera_t = pts_wrt_camera_t[0:3, :]
 
     # reproject camera_t points in camera frame
     (pix, mask) = cloudToPixels(cam, pts_wrt_camera_t)
@@ -95,10 +106,17 @@ if __name__ == '__main__':
     video_reader = VideoReader(video_file)
     params = args['params'] 
     cam = params['cam'][cam_num-1]
-    gps_reader = GPSReader(args['gps_mark2'])
-    gps_data = gps_reader.getNumericData()
-    lidar_loader = LDRLoader(args['frames'])
-    imu_transforms = IMUTransforms(gps_data)
+
+    gps_reader_mark1 = GPSReader(args['gps_mark1'])
+    gps_data_mark1 = gps_reader_mark1.getNumericData()
+    gps_reader_mark2 = GPSReader(args['gps_mark2'])
+    gps_data_mark2 = gps_reader_mark2.getNumericData()
+
+    imu_transforms_mark1 = IMUTransforms(gps_data_mark1)
+    imu_transforms_mark2 = IMUTransforms(gps_data_mark2)
+    gps_times_mark1 = utc_from_gps_log_all(gps_data_mark1)
+    gps_times_mark2 = utc_from_gps_log_all(gps_data_mark2)
+    builder = MapBuilder(args, 0, 999999, 0.1, 0.05)
 
     # parameter server
     thr = ThreadedServer(port)
@@ -117,11 +135,24 @@ if __name__ == '__main__':
         I = orig.copy()
         fnum = video_reader.framenum
         print fnum
-        t = utc_from_gps_log(gps_data[fnum,:])
-        data, data_times = lidar_loader.loadLDRWindow(t, 0.1)
-        print data.shape
-        print imu_transforms.shape
-        (pix, mask) = lidarPtsToPixels(data[:,0:3].transpose(), imu_transforms[fnum,:,:], cam); 
+        T_from_l_to_i = np.eye(4)
+        T_from_l_to_i[0:3,0:3] = R
+        T_from_i_to_l = np.linalg.inv(T_from_l_to_i)
+        t = gps_times_mark2[fnum]
+        builder.start_time = t
+        builder.end_time = t + 3.0 * 1e6
+        builder.step_time = 0.5
+        builder.T_from_l_to_i = T_from_l_to_i
+        builder.T_from_i_to_l = T_from_i_to_l
+        builder.buildMap(filters=['none'])
+
+        data, data_times = builder.getData()
+
+        fnum_mark1 = bisect.bisect(gps_times_mark1, t) - 1
+
+        (pix, mask) = lidarPtsToPixels(data,
+                imu_transforms_mark1[fnum_mark1, :,:], T_from_i_to_l, cam)
+
         intensity = data[mask, 3]
         heat_colors = heatColorMapFast(intensity, 0, 100)
         for p in range(4):
@@ -147,9 +178,22 @@ if __name__ == '__main__':
             crz += 0.005
         elif key == '_' or key == '-':
             crz -= 0.005
+        elif key == 'i':
+            ry -= 0.005
+        elif key == 'k':
+            ry += 0.005
+        elif key == 'u':
+            rx += 0.005
+        elif key == 'o':
+            rx -= 0.005
+        elif key == 'j':
+            rz += 0.005
+        elif key == 'l':
+            rz -= 0.005
         else:
             continue
     
-        print (crx, cry, crz)
+        print (rx, ry, rz, crx, cry, crz)
+        R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
         cR = euler_matrix(crx, cry, crz)[0:3,0:3]
         sock.sendto('PARAMETER_UPDATE:'+str(port)+':'+ParametersToString(rx,ry,rz,crx,cry,crz), ('localhost', 2929))
