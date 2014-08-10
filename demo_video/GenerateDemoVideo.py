@@ -8,6 +8,18 @@ green = np.array([0,255,0])
 red = np.array([0,0,255])
 dist = np.array([8,16,24,32,40,48,56,64,72,80])+4
 
+def warpPoints(P, pts):
+    """
+    warpPoints takes a list of points and performs a matrix transform on them
+
+    P is a perspective transform matrix (3x3)
+    pts is a 2xN matrix of (x, y) coordinates to be transformed
+    """
+    pts = np.vstack([pts, np.ones((1, pts.shape[1]))])
+    out = np.dot(P, pts)
+    return out[0:2] / out[2]
+
+
 def GetQ50CameraParams():
     cam = [{}, {}]
     for i in [1, 0]:
@@ -128,11 +140,12 @@ def pix2depth(bbox, lane_pred_2d):
 
 def draw2D(img, lane_pred_2d, car_pred):
   # draw lane predictions on image
-  for j in xrange(lane_pred_2d.shape[2]): # iterate over points on track                          
-    lcol = int(round(lane_pred_2d[0,0,j]))
-    lrow = int(round(lane_pred_2d[1,0,j]))
-    rcol = int(round(lane_pred_2d[0,1,j]))
-    rrow = int(round(lane_pred_2d[1,1,j]))
+  for j in xrange(lane_pred_2d.shape[2]): # iterate over points on track
+    pts = lane_pred_2d[:,:,j]
+    lcol = int(round(pts[0,0]))
+    lrow = int(round(pts[1,0]))
+    rcol = int(round(pts[0,1]))
+    rrow = int(round(pts[1,1]))
     color =dist2color(dist[j])
     img[lrow-5:lrow+6,lcol-5:lcol+6,:] = color
     img[rrow-5:rrow+6,rcol-5:rcol+6,:] = color
@@ -154,7 +167,7 @@ def draw2D(img, lane_pred_2d, car_pred):
       depth = bb['depth']+2
     color = dist2color(depth)
     cv2.rectangle(img, top_left, bottom_right, color.tolist(), 4)
-    
+    ''' 
     text = '%0.1f' % depth
     font = cv2.FONT_HERSHEY_SIMPLEX
     fontScale = get_depth_fontsize(depth, min_font=0.2, max_font=2.0)
@@ -176,6 +189,7 @@ def draw2D(img, lane_pred_2d, car_pred):
       type_color = blue+red
     org = (bb['rect'].pos[0]+5, bb['rect'].pos[1]+bb['rect'].dim[1]/2)
     cv2.putText(img, car_type, org, font, fontScale, type_color.tolist(), thickness, cv2.CV_AA)
+    '''
   return img
 
 
@@ -249,34 +263,47 @@ def draw3D(lane_pred_3d, lane_pred_2d, car_pred):
 
 
 #fname = 'split_0_to_gilroy_d1'
-fname = 'split_0_from_gilroy_b1'
-video_name = '/scail/group/deeplearning/driving_data/q50_data/4-3-14-gilroy/'+fname+'.avi'
+fname = 'split_0_280N_a1'
+video_name = '/scail/group/deeplearning/driving_data/sameep/8-7-14-tesla/'+fname+'.avi'
 capture = cv2.VideoCapture(video_name)
+need3d = False
+needcar = False
+car_pred = pickle.load(open('/scail/group/deeplearning/sail-deep-gpu/brodyh/detection-demo-tesla-280N_a1.pkl','r'))
+if need3d:
+  lane_pred_3d = pickle.load(open('/scail/group/deeplearning/driving_data/twangcat/tesla_demo/'+fname+'_lane3D.pickle','r'))
+lane_pred_2d = pickle.load(open('/scail/group/deeplearning/driving_data/twangcat/tesla_demo/'+fname+'_lane2D.pickle','r'))
 
-car_pred = pickle.load(open('/scail/group/deeplearning/driving_data/brodyh/driving_demo/4-3-14-gilroy/'+fname+'_v2.pkl','r'))
-lane_pred_3d = pickle.load(open('/scail/group/deeplearning/driving_data/twangcat/'+fname+'_lane3D.pickle','r'))
-lane_pred_2d = pickle.load(open('/scail/group/deeplearning/driving_data/twangcat/'+fname+'_lane2D.pickle','r'))
-
-start_frame = 1800#2380#1650#390-1250
+start_frame = 0#2380#1650#390-1250
 success = True
 fCnt = 0
-lane_pred_2d*=2
+#lane_pred_2d*=2
 step = 1
-while success and fCnt<2600:#lane_pred_3d.shape[3]:
+# warps specific for 8-7-tesla data
+dst = np.array([[0,0],[639,0],[639,479],[0,479]], dtype = "float32")
+src = np.array([[-60,-150],[639+60,-150],[639-65,479-35],[65,479-35]],dtype = "float32")
+P=cv2.getPerspectiveTransform(src,dst)
+while success and fCnt<lane_pred_2d.shape[3]:
   for i in range(step):
     success, img = capture.read()
   if fCnt<start_frame:
     fCnt+=step
     continue
-  img2d = draw2D(img, lane_pred_2d[:,:,:,fCnt], car_pred[fCnt])
-  img3d = draw3D(lane_pred_3d[:,:,:,fCnt],lane_pred_2d[:,:,:,fCnt], car_pred[fCnt])
+
+  pts = np.reshape(lane_pred_2d[:,:,:,fCnt], [2,2*10])
+  pts = warpPoints(P, pts)*2
+  pts = np.reshape(pts, [2,2,10])
+  img2d = draw2D(img, pts, car_pred[fCnt])
+  if need3d:
+    img3d = draw3D(lane_pred_3d[:,:,:,fCnt],pts, car_pred[fCnt])
 
 
 
   #cv2.imshow("video", cv2.resize(np.concatenate((img2d, img3d), axis=1), (1120,480)))
   #key = cv2.waitKey(2)
-  #cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/pitchdeck/'+str(fCnt-start_frame+1)+'.png',np.concatenate((img2d, img3d), axis=1))
-  cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/pitchdeck/'+str(fCnt-start_frame+1)+'.png',img2d)
+  if need3d:
+    cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/pitchdeck/'+str(fCnt-start_frame+1)+'.png',np.concatenate((img2d, img3d), axis=1))
+  else:
+    cv2.imwrite('/scail/group/deeplearning/driving_data/twangcat/tesla_demo/'+str(fCnt-start_frame+1)+'.png',img2d)
   fCnt+=step
   print fCnt
 
