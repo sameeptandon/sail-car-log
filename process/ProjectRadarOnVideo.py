@@ -57,9 +57,9 @@ if __name__ == '__main__':
     print args['radar']
     rdr_loader = RDRLoader(args['radar'])
 
-    gps_reader_mark1 = GPSReader(args['gps_mark1'])
-    gps_data_mark1 = gps_reader_mark1.getNumericData()
-    gps_times_mark1 = utc_from_gps_log_all(gps_data_mark1)
+    gps_reader_mark2 = GPSReader(args['gps_mark2'])
+    gps_data_mark2 = gps_reader_mark2.getNumericData()
+    gps_times_mark2 = utc_from_gps_log_all(gps_data_mark2)
 
     writer = cv2.VideoWriter('radar_test.avi', cv.CV_FOURCC('X','V', 'I', 'D'),
                              50.0, (1280,960))
@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
         frame_num = video_reader.framenum
 
-        cur_time = gps_times_mark1[frame_num]
+        cur_time = gps_times_mark2[frame_num]
         radar_data = rdr_loader.loadRDRWindow(cur_time)
         if radar_data == None:
             continue
