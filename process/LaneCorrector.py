@@ -23,11 +23,11 @@ import vtk
 
 from ArgParser import parse_args
 from GPSReader import GPSReader
-from GPSTransforms import IMUTransforms
+from GPSTransforms import IMUTransforms, absoluteTransforms
 from LidarTransforms import utc_from_gps_log_all
 from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
-from VtkRenderer import VtkPointCloud, VtkText, VtkImage
+from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane
 
 
 def vtk_transform_from_np(np4x4):
@@ -45,6 +45,7 @@ def get_transforms(args, mark='mark1'):
     gps_reader = GPSReader(args['gps_' + mark])
     gps_data = gps_reader.getNumericData()
     gps_times = utc_from_gps_log_all(gps_data)
+    # imu_transforms = absoluteTransforms(gps_data)
     imu_transforms = IMUTransforms(gps_data)
     return imu_transforms, gps_data, gps_times
 
@@ -1263,6 +1264,7 @@ class Blockworld:
 
         self.img_ren = vtk.vtkRenderer()
         self.img_ren.SetViewport(0.7, 0.0, 1.0, 0.37)
+        # self.img_ren.SetViewport(0.5, 0.0, 1.0, 0.5)
         # self.img_ren.SetInteractive(False)
         self.img_ren.SetBackground(0.1, 0.1, 0.1)
 
@@ -1325,6 +1327,8 @@ class Blockworld:
             interp_lane = npz['lane' + str(i)]
             self.addLane(interp_lane)
 
+        # self.addLane(self.imu_transforms_mk1[:, :3, 3].copy())
+
         print 'Loading ground planes'
         if 'planes' in npz:
             planes = npz['planes']
@@ -1333,12 +1337,13 @@ class Blockworld:
                 norm = planes[i, :3]
                 pos = planes[i, 3:]
                 plane = VtkPlane(norm, pos)
-                actor = plane.get_vtk_plane()
+                actor = plane.get_vtk_plane(25)
                 self.ground_actors.append(actor)
                 actor.GetProperty().LightingOff()
                 actor.SetPickable(0)
-                actor.GetProperty().SetOpacity(0.5)
+                actor.GetProperty().SetOpacity(0.2)
                 self.cloud_ren.AddActor(actor)
+
         print 'Adding car'
         self.car = load_ply('../mapping/viz/gtr.ply')
         self.car.SetPickable(0)
@@ -1551,7 +1556,7 @@ class Blockworld:
 
         self.iren.GetRenderWindow().Render()
 
-    def projectPointsOnImg(self, I):
+    def projectPointsOnImg(self, I, show_lidar=False):
         car_pos = self.imu_transforms_mk1[self.t, 0:3, 3]
 
         # Project the points onto the image
@@ -1577,6 +1582,30 @@ class Blockworld:
                         I[pix[1, mask], pix[0, mask]+p, :] = color
                         I[pix[1, mask]-p, pix[0, mask], :] = color
                         I[pix[1, mask], pix[0, mask]-p, :] = color
+
+        if show_lidar:
+            # Find the closest point
+            tree = self.raw_kdtree
+            (d, closest_idx) = tree.query(car_pos)
+
+            # Find all the points nearby
+            nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
+
+            if nearby_idx.shape[0] > 0:
+                lane = self.raw_cloud.xyz[nearby_idx, :3]
+                # Reverse the color (RGB->BGR)
+                color = np.array((1,1,1))
+                if lane.shape[0] > 0:
+                    xform = self.imu_transforms_mk1[self.t, :,:]
+                    pix, mask = lidarPtsToPixels(lane, xform,
+                                                 self.T_from_i_to_l,
+                                                 self.cam_params)
+                    for p in range(4):
+                        I[pix[1, mask]+p, pix[0, mask], :] = color
+                        I[pix[1, mask], pix[0, mask]+p, :] = color
+                        I[pix[1, mask]-p, pix[0, mask], :] = color
+                        I[pix[1, mask], pix[0, mask]-p, :] = color
+
 
         return I
 
