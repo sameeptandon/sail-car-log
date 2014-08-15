@@ -32,11 +32,17 @@ class VtkPlane:
         print pos
         print
 
-    def get_vtk_plane(self, side_len=50):
-        cube = vtk.vtkCubeSource()
-        cube.SetXLength(side_len)
-        cube.SetYLength(side_len)
-        cube.SetZLength(side_len)
+    def get_vtk_plane(self, side_len=25):
+        # cube = vtk.vtkCubeSource()
+        # cube.SetXLength(side_len)
+        # cube.SetYLength(side_len)
+        # cube.SetZLength(side_len)
+        # cube.SetCenter(*self.pos)
+
+        cube = vtk.vtkSphereSource()
+        cube.SetThetaResolution(100)
+        cube.SetPhiResolution(100)
+        cube.SetRadius(side_len)
         cube.SetCenter(*self.pos)
 
         cubeMapper = vtk.vtkPolyDataMapper()
