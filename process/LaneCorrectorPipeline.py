@@ -137,13 +137,28 @@ if configurator.config['map'] == False:
             temp_vid = base + '2.avi'
             args = parse_args(run, temp_vid)
             mb = MapBuilder(args, 1, 600, 0.5, 0.1)
-            mb.buildMap(['no-trees'])
-            output = run + '/' + base + '_bg.npz'
-            mb.exportData(output)
 
-            mb.buildMap(['no-trees', 'ground'])
+            output = run + '/' + base + '_bg.npz'
+            if not os.path.isfile(output):
+                mb.buildMap(['no-trees'])
+                mb.exportData(output)
+
             output = run + '/' + base + '_ground.npz'
-            mb.exportData(output)
+            if not os.path.isfile(output):
+                mb.buildMap(['no-trees', 'ground'])
+                mb.exportData(output)
+
+            # Absolute
+            mb = MapBuilder(args, 1, 600, 0.5, 0.1, absolute=True)
+            output = run + '/' + base + '_absolute.npz'
+            if not os.path.isfile(output):
+                mb.buildMap(['no-trees'])
+                mb.exportData(output)
+
+            output = run + '/' + base + '_absolute_ground.npz'
+            if not os.path.isfile(output):
+                mb.buildMap(['no-trees', 'ground'])
+                mb.exportData(output)
 
     configurator.set('map', True)
 
