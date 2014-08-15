@@ -18,7 +18,7 @@ import math
 
 
 class MapBuilder(object):
-    def __init__(self, args, start_time, end_time, step_time, scan_window):
+    def __init__(self, args, start_time, end_time, step_time, scan_window, absolute=False):
         """
         start_time: seconds into the GPS Mark 1 log
         end_time: seconds into the GPS Mark 1 log
@@ -32,7 +32,11 @@ class MapBuilder(object):
         self.gps_data_mark1 = self.gps_reader_mark1.getNumericData()
 
         self.lidar_loader = LDRLoader(self.args['frames'])
-        self.imu_transforms_mark1 = IMUTransforms(self.gps_data_mark1)
+        if absolute:
+            self.imu_transforms_mark1 = absoluteTransforms(self.gps_data_mark1)
+        else:
+            self.imu_transforms_mark1 = IMUTransforms(self.gps_data_mark1)
+
         self.gps_times_mark1 = utc_from_gps_log_all(self.gps_data_mark1)
 
         self.T_from_l_to_i = self.params['lidar']['T_from_l_to_i']
