@@ -76,6 +76,7 @@ class VideoReader():
       #img = img[:,:,::-1]
       #print savename
       #pp.imsave(savename, img)
-      img = cv2.resize(img, (640,480))
+      img = cv2.resize(img, (320,240))
+      print self.framenum
       cv2.imshow("video", img)
       key = cv2.waitKey(2);
