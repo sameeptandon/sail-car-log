@@ -40,13 +40,16 @@ def vtk_transform_from_np(np4x4):
     return transform
 
 
-def get_transforms(args, mark='mark1'):
+def get_transforms(args, mark='mark1', absolute=False):
     """ Gets the IMU transforms for a run """
     gps_reader = GPSReader(args['gps_' + mark])
     gps_data = gps_reader.getNumericData()
     gps_times = utc_from_gps_log_all(gps_data)
-    # imu_transforms = absoluteTransforms(gps_data)
-    imu_transforms = IMUTransforms(gps_data)
+    if absolute:
+        imu_transforms = absoluteTransforms(gps_data)
+    else:
+        imu_transforms = IMUTransforms(gps_data)
+
     return imu_transforms, gps_data, gps_times
 
 
@@ -1220,13 +1223,18 @@ class Blockworld:
         self.startup_complete = False
 
         ##### Grab all the transforms ######
+        if 'absolute' in sys.argv[3]:
+            self.absolute = True
+        else:
+            self.absolute = False
+
         (self.imu_transforms_mk1,
          self.gps_data_mk1,
-         self.gps_times_mk1) = get_transforms(args, 'mark1')
+         self.gps_times_mk1) = get_transforms(args, 'mark1', self.absolute)
 
         (self.imu_transforms_mk2,
          self.gps_data_mk2,
-         self.gps_times_mk2) = get_transforms(args, 'mark2')
+         self.gps_times_mk2) = get_transforms(args, 'mark2', self.absolute)
 
         self.mk2_t = 0
         self.t = self.mk2_to_mk1()
