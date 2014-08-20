@@ -5,6 +5,8 @@ from GPSTransforms import IMUTransforms
 from LidarTransforms import utc_from_gps_log_all
 from GPSReader import GPSReader
 from scipy.spatial import cKDTree
+from scipy.interpolate import UnivariateSpline
+import matplotlib.pyplot as plt
 
 def get_transforms(args, mark='mark1'):
     """ Gets the IMU transforms for a run """
@@ -22,10 +24,12 @@ class PlaneFitter(object):
         self.num_lanes = lanes_npz['num_lanes']
         self.lanes = [None for x in range(self.num_lanes)]
         self.lanes_tree = [None for x in range(self.num_lanes)]
+        self.backup_lanes = [None for x in range(self.num_lanes)]
 
         for i in xrange(self.num_lanes):
             self.lanes[i] = np.array(lanes_npz['lane' + str(i)])
             self.lanes_tree[i] = cKDTree(self.lanes[i])
+            self.backup_lanes[i] = self.lanes[i].copy()
 
         self.imu, _, _ = get_transforms(args)
         self.pos = self.imu[:, :3, 3]
@@ -50,6 +54,8 @@ class PlaneFitter(object):
         v = pts[2, :] - p0
         n = np.cross(u, v)
         n /= np.linalg.norm(n)
+        if np.linalg.norm(n) == 0:
+            print n
         return n, p0
 
     def getInliers(self, n, p0, pts, threshold):
@@ -58,7 +64,7 @@ class PlaneFitter(object):
         inliers = np.abs(dist) < threshold
         return inliers
 
-    def findGroundPlane(self, pos_idx, radius=100.0, threshold=0.05, n_iter=15):
+    def findGroundPlane(self, pos_idx, radius=100.0, threshold=0.05, n_iter=10):
         pts_idx = self.ground_tree.query_ball_point(self.pos[pos_idx, :], radius)
         pts = self.ground[pts_idx, :]
 
@@ -104,8 +110,10 @@ class PlaneFitter(object):
         n, p0, err = self.fitPlane(pts[inliers, :])
 
         if self.planes == None:
-            self.planes = np.hstack((n, p0))
+            self.planes = np.hstack((n, p0))[np.newaxis, :]
         else:
+            # Use a moving average to smooth out planes
+            n = self.planes[-1, :3] * 0.3 + n * 0.7
             self.planes = np.vstack((self.planes, np.hstack((n, p0))))
 
         if self.filt_ground == None:
@@ -115,18 +123,34 @@ class PlaneFitter(object):
 
         return n, p0, err
 
-    def correctLanes(self, pos_idx, n, p0, radius=100.0):
+    def correctLanes(self):
+        plane_tree = cKDTree(self.planes[:, 3:])
         for i in xrange(self.num_lanes):
             lane = self.lanes[i]
-            tree = self.lanes_tree[i]
 
-            _, closest_idx = tree.query(self.pos[pos_idx, :], k=1)
-            lane_idx = tree.query_ball_point(lane[closest_idx], radius)
+            _, closest_idx = plane_tree.query(lane)
 
-            v = lane[lane_idx] - p0
-            dist = np.dot(v, n)
-            lane_cpy = self.lanes[i][lane_idx].copy()
-            self.lanes[i][lane_idx] -= (n * dist[:, np.newaxis])
+            planes = np.array([self.planes[idx] for idx in closest_idx])
+            p0 = planes[:, 3:]
+            n = planes[:, :3]
+
+            v = lane - p0
+            dist = np.sum(v * n, axis=1)
+
+            lane -= n * dist[:, np.newaxis]
+            t = np.arange(0, lane.shape[0])
+            print t
+
+            xinter = UnivariateSpline(t, lane[:, 0], s=10)
+            yinter = UnivariateSpline(t, lane[:, 1], s=10)
+            zinter = UnivariateSpline(t, lane[:, 2], s=10)
+
+            self.lanes[i] = np.column_stack((xinter(t), yinter(t), zinter(t)))
+
+            # if i == 0:
+            #     plt.plot(t, self.lanes[i][:,2], 'r.', t, lane[:,2], 'g-')
+            #     plt.show()
+
 
     def exportData(self, file_name):
         lanes = {}
@@ -137,6 +161,9 @@ class PlaneFitter(object):
             lane = self.lanes[num]
             lanes['lane' + str(num)] = lane
 
+            # lane = self.backup_lanes[num]
+            # lanes['lane' + str(num + self.num_lanes)] = lane
+
         np.savez(file_name, **lanes)
 
 
@@ -146,12 +173,11 @@ if __name__ == '__main__':
     lanes_file = sys.argv[1] + '/multilane_points.npz'
     pf = PlaneFitter(args, plane_file, lanes_file)
 
-    for i in xrange(0, pf.pos.shape[0], 100):
+    for i in xrange(0, pf.pos.shape[0], 25):
+    # for i in xrange(1000, 2000, 100):
         print '%d/%d' % (i, pf.pos.shape[0])
 
         n, p0, err = pf.findGroundPlane(i, radius=25)
-        if n == None:
-            continue
-        pf.correctLanes(i, n, p0, radius=25)
 
+    pf.correctLanes()
     pf.exportData(sys.argv[1] + '/multilane_points_planar.npz')
