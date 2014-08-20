@@ -1337,8 +1337,8 @@ class Blockworld:
 
         # self.addLane(self.imu_transforms_mk1[:, :3, 3].copy())
 
-        print 'Loading ground planes'
         if 'planes' in npz:
+            print 'Loading ground planes'
             planes = npz['planes']
             self.ground_actors = []
             for i in xrange(planes.shape[0]):
@@ -1349,8 +1349,21 @@ class Blockworld:
                 self.ground_actors.append(actor)
                 actor.GetProperty().LightingOff()
                 actor.SetPickable(0)
-                actor.GetProperty().SetOpacity(0.2)
+                actor.GetProperty().SetOpacity(0.4)
+                actor.GetProperty().SetColor((0, 1, 0))
                 self.cloud_ren.AddActor(actor)
+
+        if 'filt_ground' in npz:
+            print 'Loading road points'
+            ground_pts = npz['filt_ground'][::4]
+            color = np.zeros((ground_pts.shape[0], 3))
+            color[:, 0] += 255
+            self.ground_cloud = VtkPointCloud(ground_pts[:, :3], color)
+            self.ground_actor = self.ground_cloud.get_vtk_color_cloud()
+            self.ground_actor.GetProperty().SetPointSize(5)
+            self.ground_actor.GetProperty().SetOpacity(0.3)
+            self.ground_actor.SetPickable(0)
+            self.cloud_ren.AddActor(self.ground_actor)
 
         print 'Adding car'
         self.car = load_ply('../mapping/viz/gtr.ply')
