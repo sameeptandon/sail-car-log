@@ -34,13 +34,14 @@ class PlaneFitter(object):
         self.ground_tree = cKDTree(self.ground)
 
         self.planes = None
+        self.filt_ground = None
 
     def fitPlane(self, pts):
         p0 = np.mean(pts, axis=0)
         A = pts - p0
-        u, _, _ = np.linalg.svd(np.transpose(A), full_matrices=False)
-        n = u[2]
-        err = np.sum(np.dot(A, n)**2) / A.shape[0]
+        u, _, _ = np.linalg.svd(A.T, full_matrices=False)
+        n = u[:, 2]
+        err = np.sum(np.dot(A, n)**2)**0.5 / A.shape[0]
         return n, p0, err
 
     def planeFromPoints(self, pts):
@@ -57,9 +58,33 @@ class PlaneFitter(object):
         inliers = np.abs(dist) < threshold
         return inliers
 
-    def findGroundPlane(self, pos_idx, radius=100.0, threshold=0.1, n_iter=15):
+    def findGroundPlane(self, pos_idx, radius=100.0, threshold=0.05, n_iter=15):
         pts_idx = self.ground_tree.query_ball_point(self.pos[pos_idx, :], radius)
         pts = self.ground[pts_idx, :]
+
+        # Remove points that are outside the lanes
+        xform = self.imu[pos_idx]
+        inv_xform = np.linalg.inv(xform)
+
+        _, left_idx = self.lanes_tree[0].query(self.pos[pos_idx], k=1)
+        _, right_idx = self.lanes_tree[-1].query(self.pos[pos_idx], k=1)
+
+        lane_boundary = np.vstack((self.lanes[0][left_idx], self.lanes[-1][right_idx]))
+        lane_boundary = np.hstack((lane_boundary, np.ones((2, 1))))
+        lane_boundary = np.dot(lane_boundary, inv_xform.T)
+
+        hom_pts = np.hstack((pts, np.ones((pts.shape[0], 1))))
+        rot_pts = np.dot(hom_pts, inv_xform.T)
+
+        pt_mask = (rot_pts[:, 1] < lane_boundary[0, 1])  & \
+                  (rot_pts[:, 1] > lane_boundary[1, 1])
+        filt_pts = np.dot(rot_pts[pt_mask], xform.T)
+
+        pts = filt_pts[:, :3]
+
+        if pts.shape[0] < 10:
+            return (None,) * 3
+
         # number of inliers, (idx0, idx1, idx2)
         best_model = (0, np.array(0))
         for i in xrange(n_iter):
@@ -83,24 +108,31 @@ class PlaneFitter(object):
         else:
             self.planes = np.vstack((self.planes, np.hstack((n, p0))))
 
+        if self.filt_ground == None:
+            self.filt_ground = pts[inliers]
+        else:
+            self.filt_ground = np.vstack((self.filt_ground, pts[inliers]))
+
         return n, p0, err
 
     def correctLanes(self, pos_idx, n, p0, radius=100.0):
         for i in xrange(self.num_lanes):
             lane = self.lanes[i]
             tree = self.lanes_tree[i]
-            _, i = lane_pts = tree.query(self.pos[pos_idx, :], k=1)
-            lane_idx = tree.query_ball_point(lane[i], radius)
-            part_lane = lane[lane_idx]
 
-            v = part_lane - p0
+            _, closest_idx = tree.query(self.pos[pos_idx, :], k=1)
+            lane_idx = tree.query_ball_point(lane[closest_idx], radius)
+
+            v = lane[lane_idx] - p0
             dist = np.dot(v, n)
-            part_lane[:, 2] -= (n * dist[:, np.newaxis])[:, 2]
+            lane_cpy = self.lanes[i][lane_idx].copy()
+            self.lanes[i][lane_idx] -= (n * dist[:, np.newaxis])
 
     def exportData(self, file_name):
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
         lanes['planes'] = self.planes
+        lanes['filt_ground'] = self.filt_ground
         for num in xrange(self.num_lanes):
             lane = self.lanes[num]
             lanes['lane' + str(num)] = lane
@@ -113,9 +145,13 @@ if __name__ == '__main__':
     plane_file = args['fullname'] + '_ground.npz'
     lanes_file = sys.argv[1] + '/multilane_points.npz'
     pf = PlaneFitter(args, plane_file, lanes_file)
-    for i in xrange(0, pf.pos.shape[0], 500):
+
+    for i in xrange(0, pf.pos.shape[0], 100):
         print '%d/%d' % (i, pf.pos.shape[0])
 
-        n, p0, err = pf.findGroundPlane(i, radius=200)
-        pf.correctLanes(i, n, p0, radius=200)
-        pf.exportData(sys.argv[1] + '/multilane_points_planar.npz')
+        n, p0, err = pf.findGroundPlane(i, radius=25)
+        if n == None:
+            continue
+        pf.correctLanes(i, n, p0, radius=25)
+
+    pf.exportData(sys.argv[1] + '/multilane_points_planar.npz')

@@ -28,9 +28,6 @@ class VtkPlane:
     def __init__(self, norm, pos):
         self.norm = tuple(norm)
         self.pos = tuple(pos)
-        print norm
-        print pos
-        print
 
     def get_vtk_plane(self, side_len=25):
         # cube = vtk.vtkCubeSource()
