@@ -86,7 +86,7 @@ if configurator.config['downloaded'] == False:
     cmd = """rsync --progress -a -L --prune-empty-dirs --include="*.rdr" \
     --include="*.ldr" --include="*2.avi" --include="*.out" \
     --include="params.ini" --include="*lanes.pickle" --filter="-! */" \
-    jkiske@gorgon33:~/q50_data/{remote} data/""".format(
+    jkiske@gorgon34:~/q50_data/{remote} data/""".format(
         remote=remote_folder)
 
     tokens = shlex.split(cmd)
