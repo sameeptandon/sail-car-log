@@ -83,9 +83,10 @@ else:
 print configurator.config
 
 if configurator.config['downloaded'] == False:
-    cmd = """rsync --progress -a -L --prune-empty-dirs --include="*.rdr" \
-    --include="*.ldr" --include="*2.avi" --include="*.out" \
-    --include="params.ini" --include="*lanes.pickle" --filter="-! */" \
+    cmd = """rsync --progress -a -L --prune-empty-dirs --exclude="*_frames/" \
+    --exclude="*_radar" --include="*.rdr" --include="*_frames.tar.gz" \
+    --include="*2.avi" --include="*.out" --include="params.ini" \
+    --include="*lanes.pickle" --filter="-! */" \
     jkiske@gorgon34:~/q50_data/{remote} data/""".format(
         remote=remote_folder)
 
@@ -123,6 +124,12 @@ if configurator.config['organized'] == False:
                 print old_file, new_file
                 shutil.move(old_file, new_file)
 
+                if '.tar.gz' in new_file:
+                    untar_cmd = 'tar xf %s -C %s' % (new_file,
+                                                     organized_folder)
+                    subprocess.call(untar_cmd.split())
+                    os.remove(new_file)
+
         params = local_folder + '/params.ini'
         folder_params = local_folder + '/' + folder_name + '/params.ini'
         shutil.copy(params, folder_params)
@@ -144,18 +151,6 @@ if configurator.config['map'] == False:
                 mb.exportData(output)
 
             output = run + '/' + base + '_ground.npz'
-            if not os.path.isfile(output):
-                mb.buildMap(['no-trees', 'ground'])
-                mb.exportData(output)
-
-            # Absolute
-            mb = MapBuilder(args, 1, 600, 0.5, 0.1, absolute=True)
-            output = run + '/' + base + '_absolute.npz'
-            if not os.path.isfile(output):
-                mb.buildMap(['no-trees'])
-                mb.exportData(output)
-
-            output = run + '/' + base + '_absolute_ground.npz'
             if not os.path.isfile(output):
                 mb.buildMap(['no-trees', 'ground'])
                 mb.exportData(output)
