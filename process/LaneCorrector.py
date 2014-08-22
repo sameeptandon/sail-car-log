@@ -990,11 +990,24 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.mode = 'edit'
 
             elif key == 'p':
-                actors = self.parent.ground_plane_actors
-                if len(actors) > 0:
-                    visibility = actors[0].GetVisibility()
-                    for actor in actorsbp:
-                        actor.SetVisibility(0 if visibility == 1 else 1)
+                plane_actors = self.parent.ground_plane_actors
+                ground_actor = self.parent.filt_ground_actor
+
+                if len(plane_actors) > 0:
+                    plane_vis = plane_actors[0].GetVisibility()
+                    ground_vis = ground_actor.GetVisibility()
+                    if plane_vis and ground_vis:
+                        plane_vis, ground_vis = 0, 0
+                    elif plane_vis:
+                        plane_vis, ground_vis = 1, 1
+                    elif ground_vis:
+                        plane_vis, ground_vis = 1, 0
+                    else:
+                        plane_vis, ground_vis = 0, 1
+
+                    for actor in plane_actors:
+                        actor.SetVisibility(plane_vis)
+                    ground_actor.SetVisibility(ground_vis)
 
             elif key in self.listLaneModes():
                 self.lowlightAll()
@@ -1343,10 +1356,10 @@ class Blockworld:
             self.addLane(interp_lane)
 
         # self.addLane(self.imu_transforms_mk1[:, :3, 3].copy())
+        self.ground_plane_actors = []
         if 'planes' in npz:
             print 'Loading ground planes'
             planes = npz['planes']
-            self.ground_plane_actors = []
             for i in xrange(planes.shape[0]):
                 norm = planes[i, :3]
                 pos = planes[i, 3:]
@@ -1359,17 +1372,18 @@ class Blockworld:
                 actor.GetProperty().SetColor((0, .7, .1))
                 self.cloud_ren.AddActor(actor)
 
+        self.filt_ground_actor = None
         if 'filt_ground' in npz:
             print 'Loading road points'
-            ground_pts = npz['filt_ground'][::4]
+            ground_pts = npz['filt_ground']
             color = np.zeros((ground_pts.shape[0], 3))
             color[:, 0] += 255
             self.ground_cloud = VtkPointCloud(ground_pts[:, :3], color)
-            self.ground_actor = self.ground_cloud.get_vtk_color_cloud()
-            self.ground_actor.GetProperty().SetPointSize(5)
-            self.ground_actor.GetProperty().SetOpacity(0.3)
-            self.ground_actor.SetPickable(0)
-            self.cloud_ren.AddActor(self.ground_actor)
+            self.filt_ground_actor = self.ground_cloud.get_vtk_color_cloud()
+            self.filt_ground_actor.GetProperty().SetPointSize(3)
+            self.filt_ground_actor.GetProperty().SetOpacity(0.3)
+            self.filt_ground_actor.SetPickable(0)
+            self.cloud_ren.AddActor(self.filt_ground_actor)
 
         print 'Adding car'
         self.car = load_ply('../mapping/viz/gtr.ply')
