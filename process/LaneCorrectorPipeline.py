@@ -74,11 +74,13 @@ if configurator.exists():
     configurator.get('organized')
     configurator.get('map')
     configurator.get('multilane')
+    configurator.get('planefitting')
 else:
     configurator.set('downloaded', False)
     configurator.set('organized', False)
     configurator.set('map', False)
     configurator.set('multilane', False)
+    configurator.set('planefitting', False)
 
 print configurator.config
 
@@ -192,3 +194,14 @@ if configurator.config['multilane'] == False:
             subprocess.call(cmd.split())
 
     configurator.set('multilane', True)
+
+if configurator.config['planefitting'] == False:
+        for run in sorted(glob.glob(local_folder + '/*/')):
+            if os.path.isdir(run):
+                print run
+                if len(glob.glob(run + '/*_planar.npz')) == 0:
+                    video = run.split('/')[-2] + '2.avi'
+                    cmd = 'python PlaneFitting.py {run} {video}'
+                    cmd = cmd.format(run=run, video=video)
+                    print cmd
+                    subprocess.call(cmd.split())
