@@ -989,6 +989,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.parent.raw_actor.GetProperty().SetOpacity(op)
                 self.mode = 'edit'
 
+            elif key == 'p':
+                actors = self.parent.ground_plane_actors
+                if len(actors) > 0:
+                    visibility = actors[0].GetVisibility()
+                    for actor in actorsbp:
+                        actor.SetVisibility(0 if visibility == 1 else 1)
+
             elif key in self.listLaneModes():
                 self.lowlightAll()
                 if self.mode + key in self.listLaneModes():
@@ -1336,21 +1343,20 @@ class Blockworld:
             self.addLane(interp_lane)
 
         # self.addLane(self.imu_transforms_mk1[:, :3, 3].copy())
-
         if 'planes' in npz:
             print 'Loading ground planes'
             planes = npz['planes']
-            self.ground_actors = []
+            self.ground_plane_actors = []
             for i in xrange(planes.shape[0]):
                 norm = planes[i, :3]
                 pos = planes[i, 3:]
                 plane = VtkPlane(norm, pos)
                 actor = plane.get_vtk_plane(25)
-                self.ground_actors.append(actor)
+                self.ground_plane_actors.append(actor)
                 actor.GetProperty().LightingOff()
                 actor.SetPickable(0)
                 actor.GetProperty().SetOpacity(0.4)
-                actor.GetProperty().SetColor((0, 1, 0))
+                actor.GetProperty().SetColor((0, .7, .1))
                 self.cloud_ren.AddActor(actor)
 
         if 'filt_ground' in npz:
