@@ -1048,7 +1048,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     return
                 self.KeyHandler(key='Escape')
                 self.mode = 'insert'
-            elif self.mode == 'insert':
+            elif key in ['a', 'f', 'j', 'c', 'n'] and self.mode == 'insert':
                 if key == 'a':
                     self.mode = Selection.Append
                 elif key == 'f':
@@ -1060,11 +1060,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 elif key == 'n':
                     self.mode = Selection.New
                     self.togglePick(lane=False)
-            elif self.mode == Selection.Copy:
-                if key == 'c':
-                    if self.selection:
-                        self.selection.copy_ready = True
-                        self.togglePick(lane=False)
+            elif key == 'c' and self.mode == Selection.Copy:
+                if self.selection:
+                    self.selection.copy_ready = True
+                    self.togglePick(lane=False)
 
             elif key == 'f':
                 if self.selection and self.selection.isSelected():
@@ -1370,6 +1369,7 @@ class Blockworld:
                 actor.SetPickable(0)
                 actor.GetProperty().SetOpacity(0.4)
                 actor.GetProperty().SetColor((0, .7, .1))
+                actor.SetVisibility(0)
                 self.cloud_ren.AddActor(actor)
 
         self.filt_ground_actor = None
@@ -1383,6 +1383,7 @@ class Blockworld:
             self.filt_ground_actor.GetProperty().SetPointSize(3)
             self.filt_ground_actor.GetProperty().SetOpacity(0.3)
             self.filt_ground_actor.SetPickable(0)
+            self.filt_ground_actor.SetVisibility(0)
             self.cloud_ren.AddActor(self.filt_ground_actor)
 
         print 'Adding car'
