@@ -38,7 +38,8 @@ class PlaneFitter(object):
         self.ground_tree = cKDTree(self.ground)
 
         self.planes = None
-        self.filt_ground = None
+        self.filt_ground = np.empty(self.ground.shape)
+        self.filt_ground_idx = 0
 
     def fitPlane(self, pts):
         p0 = np.mean(pts, axis=0)
@@ -116,10 +117,19 @@ class PlaneFitter(object):
             n = self.planes[-1, :3] * 0.3 + n * 0.7
             self.planes = np.vstack((self.planes, np.hstack((n, p0))))
 
-        if self.filt_ground == None:
-            self.filt_ground = pts[inliers]
-        else:
-            self.filt_ground = np.vstack((self.filt_ground, pts[inliers]))
+
+        new_pts = pts[inliers][::32]
+        start = self.filt_ground_idx
+        end = start + new_pts.shape[0]
+
+        if end >= self.filt_ground.shape[0]:
+            print 'resizing'
+            self.filt_ground = np.concatenate((self.filt_ground,
+                                               np.empty(self.filt_ground.shape)))
+            print 'done'
+
+        self.filt_ground[start:end, :] = new_pts
+        self.filt_ground_idx = end
 
         return n, p0, err
 
@@ -139,10 +149,9 @@ class PlaneFitter(object):
 
             lane -= n * dist[:, np.newaxis]
             t = np.arange(0, lane.shape[0])
-            print t
 
-            xinter = UnivariateSpline(t, lane[:, 0], s=10)
-            yinter = UnivariateSpline(t, lane[:, 1], s=10)
+            xinter = UnivariateSpline(t, lane[:, 0], s=0)
+            yinter = UnivariateSpline(t, lane[:, 1], s=0)
             zinter = UnivariateSpline(t, lane[:, 2], s=10)
 
             self.lanes[i] = np.column_stack((xinter(t), yinter(t), zinter(t)))
@@ -156,13 +165,10 @@ class PlaneFitter(object):
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
         lanes['planes'] = self.planes
-        lanes['filt_ground'] = self.filt_ground
+        lanes['filt_ground'] = self.filt_ground[:self.filt_ground_idx]
         for num in xrange(self.num_lanes):
             lane = self.lanes[num]
             lanes['lane' + str(num)] = lane
-
-            # lane = self.backup_lanes[num]
-            # lanes['lane' + str(num + self.num_lanes)] = lane
 
         np.savez(file_name, **lanes)
 
@@ -175,7 +181,8 @@ if __name__ == '__main__':
 
     for i in xrange(0, pf.pos.shape[0], 25):
     # for i in xrange(1000, 2000, 100):
-        print '%d/%d' % (i, pf.pos.shape[0])
+        if i % 1000 == 0:
+            print '%d/%d' % (i, pf.pos.shape[0])
 
         n, p0, err = pf.findGroundPlane(i, radius=25)
 
