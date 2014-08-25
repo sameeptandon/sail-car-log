@@ -34,7 +34,6 @@ def integrateClouds(lidar_loader, imuTransforms, start_time, end_time, step_time
         print str(current_time)+'/'+str(end_time)
         # load points w.r.t lidar at current time
         data, t_data = lidar_loader.loadLDRWindow(current_time,scan_window)
-        print data.shape
         #print np.min(t_data)
         #print np.min(GPSTime)
         if data is None or data.shape[0]==0:
@@ -236,7 +235,11 @@ if __name__ == '__main__':
         gps_name = args['gps_mark1']       
         print gps_name                              
         gps_reader = GPSReader(gps_name)                           
-        GPSData = gps_reader.getNumericData()                     
+        GPSData = gps_reader.getNumericData()
+        
+        if GPSData.shape[0] ==0:
+          print 'empty gps log. skipping...'
+          continue
         imu_transforms = IMUTransforms(GPSData)                   
         GPSTime = utc_from_gps_log_all(GPSData)
         # 20 Hz gps data
@@ -273,6 +276,9 @@ if __name__ == '__main__':
         savename1 = os.path.join(targetfolder, (f[0:-name_offset]+'_lidarmap.pickle')) 
         savename2 = os.path.join(targetfolder, (f[0:-name_offset]+'_interp_lanes.pickle')) 
         print 'out: '+ savename2
+        if os.path.isfile(savename2):
+          print savename2+' already exists, skipping...'
+          continue
         total_num_frames = GPSData.shape[0]
         num_fn = int(total_num_frames / step)
         
