@@ -1301,7 +1301,12 @@ class Blockworld:
             if len(sys.argv) == 3:
                 sys.argv.append(bg_file)
             if len(sys.argv) <= 4:
-                sys.argv.append(sys.argv[1] + '/multilane_points.npz')
+                planar = glob.glob(sys.argv[1] + '/*_planar.npz')
+                non_planar = glob.glob(sys.argv[1] + '/multilane_points.npz')[0]
+                if len(planar) > 0:
+                    sys.argv.append(planar[0])
+                else:
+                    sys.argv.append(non_planar)
 
         print sys.argv
 
