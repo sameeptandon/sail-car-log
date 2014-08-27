@@ -24,10 +24,10 @@ import vtk
 from ArgParser import parse_args
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
-from LidarTransforms import utc_from_gps_log_all
+from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
 from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
-from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane
+from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine
 
 
 def vtk_transform_from_np(np4x4):
@@ -92,6 +92,43 @@ def get_gmap_fname(frame):
     fname = dirname + str(frame) + '.jpg'
     return dirname, fname
 
+
+class BackProjector(object):
+    def __init__(self, args):
+        params = args['params']
+        cam_num = args['cam_num'] - 1
+        cam = params['cam'][cam_num]
+
+        K = cam['KK']
+        R = R_to_c_from_l(cam)
+        t = cam['displacement_from_l_to_c_in_lidar_frame']
+
+        Rt = np.column_stack((R, t))
+        P = K.dot(Rt)
+
+        _, _, Vt = np.linalg.svd(P)
+
+        self.C_center = Vt[-1]
+        self.P_inv = np.linalg.pinv(P)
+
+    def fromHomogenous(self, x):
+        x /= x[-1]
+        return x[:-1]
+
+    def toHomogenous(self, x):
+        return np.hstack((x, np.array(1)))
+
+    def calculateBackProjection(self, pt):
+        l0 = self.fromHomogenous(self.P_inv.dot(pt))
+        l = self.fromHomogenous(self.C_center)
+        return l0, l
+
+    def calculateIntersection(self, l0, l, plane):
+        n = plane[:3]
+        p0 = plane[3:]
+        intersect = (p0 - l0) * n / np.inner(l, n)
+        print intersect
+        return intersect
 
 class Change (object):
 
@@ -693,6 +730,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
         self.undoer = Undoer(self)
 
+        self.back_projector = BackProjector(self.parent.args)
+
         self.moving = False
         self.selection = None
 
@@ -742,9 +781,37 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
     def LeftButtonPressEvent(self, obj, event):
         x, y = self.iren.GetEventPosition()
-        self.picker.Pick(x, y, 0, self.ren)
+        self.FindPokedRenderer(x, y)
+        renderer = self.GetCurrentRenderer()
+        self.picker.Pick(x, y, 0, renderer)
         idx = self.picker.GetPointId()
         actor = self.picker.GetActor()
+
+        if renderer == self.ren:
+            self.handleCloudInteraction(idx, actor)
+        else:
+            self.handleImageInteraction(idx)
+
+    def handleImageInteraction(self, idx):
+        if idx >= 0:
+            xform = self.parent.imu_transforms_mk1[self.parent.t]
+            pix = np.array((idx % 1280, 960 - idx / 1280, 1))
+            l0, l = self.back_projector.calculateBackProjection(pix)
+            print l0
+            print l
+            l = xform.dot(self.back_projector.toHomogenous(l))
+            l0 = xform.dot(self.back_projector.toHomogenous(l0))
+            l = self.back_projector.fromHomogenous(l)
+            l0 = self.back_projector.fromHomogenous(l0)
+
+            print l0
+            print l
+
+            vec = l0 - l
+            vec *= 10
+            self.parent.addProjLine(l0, l0 + vec)
+
+    def handleCloudInteraction(self, idx, actor):
         if idx >= 0:
             if self.mode == 'edit':
                 self.lowlightAll()
@@ -1226,6 +1293,7 @@ class Blockworld:
             LaneCorrector.py folder/ video.avi background.npz lane_points.npz"""
             sys.exit(-1)
         args = parse_args(sys.argv[1], sys.argv[2])
+        self.args = args
         bg_file = glob.glob(args['fullname'] + '*bg.npz')[0]
         if len(sys.argv) == 4:
             sys.argv.insert(-1, bg_file)
@@ -1392,6 +1460,8 @@ class Blockworld:
         self.car.GetProperty().LightingOff()
         self.cloud_ren.AddActor(self.car)
 
+        self.img_proj_actor = None
+
         # Use our custom mouse interactor
         self.interactor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
         self.iren.SetInteractorStyle(self.interactor)
@@ -1533,6 +1603,7 @@ class Blockworld:
 
         self.img_ren.RemoveActor(self.img_actor)
         self.img_actor = vtkimg.get_vtk_image()
+        self.img_actor.SetPickable(1)
         self.img_ren.AddActor(self.img_actor)
 
         if self.gmap != self.get_gmap():
@@ -1657,6 +1728,13 @@ class Blockworld:
             return None
         return fname
 
+    def addProjLine(self, p0, p1):
+        line = VtkLine(p0, p1)
+        self.cloud_ren.RemoveActor(self.img_proj_actor)
+        self.img_proj_actor = line.get_vtk_line()
+        self.img_proj_actor.SetPickable(0)
+        self.cloud_ren.AddActor(self.img_proj_actor)
+        self.iren.GetRenderWindow().Render()
 
 if __name__ == '__main__':
     Blockworld()
