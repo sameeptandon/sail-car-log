@@ -12,7 +12,7 @@ from ArgParser import *
 import bisect
 from LidarTransforms import interp_transforms, transform_points_by_times
 
-def cloudToPixels(cam, pts_wrt_cam): 
+def cloudToPixels(cam, pts_wrt_cam):
 
     width = 4
     (pix, J)  = cv2.projectPoints(pts_wrt_cam.transpose(), np.array([0.0,0.0,0.0]), np.array([0.0,0.0,0.0]), cam['KK'], cam['distort'])

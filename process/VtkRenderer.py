@@ -23,6 +23,27 @@ class VtkText:
 
         return txt
 
+class VtkLine:
+    def __init__(self, p0, p1):
+        self.p0 = p0
+        self.p1 = p1
+
+    def get_vtk_line(self):
+        source = vtk.vtkLineSource()
+        source.SetPoint1(self.p0)
+        source.SetPoint2(self.p1)
+
+        # mapper
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(source.GetOutputPort())
+
+        # actor
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+
+        # assign actor to the renderer
+        return actor
+
 
 class VtkPlane:
     def __init__(self, norm, pos):
