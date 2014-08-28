@@ -55,8 +55,10 @@ def GetQ50CameraParams():
 
         elif i == 1: # right camera
             # R_to_c_from_l_in_camera_frame = euler_matrix(0.044,0.0291,0.0115)[0:3,0:3]
-            
-            R_to_c_from_l_in_camera_frame = euler_matrix(0.042000,0.022000,0.015000)[0:3,0:3]
+
+            # R_to_c_from_l_in_camera_frame = euler_matrix(0.042000,0.022000,0.015000)[0:3,0:3]
+            # R_to_c_from_l_in_camera_frame = euler_matrix(0.04116677, 0.02722644,0.00895531)[0:3,0:3]
+            R_to_c_from_l_in_camera_frame = euler_matrix(0.04291383, 0.02646196, 0.01763111)[0:3,0:3]
             cam[i]['R_to_c_from_l_in_camera_frame'] = R_to_c_from_l_in_camera_frame
             cam[i]['displacement_from_l_to_c_in_lidar_frame'] = np.array([-0.5,0.31,0.34]);
             cam[i]['E'] = np.eye(4)
