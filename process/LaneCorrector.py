@@ -100,16 +100,11 @@ class BackProjector(object):
         cam = params['cam'][cam_num]
 
         K = cam['KK']
-        R = R_to_c_from_l(cam)
-        t = cam['displacement_from_l_to_c_in_lidar_frame']
 
-        Rt = np.column_stack((R, t))
-        P = K.dot(Rt)
-
-        _, _, Vt = np.linalg.svd(P)
-
-        self.C_center = Vt[-1]
-        self.P_inv = np.linalg.pinv(P)
+        self.K_ = np.linalg.inv(K)
+        self.R_ = np.linalg.inv(R_to_c_from_l(cam))
+        self.t_ = -cam['displacement_from_l_to_c_in_lidar_frame']
+        self.T_from_l_to_i = params['lidar']['T_from_l_to_i']
 
     def fromHomogenous(self, x):
         x /= x[-1]
@@ -118,17 +113,26 @@ class BackProjector(object):
     def toHomogenous(self, x):
         return np.hstack((x, np.array(1)))
 
-    def calculateBackProjection(self, pt):
-        l0 = self.fromHomogenous(self.P_inv.dot(pt))
-        l = self.fromHomogenous(self.C_center)
-        return l0, l
+    def calculateBackProjection(self, pt, imu_xform):
+        u = self.K_.dot(pt)
+        v = np.array([0, 0, 0])
+
+        u_lidar = self.toHomogenous(self.R_.dot(u) + self.t_)
+        v_lidar = self.toHomogenous(self.R_.dot(v) + self.t_)
+
+        u_imu_0 = self.T_from_l_to_i.dot(u_lidar)
+        v_imu_0 = self.T_from_l_to_i.dot(v_lidar)
+
+        u_imu_t = imu_xform.dot(v_imu_0)
+        v_imu_t = imu_xform.dot(u_imu_0)
+
+        return self.fromHomogenous(u_imu_t), self.fromHomogenous(v_imu_t)
 
     def calculateIntersection(self, l0, l, plane):
         n = plane[:3]
         p0 = plane[3:]
-        intersect = (p0 - l0) * n / np.inner(l, n)
-        print intersect
-        return intersect
+        alpha = np.inner((p0 - l0), n) / np.inner(l, n)
+        return l0 + alpha * l
 
 class Change (object):
 
@@ -796,20 +800,25 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         if idx >= 0:
             xform = self.parent.imu_transforms_mk1[self.parent.t]
             pix = np.array((idx % 1280, 960 - idx / 1280, 1))
-            l0, l = self.back_projector.calculateBackProjection(pix)
-            print l0
-            print l
-            l = xform.dot(self.back_projector.toHomogenous(l))
-            l0 = xform.dot(self.back_projector.toHomogenous(l0))
-            l = self.back_projector.fromHomogenous(l)
-            l0 = self.back_projector.fromHomogenous(l0)
 
-            print l0
-            print l
+            v, l0 = self.back_projector.calculateBackProjection(pix, xform)
+            l = l0 - v
 
-            vec = l0 - l
-            vec *= 10
-            self.parent.addProjLine(l0, l0 + vec)
+            if len(self.parent.ground_plane_actors) > 0:
+                best_model = (np.inf, 0, 0)
+                for i, plane in enumerate(self.parent.planes):
+                    pt = self.back_projector.calculateIntersection(l0, l,
+                                                                   plane)
+                    d = np.linalg.norm(pt - plane[3:])
+                    if d < best_model[0]:
+                        best_model = (d, i, pt)
+
+                for actor in self.parent.ground_plane_actors:
+                    actor.SetVisibility(0)
+
+                self.parent.ground_plane_actors[best_model[1]].SetVisibility(1)
+                self.parent.addProjLine(l0, best_model[-1])
+
 
     def handleCloudInteraction(self, idx, actor):
         if idx >= 0:
@@ -1431,10 +1440,10 @@ class Blockworld:
         self.ground_plane_actors = []
         if 'planes' in npz:
             print 'Loading ground planes'
-            planes = npz['planes']
-            for i in xrange(planes.shape[0]):
-                norm = planes[i, :3]
-                pos = planes[i, 3:]
+            self.planes = npz['planes']
+            for i in xrange(self.planes.shape[0]):
+                norm = self.planes[i, :3]
+                pos = self.planes[i, 3:]
                 plane = VtkPlane(norm, pos)
                 actor = plane.get_vtk_plane(25)
                 self.ground_plane_actors.append(actor)
