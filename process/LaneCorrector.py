@@ -28,7 +28,7 @@ from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
 from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine
-
+from LaneMarkingHelper import get_transforms, mk2_to_mk1, BackProjector
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -38,20 +38,6 @@ def vtk_transform_from_np(np4x4):
     transform = vtk.vtkTransform()
     transform.SetMatrix(vtk_matrix)
     return transform
-
-
-def get_transforms(args, mark='mark1', absolute=False):
-    """ Gets the IMU transforms for a run """
-    gps_reader = GPSReader(args['gps_' + mark])
-    gps_data = gps_reader.getNumericData()
-    gps_times = utc_from_gps_log_all(gps_data)
-    if absolute:
-        imu_transforms = absoluteTransforms(gps_data)
-    else:
-        imu_transforms = IMUTransforms(gps_data)
-
-    return imu_transforms, gps_data, gps_times
-
 
 def load_ply(ply_file):
     """ Loads a ply file and returns an actor """
@@ -92,47 +78,6 @@ def get_gmap_fname(frame):
     fname = dirname + str(frame) + '.jpg'
     return dirname, fname
 
-
-class BackProjector(object):
-    def __init__(self, args):
-        params = args['params']
-        cam_num = args['cam_num'] - 1
-        cam = params['cam'][cam_num]
-
-        K = cam['KK']
-
-        self.K_ = np.linalg.inv(K)
-        self.R_ = np.linalg.inv(R_to_c_from_l(cam))
-        self.t_ = -cam['displacement_from_l_to_c_in_lidar_frame']
-        self.T_from_l_to_i = params['lidar']['T_from_l_to_i']
-
-    def fromHomogenous(self, x):
-        x /= x[-1]
-        return x[:-1]
-
-    def toHomogenous(self, x):
-        return np.hstack((x, np.array(1)))
-
-    def calculateBackProjection(self, pt, imu_xform):
-        u = self.K_.dot(pt)
-        v = np.array([0, 0, 0])
-
-        u_lidar = self.toHomogenous(self.R_.dot(u) + self.t_)
-        v_lidar = self.toHomogenous(self.R_.dot(v) + self.t_)
-
-        u_imu_0 = self.T_from_l_to_i.dot(u_lidar)
-        v_imu_0 = self.T_from_l_to_i.dot(v_lidar)
-
-        u_imu_t = imu_xform.dot(v_imu_0)
-        v_imu_t = imu_xform.dot(u_imu_0)
-
-        return self.fromHomogenous(u_imu_t), self.fromHomogenous(v_imu_t)
-
-    def calculateIntersection(self, l0, l, plane):
-        n = plane[:3]
-        p0 = plane[3:]
-        alpha = np.inner((p0 - l0), n) / np.inner(l, n)
-        return l0 + alpha * l
 
 class Change (object):
 
@@ -801,7 +746,8 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             xform = self.parent.imu_transforms_mk1[self.parent.t]
             pix = np.array((idx % 1280, 960 - idx / 1280, 1))
 
-            v, l0 = self.back_projector.calculateBackProjection(pix, xform)
+            v = self.back_projector.calculateBackProjection(xform, pix)
+            l0 = self.back_projector.calculateBackProjection(xform)
             l = l0 - v
 
             if len(self.parent.ground_plane_actors) > 0:
@@ -1511,9 +1457,7 @@ class Blockworld:
     def mk2_to_mk1(self, mk2_idx=-1):
         if mk2_idx == -1:
             mk2_idx = self.mk2_t
-        t = self.gps_times_mk2[mk2_idx]
-        mk1_idx = bisect.bisect(self.gps_times_mk1, t) - 1
-        return mk1_idx
+        return mk2_to_mk1(mk2_idx, self.gps_times_mk1, self.gps_times_mk2)
 
     def addLane(self, data, lane=-1, replace=False):
         """ Appends a new lane to the dataset or replaces an index given by
