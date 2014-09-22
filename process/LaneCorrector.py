@@ -663,6 +663,11 @@ class Selection:
         self.point.data.Modified()
         self.parent.Render()
 
+    def reverse(self):
+        self.point.pos[:] = self.point.pos[:][::-1]
+        self.point.data.Modified()
+        self.parent.Render()
+
     def __str__(self):
         return '%s, %s' % (self.point, self.end_point)
 
@@ -1123,6 +1128,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.Render()
 
             elif key == 'r':
+                if self.mode in self.listLaneModes():
+                    print 'Reversing lane', self.mode
+                    num = int(self.mode)
+                    actor = self.parent.lane_actors[num]
+                    sel = Selection(self, actor, 0, Selection.All)
+                    sel.reverse()
+
+            elif key == 'R':
                 self.parent.record = not self.parent.record
                 if self.parent.record:
                     print 'Recording multilane.avi'
@@ -1358,7 +1371,10 @@ class Blockworld:
 
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
-        init_num_lanes = int(npz['num_lanes'])
+        if 'num_lanes' in npz:
+            init_num_lanes = int(npz['num_lanes'])
+        else:
+            init_num_lanes = 1
         if 'saved_t' in npz:
             self.init_t = int(npz['saved_t'])
         else:
