@@ -1158,6 +1158,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         self.parent.t = self.parent.mk2_to_mk1()
                         self.parent.manual_change = 1
 
+            elif key == 'Home':
+                if not self.parent.running:
+                    self.parent.mk2_t = 0
+                    self.parent.t = self.parent.mk2_to_mk1()
+                    self.parent.manual_change = -1
+
+
     def updateModeText(self):
         frame_num = self.parent.mk2_t
         tot_num = self.parent.video_reader.total_frame_count
