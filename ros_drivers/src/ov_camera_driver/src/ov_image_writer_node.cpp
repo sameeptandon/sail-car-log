@@ -13,6 +13,7 @@ class ImageConverter
 {
     ros::Subscriber image_sub_;
     string basename;
+    string suffix;
     uint64_t frame_count;
     int camera_num;
     ofstream img_ros_acq_time_file; 
@@ -23,6 +24,7 @@ class ImageConverter
     {
         nh.param<string>("basename", basename, string(""));
         nh.param<int>("cameranum", camera_num, 0);
+        nh.param<string>("suffix", suffix, string(""));
         frame_count = 0;
         stringstream rostime_filename;
         rostime_filename << basename << camera_num << "_rostime.txt";
@@ -48,8 +50,8 @@ class ImageConverter
         frame_count++;
         cout << "received " << msg.data.size() << endl;
         ofstream imgFile;
-        string fname = img_dir + "/" + boost::lexical_cast<string>(frame_count) + ".jpg";
-        imgFile.open(fname, ios::out | ios::binary);
+        string fname = img_dir + "/" + boost::lexical_cast<string>(frame_count) + suffix + ".jpg";
+        imgFile.open(fname.c_str(), ios::out | ios::binary);
         imgFile.write((char*)msg.data.data(),msg.data.size());
         imgFile.close();
         img_ros_acq_time_file << msg.header.stamp << std::endl;

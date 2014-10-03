@@ -47,7 +47,7 @@ class ImageConverter
         cout << "received " << msg.data.size() << endl;
         ofstream imgFile;
         string fname = data_dir + "/" + boost::lexical_cast<string>(frame_count) + "_" + cam_prefix + ".jpg";
-        imgFile.open(fname, ios::out | ios::binary);
+        imgFile.open(fname.c_str(), ios::out | ios::binary);
         imgFile.write((char*)msg.data.data(),msg.data.size());
         imgFile.close();
 
