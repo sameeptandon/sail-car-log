@@ -51,13 +51,11 @@ class ImageConverter
         imgFile.write((char*)msg.data.data(),msg.data.size());
         imgFile.close();
 
-        /*
         cv::Mat img = cv::imdecode(msg.data, CV_LOAD_IMAGE_COLOR);
         cv::pyrDown(img, img, cv::Size(img.cols/2, img.rows/2));
         // Update GUI Window
         cv::imshow(OPENCV_WINDOW, img);
         cv::waitKey(3);
-        */
     }
 };
 

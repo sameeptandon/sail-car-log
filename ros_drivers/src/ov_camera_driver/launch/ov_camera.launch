@@ -1,0 +1,15 @@
+<launch>
+
+<group ns="ov_fwd_left">
+    <node pkg="ov_camera_driver" type="ov_camera_driver_node" output="screen" name="ov_cam">
+        <param name="pid" value="0xa602" />
+    </node>
+</group>
+
+<group ns="ov_fwd_right">
+    <node pkg="ov_camera_driver" type="ov_camera_driver_node" output="screen" name="ov_cam">
+        <param name="pid" value="0xa604" />
+    </node>
+</group>
+
+</launch>
