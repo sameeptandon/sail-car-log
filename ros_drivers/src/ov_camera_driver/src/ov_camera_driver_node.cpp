@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        ROS_INFO_STREAM(ros::this_node::getNamespace() << " captured: " << frame->data_bytes);
+        //ROS_INFO_STREAM(ros::this_node::getNamespace() << " captured: " << frame->data_bytes);
         
         //good frame received
         sensor_msgs::CompressedImage msg;
