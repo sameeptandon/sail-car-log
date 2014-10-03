@@ -97,15 +97,17 @@ int main(int argc, char **argv) {
 
 
     // poll the cameras
+    uvc_frame_t *frame;
     while (ros::ok()) {
-        uvc_frame_t *frame;
         //grab a frame
         res = uvc_stream_get_frame(camera.strmh, &frame, 0);
         checkError(res, "get_frame");
         if (frame == NULL) { 
-            cout << "frame is returned as NULL; skipping" << endl;
+            ROS_INFO_STREAM(ros::this_node::getNamespace() << " frame is null; skipping");
             continue;
         }
+
+        ROS_INFO_STREAM(ros::this_node::getNamespace() << " captured: " << frame->data_bytes);
         
         //good frame received
         sensor_msgs::CompressedImage msg;

@@ -13,7 +13,7 @@ endif()
 
 set(libuvc_VERSION_MAJOR 0)
 set(libuvc_VERSION_MINOR 0)
-set(libuvc_VERSION_PATCH 4)
+set(libuvc_VERSION_PATCH 5)
 set(libuvc_VERSION ${libuvc_VERSION_MAJOR}.${libuvc_VERSION_MINOR}.${libuvc_VERSION_PATCH})
 
 find_library(LIBUSB_LIBRARY_NAMES usb-1.0
@@ -37,7 +37,7 @@ SET(CMAKE_C_FLAGS_DEBUG "-g -DUVC_DEBUGGING")
 SET(INSTALL_CMAKE_DIR "${CMAKE_INSTALL_PREFIX}/lib/cmake/libuvc" CACHE PATH
 	"Installation directory for CMake files")
 
-SET(SOURCES src/ctrl.c src/device.c src/diag.c
+SET(SOURCES src/ctrl.c src/ctrl-gen.c src/device.c src/diag.c
            src/frame.c src/init.c src/stream.c
            src/misc.c)
 
@@ -50,7 +50,7 @@ include_directories(
 if(JPEG_FOUND)
   message(STATUS "Building libuvc with JPEG support.")
   include_directories(${JPEG_INCLUDE_DIR})
-  SET(HAVE_JPEG TRUE)
+  SET(LIBUVC_HAS_JPEG TRUE)
   SET(SOURCES ${SOURCES} src/frame-mjpeg.c)
 else()
   message(WARNING "JPEG not found. libuvc will not support JPEG decoding.")
@@ -76,18 +76,9 @@ endif(JPEG_FOUND)
 
 target_link_libraries(uvc ${LIBUSB_LIBRARY_NAMES})
 
-message(${LIBUSB_LIBRARY_NAMES})
-
-
-find_package(OpenCV REQUIRED)
-link_directories(/opt/local/lib)
-find_package(Boost COMPONENTS program_options thread system)
-link_directories(${Boost_LIBRARY_DIR})
-
-
-add_definitions(-g -O3)
-add_executable(test src/test.cpp)
-target_link_libraries(test uvc ${LIBUSB_LIBRARY_NAMES} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+#add_executable(test src/test.c)
+#target_link_libraries(test uvc ${LIBUSB_LIBRARY_NAMES} opencv_highgui
+#  opencv_core)
 
 install(TARGETS uvc
   EXPORT libuvcTargets
@@ -101,7 +92,7 @@ export(TARGETS uvc
 export(PACKAGE libuvc)
 
 set(CONF_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
-set(CONF_LIBRARY "${CMAKE_INSTALL_PREFIX}/lib/libuvc.so")
+set(CONF_LIBRARY "${CMAKE_INSTALL_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}uvc${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 configure_file(libuvcConfig.cmake.in ${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/libuvcConfig.cmake)
 

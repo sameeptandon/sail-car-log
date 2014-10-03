@@ -24,9 +24,6 @@ class ImageConverter
         nh.param<string>("basename", basename, string(""));
         nh.param<int>("cameranum", camera_num, 0);
         frame_count = 0;
-        string topic;
-        nh.param<string>("image", topic, string(""));
-        ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
         stringstream rostime_filename;
         rostime_filename << basename << camera_num << "_rostime.txt";
         img_ros_acq_time_file.open(rostime_filename.str().c_str());
@@ -39,6 +36,9 @@ class ImageConverter
         }
 
         // Subscrive to input video feed 
+        string topic;
+        nh.param<string>("image", topic, string(""));
+        ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
         image_sub_ = nh.subscribe(topic, 10000, &ImageConverter::imageCb, this);
 
     }

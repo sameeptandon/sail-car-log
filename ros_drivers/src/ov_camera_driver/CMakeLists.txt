@@ -111,6 +111,7 @@ include_directories(${Boost_LIBRARY_DIR})
 ## Declare a cpp executable
 add_executable(ov_camera_driver_node src/ov_camera_driver_node.cpp)
 add_executable(ov_image_viewer_node src/ov_image_viewer_node.cpp)
+add_executable(ov_image_writer_node src/ov_image_writer_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -128,6 +129,11 @@ target_link_libraries(ov_image_viewer_node
     ${Boost_LIBRARIES}
 )
 
+target_link_libraries(ov_image_writer_node
+    ${catkin_LIBRARIES}
+    ${OpenCV_LIBS}
+    ${Boost_LIBRARIES}
+)
 #############
 ## Install ##
 #############
@@ -157,6 +163,7 @@ install(PROGRAMS
 # )
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
+install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 # install(FILES
 #   # myfile1
 #   # myfile2
