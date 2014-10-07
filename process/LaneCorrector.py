@@ -28,7 +28,7 @@ from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
 from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine
-from LaneMarkingHelper import get_transforms, mk2_to_mk1, BackProjector
+from LaneMarkingHelper import BackProjector, get_transforms, mk2_to_mk1, VTKDataTree
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -188,8 +188,8 @@ class Point:
         self.data = self.actor.GetMapper().GetInput()
         self.lane = self.getLane()
         if self.lane != -1:
-            self.pos = self.blockworld.lane_clouds[self.lane].xyz
-            self.color = self.blockworld.lane_clouds[self.lane].intensity
+            self.pos = self.blockworld.lanes[self.lane].cloud.xyz
+            self.color = self.blockworld.lanes[self.lane].cloud.intensity
         else:
             self.pos = self.blockworld.raw_cloud.xyz
             self.color = self.blockworld.raw_cloud.intensity
@@ -199,7 +199,7 @@ class Point:
         self.start_pos = self.getPosition()
 
     def getLane(self):
-        lane_actors = self.blockworld.lane_actors
+        lane_actors = [lane.actor for lane in self.blockworld.lanes]
         if self.actor in lane_actors:
             return lane_actors.index(self.actor)
         elif self.actor == self.blockworld.raw_actor:
@@ -227,7 +227,7 @@ class Point:
         return np.linalg.norm(other.getPosition() - self.getPosition())
 
     def __str__(self):
-        return '%d, %d: %s' % (self.lane, self.idx, self.getPosition())
+        return '%d, %d: %s' % (self.lanes, self.idx, self.getPosition())
 
 
 class Selection:
@@ -653,7 +653,7 @@ class Selection:
         print '\tFixed lane %d changes: %d Error: %f -> %f' % \
             (self.point.lane, close_lane.shape[0], err_start, err_end)
 
-        actor = self.blockworld.lane_actors[self.point.lane]
+        actor = self.blockworld.lanes[self.point.lane].actor
         selection = Selection(self.parent, actor, self.point.idx,
                               Selection.Fixup, self.end_point.idx)
         print '\t', np.median(lane - orig_lane, axis=0)
@@ -767,7 +767,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 for actor in self.parent.ground_plane_actors:
                     actor.SetVisibility(0)
 
-                self.parent.ground_plane_actors[best_model[1]].SetVisibility(1)
+                self.parent.ground_planes[best_model[1].actor].SetVisibility(1)
                 self.parent.addProjLine(l0, best_model[-1])
 
 
@@ -934,8 +934,10 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 else:
                     self.parent.removeLane(self.selection.point.lane)
                 pts = self.selection.copy(idx)
-        if actor in self.parent.lane_actors:
-            self.hover_lane = self.parent.lane_actors.index(actor)
+
+        lane_actors = [lane.actor for lane in self.parent.lanes]
+        if actor in lane_actors:
+            self.hover_lane = lane_actors.index(actor)
             self.hover_point = idx
 
     def lowlightAll(self):
@@ -944,15 +946,15 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.highlighted_lanes = []
 
     def lowlightLane(self, num):
-        actor = self.parent.lane_actors[num]
+        actor = self.parent.lanes[num].actor
         lane = Selection(self, actor, 0, Selection.All)
         lane.lowlight()
         self.Render()
 
     def togglePick(self, lane=True):
         self.parent.raw_actor.SetPickable(not lane)
-        for l in self.parent.lane_actors:
-            l.SetPickable(lane)
+        for l in self.parent.lanes:
+            l.actor.SetPickable(lane)
 
     def listLaneModes(self):
         return [str(i) for i in xrange(self.parent.num_lanes)]
@@ -1006,13 +1008,13 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             elif key == 'bracketright':
                 self.parent.lane_size = self.parent.lane_size + 0.5
-                for actor in self.parent.lane_actors:
-                    actor.GetProperty().SetPointSize(self.parent.lane_size)
+                for lane in self.parent.lanes:
+                    lane.actor.GetProperty().SetPointSize(self.parent.lane_size)
                 self.mode = 'edit'
             elif key == 'bracketleft':
                 self.parent.lane_size = max(self.parent.lane_size - 0.5, 1)
-                for actor in self.parent.lane_actors:
-                    actor.GetProperty().SetPointSize(self.parent.lane_size)
+                for lane in self.parent.lanes:
+                    lane.actor.GetProperty().SetPointSize(self.parent.lane_size)
                 self.mode = 'edit'
 
             elif key == 'braceright':
@@ -1032,7 +1034,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 ground_actor = self.parent.filt_ground_actor
 
                 if len(plane_actors) > 0:
-                    plane_vis = plane_actors[0].GetVisibility()
+                    plane_vis = planes[0].actor.GetVisibility()
                     ground_vis = ground_actor.GetVisibility()
                     if plane_vis and ground_vis:
                         plane_vis, ground_vis = 0, 0
@@ -1053,7 +1055,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.mode += key
                 else:
                     self.mode = key
-                actor = self.parent.lane_actors[int(self.mode)]
+                actor = self.parent.lanes[int(self.mode)].actor
                 lane = Selection(self, actor, 0, Selection.All)
                 self.highlighted_lanes.append(int(self.mode))
                 lane.highlight()
@@ -1064,7 +1066,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     return
                 if self.mode in self.listLaneModes():
                     self.lowlightAll()
-                    actor = self.parent.lane_actors[int(self.mode)]
+                    actor = self.parent.lanes[int(self.mode)].actor
                     lane_selection = Selection(self, actor, 0, Selection.All)
                     lane_selection.highlight()
                     del_section, lane_num = lane_selection.delete()
@@ -1109,7 +1111,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 elif self.mode in self.listLaneModes():
                     print 'Fixing up lane', self.mode
                     num = int(self.mode)
-                    actor = self.parent.lane_actors[num]
+                    actor = self.parent.lanes[num].actor
                     sel = Selection(self, actor, 0, Selection.All)
                     sel.fixup()
                     print 'Fixup finished'
@@ -1142,7 +1144,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 if self.mode in self.listLaneModes():
                     print 'Reversing lane', self.mode
                     num = int(self.mode)
-                    actor = self.parent.lane_actors[num]
+                    actor = self.parent.lanes[num].actor
                     sel = Selection(self, actor, 0, Selection.All)
                     sel.reverse()
 
@@ -1408,9 +1410,7 @@ class Blockworld:
 
         self.lane_size = 3
 
-        self.lane_clouds = []
-        self.lane_actors = []
-        self.lane_kdtrees = []
+        self.lanes = []
 
         for i in xrange(init_num_lanes):
             interp_lane = npz['lane' + str(i)]
@@ -1498,14 +1498,14 @@ class Blockworld:
         'lane'. If 'replace' is true, replace the index given by lane"""
         num_pts = data.shape[0]
         if lane == -1:
-            lane_num = len(self.lane_clouds)
+            lane_num = len(self.lanes)
             old_actor = None
         elif replace == False:
             lane_num = lane
             old_actor = None
         else:
             lane_num = lane
-            old_actor = self.lane_actors[lane]
+            old_actor = self.lanes[lane].actor
 
         cloud = VtkPointCloud(data[:, :3], np.ones((num_pts, 3)) *
                               (self.colors[lane_num % self.num_colors]))
@@ -1516,39 +1516,33 @@ class Blockworld:
         self.cloud_ren.RemoveActor(old_actor)
         self.cloud_ren.AddActor(actor)
 
+        vtk_data = VTKDataTree(cloud.xyz, cloud, actor)
         if replace and lane > -1:
-            self.lane_clouds[lane_num] = cloud
-            self.lane_actors[lane_num] = actor
-            self.lane_kdtrees[lane_num] = cKDTree(cloud.xyz)
+            self.lanes[lane_num] = vtk_data
         elif lane > -1:
-            self.lane_clouds.insert(lane_num, cloud)
-            self.lane_actors.insert(lane_num, actor)
-            self.lane_kdtrees.insert(lane_num, cKDTree(cloud.xyz))
+            self.lanes.insert(lane_num, vtk_data)
             self.num_lanes += 1
         else:
-            self.lane_clouds.append(cloud)
-            self.lane_actors.append(actor)
-            self.lane_kdtrees.append(cKDTree(cloud.xyz))
+            self.lanes.append(vtk_data)
             self.num_lanes += 1
 
         return actor
 
     def refreshLaneColors(self):
-        for actor in self.lane_actors:
+        for lane in self.lanes:
+            actor = lane.actor
             sel = Selection(self.interactor, actor, 0, Selection.All)
             sel.refreshColor()
 
     def removeLane(self, lane):
-        actor = self.lane_actors[lane]
+        actor = self.lanes[lane].actor
         self.cloud_ren.RemoveActor(actor)
-        del self.lane_actors[lane]
-        del self.lane_clouds[lane]
-        del self.lane_kdtrees[lane]
+        del self.lanes[lane]
         self.num_lanes -= 1
 
     def fixupAllLanes(self):
         for l in xrange(self.num_lanes):
-            sel = Selection(self.interactor, self.lane_actors[l], 0,
+            sel = Selection(self.interactor, self.lanes[l].actor, 0,
                             Selection.All)
             sel.highlight()
             sel.fixup()
@@ -1572,7 +1566,7 @@ class Blockworld:
             lanes['planes'] = self.planes
 
         for num in xrange(self.num_lanes):
-            lane = self.lane_clouds[num].xyz[:, :3]
+            lane = self.lanes[num].cloud.xyz[:, :3]
             lanes['lane' + str(num)] = lane
 
         np.savez(file_name, **lanes)
@@ -1670,16 +1664,16 @@ class Blockworld:
         # Project the points onto the image
         for num in xrange(self.num_lanes):
             # Find the closest point
-            tree = self.lane_kdtrees[num]
+            tree = self.lanes[num].tree
             (d, closest_idx) = tree.query(car_pos)
 
             # Find all the points nearby
             nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
 
             if nearby_idx.shape[0] > 0:
-                lane = self.lane_clouds[num].xyz[nearby_idx, :3]
+                lane = self.lanes[num].cloud.xyz[nearby_idx, :3]
                 # Reverse the color (RGB->BGR)
-                color = self.lane_clouds[num].intensity[0, :][::-1]
+                color = self.lanes[num].cloud.intensity[0, :][::-1]
                 if lane.shape[0] > 0:
                     xform = self.imu_transforms_mk1[self.t, :,:]
                     pix, mask = lidarPtsToPixels(lane, xform,

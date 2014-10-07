@@ -9,6 +9,7 @@ import sys
 import time
 import urllib
 import numpy as np
+from scipy.spatial import cKDTree
 
 from ArgParser import parse_args
 from GPSReader import GPSReader
@@ -68,3 +69,16 @@ class BackProjector(object):
         p0 = plane[3:]
         alpha = np.inner((p0 - l0), n) / np.inner(l, n)
         return l0 + alpha * l
+
+class DataTree(object):
+
+    def __init__(self, pts):
+        self.points = pts
+        self.tree = cKDTree(self.points)
+
+class VTKDataTree(DataTree):
+
+    def __init__(self, pts, cloud, actor):
+        super(VTKDataTree, self).__init__(pts)
+        self.cloud = cloud
+        self.actor = actor
