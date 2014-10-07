@@ -981,6 +981,17 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             file_name = folder + file_name
             self.parent.exportData(file_name)
 
+        elif key == 'S':
+            folder = sys.argv[1]
+            file_name = self.parent.args['basename']
+            if len(self.parent.ground_plane_actors) > 0:
+                file_name += '_multilane_points_planar_done.npz'
+            else:
+                file_name += '_multilane_points_done.npz'
+
+            print 'Saved', folder + '/' + file_name
+            self.parent.exportData(folder + '/' + file_name)
+
         if not self.moving:
             if key == 'Escape':
                 if self.selection != None:
@@ -1557,6 +1568,9 @@ class Blockworld:
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
         lanes['saved_t'] = self.mk2_t
+        if len(self.ground_plane_actors) > 0:
+            lanes['planes'] = self.planes
+
         for num in xrange(self.num_lanes):
             lane = self.lane_clouds[num].xyz[:, :3]
             lanes['lane' + str(num)] = lane
