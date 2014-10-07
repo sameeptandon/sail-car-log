@@ -73,12 +73,12 @@ class BackProjector(object):
 class DataTree(object):
 
     def __init__(self, pts):
-        self.points = pts
-        self.tree = cKDTree(self.points)
+        self.pts = pts
+        self.tree = cKDTree(self.pts)
 
 class VTKDataTree(DataTree):
 
-    def __init__(self, pts, cloud, actor):
-        super(VTKDataTree, self).__init__(pts)
+    def __init__(self, cloud, actor):
+        super(VTKDataTree, self).__init__(cloud.xyz)
         self.cloud = cloud
         self.actor = actor

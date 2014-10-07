@@ -48,7 +48,7 @@ class VtkLine:
 class VtkPlane:
     def __init__(self, norm, pos):
         self.norm = tuple(norm)
-        self.pos = tuple(pos)
+        self.xyz = tuple(pos)
 
     def get_vtk_plane(self, side_len=25):
         # cube = vtk.vtkCubeSource()
@@ -61,13 +61,13 @@ class VtkPlane:
         cube.SetThetaResolution(100)
         cube.SetPhiResolution(100)
         cube.SetRadius(side_len)
-        cube.SetCenter(*self.pos)
+        cube.SetCenter(*self.norm)
 
         cubeMapper = vtk.vtkPolyDataMapper()
         cubeMapper.SetInputConnection(cube.GetOutputPort())
 
         plane = vtk.vtkPlane()
-        plane.SetOrigin(*self.pos)
+        plane.SetOrigin(*self.xyz)
         plane.SetNormal(*self.norm)
 
         #create cutter

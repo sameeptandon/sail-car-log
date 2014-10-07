@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Usage: LaneCorrector.py folder/ cam.avi raw_data.npz multilane_points.npz
+# Usage: LaneCorrector.py folder/ cam.avi raw_lidar.npz multilane_points.npz
 
 import bisect
 from collections import deque
@@ -28,7 +28,9 @@ from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
 from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine
-from LaneMarkingHelper import BackProjector, get_transforms, mk2_to_mk1, VTKDataTree
+from LaneMarkingHelper import BackProjector, DataTree, get_transforms, \
+    mk2_to_mk1, VTKDataTree
+
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -191,8 +193,8 @@ class Point:
             self.pos = self.blockworld.lanes[self.lane].cloud.xyz
             self.color = self.blockworld.lanes[self.lane].cloud.intensity
         else:
-            self.pos = self.blockworld.raw_cloud.xyz
-            self.color = self.blockworld.raw_cloud.intensity
+            self.pos = self.blockworld.raw_lidar.pts
+            self.color = self.blockworld.raw_lidar.cloud.intensity
 
         self.idx = idx
 
@@ -202,7 +204,7 @@ class Point:
         lane_actors = [lane.actor for lane in self.blockworld.lanes]
         if self.actor in lane_actors:
             return lane_actors.index(self.actor)
-        elif self.actor == self.blockworld.raw_actor:
+        elif self.actor == self.blockworld.raw_lidar.actor:
             return -1
         raise RuntimeError('Could not find lane')
 
@@ -280,7 +282,7 @@ class Selection:
             if self.mode == Selection.Append:
                 self.point.selectExtreme()
             if end_idx != -1:
-                self.end_point = Point(self.blockworld.raw_actor, end_idx,
+                self.end_point = Point(self.blockworld.raw_lidar.actor, end_idx,
                                        self.blockworld)
 
         elif self.mode == Selection.Join:
@@ -306,7 +308,7 @@ class Selection:
                 self.end_point, self.point = self.point, self.end_point
         else:
             # All other modes must use distance from the origin
-            if self.end_point.actor != self.blockworld.raw_actor or \
+            if self.end_point.actor != self.blockworld.raw_lidar.actor or \
                self.end_point.actor == self.point.actor:
                 if self.end_point.isCloser(self.point):
                     # Make sure the end point is not the raw points
@@ -552,7 +554,7 @@ class Selection:
             return new_pts
 
     def copy(self, ground_idx):
-        ground_pos = self.blockworld.raw_cloud.xyz[ground_idx, :]
+        ground_pos = self.blockworld.raw_lidar.pts[ground_idx, :]
         points = [p for p in self.nextPoint()]
         data = self.point.pos[points, :]
         # Translate points to origin, then to clicked point
@@ -580,7 +582,7 @@ class Selection:
     def calculateError(self):
         # Calculates median z-error of interpolated lanes to points
         lane = self.point.pos[self.point.idx:self.end_point.idx + 1]
-        d, _ = self.blockworld.raw_kdtree.query(lane)
+        d, _ = self.blockworld.raw_lidar.tree.query(lane)
         return np.median(d)
 
     def fixup(self):
@@ -594,7 +596,7 @@ class Selection:
 
         err_start = self.calculateError()
 
-        raw_kdtree = self.blockworld.raw_kdtree
+        raw_kdtree = self.blockworld.raw_lidar.tree
         (d, idx) = raw_kdtree.query(lane, distance_upper_bound=0.25)
 
         mask = d < float('inf')
@@ -613,7 +615,7 @@ class Selection:
                 cluster = []
 
         # Move the middle point in the cluster
-        raw_pos = self.blockworld.raw_cloud.xyz[close_raw, :]
+        raw_pos = self.blockworld.raw_lidar.pts[close_raw, :]
         lane_pos = lane[close_lane, :]
         lane[close_lane, :] += raw_pos - lane_pos
 
@@ -803,7 +805,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
                 # If we are in copy mode and we have selected a lane point
                 if self.mode == Selection.Copy and self.selection.copy_ready \
-                   and actor == self.parent.raw_actor:
+                   and actor == self.parent.raw_lidar.actor:
                     self.selection.lowlight()
 
                     self.selection.copying = False
@@ -854,7 +856,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                             self.KeyHandler(key='Escape')
 
             elif self.mode == Selection.New:
-                if actor == self.parent.raw_actor:
+                if actor == self.parent.raw_lidar.actor:
                     if self.selection == None:
                         self.selection = Selection(self, actor, idx,
                                                    Selection.New)
@@ -903,9 +905,9 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
             # Snapping
             snapped = False
-            (d, i) = self.parent.raw_kdtree2d.query(new_pos[:-1])
+            (d, i) = self.parent.raw_lidar_2d.tree.query(new_pos[:-1])
             if d < 1:
-                new_pos = self.parent.raw_cloud.xyz[i]
+                new_pos = self.parent.raw_lidar.pts[i]
                 snapped = True
 
             old_pos = np.array(old_pos)
@@ -926,7 +928,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         actor = self.picker.GetActor()
         if idx >= 0 and self.selection and self.mode == Selection.Copy:
             # If we are in copy mode and we have selected a lane point
-            if self.selection.copy_ready and actor == self.parent.raw_actor:
+            if self.selection.copy_ready and actor == self.parent.raw_lidar.actor:
                 if not self.selection.copying:
                     # Don't remove the lane the first time
                     self.selection.lowlight()
@@ -952,7 +954,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.Render()
 
     def togglePick(self, lane=True):
-        self.parent.raw_actor.SetPickable(not lane)
+        self.parent.raw_lidar.actor.SetPickable(not lane)
         for l in self.parent.lanes:
             l.actor.SetPickable(lane)
 
@@ -1018,15 +1020,15 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.mode = 'edit'
 
             elif key == 'braceright':
-                op = min(self.parent.raw_actor.GetProperty().GetOpacity() +
+                op = min(self.parent.raw_lidar.actor.GetProperty().GetOpacity() +
                          0.05, 1)
-                self.parent.raw_actor.GetProperty().SetOpacity(op)
+                self.parent.raw_lidar.actor.GetProperty().SetOpacity(op)
                 self.mode = 'edit'
             elif key == 'braceleft':
                 # Decrease the number of points selected
-                op = max(self.parent.raw_actor.GetProperty().GetOpacity() -
+                op = max(self.parent.raw_lidar.actor.GetProperty().GetOpacity() -
                          0.05, 0.05)
-                self.parent.raw_actor.GetProperty().SetOpacity(op)
+                self.parent.raw_lidar.actor.GetProperty().SetOpacity(op)
                 self.mode = 'edit'
 
             elif key == 'p':
@@ -1378,16 +1380,16 @@ class Blockworld:
         raw_npz = np.load(sys.argv[3])
         pts = raw_npz['data']
 
-        self.raw_cloud = VtkPointCloud(pts[:, :3],
-                                       np.ones(pts[:, :3].shape) * 255)
-        self.raw_actor = self.raw_cloud.get_vtk_color_cloud()
-        self.raw_actor.GetProperty().SetPointSize(5)
-        self.raw_actor.GetProperty().SetOpacity(0.3)
-        self.raw_actor.SetPickable(0)
-        self.cloud_ren.AddActor(self.raw_actor)
+        raw_cloud = VtkPointCloud(pts[:, :3], np.ones(pts[:, :3].shape) * 255)
+        raw_actor = raw_cloud.get_vtk_color_cloud()
 
-        self.raw_kdtree = cKDTree(self.raw_cloud.xyz)
-        self.raw_kdtree2d = cKDTree(self.raw_cloud.xyz[:, :-1])
+        self.raw_lidar = VTKDataTree(raw_cloud, raw_actor)
+        self.raw_lidar_2d = DataTree(self.raw_lidar.pts[:, :-1])
+
+        self.raw_lidar.actor.GetProperty().SetPointSize(5)
+        self.raw_lidar.actor.GetProperty().SetOpacity(0.3)
+        self.raw_lidar.actor.SetPickable(0)
+        self.cloud_ren.AddActor(self.raw_lidar.actor)
 
         print 'Loading interpolated lanes'
         npz = np.load(sys.argv[4])
@@ -1516,7 +1518,7 @@ class Blockworld:
         self.cloud_ren.RemoveActor(old_actor)
         self.cloud_ren.AddActor(actor)
 
-        vtk_data = VTKDataTree(cloud.xyz, cloud, actor)
+        vtk_data = VTKDataTree(cloud, actor)
         if replace and lane > -1:
             self.lanes[lane_num] = vtk_data
         elif lane > -1:
@@ -1687,14 +1689,14 @@ class Blockworld:
 
         if show_lidar:
             # Find the closest point
-            tree = self.raw_kdtree
+            tree = self.raw_lidar.tree
             (d, closest_idx) = tree.query(car_pos)
 
             # Find all the points nearby
             nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
 
             if nearby_idx.shape[0] > 0:
-                lane = self.raw_cloud.xyz[nearby_idx, :3]
+                lane = self.raw_data.pts[nearby_idx, :3]
                 # Reverse the color (RGB->BGR)
                 color = np.array((1,1,1))
                 if lane.shape[0] > 0:
