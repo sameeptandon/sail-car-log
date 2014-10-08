@@ -1407,7 +1407,7 @@ class Blockworld:
         self.colors = [hsv_to_rgb(float(i) / self.num_colors, .9, 1.) for i
                        in xrange(self.num_colors)]
         # The last color is for highlighting
-        self.colors.append([1, 1, .4])
+        self.colors.append([.6, .6, .6])
         self.colors = 255 * np.array(self.colors)
 
         self.lane_size = 3
