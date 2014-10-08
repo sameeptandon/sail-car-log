@@ -53,7 +53,7 @@ class BackProjector(object):
     def toHomogenous(self, x):
         return np.hstack((x, np.array(1)))
 
-    def calculateBackProjection(self, imu_xform, pt=None):
+    def backProject(self, imu_xform, pt=None):
         if pt == None:
             pt = np.array([0, 0, 0])
 
@@ -64,9 +64,7 @@ class BackProjector(object):
 
         return self.fromHomogenous(u_imu_t)
 
-    def calculateIntersection(self, l0, l, plane):
-        n = plane[:3]
-        p0 = plane[3:]
+    def getIntersection(self, l0, l, n, p0):
         alpha = np.inner((p0 - l0), n) / np.inner(l, n)
         return l0 + alpha * l
 
@@ -76,9 +74,16 @@ class DataTree(object):
         self.pts = pts
         self.tree = cKDTree(self.pts)
 
-class VTKDataTree(DataTree):
+class VTKCloudTree(DataTree):
 
     def __init__(self, cloud, actor):
-        super(VTKDataTree, self).__init__(cloud.xyz)
+        super(VTKCloudTree, self).__init__(cloud.xyz)
         self.cloud = cloud
         self.actor = actor
+
+class VTKPlaneTree(DataTree):
+
+    def __init__(self, xyz, planes, actors):
+        super(VTKPlaneTree, self).__init__(xyz)
+        self.planes = planes
+        self.actors = actors

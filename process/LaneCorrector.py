@@ -29,7 +29,7 @@ from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine
 from LaneMarkingHelper import BackProjector, DataTree, get_transforms, \
-    mk2_to_mk1, VTKDataTree
+    mk2_to_mk1, VTKCloudTree, VTKPlaneTree
 
 
 def vtk_transform_from_np(np4x4):
@@ -190,7 +190,7 @@ class Point:
         self.data = self.actor.GetMapper().GetInput()
         self.lane = self.getLane()
         if self.lane != -1:
-            self.pos = self.blockworld.lanes[self.lane].cloud.xyz
+            self.pos = self.blockworld.lanes[self.lane].pts
             self.color = self.blockworld.lanes[self.lane].cloud.intensity
         else:
             self.pos = self.blockworld.raw_lidar.pts
@@ -753,23 +753,23 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             xform = self.parent.imu_transforms_mk1[self.parent.t]
             pix = np.array((idx % 1280, 960 - idx / 1280, 1))
 
-            v = self.back_projector.calculateBackProjection(xform, pix)
-            l0 = self.back_projector.calculateBackProjection(xform)
+            v = self.back_projector.backProject(xform, pix)
+            l0 = self.back_projector.backProject(xform)
             l = l0 - v
 
-            if len(self.parent.ground_plane_actors) > 0:
+            if self.parent.ground_planes != None:
                 best_model = (np.inf, 0, 0)
-                for i, plane in enumerate(self.parent.planes):
-                    pt = self.back_projector.calculateIntersection(l0, l,
-                                                                   plane)
-                    d = np.linalg.norm(pt - plane[3:])
+                for i, plane in enumerate(self.parent.ground_planes.planes):
+                    pt = self.back_projector.getIntersection(l0, l, plane.norm,
+                                                             plane.xyz)
+                    d = np.linalg.norm(pt - plane.xyz)
                     if d < best_model[0]:
                         best_model = (d, i, pt)
 
-                for actor in self.parent.ground_plane_actors:
+                for actor in self.parent.ground_planes.actors:
                     actor.SetVisibility(0)
 
-                self.parent.ground_planes[best_model[1].actor].SetVisibility(1)
+                self.parent.ground_planes.actors[best_model[1]].SetVisibility(1)
                 self.parent.addProjLine(l0, best_model[-1])
 
 
@@ -988,7 +988,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         elif key == 'S':
             folder = sys.argv[1]
             file_name = self.parent.args['basename']
-            if len(self.parent.ground_plane_actors) > 0:
+            if self.parent.ground_planes != None:
                 file_name += '_multilane_points_planar_done.npz'
             else:
                 file_name += '_multilane_points_done.npz'
@@ -1032,11 +1032,11 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 self.mode = 'edit'
 
             elif key == 'p':
-                plane_actors = self.parent.ground_plane_actors
+                ground_planes = self.parent.ground_planes
                 ground_actor = self.parent.filt_ground_actor
 
-                if len(plane_actors) > 0:
-                    plane_vis = planes[0].actor.GetVisibility()
+                if ground_planes != None:
+                    plane_vis = ground_planes.actors[0].GetVisibility()
                     ground_vis = ground_actor.GetVisibility()
                     if plane_vis and ground_vis:
                         plane_vis, ground_vis = 0, 0
@@ -1047,7 +1047,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     else:
                         plane_vis, ground_vis = 0, 1
 
-                    for actor in plane_actors:
+                    for actor in ground_planes.actors:
                         actor.SetVisibility(plane_vis)
                     ground_actor.SetVisibility(ground_vis)
 
@@ -1383,7 +1383,7 @@ class Blockworld:
         raw_cloud = VtkPointCloud(pts[:, :3], np.ones(pts[:, :3].shape) * 255)
         raw_actor = raw_cloud.get_vtk_color_cloud()
 
-        self.raw_lidar = VTKDataTree(raw_cloud, raw_actor)
+        self.raw_lidar = VTKCloudTree(raw_cloud, raw_actor)
         self.raw_lidar_2d = DataTree(self.raw_lidar.pts[:, :-1])
 
         self.raw_lidar.actor.GetProperty().SetPointSize(5)
@@ -1419,22 +1419,30 @@ class Blockworld:
             self.addLane(interp_lane)
 
         # self.addLane(self.imu_transforms_mk1[:, :3, 3].copy())
-        self.ground_plane_actors = []
+        self.ground_planes = None
         if 'planes' in npz:
             print 'Loading ground planes'
             self.planes = npz['planes']
+            actors = []
+            planes = []
             for i in xrange(self.planes.shape[0]):
                 norm = self.planes[i, :3]
-                pos = self.planes[i, 3:]
-                plane = VtkPlane(norm, pos)
+                xyz = self.planes[i, 3:]
+                plane = VtkPlane(norm, xyz)
+
                 actor = plane.get_vtk_plane(25)
-                self.ground_plane_actors.append(actor)
                 actor.GetProperty().LightingOff()
                 actor.SetPickable(0)
                 actor.GetProperty().SetOpacity(0.4)
                 actor.GetProperty().SetColor((0, .7, .1))
                 actor.SetVisibility(0)
                 self.cloud_ren.AddActor(actor)
+
+                planes.append(plane)
+                actors.append(actor)
+
+            self.ground_planes = VTKPlaneTree(self.planes[:, 3:], planes,
+                                              actors)
 
         self.filt_ground_actor = None
         if 'filt_ground' in npz:
@@ -1518,7 +1526,7 @@ class Blockworld:
         self.cloud_ren.RemoveActor(old_actor)
         self.cloud_ren.AddActor(actor)
 
-        vtk_data = VTKDataTree(cloud, actor)
+        vtk_data = VTKCloudTree(cloud, actor)
         if replace and lane > -1:
             self.lanes[lane_num] = vtk_data
         elif lane > -1:
@@ -1564,11 +1572,11 @@ class Blockworld:
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
         lanes['saved_t'] = self.mk2_t
-        if len(self.ground_plane_actors) > 0:
+        if self.ground_planes != None:
             lanes['planes'] = self.planes
 
         for num in xrange(self.num_lanes):
-            lane = self.lanes[num].cloud.xyz[:, :3]
+            lane = self.lanes[num].pts[:, :3]
             lanes['lane' + str(num)] = lane
 
         np.savez(file_name, **lanes)
@@ -1673,7 +1681,7 @@ class Blockworld:
             nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
 
             if nearby_idx.shape[0] > 0:
-                lane = self.lanes[num].cloud.xyz[nearby_idx, :3]
+                lane = self.lanes[num].pts[nearby_idx, :3]
                 # Reverse the color (RGB->BGR)
                 color = self.lanes[num].cloud.intensity[0, :][::-1]
                 if lane.shape[0] > 0:

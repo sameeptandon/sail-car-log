@@ -46,9 +46,9 @@ class VtkLine:
 
 
 class VtkPlane:
-    def __init__(self, norm, pos):
-        self.norm = tuple(norm)
-        self.xyz = tuple(pos)
+    def __init__(self, norm, xyz):
+        self.norm = norm
+        self.xyz = xyz
 
     def get_vtk_plane(self, side_len=25):
         # cube = vtk.vtkCubeSource()
@@ -61,7 +61,7 @@ class VtkPlane:
         cube.SetThetaResolution(100)
         cube.SetPhiResolution(100)
         cube.SetRadius(side_len)
-        cube.SetCenter(*self.norm)
+        cube.SetCenter(*self.xyz)
 
         cubeMapper = vtk.vtkPolyDataMapper()
         cubeMapper.SetInputConnection(cube.GetOutputPort())
