@@ -1035,7 +1035,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 ground_planes = self.parent.ground_planes
                 ground_actor = self.parent.filt_ground_actor
 
-                if ground_planes != None:
+                if ground_planes != None and ground_actor != None:
                     plane_vis = ground_planes.actors[0].GetVisibility()
                     ground_vis = ground_actor.GetVisibility()
                     if plane_vis and ground_vis:
@@ -1047,9 +1047,14 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     else:
                         plane_vis, ground_vis = 0, 1
 
-                    for actor in ground_planes.actors:
-                        actor.SetVisibility(plane_vis)
                     ground_actor.SetVisibility(ground_vis)
+
+                elif ground_planes != None:
+                    plane_vis = 0 if ground_planes.actors[0].GetVisibility() \
+                                else 1
+
+                for actor in ground_planes.actors:
+                    actor.SetVisibility(plane_vis)
 
             elif key in self.listLaneModes():
                 self.lowlightAll()
