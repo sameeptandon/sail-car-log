@@ -1572,8 +1572,12 @@ class Blockworld:
         lanes = {}
         lanes['num_lanes'] = self.num_lanes
         lanes['saved_t'] = self.mk2_t
+
+        planar_files = glob.glob(sys.argv[1] + '/' + '*planar.npz')
         if self.ground_planes != None:
             lanes['planes'] = self.planes
+        elif len(planar_files) > 0:
+            lanes['planes'] = np.load(planar_files[0])['planes']
 
         for num in xrange(self.num_lanes):
             lane = self.lanes[num].pts[:, :3]
