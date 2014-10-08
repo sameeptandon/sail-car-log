@@ -1585,6 +1585,7 @@ class Blockworld:
             lanes['planes'] = self.planes
         elif len(planar_files) > 0:
             lanes['planes'] = np.load(planar_files[0])['planes']
+            file_name = file_name.replace('_done.npz', '_planar_done.npz')
 
         for num in xrange(self.num_lanes):
             lane = self.lanes[num].pts[:, :3]
