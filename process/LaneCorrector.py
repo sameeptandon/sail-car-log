@@ -981,7 +981,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             except OSError:
                 pass
             file_name = str(int(time.time()) / 10) + '0.npz'
-            print 'Saved', folder + file_name
             file_name = folder + file_name
             self.parent.exportData(file_name)
 
@@ -993,7 +992,6 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             else:
                 file_name += '_multilane_points_done.npz'
 
-            print 'Saved', folder + '/' + file_name
             self.parent.exportData(folder + '/' + file_name)
 
         if not self.moving:
@@ -1592,6 +1590,7 @@ class Blockworld:
             lanes['lane' + str(num)] = lane
 
         np.savez(file_name, **lanes)
+        print 'Saved', file_name
 
     def finished(self, focus=100):
         return self.mk2_t + 2 * focus > self.video_reader.total_frame_count
