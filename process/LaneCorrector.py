@@ -1048,13 +1048,15 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                         plane_vis, ground_vis = 0, 1
 
                     ground_actor.SetVisibility(ground_vis)
+                    for actor in ground_planes.actors:
+                        actor.SetVisibility(plane_vis)
 
                 elif ground_planes != None:
                     plane_vis = 0 if ground_planes.actors[0].GetVisibility() \
                                 else 1
+                    for actor in ground_planes.actors:
+                        actor.SetVisibility(plane_vis)
 
-                for actor in ground_planes.actors:
-                    actor.SetVisibility(plane_vis)
 
             elif key in self.listLaneModes():
                 self.lowlightAll()
