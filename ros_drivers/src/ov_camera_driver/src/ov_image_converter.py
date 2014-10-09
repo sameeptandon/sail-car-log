@@ -45,7 +45,7 @@ class image_converter:
 
         # Publish new image
         try: 
-            self.image_pub.publish(self.bridge.cv_to_imgmsg(image_cv, "passthrough"))
+            self.image_pub.publish(self.bridge.cv_to_imgmsg(image_cv, "bgr8"))
         except CvBridgeError, e:
             print e
         
