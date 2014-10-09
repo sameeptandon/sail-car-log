@@ -15,18 +15,10 @@ using namespace std;
 class ImageConverter
 {
     ros::Subscriber image_sub_;
-    string data_dir;
-    string cam_prefix;
-    uint64_t frame_count;
-
 
     public:
     ImageConverter(ros::NodeHandle nh)
     {
-        nh.param<string>("outdir", data_dir, string("data"));
-        nh.param<string>("prefix", cam_prefix, string("cam"));
-        frame_count = 0;
-
         string topic;
         nh.param<string>("image", topic, string(""));
         ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
@@ -43,14 +35,6 @@ class ImageConverter
 
     void imageCb(const sensor_msgs::CompressedImage& msg)
     {
-        frame_count++;
-        cout << "received " << msg.data.size() << endl;
-        ofstream imgFile;
-        string fname = data_dir + "/" + boost::lexical_cast<string>(frame_count) + "_" + cam_prefix + ".jpg";
-        imgFile.open(fname, ios::out | ios::binary);
-        imgFile.write((char*)msg.data.data(),msg.data.size());
-        imgFile.close();
-
         cv::Mat img = cv::imdecode(msg.data, CV_LOAD_IMAGE_COLOR);
         cv::pyrDown(img, img, cv::Size(img.cols/2, img.rows/2));
         // Update GUI Window
