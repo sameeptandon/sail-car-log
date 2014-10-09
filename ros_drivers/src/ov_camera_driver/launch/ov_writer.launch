@@ -1,0 +1,40 @@
+<launch>
+
+<group ns="ov_601">
+    <node pkg="ov_camera_driver" type="ov_image_writer_node" output="screen" name="ov_writer">
+        <param name="image" value="/ov_601/image_raw" />
+        <param name="basename" value="data" />
+        <param name="cameranum" value="0" />
+        <param name="suffix" value="cam1" />
+    </node>
+</group>
+
+<group ns="ov_602">
+    <node pkg="ov_camera_driver" type="ov_image_writer_node" output="screen" name="ov_writer">
+        <param name="image" value="/ov_602/image_raw" />
+        <param name="basename" value="data" />
+        <param name="cameranum" value="0" />
+        <param name="suffix" value="cam2" />
+    </node>
+</group>
+
+<group ns="ov_603">
+    <node pkg="ov_camera_driver" type="ov_image_writer_node" output="screen" name="ov_writer">
+        <param name="image" value="/ov_603/image_raw" />
+        <param name="basename" value="data" />
+        <param name="cameranum" value="0" />
+        <param name="suffix" value="cam3" />
+    </node>
+</group>
+
+<group ns="ov_604">
+    <node pkg="ov_camera_driver" type="ov_image_writer_node" output="screen" name="ov_writer">
+        <param name="image" value="/ov_604/image_raw" />
+        <param name="basename" value="data" />
+        <param name="cameranum" value="0" />
+        <param name="suffix" value="cam4" />
+    </node>
+</group>
+
+
+</launch>

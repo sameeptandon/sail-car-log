@@ -34,7 +34,7 @@ unsigned int hexStringToUnsignedInt(string input) {
 void checkError(uvc_error_t& res, string message) { 
     if (res < 0) {
         uvc_perror(res, message.c_str());
-        std::runtime_error(message.c_str());
+        throw std::runtime_error(message.c_str());
     }
 }
 
@@ -91,8 +91,8 @@ int main(int argc, char **argv) {
     cout << "Stream ctrl open" << endl; 
 
     // start the stream
-    res = uvc_stream_start_iso(camera.strmh, NULL, NULL);
-    checkError(res, "start_iso"); 
+    res = uvc_stream_start(camera.strmh, NULL, NULL, 0);
+    checkError(res, "start"); 
     cout << "Stream open" << endl; 
 
 
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        //ROS_INFO_STREAM(ros::this_node::getNamespace() << " captured: " << frame->data_bytes);
+        ROS_INFO_STREAM(ros::this_node::getNamespace() << " captured: " << frame->data_bytes);
         
         //good frame received
         sensor_msgs::CompressedImage msg;
