@@ -25,11 +25,10 @@ from ArgParser import parse_args
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
-from MapReproject import lidarPtsToPixels
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine
 from LaneMarkingHelper import BackProjector, DataTree, get_transforms, \
-    mk2_to_mk1, VTKCloudTree, VTKPlaneTree
+    mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
 
 
 def vtk_transform_from_np(np4x4):
@@ -1685,50 +1684,16 @@ class Blockworld:
         # Project the points onto the image
         for num in xrange(self.num_lanes):
             # Find the closest point
-            tree = self.lanes[num].tree
-            (d, closest_idx) = tree.query(car_pos)
-
-            # Find all the points nearby
-            nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
-
-            if nearby_idx.shape[0] > 0:
-                lane = self.lanes[num].pts[nearby_idx, :3]
-                # Reverse the color (RGB->BGR)
-                color = self.lanes[num].cloud.intensity[0, :][::-1]
-                if lane.shape[0] > 0:
-                    xform = self.imu_transforms_mk1[self.t, :,:]
-                    pix, mask = lidarPtsToPixels(lane, xform,
-                                                 self.T_from_i_to_l,
-                                                 self.cam_params)
-                    for p in range(4):
-                        I[pix[1, mask]+p, pix[0, mask], :] = color
-                        I[pix[1, mask], pix[0, mask]+p, :] = color
-                        I[pix[1, mask]-p, pix[0, mask], :] = color
-                        I[pix[1, mask], pix[0, mask]-p, :] = color
-
+            lane_tree = self.lanes[num]
+            I = projectPointsOnImg(I, lane_tree, self.imu_transforms_mk1,
+                                   self.t, self.T_from_i_to_l, self.cam_params,
+                                   lane_tree.cloud.intensity[0, :][::-1])
         if show_lidar:
             # Find the closest point
-            tree = self.raw_lidar.tree
-            (d, closest_idx) = tree.query(car_pos)
-
-            # Find all the points nearby
-            nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
-
-            if nearby_idx.shape[0] > 0:
-                lane = self.raw_data.pts[nearby_idx, :3]
-                # Reverse the color (RGB->BGR)
-                color = np.array((1,1,1))
-                if lane.shape[0] > 0:
-                    xform = self.imu_transforms_mk1[self.t, :,:]
-                    pix, mask = lidarPtsToPixels(lane, xform,
-                                                 self.T_from_i_to_l,
-                                                 self.cam_params)
-                    for p in range(4):
-                        I[pix[1, mask]+p, pix[0, mask], :] = color
-                        I[pix[1, mask], pix[0, mask]+p, :] = color
-                        I[pix[1, mask]-p, pix[0, mask], :] = color
-                        I[pix[1, mask], pix[0, mask]-p, :] = color
-
+            lidar_tree = self.raw_lidar
+            I = projectPointsOnImg(I, lidar_tree, self.imu_transforms_mk1,
+                                   self.t, self.T_from_i_to_l, self.cam_params,
+                                   [255, 255, 255])
 
         return I
 
