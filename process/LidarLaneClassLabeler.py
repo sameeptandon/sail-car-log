@@ -28,26 +28,35 @@ class LaneClassifier(object):
     def classifyNearbyLanes(self, pos_idx):
         closest_lanes = np.ones((self.num_lanes, 2)) * -1
         for i in xrange(self.num_lanes):
-            (d, idx) = self.lanes[i].tree.query(self.pos[pos_idx, :], distance_upper_bound=10)
+            (d, idx) = self.lanes[i].tree.query(self.pos[pos_idx, :])
             closest_lanes[i] = np.array((d, idx))
 
-        arg_sort = np.argsort(closest_lanes[:, 0], axis=0)
-        print pos_idx, arg_sort[0], arg_sort[1], arg_sort[2], arg_sort[3]
+        potential_lanes = np.argsort(closest_lanes[:, 0], axis=0)
 
         # pts_idx = self.ground_tree.query_ball_point(self.pos[pos_idx, :], radius)
         # pts = self.ground[pts_idx, :]
 
         # # Remove points that are outside the lanes
-        # xform = self.imu[pos_idx]
-        # inv_xform = np.linalg.inv(xform)
+        xform = self.imu[pos_idx]
+        inv_xform = np.linalg.inv(xform)
 
-        # _, left_idx = self.lanes_tree[0].query(self.pos[pos_idx], k=1)
-        # _, right_idx = self.lanes_tree[-1].query(self.pos[pos_idx], k=1)
+        closest_pt_left = None
+        closest_pt_right = None
 
-        # lane_boundary = np.vstack((self.lanes[0][left_idx], self.lanes[-1][right_idx]))
-        # lane_boundary = np.hstack((lane_boundary, np.ones((2, 1))))
-        # lane_boundary = np.dot(lane_boundary, inv_xform.T)
+        for lane_num in potential_lanes:
+            _, idx = self.lanes[lane_num].tree.query(self.pos[pos_idx], k=1)
+            hom_pt = np.hstack((self.lanes[lane_num].pts[idx, :], 1))
+            closest_pt_wrt_car = np.dot(hom_pt, inv_xform.T)
+            norm = np.linalg.norm(closest_pt_wrt_car)
 
+            if closest_pt_wrt_car[1] >= 0:
+                if closest_pt_left == None or norm < closest_pt_left[0]:
+                    closest_pt_left = (norm, closest_pt_wrt_car, lane_num)
+            if closest_pt_wrt_car[1] < 0:
+                if closest_pt_right == None or norm < closest_pt_right[0]:
+                    closest_pt_right = (norm, closest_pt_wrt_car, lane_num)
+
+        print pos_idx, closest_pt_left[-1], closest_pt_right[-1]
         # hom_pts = np.hstack((pts, np.ones((pts.shape[0], 1))))
         # rot_pts = np.dot(hom_pts, inv_xform.T)
 
