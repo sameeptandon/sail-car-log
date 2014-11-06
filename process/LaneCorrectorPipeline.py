@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 from ConfigParser import SafeConfigParser
 import os
 import subprocess
@@ -56,7 +55,7 @@ if len(sys.argv) < 2:
     -f = force"""
     sys.exit(-1)
 
-local_folder = 'data/' + sys.argv[-1]
+local_folder = '/scr/data/' + sys.argv[-1]
 remote_folder = sys.argv[-1]
 try:
     os.mkdir(local_folder)
@@ -75,23 +74,26 @@ if configurator.exists():
     configurator.get('map')
     configurator.get('multilane')
     configurator.get('planefitting')
+    configurator.get('sync')
 else:
     configurator.set('downloaded', False)
     configurator.set('organized', False)
     configurator.set('map', False)
     configurator.set('multilane', False)
     configurator.set('planefitting', False)
+    configurator.set('sync', False)
 
 print configurator.config
 
 if configurator.config['downloaded'] == False:
     cmd = """rsync --progress -a -L --prune-empty-dirs --exclude="*_frames/" \
-    --exclude="*_radar" --include="*.rdr" --include="*_frames.tar.gz" \
+    --exclude="*_radar" --include="*_frames.tar.gz" \
     --include="*2.avi" --include="*.out" --include="params.ini" \
     --include="*lanes.pickle" --filter="-! */" \
-    jkiske@gorgon34:~/q50_data/{remote} data/""".format(
+    /scail/group/deeplearning/driving_data/q50_data/{remote} \
+    /scr/data/""".format(
         remote=remote_folder)
-
+    print cmd
     tokens = shlex.split(cmd)
     if '-d' in sys.argv:
         tokens.insert(1, '--dry-run')
@@ -196,12 +198,37 @@ if configurator.config['multilane'] == False:
     configurator.set('multilane', True)
 
 if configurator.config['planefitting'] == False:
-        for run in sorted(glob.glob(local_folder + '/*/')):
-            if os.path.isdir(run):
-                print run
-                if len(glob.glob(run + '/*_planar.npz')) == 0:
-                    video = run.split('/')[-2] + '2.avi'
-                    cmd = 'python PlaneFitting.py {run} {video}'
-                    cmd = cmd.format(run=run, video=video)
-                    print cmd
-                    subprocess.call(cmd.split())
+    for run in sorted(glob.glob(local_folder + '/*/')):
+        if os.path.isdir(run):
+            print run
+            if len(glob.glob(run + '/*_planar.npz')) == 0:
+                video = run.split('/')[-2] + '2.avi'
+                cmd = 'python PlaneFitting.py {run} {video}'
+                cmd = cmd.format(run=run, video=video)
+                print cmd
+                subprocess.call(cmd.split())
+
+    configurator.set('planefitting', True)
+
+if configurator.config['sync'] == False:
+    driving_data = '/deep/group/driving_data/'
+    sync_cmd = """rsync --progress -a --exclude=*_frames/ --exclude=*.avi
+    --exclude=*.pickle --exclude=*~ /scr/data/ \
+    {driving_data}/jkiske/data""".format(driving_data=driving_data)
+    print sync_cmd
+    subprocess.call(sync_cmd.split())
+
+    for run in sorted(glob.glob(local_folder + '/*/')):
+        run = run.split('/')[-2]
+        video_glob = driving_data + 'q50_data/{remote}/split_*_{run}2.avi' \
+            .format(remote=remote_folder, run=run)
+        for video in sorted(glob.glob(video_glob)):
+            link = driving_data + 'jkiske/data/{remote}/{run}/{video}' \
+                .format(remote=remote_folder, run=run,
+                        video=video.split('/')[-1])
+            rm_cmd = 'rm ' + link
+            cmd = 'ln -s {video} {link}'.format(video=video, link=link)
+            # print cmd
+            subprocess.call(cmd.split())
+
+    configurator.set('sync', True)
