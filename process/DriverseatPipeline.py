@@ -28,9 +28,8 @@ def unsafe_mkdir(name):
 if __name__ == '__main__'
     if len(sys.argv) < 2:
         print """Usage:
-        download.py -d -f folder/
-        -d = dry-run
-        -f = force"""
+        DriverseatPipeline.py run ...
+        """
         sys.exit(-1)
 
     for day in sys.argv[1:]:
