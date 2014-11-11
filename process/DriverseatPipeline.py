@@ -12,12 +12,13 @@ import glob
 from zipfile import ZipFile, ZIP_DEFLATED
 from RadarTransforms import loadRDR
 
-def get_transforms(day, run, mark='mark1', absolute=False):
+def get_transforms(day, run, mark='mark1'):
     """ Gets the IMU transforms for a run """
     gps_reader = GPSReader(args['gps_' + mark])
     gps_data = gps_reader.getNumericData()
+    gps_times = utc_from_gps_log_all(gps_data)
     imu_transforms = IMUTransforms(gps_data)
-    return imu_transforms
+    return imu_transforms, gps_times
 
 def unsafe_mkdir(name):
     try:
@@ -25,7 +26,7 @@ def unsafe_mkdir(name):
     except OSError:
         pass
 
-if __name__ == '__main__'
+if __name__ == '__main__':
     if len(sys.argv) < 2:
         print """Usage:
         DriverseatPipeline.py run ...
@@ -55,7 +56,7 @@ if __name__ == '__main__'
                 print driverseat_run
 
                 npz_map_name = remote_run + run + '_bg.npz'
-                json_map_name = driverseat_run + run + '_map.json'
+                json_map_name = driverseat_run + 'map.json'
                 zip_map_name = json_map_name + '.zip'
 
                 if not os.path.isfile(json_map_name):
@@ -66,8 +67,10 @@ if __name__ == '__main__'
 
                 if not os.path.isfile(zip_map_name):
                     print '\tZipping...'
+                    data = '\n'.join([x for x in open(json_map_name,
+                                                      'r').readlines()])
                     json_zip = ZipFile(zip_map_name, 'w', ZIP_DEFLATED)
-                    json_zip.write(json_map_name)
+                    json_zip.writestr('map.json', data)
                     json_zip.close()
 
             configurator.set('maps_json', True)
@@ -77,7 +80,7 @@ if __name__ == '__main__'
                 run = radar_folder.split('/')[-2][:-6] # Remove '_radar'
                 radar_data = []
                 driverseat_run = driverseat_folder + run + '/'
-                json_radar_name = driverseat_run + run + '_radar.json'
+                json_radar_name = driverseat_run + 'radar.json'
                 zip_radar_name = json_radar_name + '.zip'
                 print driverseat_run
                 if not os.path.isfile(json_radar_name):
@@ -91,8 +94,10 @@ if __name__ == '__main__'
 
                 if not os.path.isfile(zip_radar_name):
                     print '\tZipping...'
+                    data = '\n'.join([x for x in open(json_radar_name,
+                                                      'r').readlines()])
                     json_zip = ZipFile(zip_radar_name, 'w', ZIP_DEFLATED)
-                    json_zip.write(json_radar_name)
+                    json_zip.writestr('radar.json', data)
                     json_zip.close()
 
             configurator.set('radar', True)
