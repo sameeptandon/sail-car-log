@@ -20,8 +20,78 @@ class VtkText:
         txtprop.SetFontSize(18)
         txtprop.SetColor(1,1,1)
         txt.SetDisplayPosition(*self.pos)
-        
+
         return txt
+
+class VtkLine:
+    def __init__(self, p0, p1):
+        self.p0 = p0
+        self.p1 = p1
+
+    def get_vtk_line(self):
+        source = vtk.vtkLineSource()
+        source.SetPoint1(self.p0)
+        source.SetPoint2(self.p1)
+
+        # mapper
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(source.GetOutputPort())
+
+        # actor
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+
+        # assign actor to the renderer
+        return actor
+
+
+class VtkPlane:
+    def __init__(self, norm, xyz):
+        self.norm = norm
+        self.xyz = xyz
+
+    def get_vtk_plane(self, side_len=25):
+        # cube = vtk.vtkCubeSource()
+        # cube.SetXLength(side_len)
+        # cube.SetYLength(side_len)
+        # cube.SetZLength(side_len)
+        # cube.SetCenter(*self.pos)
+
+        cube = vtk.vtkSphereSource()
+        cube.SetThetaResolution(100)
+        cube.SetPhiResolution(100)
+        cube.SetRadius(side_len)
+        cube.SetCenter(*self.xyz)
+
+        cubeMapper = vtk.vtkPolyDataMapper()
+        cubeMapper.SetInputConnection(cube.GetOutputPort())
+
+        plane = vtk.vtkPlane()
+        plane.SetOrigin(*self.xyz)
+        plane.SetNormal(*self.norm)
+
+        #create cutter
+        cutter = vtk.vtkCutter()
+        cutter.SetCutFunction(plane)
+        cutter.SetInputConnection(cube.GetOutputPort())
+        cutter.Update()
+
+        cutStrips = vtk.vtkStripper()
+        cutStrips.SetInputConnection(cutter.GetOutputPort())
+        cutStrips.Update()
+        cutPoly = vtk.vtkPolyData()
+        cutPoly.SetPoints((cutStrips.GetOutput()).GetPoints())
+        cutPoly.SetPolys((cutStrips.GetOutput()).GetLines())
+
+        cutMapper = vtk.vtkPolyDataMapper()
+        cutMapper.SetInput(cutPoly)
+
+        cutActor = vtk.vtkActor()
+        cutActor.GetProperty().SetColor(1, 1, 1)
+        cutActor.SetMapper(cutMapper)
+
+        return cutActor
+
 
 class VtkImage:
     def __init__(self, im):
@@ -30,7 +100,7 @@ class VtkImage:
         importer = vtk.vtkImageImport()
         importer.SetDataSpacing(1,1,1)
         importer.SetDataOrigin(0,0,0)
-        importer.SetWholeExtent(0, self.im.shape[1] - 1, 
+        importer.SetWholeExtent(0, self.im.shape[1] - 1,
                 0, self.im.shape[0] - 1, 0, 0)
         importer.SetDataExtentToWholeExtent()
         importer.SetDataScalarTypeToUnsignedChar()
@@ -71,7 +141,7 @@ class VtkEllipsoid:
 
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInputConnection(transformFilter.GetOutputPort())
-        
+
         actor = vtk.vtkActor()
         actor.GetProperty().SetOpacity(0.8)
         actor.SetMapper(mapper)
@@ -113,24 +183,24 @@ class VtkBoundingBox:
         return actor
 
 """
-Uses VTK to render a point cloud based on intensities, which might be floating point numbers or RGB values. 
+Uses VTK to render a point cloud based on intensities, which might be floating point numbers or RGB values.
 
-Disclaimer: This function passes points to vtk, so make sure that your data does not get deallocated by python. Somethings are copied too. It's not really an efficient function and it's a slight miracle that it even works. 
+Disclaimer: This function passes points to vtk, so make sure that your data does not get deallocated by python. Somethings are copied too. It's not really an efficient function and it's a slight miracle that it even works.
 
-For internal VTK debugging, here's the layout of things: 
-    - vtkPoints consist of the x,y,z coordinates. Pass in an array of size m x 3 (where m is the number of points) 
+For internal VTK debugging, here's the layout of things:
+    - vtkPoints consist of the x,y,z coordinates. Pass in an array of size m x 3 (where m is the number of points)
     - vtkCells tells vtk how to render the points. It is formatted as "1 1 1 2 1 3 ... 1 m' where the 1 tells how many points it should consider in a surface and the even element says which point id to use.
 
 The function build_vtk_polydata will do the assembling magic.
 
-Then you can call get_vtk_color_cloud or get_vtk_cloud based on how you want to color map each point. 
+Then you can call get_vtk_color_cloud or get_vtk_cloud based on how you want to color map each point.
 """
 
 class VtkPointCloud:
     def __init__(self, xyz, intensity):
         self.xyz = np.ascontiguousarray(xyz)
         self.intensity = np.ascontiguousarray(intensity)
-        
+
         num_points = self.xyz.shape[0]
 
         np_cells_A = np.ones(num_points,dtype=np.int64)
@@ -146,11 +216,11 @@ class VtkPointCloud:
         vtkPolyData.SetPoints(vtkPoints)
         vtkPolyData.SetVerts(vtkCells)
         num_points = self.xyz.shape[0]
-        
+
         vtk_data = converter.numpy_to_vtk(self.xyz)
         vtkPoints.SetNumberOfPoints(num_points)
         vtkPoints.SetData(vtk_data)
-      
+
         vtkCells.SetCells(num_points, converter.numpy_to_vtkIdTypeArray(self.np_cells, deep=1))
 
         return (vtkPolyData, vtkPoints, vtkCells)
@@ -167,7 +237,7 @@ class VtkPointCloud:
         mapper.SetInput(vtkPolyData)
         vtkActor = vtk.vtkActor()
         vtkActor.SetMapper(mapper)
-      
+
         return vtkActor
 
 
@@ -179,7 +249,7 @@ class VtkPointCloud:
         vtk_intensity_data = converter.numpy_to_vtk(self.intensity)
         vtk_intensity_data.SetName('DepthArray')
         vtkPolyData.GetPointData().SetScalars(vtk_intensity_data)
-        
+
         num_points = self.xyz.shape[0]
         #vtkDepth = vtk.vtkFloatArray()
         #vtkDepth.SetName('DepthArray')
@@ -187,7 +257,7 @@ class VtkPointCloud:
         #vtkDepth.SetVoidArray(self.intensity, num_points, 1)
         vtkPolyData.GetPointData().SetActiveScalars('DepthArray')
 
-        
+
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInput(vtkPolyData)
         mapper.SetColorModeToDefault()
@@ -195,7 +265,7 @@ class VtkPointCloud:
         mapper.SetScalarVisibility(1)
         vtkActor = vtk.vtkActor()
         vtkActor.SetMapper(mapper)
-      
+
         return vtkActor
 
 
@@ -203,7 +273,7 @@ class VtkPointCloud:
 class vtkTimerCallback():
    def __init__(self):
      pass
- 
+
    def execute(self,obj,event):
      t = time.time()
      data = 40*(random.random((60000,3))-0.5)
@@ -215,7 +285,7 @@ class vtkTimerCallback():
      iren.GetRenderWindow().Render()
      print time.time() - t
 
-if __name__ == '__main__': 
+if __name__ == '__main__':
 
   data = 40*(random.random((600,3))-0.5)
   pointCloud = VtkPointCloud(data, data[:,2])
@@ -226,23 +296,23 @@ if __name__ == '__main__':
   renderer.AddActor(actor)
   renderer.SetBackground(0.0, 0.0, 0.)
   renderer.ResetCamera()
-  
+
   # Render Window
   renderWindow = vtk.vtkRenderWindow()
   renderWindow.SetSize(600,600)
   renderWindow.AddRenderer(renderer)
-  
+
   # Interactor
   renderWindowInteractor = vtk.vtkRenderWindowInteractor()
   renderWindowInteractor.SetRenderWindow(renderWindow)
-  
+
   # Begin Interaction
   renderWindow.Render()
   renderWindowInteractor.Initialize()
-  
+
   cb = vtkTimerCallback()
-  cb.actor = actor 
+  cb.actor = actor
   renderWindowInteractor.AddObserver('TimerEvent', cb.execute)
   timerId = renderWindowInteractor.CreateRepeatingTimer(50)
-  
+
   renderWindowInteractor.Start()

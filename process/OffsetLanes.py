@@ -6,7 +6,7 @@ import sys
 from MultiLaneGenerator import MultiLane
 import numpy as np
 
-def saveInterp(folder, interp, num_left, num_right):
+def saveInterp(folder, interp, num_left, num_right, name='multilane_points'):
     num_lanes = num_left + num_right
     out = {}
     out['num_lanes'] = np.array(num_lanes)
@@ -15,7 +15,7 @@ def saveInterp(folder, interp, num_left, num_right):
     for i in xrange(num_lanes):
         out['lane' + str(i)] = interp[:,:,i]
 
-    f = folder + '/' + 'multilane_points'
+    f = folder + '/' + name
     print 'Saved', f
     np.savez(f, **out)
 
@@ -25,4 +25,7 @@ if __name__ == '__main__':
     ml = MultiLane(sys.argv[1], left, right, sys.argv[4])
     ml.extendLanes()
     # ml.offsetInterpolated()
-    saveInterp(sys.argv[5], ml.interp, left, right)
+    if len(sys.argv) == 6:
+        saveInterp(sys.argv[5], ml.interp, left, right)
+    else:
+        saveInterp(sys.argv[5], ml.interp, left, right, sys.argv[6])

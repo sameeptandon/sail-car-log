@@ -14,7 +14,7 @@ class MultiLane:
 
     def __init__(self, interpolationFile, leftLanes, rightLanes,
                  filteredLidarFile=None):
-        """ 
+        """
         Args:
         interpolationFile: A .pickle file containing an interpolated 'left' and
                  'right' lane. This is used to find points in adjacent lanes
@@ -155,12 +155,12 @@ class MultiLane:
             t = np.arange(times[0], times[-1], 10000)
             a = np.column_stack((xinter(t), yinter(t), zinter(t),
                                  np.ones(t.shape[0]) * i))
-            
+
             # Save the interpolated lane-times and the sorted lane-times
             if interp_l.shape[0] == 0:
                 (interp_l, interp_t) = (a, t)
             else:
-                (interp_l, interp_t) =  (np.vstack((interp_l, a)), 
+                (interp_l, interp_t) =  (np.vstack((interp_l, a)),
                                          np.hstack((interp_t, t)))
 
         (self.interp_lanes, self.interp_times) = (interp_l, interp_t)
@@ -181,9 +181,9 @@ class MultiLane:
         self.lanes = np.array(l_centroids)
         self.times = np.array(t_centroids)
         return self.lanes, self.times
-    
+
     def fixMissingPoints(self):
-        """ This method is not finished yet!! 
+        """ This method is not finished yet!!
         It should remove points that are interpolated for a long distance"""
         for lane in xrange(self.leftLanes + self.rightLanes):
             xyz = self.lanes[self.lanes[:, -2] == lane, :3]
@@ -204,8 +204,8 @@ class MultiLane:
             print np.sort(np.array(idx)) - np.array(idx)
             idx = []
         return np.array(path)
-        
-        
+
+
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")  # filtering warnings

@@ -2,11 +2,11 @@ import numpy as np
 from numpy import sin, cos
 from transformations import euler_matrix
 """
-pixels is Nx2 matrix of coordinates, 
+pixels is Nx2 matrix of coordinates,
 cam is camera structure
 """
 def pixelTo3d(pixels, cam):
-  height = 1.105 # constants based on camera setup 
+  height = 1.105 # constants based on camera setup
   R_camera_pitch = euler_matrix(cam['rot_x'], cam['rot_y'], cam['rot_z'], 'sxyz')[0:3,0:3]
   KK = cam['KK']
   N = pixels.shape[0]
