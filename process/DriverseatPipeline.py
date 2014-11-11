@@ -12,6 +12,13 @@ import glob
 from zipfile import ZipFile, ZIP_DEFLATED
 from RadarTransforms import loadRDR
 
+def get_transforms(day, run, mark='mark1', absolute=False):
+    """ Gets the IMU transforms for a run """
+    gps_reader = GPSReader(args['gps_' + mark])
+    gps_data = gps_reader.getNumericData()
+    imu_transforms = IMUTransforms(gps_data)
+    return imu_transforms
+
 def unsafe_mkdir(name):
     try:
         os.mkdir(name)
