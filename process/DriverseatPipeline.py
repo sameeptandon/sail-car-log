@@ -42,6 +42,7 @@ if __name__ == '__main__':
         driverseat_folder = '/deep/group/driving/driverseat_data/' + day + '/'
         remote_folder = '/deep/group/driving_data/jkiske/data/' + day + '/'
         q50_data_folder = '/deep/group/driving_data/q50_data/' + day + '/'
+        driverseat_run = driverseat_folder + run + '/'
 
         unsafe_mkdir(driverseat_folder)
 
@@ -55,6 +56,10 @@ if __name__ == '__main__':
 
         print configurator.config
 
+        imu_transforms, gps_times_mk1 = get_transforms(driverseat_run,
+                                                           run, 'mark1')
+        _, gps_times_mk2 = get_transforms(driverseat_run, run, 'mark2')
+
         if configurator.config['organized'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
                 run = remote_run.split('/')[-2]
@@ -64,7 +69,6 @@ if __name__ == '__main__':
         if configurator.config['maps_json'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
                 run = remote_run.split('/')[-2]
-                driverseat_run = driverseat_folder + run + '/'
                 print driverseat_run
 
                 npz_map_name = remote_run + run + '_bg.npz'
@@ -92,7 +96,6 @@ if __name__ == '__main__':
             for radar_folder in sorted(glob.glob(q50_data_folder + '*_radar/')):
                 run = radar_folder.split('/')[-2][:-6] # Remove '_radar'
                 radar_data = []
-                driverseat_run = driverseat_folder + run + '/'
                 json_name = 'radar.json'
                 json_radar_name = driverseat_run + json_name
                 zip_radar_name = json_radar_name + '.zip'
@@ -128,10 +131,6 @@ if __name__ == '__main__':
 
                 if not os.path.isfile(json_gps_name):
                     print '\tExporting gps JSON...'
-                    imu_transforms, gps_times_mk1 = get_transforms(driverseat_run,
-                                                               run, 'mark1')
-                    _, gps_times_mk2 = get_transforms(driverseat_run,
-                                                               run, 'mark2')
                     gps_data = []
                     for i in xrange(gps_times_mk2.shape[0]):
                         mk1_i = mk2_to_mk1(i, gps_times_mk1, gps_times_mk2)
