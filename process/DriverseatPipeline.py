@@ -16,6 +16,7 @@ from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
 from LidarTransforms import  utc_from_gps_log_all
 from LaneMarkingHelper import mk2_to_mk1
+import bisect
 
 def get_transforms(folder, run, mark = 'mark1'):
     """ Gets the IMU transforms for a run """
@@ -24,6 +25,11 @@ def get_transforms(folder, run, mark = 'mark1'):
     gps_times = utc_from_gps_log_all(gps_data)
     imu_transforms = IMUTransforms(gps_data)
     return imu_transforms, gps_times
+
+def mk2_to_radar(mk2_idx, radar_times, gps_times_mk2):
+    t = gps_times_mk2[mk2_idx]
+    radar_idx = bisect.bisect(radar_times, t) - 1
+    return radar_idx
 
 def unsafe_mkdir(name):
     try:
@@ -42,7 +48,6 @@ if __name__ == '__main__':
         driverseat_folder = '/deep/group/driving/driverseat_data/' + day + '/'
         remote_folder = '/deep/group/driving_data/jkiske/data/' + day + '/'
         q50_data_folder = '/deep/group/driving_data/q50_data/' + day + '/'
-        driverseat_run = driverseat_folder + run + '/'
 
         unsafe_mkdir(driverseat_folder)
 
@@ -51,14 +56,11 @@ if __name__ == '__main__':
 
         configurator.get('organized')
         configurator.get('maps_json')
-        configurator.get('radar')
+        configurator.get('radar_json')
         configurator.get('gps_json')
 
         print configurator.config
 
-        imu_transforms, gps_times_mk1 = get_transforms(driverseat_run,
-                                                           run, 'mark1')
-        _, gps_times_mk2 = get_transforms(driverseat_run, run, 'mark2')
 
         if configurator.config['organized'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
@@ -69,6 +71,7 @@ if __name__ == '__main__':
         if configurator.config['maps_json'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
                 run = remote_run.split('/')[-2]
+                driverseat_run = driverseat_folder + run + '/'
                 print driverseat_run
 
                 npz_map_name = remote_run + run + '_bg.npz'
@@ -92,9 +95,15 @@ if __name__ == '__main__':
 
             configurator.set('maps_json', True)
 
-        if configurator.config['radar'] == False:
+        if configurator.config['radar_json'] == False:
             for radar_folder in sorted(glob.glob(q50_data_folder + '*_radar/')):
                 run = radar_folder.split('/')[-2][:-6] # Remove '_radar'
+                driverseat_run = driverseat_folder + run + '/'
+                if not os.path.isdir(driverseat_run):
+                    continue
+                imu_transforms, gps_times_mk1 = get_transforms(driverseat_run,
+                                                               run, 'mark1')
+                _, gps_times_mk2 = get_transforms(driverseat_run, run, 'mark2')
                 radar_data = []
                 json_name = 'radar.json'
                 json_radar_name = driverseat_run + json_name
@@ -102,9 +111,14 @@ if __name__ == '__main__':
                 print driverseat_run
                 if not os.path.isfile(json_radar_name):
                     print '\tExporting radar JSON...'
-                    for radar_file_name in sorted(glob.glob(radar_folder + '*')):
-                        rdr = loadRDR(radar_file_name)
-                        time = radar_file_name.split('/')[-1][:-4] # Remove '.rdr'
+
+                    radar_times = [int(f.split('/')[-1][:-4]) for
+                                   f in sorted(glob.glob(radar_folder + '*'))]
+                    for i in xrange(gps_times_mk2.shape[0]):
+                        radar_idx = mk2_to_radar(i, radar_times, gps_times_mk2)
+                        time = radar_times[radar_idx]
+                        radar_file = radar_folder + str(time) + '.rdr'
+                        rdr = loadRDR(radar_file)
                         data = {time:{'O':rdr[0].tolist(), 'T':rdr[1].tolist()}}
                         radar_data.append(data)
                     json.dump(radar_data, open(json_radar_name, 'w'))
@@ -123,6 +137,9 @@ if __name__ == '__main__':
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
                 run = remote_run.split('/')[-2]
                 driverseat_run = driverseat_folder + run + '/'
+                imu_transforms, gps_times_mk1 = get_transforms(driverseat_run,
+                                                               run, 'mark1')
+                _, gps_times_mk2 = get_transforms(driverseat_run, run, 'mark2')
                 print driverseat_run
 
                 json_name = 'gps.json'
