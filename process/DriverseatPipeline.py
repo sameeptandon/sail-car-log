@@ -16,9 +16,9 @@ from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms
 from LidarTransforms import  utc_from_gps_log_all
 
-def get_transforms(folder, run):
+def get_transforms(folder, run, mark = 'mark1'):
     """ Gets the IMU transforms for a run """
-    gps_reader = GPSReader(folder + run + '_gpsmark1.out')
+    gps_reader = GPSReader(folder + run + '_gps' + mark + '.out')
     gps_data = gps_reader.getNumericData()
     gps_times = utc_from_gps_log_all(gps_data)
     imu_transforms = IMUTransforms(gps_data)
@@ -127,15 +127,20 @@ if __name__ == '__main__':
 
                 if not os.path.isfile(json_gps_name):
                     print '\tExporting gps JSON...'
-                    imu_transforms, gps_times = get_transforms(driverseat_run, run)
-                    time_data = gps_times.tolist()
+                    imu_transforms, gps_times = get_transforms(driverseat_run,
+                                                               run, 'mark1')
+                    _, gps_times_mk2 = get_transforms(driverseat_run,
+                                                               run, 'mark2')
+                    mk1_data = gps_times.tolist()
+                    mk2_data = gps_times_mk2.tolist()
                     gps_data = []
                     for imu_xform in imu_transforms:
                         gps_data.append({'rot': quaternion_from_matrix(imu_xform).tolist(),
                                          'pos': imu_xform[:3, 3].tolist()})
 
                     with open(json_gps_name, 'w') as json_gps_file:
-                        json.dump(time_data, json_gps_file)
+                        json.dump(mk1_data, json_gps_file)
+                        json.dump(mk2_data, json_gps_file)
                         json.dump(gps_data, json_gps_file)
 
                 if not os.path.isfile(zip_gps_name):
