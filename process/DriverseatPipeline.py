@@ -58,6 +58,7 @@ if __name__ == '__main__':
         configurator.get('maps_json')
         configurator.get('radar_json')
         configurator.get('gps_json')
+        configurator.get('lanes_json')
 
         print configurator.config
 
@@ -67,6 +68,7 @@ if __name__ == '__main__':
                 run = remote_run.split('/')[-2]
                 driverseat_run = driverseat_folder + run + '/'
                 unsafe_mkdir(driverseat_run)
+            configurator.set('organized', True)
 
         if configurator.config['maps_json'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
@@ -131,7 +133,7 @@ if __name__ == '__main__':
                     json_zip.writestr(json_name, data)
                     json_zip.close()
 
-            configurator.set('radar', True)
+            configurator.set('radar_json', True)
 
         if configurator.config['gps_json'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
@@ -152,10 +154,7 @@ if __name__ == '__main__':
                     for i in xrange(gps_times_mk2.shape[0]):
                         mk1_i = mk2_to_mk1(i, gps_times_mk1, gps_times_mk2)
                         imu_xform = imu_transforms[mk1_i, :, :]
-                        rot = quaternion_from_matrix(imu_xform)
-                        pos = imu_xform[0:3, 3]
-                        gps_data.append({'rot': rot.tolist(),
-                                         'pos': pos.tolist()})
+                        gps_data.append(imu_xform.tolist())
 
                     with open(json_gps_name, 'w') as json_gps_file:
                         json.dump(gps_data, json_gps_file)
