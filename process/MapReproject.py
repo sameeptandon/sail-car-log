@@ -13,7 +13,7 @@ from ArgParser import *
 import bisect
 from LidarTransforms import interp_transforms, transform_points_by_times
 
-WINDOW = 2.0 * 1e6
+WINDOW = 5.0e6
 
 
 def cloudToPixels(cam, pts_wrt_cam):
@@ -66,11 +66,11 @@ def lidarPtsToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
-    cam_num = int(sys.argv[2][-5])
+    cam_num = args['cam_num']
     video_file = args['video']
     video_reader = VideoReader(video_file)
     params = args['params']
-    cam = params['cam'][cam_num - 1]
+    cam = params['cam'][cam_num]
 
     all_data = np.load(sys.argv[3])
     map_data = all_data['data']
@@ -92,8 +92,6 @@ if __name__ == '__main__':
     while True:
         (success, I) = video_reader.getNextFrame()
         fnum = video_reader.framenum
-        if cam_num > 2:
-            fnum *= 2
         #t = utc_from_gps_log(gps_data_mark2[fnum, :])
         t = gps_times_mark2[fnum]
         fnum_mark1 = bisect.bisect(gps_times_mark1, t) - 1
@@ -109,5 +107,5 @@ if __name__ == '__main__':
             I[pix[1, mask]+p, pix[0, mask], :] = heat_colors[0,:,:]
             I[pix[1, mask], pix[0, mask]+p, :] = heat_colors[0,:,:]
 
-        cv2.imshow('vid', cv2.pyrDown(I))
+        cv2.imshow('vid', I)
         cv2.waitKey(50)

@@ -1,5 +1,5 @@
 #usage
-# python LidarReprojectCalibrate.py <dir-to-data> <basename> <start frame> 
+# python LidarReprojectCalibrate.py <dir-to-data> <basename> <start frame>
 
 from Q50_config import *
 import sys, os
@@ -29,12 +29,12 @@ def ParametersToString(rx,ry,rz,crx,cry,crz):
 
 class RequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
-        global rx, ry, rz, crx, cry, crz, R, cR, paramInit 
+        global rx, ry, rz, crx, cry, crz, R, cR, paramInit
 
         data = self.request[0].strip()
         print data
         (rx,ry,rz,crx,cry,crz) = map(lambda x: float(x), data.split(','))
-        
+
         R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
         cR = euler_matrix(crx, cry, crz)[0:3,0:3]
         paramInit = True
@@ -53,7 +53,7 @@ class ThreadedServer(threading.Thread):
         self.server.serve_forever()
 
 
-def cloudToPixels(cam, pts_wrt_cam): 
+def cloudToPixels(cam, pts_wrt_cam):
 
     width = 4
     (pix, J)  = cv2.projectPoints(pts_wrt_cam.transpose(), np.array([0.0,0.0,0.0]), np.array([0.0,0.0,0.0]), cam['KK'], cam['distort'])
@@ -62,10 +62,8 @@ def cloudToPixels(cam, pts_wrt_cam):
     pix = pix.astype(np.int32)
     mask = np.logical_and(True, pix[0,:] > 0 + width/2)
     mask = np.logical_and(mask, pix[1,:] > 0 + width/2)
-    mask = np.logical_and(mask, pix[0,:] < 1279 - width/2)
-    mask = np.logical_and(mask, pix[1,:] < 959 - width/2)
-    #mask = np.logical_and(mask, pix[1,:] < 1039 - width/2)
-    #mask = np.logical_and(mask, pix[0,:] < 2079 - width/2)
+    mask = np.logical_and(mask, pix[0,:] < cam['width'] - width/2 - 1)
+    mask = np.logical_and(mask, pix[1,:] < cam['height'] - width/2 - 1)
     mask = np.logical_and(mask, pts_wrt_cam[2,:] > 0)
     dist_sqr = np.sum( pts_wrt_cam[0:3, :] ** 2, axis = 0)
     mask = np.logical_and(mask, dist_sqr > 3)
@@ -86,7 +84,7 @@ def lidarPtsToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
     # transform points from lidar_t to camera_t
 
     pts_wrt_camera_t = pts_wrt_lidar_t.transpose()[:, 0:3] + cam['displacement_from_l_to_c_in_lidar_frame']
-    pts_wrt_camera_t = np.dot(cR, np.dot(R_to_c_from_l_old(0), 
+    pts_wrt_camera_t = np.dot(cR, np.dot(R_to_c_from_l_old(0),
             pts_wrt_camera_t.transpose()))
 
     pts_wrt_camera_t = np.vstack((pts_wrt_camera_t,
@@ -101,11 +99,11 @@ def lidarPtsToPixels(map_data, imu_transforms_t, T_from_i_to_l, cam):
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
-    cam_num = int(sys.argv[2][-5])
+    cam_num = args['cam_num']
     video_file = args['video']
     video_reader = VideoReader(video_file)
-    params = args['params'] 
-    cam = params['cam'][cam_num-1]
+    params = args['params']
+    cam = params['cam'][cam_num]
 
     gps_reader_mark1 = GPSReader(args['gps_mark1'])
     gps_data_mark1 = gps_reader_mark1.getNumericData()
@@ -144,7 +142,7 @@ if __name__ == '__main__':
         builder.step_time = 0.5
         builder.T_from_l_to_i = T_from_l_to_i
         builder.T_from_i_to_l = T_from_i_to_l
-        builder.buildMap(filters=['none'])
+        builder.buildMap(filters=['no-trees'])
 
         data, data_times = builder.getData()
 
@@ -167,17 +165,17 @@ if __name__ == '__main__':
             continue
         key = chr(key & 255)
         if key == 'a':
-            cry += 0.005
+            cry += 0.0005
         elif key == 'd':
-            cry -= 0.005
+            cry -= 0.0005
         elif key == 'w':
-            crx += 0.005
+            crx += 0.0005
         elif key == 's':
-            crx -= 0.005
+            crx -= 0.0005
         elif key == '+':
-            crz += 0.005
+            crz += 0.0005
         elif key == '_' or key == '-':
-            crz -= 0.005
+            crz -= 0.0005
         elif key == 'i':
             ry -= 0.005
         elif key == 'k':
@@ -192,7 +190,7 @@ if __name__ == '__main__':
             rz -= 0.005
         else:
             continue
-    
+
         print (rx, ry, rz, crx, cry, crz)
         R = euler_matrix(rx,ry,rz)[0:3,0:3].transpose()
         cR = euler_matrix(crx, cry, crz)[0:3,0:3]
