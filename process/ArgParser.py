@@ -10,7 +10,7 @@ def parse_args(folder, video_file):
     corresponding to file names.
     """
 
-    basename = video_file[:-5]
+    basename = video_file[0:video_file.rfind('_') + 2]
     fullname = folder + '/' + basename
 
     map_file = fullname + '.map'
@@ -20,7 +20,7 @@ def parse_args(folder, video_file):
     gps_mark1_file = fullname + '_gpsmark1.out'
     gps_mark2_file = fullname + '_gpsmark2.out'
 
-    video_file_num = video_file[-5]
+    video_file_num = video_file.replace(basename, '').replace('.avi', '')
 
     video_file = folder + '/' + video_file
     param_file = folder + '/params.ini'
@@ -35,5 +35,5 @@ def parse_args(folder, video_file):
             'video': video_file,
             'fullname': fullname,
             'basename': basename,
-            'cam_num': int(video_file[-5]),
+            'cam_num': int(video_file_num),
             'params': LoadParameters(params)}

@@ -5,5 +5,8 @@ def LoadParameters(name):
     elif name == 'q50_3_7_14_params':
         from parameters.q50_3_7_14_params import GetQ50Params
         return GetQ50Params()
+    elif name == 'q50_11_20_14_params':
+        from parameters.q50_11_20_14_params import GetQ50Params
+        return GetQ50Params()
     else:
         raise Exception("Parameter file " + name + " not found")

@@ -1,4 +1,4 @@
-from VideoReader import * 
+from VideoReader import *
 from ArgParser import *
 import sys, cv2
 
