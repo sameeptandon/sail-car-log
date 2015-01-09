@@ -1,8 +1,8 @@
 <launch>
-    <node pkg="lane_detection" type="VideoProducer" name="VideoProducer" output="screen" args="/home/jpazhaya/Documents/driving_data/q50/split_0_to_castroville_a1.avi" respawn="true">
+    <node pkg="lane_detection" type="VideoProducer" name="VideoProducer" output="screen" args="/home/q50/jpazhaya/q50_data/split_0_sanrafael_k2.avi" respawn="true">
     </node>
 
-    <node pkg="lane_detection" type="CarLaneDetectionNode" name="CarLaneDetectionNode" output="screen" args="/home/jpazhaya/Documents/driving_data/q50/caffe/lane/deploy.prototxt /home/jpazhaya/Documents/driving_data/q50/caffe/lane/caffe_lane_train_deep17_8nodes2_cont47000_iter_69000.caffemodel /home/jpazhaya/detector_caffe/caffenet/models/brody/deploy.prototxt /home/jpazhaya/detector_caffe/caffenet/models/brody/caffe_brody_train_iter_200000.caffemodel /home/jpazhaya/Documents/driving_data/q50/caffe/car/mean.png /VideoProducer/output_video">
+    <node pkg="lane_detection" type="CarLaneDetectionNode" name="CarLaneDetectionNode" output="screen" args="/home/q50/jpazhaya/caffe/lane/deploy.prototxt /home/q50/jpazhaya/caffe/lane/caffe_lane_train_deep17_8nodes2_cont47000_iter_69000.caffemodel /home/q50/jpazhaya/caffe/car/deploy.prototxt /home/q50/jpazhaya/caffe/car/caffe_brody_train_iter_200000.caffemodel /home/q50/jpazhaya/caffe/car/mean.png /VideoProducer/output_video">
     </node>
 
 </launch>

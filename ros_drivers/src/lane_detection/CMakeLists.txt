@@ -21,7 +21,7 @@ include_directories(${CUDA_CUT_INCLUDE_DIR})
 set(lane_detector_LIBS  ${CUDA_LIBRARIES})
 set(lane_detector_LIBS  ${lane_detector_LIBS} ${CUDA_CUT_LIBRARIES})
 add_definitions(-DHAVE_CUDA=1)
-set(CUDA_NVCC_FLAGS "-arch=sm_20")
+set(CUDA_NVCC_FLAGS "-arch=sm_35")
 
 # add fastcpp config info to cache
 set(fastcpp_DIR "~/fastlab/share/fastcpp")
@@ -44,7 +44,17 @@ endif ( MPI_FOUND )
 include_directories(${FASTCPP_INCLUDE_DIR}/fastcpp)
 link_directories(${FASTCPP_LIBRARY_DIR})
 set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
-set(lane_detector_LIBS ${lane_detector_LIBS} "~/can_interface/linuxcan/canlib/libcanlib.so")
+
+#set(lane_detector_LIBS ${lane_detector_LIBS} "~/can_interface/linuxcan/canlib/libcanlib.so")
+
+#Caffe
+include_directories("~/caffe/include/")
+include_directories("~/caffe/build/src/")
+set(lane_detector_LIBS ${lane_detector_LIBS} "~/caffe/build/lib/libcaffe.so")
+set(CMAKE_MODULE_PATH "~/caffe/CMakeScripts/")
+find_package(Glog REQUIRED)
+set(lane_detector_LIBS ${lane_detector_LIBS} ${GLOG_LIBRARY})
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -140,8 +150,17 @@ target_link_libraries(VideoProducer ${lane_detector_LIBS} ${catkin_LIBRARIES})
 cuda_add_executable(LanePredictionNode src/LanePredictionNode.cpp src/LanePredictor_honda.cu src/LanePredictor_Q50.cu)
 target_link_libraries(LanePredictionNode ${lane_detector_LIBS} ${catkin_LIBRARIES})
 
-add_executable(LaneSubscriber src/LaneSubscriber.cpp src/RXTX_CANCom.cpp)
-target_link_libraries(LaneSubscriber ${lane_detector_LIBS} ${catkin_LIBRARIES})
+#add_executable(LaneSubscriber src/LaneSubscriber.cpp src/RXTX_CANCom.cpp)
+#target_link_libraries(LaneSubscriber ${lane_detector_LIBS} ${catkin_LIBRARIES})
+
+add_executable(CarDetectionNode src/CarDetectionNode.cpp)
+target_link_libraries(CarDetectionNode ${lane_detector_LIBS} ${catkin_LIBRARIES})
+
+add_executable(MultiLaneDetectionNode src/MultiLaneDetectionNode.cpp)
+target_link_libraries(MultiLaneDetectionNode ${lane_detector_LIBS} ${catkin_LIBRARIES})
+
+add_executable(CarLaneDetectionNode src/CarLaneDetectionNode.cpp)
+target_link_libraries(CarLaneDetectionNode ${lane_detector_LIBS} ${catkin_LIBRARIES})
 
 ## Declare a cpp library
 # add_library(lane_detection
@@ -178,7 +197,10 @@ target_link_libraries(LaneSubscriber ${lane_detector_LIBS} ${catkin_LIBRARIES})
 install(TARGETS 
    LanePredictionNode
    VideoProducer
-   LaneSubscriber
+   #   LaneSubscriber
+   CarDetectionNode
+   MultiLaneDetectionNode
+   CarLaneDetectionNode
    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

@@ -58,7 +58,6 @@ cv::Mat mean_image;
 caffe::Blob<float> mean(1,3,480,640);
 
 int framePeriod = 1;
-int numFrames = 0;
 
 cv::Scalar dist2color(double dist, double max_dist = 90.0){
   //given a distance and a maximum distance, gives a color code for the distance.
@@ -191,7 +190,6 @@ void caffeCallback(const sensor_msgs::ImageConstPtr& msg){
   // Update GUI Window
   cv::imshow(OPENCV_WINDOW, frame);
   cv::waitKey ( 3 );
-  numFrames++;
 }
 
 
