@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="lane_detection" type="VideoProducer" name="VideoProducer" output="screen" args="/home/jpazhaya/Documents/driving_data/q50/split_0_to_castroville_a1.avi" respawn="true">
+    </node>
+
+    <node pkg="lane_detection" type="MultiLaneDetectionNode" name="MultiLaneDetectionNode" output="screen" args="/home/jpazhaya/Documents/driving_data/q50/caffe/lane/deploy.prototxt /home/jpazhaya/Documents/driving_data/q50/caffe/lane/caffe_lane_train_deep17_8nodes2_cont47000_iter_69000.caffemodel /home/jpazhaya/Documents/driving_data/q50/caffe/car/mean.png /VideoProducer/output_video">
+    </node>
+
+</launch>
+
