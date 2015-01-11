@@ -48,10 +48,12 @@ set(lane_detector_LIBS ${lane_detector_LIBS} ${FASTCPP_LIBRARIES})
 #set(lane_detector_LIBS ${lane_detector_LIBS} "~/can_interface/linuxcan/canlib/libcanlib.so")
 
 #Caffe
-include_directories("~/caffe/include/")
-include_directories("~/caffe/build/src/")
-set(lane_detector_LIBS ${lane_detector_LIBS} "~/caffe/build/lib/libcaffe.so")
-set(CMAKE_MODULE_PATH "~/caffe/CMakeScripts/")
+set(CAFFE_DIR "~/detector_caffe/caffenet/")
+include_directories(${CAFFE_DIR}/include/)
+include_directories(${CAFFE_DIR}/build/src/)
+set(CAFFE_LIB ${CAFFE_DIR}/build/lib/libcaffe.so)
+set(lane_detector_LIBS ${lane_detector_LIBS} ${CAFFE_LIB})
+set(CMAKE_MODULE_PATH ${CAFFE_DIR}/CMakeScripts/)
 find_package(Glog REQUIRED)
 set(lane_detector_LIBS ${lane_detector_LIBS} ${GLOG_LIBRARY})
 
@@ -172,7 +174,10 @@ target_link_libraries(CarLaneDetectionNode ${lane_detector_LIBS} ${catkin_LIBRAR
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(lane_detection_node lane_detection_generate_messages_cpp)
+add_dependencies(LanePredictionNode lane_detection_generate_messages_cpp)
+add_dependencies(CarDetectionNode lane_detection_generate_messages_cpp)
+add_dependencies(MultiLaneDetectionNode lane_detection_generate_messages_cpp)
+add_dependencies(CarLaneDetectionNode lane_detection_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(lane_detection_node
@@ -214,7 +219,7 @@ install(TARGETS
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
-install(FILES ${FASTCPP_LIB} DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
+install(FILES ${FASTCPP_LIB} ${CAFFE_LIB} DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
 #############
 ## Testing ##
 #############

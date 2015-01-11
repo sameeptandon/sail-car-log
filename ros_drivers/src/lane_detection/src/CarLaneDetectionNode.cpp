@@ -10,6 +10,7 @@
 #include "lane_detection/Delay.h"
 #include "lane_detection/LaneOutput.h"
 #include <time.h>
+#include <fstream>
 
 #include "caffe/caffe.hpp"
 
@@ -55,8 +56,8 @@ cv::VideoWriter vidRec;
 
 caffe::Net<float> *lane_caffe_net;
 caffe::Net<float> *car_caffe_net;
-cv::Mat mean_image;
-caffe::Blob<float> mean(1,3,480,640);
+caffe::Blob<float> mean_car(1,3,480,640);
+caffe::Blob<float> mean_lane(1,3,480,640);
 
 int framePeriod = 1;
 
@@ -146,26 +147,41 @@ void caffeCallback(const sensor_msgs::ImageConstPtr& msg){
 
   cv::Mat frame = cv_ptr->image;
   if ( frame.cols==1280 ) {
-    cv::pyrDown ( frame, frame, cv::Size ( frame.cols/2, frame.rows/2 ) );
+    cv::resize ( frame, frame, cv::Size ( frame.cols/2, frame.rows/2 ) );
   }
+  
   std::vector<cv::Mat> splitChannels;
   cv::split(frame,splitChannels);
   int frameSize = frame.cols*frame.rows;
-
-  caffe::Blob<float> input(1,3,480,640);
-  float *input_data = input.mutable_cpu_data();
+  
+  //Load Car input data in RGB order
+  caffe::Blob<float> input_car(1,3,480,640);
+  float *input_data_car = input_car.mutable_cpu_data();
   for(int i = 0;i<3;i++){
-    std::copy(splitChannels[i].data, splitChannels[i].data+frameSize, (float*)input_data+frameSize*i);
+    std::copy(splitChannels[2-i].data, splitChannels[2-i].data+frameSize, (float*)input_data_car+frameSize*i);
   }
-  float *mean_data = mean.mutable_cpu_data();
+  float *mean_data_car = mean_car.mutable_cpu_data();
   for(int i =0;i<3*480*640;i++){
-    input_data[i] -= mean_data[i];
+    input_data_car[i] -= mean_data_car[i];
   }
-  std::vector<caffe::Blob<float>* > bottom_vec;
-  bottom_vec.push_back(&input);
+  std::vector<caffe::Blob<float>* > bottom_vec_car;
+  bottom_vec_car.push_back(&input_car);
+  
+  //Load lane input data in BGR order
+  caffe::Blob<float> input_lane(1,3,480,640);
+  float *input_data_lane = input_lane.mutable_cpu_data();
+  for(int i = 0;i<3;i++){
+    std::copy(splitChannels[i].data, splitChannels[i].data+frameSize, (float*)input_data_lane+frameSize*i);
+  }
+  float *mean_data_lane = mean_lane.mutable_cpu_data();
+  for(int i =0;i<3*480*640;i++){
+    input_data_lane[i] -= mean_data_lane[i];
+  }
+  std::vector<caffe::Blob<float>* > bottom_vec_lane;
+  bottom_vec_lane.push_back(&input_lane);
   
   //Lane Detection
-  const std::vector<caffe::Blob<float>*>& resultLane = lane_caffe_net->Forward(bottom_vec);
+  const std::vector<caffe::Blob<float>*>& resultLane = lane_caffe_net->Forward(bottom_vec_lane);
 
   caffe::Blob<float>* pix_blob = resultLane[1];
   caffe::Blob<float>* bb_blob = resultLane[0];
@@ -187,57 +203,49 @@ void caffeCallback(const sensor_msgs::ImageConstPtr& msg){
   
 
   //Car Detection
-  const std::vector<caffe::Blob<float>*>& resultCar = car_caffe_net->Forward(bottom_vec);
+  const std::vector<caffe::Blob<float>*>& resultCar = car_caffe_net->Forward(bottom_vec_car);
   
-  cv::Mat pixel_mask(60,80,CV_8UC3,cv::Scalar::all(0));
-
+  cv::Mat pixel_mask(120,160,CV_8UC3,cv::Scalar::all(0));
+  
+  //get pixel mask
   caffe::Blob<float>* pixel_pred = resultCar[1];
-  pixel_pred->Reshape(4,4,15,20);
-  for(int i=0;i<20;i++){
-    for(int j=0;j<15;j++){
-      for(int k=0;k<4;k++){
-        for(int m=0;m<4;m++){
-          cv::Vec3b &color = pixel_mask.at<cv::Vec3b>(j*4+m,i*4+k);
-          color[2] = pixel_pred->data_at(m,k,j,i)*255;
-        }
-      }
+  pixel_pred->Reshape(1,2,120,160);
+  for(int i =4;i<120;i++){
+    for(int j=4;j<160;j++){
+      cv::Vec3b &color = pixel_mask.at<cv::Vec3b>(i,j);
+      color[2] = pixel_pred->data_at(0,1,i-4,j-4)*255;
     }
   }
 
-  cv::Mat hard_mask;
-  cv::threshold(pixel_mask,hard_mask,0.25*255,255,CV_THRESH_BINARY);
   cv::Mat upscaled_pixel_mask;
-  cv::resize( pixel_mask, upscaled_pixel_mask, cv::Size(pixel_mask.cols*8,pixel_mask.rows*8));
+  cv::resize( pixel_mask, upscaled_pixel_mask, cv::Size(pixel_mask.cols*4,pixel_mask.rows*4));
 
   frame += upscaled_pixel_mask;
-
+  
+  //get bounding boxes
   caffe::Blob<float>* bb_pred = resultCar[0];
-  bb_pred->Reshape(4,16,15,20);
+  bb_pred->Reshape(1,5,120,160);
   std::vector<cv::Rect> rects;
   float bb_pts[4];
-  for(int i=0;i<20;i++){
-    int x_offset = i*32+16;
-    for(int j=0;j<15;j++){
-      int y_offset = j*32+16;
-      for(int k=0;k<4;k++){
-        for(int m=0;m<4;m++){
-          bb_pts[0] = bb_pred->data_at(0,k+m*4,j,i)+x_offset;
-          bb_pts[1] = bb_pred->data_at(1,k+m*4,j,i)+y_offset;
-          bb_pts[2] = bb_pred->data_at(2,k+m*4,j,i)+x_offset;
-          bb_pts[3] = bb_pred->data_at(3,k+m*4,j,i)+y_offset;
-          if(hard_mask.at<cv::Vec3b>(j*4+m,i*4+k)[2] > 0 && bb_pts[2]-bb_pts[0] > 0 && bb_pts[3]-bb_pts[1] > 0){
-            bb_pts[0] = std::min(640.0f,std::max(0.0f,bb_pts[0]));
-            bb_pts[2] = std::min(640.0f,std::max(0.0f,bb_pts[2]));
-            bb_pts[1] = std::min(480.0f,std::max(0.0f,bb_pts[1]));
-            bb_pts[3] = std::min(480.0f,std::max(0.0f,bb_pts[3]));
-            rects.push_back(cv::Rect(cv::Point(bb_pts[0],bb_pts[1]),cv::Point(bb_pts[2],bb_pts[3])));
-          }
-        }
+  for(int i =0;i<120-4;i++){
+    float y_offset = i*4+16;
+    for(int j=0;j<160-4;j++){
+      float x_offset = j*4+16;
+      bb_pts[0] = bb_pred->data_at(0,0,i,j)+x_offset;
+      bb_pts[1] = bb_pred->data_at(0,1,i,j)+y_offset;
+      bb_pts[2] = bb_pred->data_at(0,2,i,j)+x_offset;
+      bb_pts[3] = bb_pred->data_at(0,3,i,j)+y_offset;
+      if(pixel_mask.at<cv::Vec3b>(i+4,j+4)[2] >= 0.25*255 && bb_pts[2]-bb_pts[0] > 0 && bb_pts[3]-bb_pts[1] > 0){
+        bb_pts[0] = std::min(640.0f,std::max(0.0f,bb_pts[0]));
+        bb_pts[2] = std::min(640.0f,std::max(0.0f,bb_pts[2]));
+        bb_pts[1] = std::min(480.0f,std::max(0.0f,bb_pts[1]));
+        bb_pts[3] = std::min(480.0f,std::max(0.0f,bb_pts[3]));
+        rects.push_back(cv::Rect(cv::Point(bb_pts[0],bb_pts[1]),cv::Point(bb_pts[2],bb_pts[3])));
       }
     }
   }
 
-  cv::groupRectangles(rects,4,0.4);
+  cv::groupRectangles(rects,2,0.15);
   for(int i=0;i<rects.size();i++){
     cv::rectangle(frame,rects[i],cv::Scalar(0,255,0));
   }
@@ -262,6 +270,7 @@ int main ( int argc,char** argv )
 {
   ros::init ( argc,argv,"CarLaneDetectionNode" );
   ros::NodeHandle nh_;
+//   cv::namedWindow(OPENCV_WINDOW , CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO);
   cv::namedWindow(OPENCV_WINDOW);
   if ( argc>7 ) {
     time_t rawTime;
@@ -283,16 +292,35 @@ int main ( int argc,char** argv )
   car_caffe_net = new caffe::Net<float>(argv[3]);
   car_caffe_net->CopyTrainedLayersFrom(argv[4]);
 
-  mean_image = cv::imread(argv[5]);
+  cv::Mat mean_image = cv::imread(argv[5]);
 
   std::vector<cv::Mat> splitChannels_mean;
   cv::split(mean_image,splitChannels_mean);
-  float *mean_data = mean.mutable_cpu_data();
   int frameSize = mean_image.cols*mean_image.rows;
+  
+  //Load mean lane data in BGR order
+  float *mean_data_lane = mean_lane.mutable_cpu_data();
   for(int i = 0;i<3;i++){
-    std::copy(splitChannels_mean[i].data, splitChannels_mean[i].data+frameSize, (float*)mean_data+frameSize*i);
+    std::copy(splitChannels_mean[2-i].data, splitChannels_mean[2-i].data+frameSize, (float*)mean_data_lane+frameSize*i);
   }
-
+  
+  //Load mean car data in RGB order
+  float *mean_data_car = mean_car.mutable_cpu_data();
+  for(int i = 0;i<3;i++){
+    std::copy(splitChannels_mean[i].data, splitChannels_mean[i].data+frameSize, (float*)mean_data_car+frameSize*i);
+  }
+  
+//   float *mean_data = mean.mutable_cpu_data();
+//   std::ifstream meanfile("/home/q50/jpazhaya/caffe/car/driving_mean.txt");
+//   std::cout << meanfile.good() << "\n";
+//   float mean_val;
+//   char c;
+//   int idx = 0;
+//   while(meanfile >> mean_val){
+//     mean_data[idx] = mean_val;
+//     idx++;
+//   }
+  
   ros::Subscriber sub = nh_.subscribe ( argv[6],1,caffeCallback );
   delay_pub = nh_.advertise<lane_detection::Delay> ( "carlane_detection/Delay",100 );
   ros::spin();
