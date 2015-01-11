@@ -249,8 +249,12 @@ void caffeCallback(const sensor_msgs::ImageConstPtr& msg){
   delay_pub.publish ( delay_msg );
 
   // Update GUI Window
-  //cv::imshow(OPENCV_WINDOW, frame);
-  //cv::waitKey ( 3 );
+  cv::imshow(OPENCV_WINDOW, frame);
+  cv::waitKey ( 3 );
+
+  if(vidRec.isOpened()){
+      vidRec.write(frame);
+  }
 }
 
 
@@ -268,7 +272,7 @@ int main ( int argc,char** argv )
     std::strftime ( buffer,80,"%F-%H-%M-%S",timeInfo );
     std::string time ( buffer );
     std::string suffix = "_"+time+".avi";
-    vidRec.open ( argv[7]+suffix,CV_FOURCC ( 'M','P','4','V' ),20,cv::Size ( 640,480 ) );
+    vidRec.open ( argv[7]+suffix,CV_FOURCC ( 'M','P','4','V' ),10,cv::Size ( 640,480 ) );
   }
 
   caffe::Caffe::SetDevice(0);

@@ -1,0 +1,7 @@
+<launch>
+    <arg name="output" default="carlane_detection_video"/>
+    <node pkg="lane_detection" type="CarLaneDetectionNode" name="CarLaneDetectionNode" output="screen" args="/home/q50/jpazhaya/caffe/lane/deploy.prototxt /home/q50/jpazhaya/caffe/lane/caffe_lane_train_deep17_8nodes2_cont47000_iter_69000.caffemodel /home/q50/jpazhaya/caffe/car/deploy.prototxt /home/q50/jpazhaya/caffe/car/caffe_brody_train_iter_200000.caffemodel /home/q50/jpazhaya/caffe/car/mean.png /ov_601/image_ros $(arg output)">
+    </node>
+
+</launch>
+
