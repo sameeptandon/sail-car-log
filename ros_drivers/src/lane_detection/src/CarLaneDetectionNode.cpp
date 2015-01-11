@@ -227,15 +227,15 @@ void caffeCallback(const sensor_msgs::ImageConstPtr& msg){
   bb_pred->Reshape(1,5,120,160);
   std::vector<cv::Rect> rects;
   float bb_pts[4];
-  for(int i =0;i<120-4;i++){
+  for(int i =0;i<120;i++){
     float y_offset = i*4+16;
-    for(int j=0;j<160-4;j++){
+    for(int j=0;j<160;j++){
       float x_offset = j*4+16;
       bb_pts[0] = bb_pred->data_at(0,0,i,j)+x_offset;
       bb_pts[1] = bb_pred->data_at(0,1,i,j)+y_offset;
       bb_pts[2] = bb_pred->data_at(0,2,i,j)+x_offset;
       bb_pts[3] = bb_pred->data_at(0,3,i,j)+y_offset;
-      if(pixel_mask.at<cv::Vec3b>(i+4,j+4)[2] >= 0.25*255 && bb_pts[2]-bb_pts[0] > 0 && bb_pts[3]-bb_pts[1] > 0){
+      if(pixel_pred->data_at(0,1,i,j) >= 0.25 && bb_pts[2]-bb_pts[0] > 0 && bb_pts[3]-bb_pts[1] > 0){
         bb_pts[0] = std::min(640.0f,std::max(0.0f,bb_pts[0]));
         bb_pts[2] = std::min(640.0f,std::max(0.0f,bb_pts[2]));
         bb_pts[1] = std::min(480.0f,std::max(0.0f,bb_pts[1]));
