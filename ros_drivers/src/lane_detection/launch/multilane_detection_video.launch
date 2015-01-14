@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="lane_detection" type="VideoProducer" name="VideoProducer" output="screen" args="/home/q50/jpazhaya/q50_data/split_0_sanrafael_k2.avi" respawn="true">
+    </node>
+
+    <node pkg="lane_detection" type="MultiLaneDetectionNode" name="MultiLaneDetectionNode" output="screen" args="/home/q50/jpazhaya/caffe/lane/deploy.prototxt /home/q50/jpazhaya/caffe/lane/caffe_lane_train_deep17_8nodes2_cont47000_iter_69000.caffemodel /home/q50/jpazhaya/caffe/car/mean.png /VideoProducer/output_video">
+    </node>
+
+</launch>
+

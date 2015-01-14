@@ -35,8 +35,17 @@ class ImageClicker(object):
         cv2.namedWindow('image', cv2.WINDOW_AUTOSIZE)
         cv2.setMouseCallback('image', self.mouseHandler)
 
+        self.lanes = None
+        self.markings = None
+
     def mouseHandler(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONUP:
+
+            if self.markings == None:
+                self.markings = np.array([x, y])[np.newaxis]
+            else:
+                self.markings = np.vstack([self.markings, [x, y]])
+
             pix = np.array([x, y, 1])
             mk1_t = mk2_to_mk1(self.t, self.gps_times_mk1, self.gps_times_mk2)
 
@@ -56,18 +65,45 @@ class ImageClicker(object):
                     best_model = (d, i, pt)
 
             print best_model[-1]
+            if self.lanes == None:
+                self.lanes = best_model[-1]
+            else:
+                self.lanes = np.vstack((self.lanes, best_model[-1]))
+
+    def exportData(self, file_name):
+        lanes = {}
+        lanes['lane0'] = self.lanes
+
+        print 'saved:'
+        print self.lanes
+        np.savez(file_name, **lanes)
 
     def nextFrame(self):
         while True:
             while self.vr.framenum < self.t:
                 success, I = self.vr.getNextFrame()
 
+            if self.markings != None:
+                x = self.markings[:, 0]
+                y = self.markings[:, 1]
+                for i in xrange(4):
+                    I[y+i, x, :] = np.array([255, 255, 0])
+                    I[y-i, x, :] = np.array([255, 255, 0])
+                    I[y, x+i, :] = np.array([255, 255, 0])
+                    I[y, x-i, :] = np.array([255, 255, 0])
+
             cv2.imshow('image', I)
-            key = cv2.waitKey(0) & 0xFF
-            if key == 27:       # esc
-                return
-            elif key == 32:     # space
-                self.t += 10
+            key = cv2.waitKey(1) & 0xFF
+
+            if key != 255:
+                print key
+                if key == 27:   # esc
+                    return
+                if key == 115:  # s
+                    self.exportData(sys.argv[1] + '/multilane_points_image.npz')
+                elif key == 32: # space
+                    self.t += 20
+                    self.markings = None
 
 
 if __name__ == '__main__':

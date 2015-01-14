@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="lane_detection" type="VideoProducer" name="VideoProducer" output="screen" args="/home/q50/jpazhaya/q50_data/split_0_sanrafael_k2.avi" respawn="true">
+    </node>
+
+    <node pkg="lane_detection" type="CarLaneDetectionNode" name="CarLaneDetectionNode" output="screen" args="/home/q50/jpazhaya/caffe/lane/deploy.prototxt /home/q50/jpazhaya/caffe/lane/caffe_lane_train_deep17_8nodes2_cont47000_iter_69000.caffemodel /home/q50/jpazhaya/caffe/car/deploy_deeppy.prototxt /home/q50/jpazhaya/caffe/car/l7_maps96,256,384,384,384,4096,4096_rf11,5,3,3,3,6,1,1_lcnl0,1_img640,480_do1_reg5e-4_pst2,2,0,0,2,0,0_mom0.90_bbms32_md8_mbs8_bbr10_L1_dpth0.05_wr_su_srk0.75_mo0.75_bcs8_jimg672_doc5,6_2.netparameter /home/q50/jpazhaya/caffe/car/test_mean.png /VideoProducer/output_video">
+    </node>
+
+</launch>
+

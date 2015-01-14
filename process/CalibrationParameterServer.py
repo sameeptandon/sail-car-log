@@ -9,7 +9,7 @@ global cry
 global crz
 
 (rx,ry,rz) = (-0.04, -0.0146, -0.0165)
-(crx,cry,crz) = (0.044, 0.0291, 0.0115)
+(crx,cry,crz) = (0.022500,-0.006000,-0.012500)
 global all_connected
 
 def ParametersToString():
@@ -50,11 +50,11 @@ class MyUDPHandler(SocketServer.BaseRequestHandler):
             print tokens[2]
             for address in all_connected:
                 if address != int(tokens[1]):
-                    sock.sendto(ParametersToString(), (HOST,address)) 
+                    sock.sendto(ParametersToString(), (HOST,address))
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 2929
     server = SocketServer.UDPServer((HOST, PORT), MyUDPHandler)
     all_connected = set()
-    
+
     server.serve_forever()

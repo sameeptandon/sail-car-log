@@ -9,11 +9,13 @@ import sys
 import time
 import urllib
 import numpy as np
+from scipy.spatial import cKDTree
 
 from ArgParser import parse_args
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
+from MapReproject import lidarPtsToPixels
 
 def get_transforms(args, mark='mark1', absolute=False):
     """ Gets the IMU transforms for a run """
@@ -52,7 +54,7 @@ class BackProjector(object):
     def toHomogenous(self, x):
         return np.hstack((x, np.array(1)))
 
-    def calculateBackProjection(self, imu_xform, pt=None):
+    def backProject(self, imu_xform, pt=None):
         if pt == None:
             pt = np.array([0, 0, 0])
 
@@ -63,8 +65,53 @@ class BackProjector(object):
 
         return self.fromHomogenous(u_imu_t)
 
-    def calculateIntersection(self, l0, l, plane):
-        n = plane[:3]
-        p0 = plane[3:]
+    def getIntersection(self, l0, l, n, p0):
         alpha = np.inner((p0 - l0), n) / np.inner(l, n)
         return l0 + alpha * l
+
+class DataTree(object):
+
+    def __init__(self, pts):
+        self.pts = pts
+        self.tree = cKDTree(self.pts)
+
+class VTKCloudTree(DataTree):
+
+    def __init__(self, cloud, actor):
+        super(VTKCloudTree, self).__init__(cloud.xyz)
+        self.cloud = cloud
+        self.actor = actor
+
+class VTKPlaneTree(DataTree):
+
+    def __init__(self, xyz, planes, actors):
+        super(VTKPlaneTree, self).__init__(xyz)
+        self.planes = planes
+        self.actors = actors
+
+
+def projectPointsOnImg(I, pts_tree, imu_transforms_mk1, t,
+                       T_from_i_to_l, cam_params, color):
+    car_pos = imu_transforms_mk1[t, 0:3, 3]
+
+    # Project the points onto the image
+    tree = pts_tree.tree
+    (d, closest_idx) = tree.query(car_pos)
+
+    # Find all the points nearby
+    nearby_idx = np.array(tree.query_ball_point(car_pos, r=100.0))
+
+    if nearby_idx.shape[0] > 0:
+        lane = pts_tree.pts[nearby_idx, :3]
+        # Reverse the color (RGB->BGR)
+        if lane.shape[0] > 0:
+            xform = imu_transforms_mk1[t, :,:]
+            pix, mask = lidarPtsToPixels(lane, xform, T_from_i_to_l,
+                                         cam_params)
+            for p in range(4):
+                I[pix[1, mask]+p, pix[0, mask], :] = color
+                I[pix[1, mask], pix[0, mask]+p, :] = color
+                I[pix[1, mask]-p, pix[0, mask], :] = color
+                I[pix[1, mask], pix[0, mask]-p, :] = color
+
+    return I
