@@ -100,14 +100,14 @@ int main(int argc, char **argv) {
     uvc_frame_t *frame;
     while (ros::ok()) {
         //grab a frame
-        res = uvc_stream_get_frame(camera.strmh, &frame, 0);
+        res = uvc_stream_get_frame(camera.strmh, &frame, 5000000);
         checkError(res, "get_frame");
         if (frame == NULL) { 
             ROS_INFO_STREAM(ros::this_node::getNamespace() << " frame is null; skipping");
             continue;
         }
 
-        ROS_INFO_STREAM(ros::this_node::getNamespace() << " captured: " << frame->data_bytes);
+        //ROS_INFO_STREAM(ros::this_node::getNamespace() << " captured: " << frame->data_bytes);
         
         //good frame received
         sensor_msgs::CompressedImage msg;

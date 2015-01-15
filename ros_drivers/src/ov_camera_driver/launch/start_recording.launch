@@ -1,0 +1,14 @@
+<launch>
+
+<arg name="writer_node_name" />
+<arg name="basename" />
+<arg name="cameranum" />
+<arg name="image_topic" />
+
+<node pkg="ov_camera_driver" type="ov_image_writer_node" output="screen" name="$(arg writer_node_name)">
+    <param name="image" value="$(arg image_topic)" />
+    <param name="basename" value="$(arg basename)" />
+    <param name="cameranum" value="$(arg cameranum)" />
+</node>
+
+</launch>
