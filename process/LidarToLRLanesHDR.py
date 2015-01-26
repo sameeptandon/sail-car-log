@@ -205,30 +205,24 @@ if __name__ == '__main__':
       rootdir = rootdir[0:-1] # remove trailing '/'
     path, directory = os.path.split(rootdir)
     targetfolder = '/scail/group/deeplearning/driving_data/640x480_Q50/' + directory + '/'
-    cam_num = 601#2
+    cam_num = 602#2
     #name_offset = len('_gpsmark1.out')
     name_offset = len('_gpsmark1.out')
     for root, subfolders, files in os.walk(rootdir):
-      files1 = filter(lambda z: 'vail' not in z, files)
-      if '4-2-14-monterey' in root:
-        files1 = filter(lambda z: '1S_g' not in z, files1)
-      if '4-10-14-pleasanton' in root:
-        files1 = filter(lambda z: '680s_a' not in z, files1)
-        files1 = filter(lambda z: '237_a' not in z, files1)
-      files1 = filter(lambda z: '_gpsmark1.out' in z, files1)
-      files1 = filter(lambda z: 'sandhill' not in z, files1)
+      files1 = filter(lambda z: z[-3:]=='601' or z[-3:]=='604', subfolders)
       if len(sys.argv)>2:
         files = filter(lambda z: sys.argv[2] in z, files1)
         if len(files1)==len(files):
           print 'warning: filter '+sys.argv[2]+' not found in files, including all files.'
       else:
         files = files1
+      print files
       for f in files:
 
 
-        args = parse_args(root, f[0:-name_offset]+str(cam_num)+'.avi')      
+        args = parse_args(root, f+'.avi')      
         params = args['params']                                   
-        cam = params['cam'][cam_num-1]       
+        #cam = params['cam'][cam_num-1]       
         
         # 50Hz gps data                     
         #gps_name = args['gps']                                     
@@ -273,8 +267,8 @@ if __name__ == '__main__':
         print 'gps: '+gps_name
         map_name = gps_name[0:-name_offset]+'.map'
         print 'map: '+ map_name
-        savename1 = os.path.join(targetfolder, (f[0:-name_offset]+'_lidarmap.pickle')) 
-        savename2 = os.path.join(targetfolder, (f[0:-name_offset]+'_interp_lanes.pickle')) 
+        savename1 = os.path.join(targetfolder, (gps_name[0:-name_offset]+'_lidarmap.pickle')) 
+        savename2 = os.path.join(targetfolder, (gps_name[0:-name_offset]+'_interp_lanes.pickle')) 
         print 'out: '+ savename2
         if os.path.isfile(savename2):
           print savename2+' already exists, skipping...'

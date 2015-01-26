@@ -8,7 +8,8 @@ returns a dictionary with keys: ('map', 'frames', 'radar' 'gps', 'video', 'param
 corresponding to file names.
 """
 
-    basename = folder + '/' + video_file[:-5]
+    #basename = folder + '/' + video_file[:-5]
+    basename = folder + '/' + video_file[:-7]
 
     print basename
     map_file = basename + '.map'
