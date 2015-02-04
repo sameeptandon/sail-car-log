@@ -9,6 +9,8 @@ import os.path
 import glob
 from MapBuilder import MapBuilder
 from ArgParser import parse_args
+from VideoReader import VideoReader
+import cv2
 
 class Config:
     def __init__(self, config_name):
@@ -54,7 +56,7 @@ class Config:
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print """Usage:
-        LaneCorrectorPipeline.py -f folder/
+        LaneCorrectorPipelineOV.py -f folder/
         -f = force"""
         sys.exit(-1)
 
@@ -93,7 +95,7 @@ if __name__ == '__main__':
         --exclude="*_radar" --include="*_frames.tar.gz" \
         --include="*2.avi" --include="*.out" --include="params.ini" \
         --include="*lanes.pickle" --include="*.jpg" --filter="-! */" \
-        {remote} {local}""".format(
+        /deep/group/driving_data/q50_data/{remote} {local}""".format(
             remote=remote_folder, local=local_folder + '/..')
         print cmd
         tokens = shlex.split(cmd)
@@ -107,8 +109,10 @@ if __name__ == '__main__':
             configurator.set('downloaded', True)
 
     if configurator.config['organized'] == False:
-        for video in glob.glob(local_folder + '/split_0*2.avi'):
-            organized_folder = video.replace('split_0_', '').replace('2.avi', '')
+        for video in glob.glob(local_folder + '/*60*/'):
+            organized_folder = video[:-4]
+            print video, organized_folder
+
             try:
                 os.mkdir(organized_folder)
             except OSError:
@@ -177,9 +181,14 @@ if __name__ == '__main__':
                             else:
                                 right = int(line.split()[-1])
                 else:
-                    temp_vid = glob.glob(run + '/split_0_*2.avi')[0]
-                    mplayer_cmd = 'mplayer -speed 3 -quiet ' + temp_vid
-                    subprocess.call(mplayer_cmd.split())
+                    temp_vid = glob.glob(run + '/*601/')[0]
+                    reader = VideoReader(temp_vid)
+
+                    # mplayer_cmd = 'mplayer -speed 3 -quiet ' + temp_vid
+                    # subprocess.call(mplayer_cmd.split())
+
+                    feh_cmd = 'feh -D 0.001 ' + temp_vid
+                    subprocess.call(feh_cmd.split())
 
                     print 'Enter number of left lanes:'
                     left = sys.stdin.readline()

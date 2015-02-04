@@ -17,6 +17,8 @@ from GPSTransforms import IMUTransforms
 from LidarTransforms import  utc_from_gps_log_all
 from LaneMarkingHelper import mk2_to_mk1
 import bisect
+from VideoReader import VideoReader
+import cv2
 
 def get_transforms(folder, run, mark = 'mark1'):
     """ Gets the IMU transforms for a run """
@@ -44,6 +46,7 @@ if __name__ == '__main__':
         """
         sys.exit(-1)
 
+    sub_samp = 2
     for day in sys.argv[1:]:
         driverseat_folder = '/deep/group/driving/driverseat_data/' + day + '/'
         remote_folder = '/deep/group/driving_data/jkiske/data/' + day + '/'
@@ -61,9 +64,9 @@ if __name__ == '__main__':
         configurator.get('lanes_json')
         configurator.get('planes_json')
         configurator.get('lanes_done_json')
+        configurator.get('video_to_mpeg')
 
         print configurator.config
-
 
         if configurator.config['organized'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
@@ -84,7 +87,7 @@ if __name__ == '__main__':
                 zip_map_name = json_map_name + '.zip'
 
                 if not os.path.isfile(json_map_name):
-                    print '\tExporting' + json_name
+                    print '\tExporting ' + json_name
                     data = np.load(npz_map_name)['data']
                     # Only includes x,y,z data for the maps
                     json.dump(data[:, :3].tolist(), open(json_map_name, 'w'))
@@ -102,22 +105,23 @@ if __name__ == '__main__':
         if configurator.config['radar_json'] == False:
             for radar_folder in sorted(glob.glob(q50_data_folder + '*_radar/')):
                 run = radar_folder.split('/')[-2][:-6] # Remove '_radar'
+                remote_run = remote_folder + '/' + run + '/'
                 driverseat_run = driverseat_folder + run + '/'
                 if not os.path.isdir(driverseat_run):
                     continue
-                imu_transforms, gps_times_mk1 = get_transforms(driverseat_run,
+                imu_transforms, gps_times_mk1 = get_transforms(remote_run,
                                                                run, 'mark1')
-                _, gps_times_mk2 = get_transforms(driverseat_run, run, 'mark2')
+                _, gps_times_mk2 = get_transforms(remote_run, run, 'mark2')
                 radar_data = []
                 json_name = 'radar.json'
                 json_radar_name = driverseat_run + json_name
                 zip_radar_name = json_radar_name + '.zip'
                 print driverseat_run
                 if not os.path.isfile(json_radar_name):
-                    print '\tExporting' + json_name
+                    print '\tExporting ' + json_name
                     radar_times = [int(f.split('/')[-1][:-4]) for
                                    f in sorted(glob.glob(radar_folder + '*'))]
-                    for i in xrange(gps_times_mk2.shape[0]):
+                    for i in xrange(0, gps_times_mk2.shape[0], sub_samp):
                         radar_idx = mk2_to_radar(i, radar_times, gps_times_mk2)
                         time = radar_times[radar_idx]
                         radar_file = radar_folder + str(time) + '.rdr'
@@ -140,9 +144,9 @@ if __name__ == '__main__':
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
                 run = remote_run.split('/')[-2]
                 driverseat_run = driverseat_folder + run + '/'
-                imu_transforms, gps_times_mk1 = get_transforms(driverseat_run,
+                imu_transforms, gps_times_mk1 = get_transforms(remote_run,
                                                                run, 'mark1')
-                _, gps_times_mk2 = get_transforms(driverseat_run, run, 'mark2')
+                _, gps_times_mk2 = get_transforms(remote_run, run, 'mark2')
                 print driverseat_run
 
                 json_name = 'gps.json'
@@ -150,9 +154,9 @@ if __name__ == '__main__':
                 zip_gps_name = json_gps_name + '.zip'
 
                 if not os.path.isfile(json_gps_name):
-                    print '\tExporting' + json_name
+                    print '\tExporting ' + json_name
                     gps_data = []
-                    for i in xrange(gps_times_mk2.shape[0]):
+                    for i in xrange(0, gps_times_mk2.shape[0], sub_samp):
                         mk1_i = mk2_to_mk1(i, gps_times_mk1, gps_times_mk2)
                         imu_xform = imu_transforms[mk1_i, :, :]
                         gps_data.append(imu_xform.tolist())
@@ -186,7 +190,7 @@ if __name__ == '__main__':
                 zip_lanes_name = json_lanes_name + '.zip'
 
                 if not os.path.isfile(json_lanes_name):
-                    print '\tExporting' + json_name
+                    print '\tExporting ' + json_name
                     lanes = np.load(lane_file)
                     num_lanes = lanes['num_lanes']
                     lane_data = {}
@@ -224,7 +228,7 @@ if __name__ == '__main__':
                 zip_planes_name = json_planes_name + '.zip'
 
                 if not os.path.isfile(json_planes_name):
-                    print '\tExporting' + json_name
+                    print '\tExporting ' + json_name
                     lanes = np.load(lane_file)
                     plane_data = lanes['planes'].tolist()
 
@@ -259,7 +263,7 @@ if __name__ == '__main__':
                 zip_lanes_name = json_lanes_name + '.zip'
 
                 if not os.path.isfile(json_lanes_name):
-                    print '\tExporting' + json_name
+                    print '\tExporting ' + json_name
                     lanes = np.load(done_lane_file)
                     num_lanes = lanes['num_lanes']
                     lane_data = {}
@@ -278,3 +282,31 @@ if __name__ == '__main__':
                     json_zip.close()
 
             configurator.set('lanes_done_json', True)
+
+        if configurator.config['video_to_mpeg'] == False:
+            for remote_run in sorted(glob.glob(remote_folder + '*/')):
+                run = remote_run.split('/')[-2]
+                for video in sorted(glob.glob(remote_run + '/' + run + '60*/')):
+                    reader = VideoReader(video)
+                    driverseat_run = driverseat_folder + run + '/'
+                    vid_num = video[-4:-1]
+                    vid_name = driverseat_run + 'cam' + vid_num + '.mpg'
+                    print '\tWriting ' + vid_name
+
+                    writer = None
+                    cnt = 0
+                    while True:
+                        (succ, I) = reader.getNextFrame()
+                        if not succ:
+                            break
+                        if cnt % sub_samp == 0:
+                            I = cv2.pyrDown(cv2.pyrDown(I))
+                            if writer == None:
+                                writer = cv2.VideoWriter(vid_name,
+                                                         cv2.cv.CV_FOURCC('X','V','I','D'),
+                                                         10, (I.shape[0],
+                                                              I.shape[1]))
+                            writer.write(I)
+                        cnt += 1
+
+            # configurator.set('video_to_mpeg', True)
