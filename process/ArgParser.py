@@ -20,7 +20,8 @@ def parse_args(folder, video_file):
     gps_mark1_file = fullname + '_gpsmark1.out'
     gps_mark2_file = fullname + '_gpsmark2.out'
 
-    video_file_num = video_file.replace(basename, '').replace('.avi', '')
+    video_file_num = video_file.replace(basename, '')
+    video_file_num = video_file_num.replace('.avi', '').replace('.zip', '')
 
     video_file = folder + '/' + video_file
     param_file = folder + '/params.ini'
