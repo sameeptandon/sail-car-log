@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from LaneCorrectorPipeline import Config
+from LaneCorrectorPipelineOV import Config
 import os
 import subprocess
 import sys
@@ -283,6 +283,7 @@ if __name__ == '__main__':
 
             configurator.set('lanes_done_json', True)
 
+        fourcc = cv2.cv.CV_FOURCC(*'MPG1')
         if configurator.config['video_to_mpeg'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
                 run = remote_run.split('/')[-2]
@@ -303,10 +304,10 @@ if __name__ == '__main__':
                             I = cv2.pyrDown(cv2.pyrDown(I))
                             if writer == None:
                                 writer = cv2.VideoWriter(vid_name,
-                                                         cv2.cv.CV_FOURCC('X','V','I','D'),
-                                                         10, (I.shape[0],
-                                                              I.shape[1]))
+                                                         fourcc,
+                                                         50, (I.shape[1],
+                                                              I.shape[0]))
                             writer.write(I)
                         cnt += 1
 
-            # configurator.set('video_to_mpeg', True)
+            configurator.set('video_to_mpeg', True)

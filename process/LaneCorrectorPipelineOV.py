@@ -36,7 +36,7 @@ class Config:
             config_file.close()
 
         with open(self.config_name, 'w') as config_file:
-            self.config[key] = value
+            self.config[key] = value == 'True'
             self.parser.set('progress', str(key), str(value))
             self.parser.write(config_file)
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     configurator.get('map')
     configurator.get('multilane')
     configurator.get('planefitting')
-    configurator.get('sync')
+    # configurator.get('sync')
 
     print configurator.config
 
@@ -181,23 +181,26 @@ if __name__ == '__main__':
                             else:
                                 right = int(line.split()[-1])
                 else:
-                    temp_vid = glob.glob(run + '/*601/')[0]
-                    reader = VideoReader(temp_vid)
+                    # temp_vid = glob.glob(run + '/*601/')[0]
+                    # reader = VideoReader(temp_vid)
 
-                    # mplayer_cmd = 'mplayer -speed 3 -quiet ' + temp_vid
-                    # subprocess.call(mplayer_cmd.split())
+                    # # mplayer_cmd = 'mplayer -speed 3 -quiet ' + temp_vid
+                    # # subprocess.call(mplayer_cmd.split())
 
-                    feh_cmd = 'feh -D 0.001 ' + temp_vid
-                    subprocess.call(feh_cmd.split())
+                    # feh_cmd = 'feh -D 0.001 ' + temp_vid
+                    # subprocess.call(feh_cmd.split())
 
-                    print 'Enter number of left lanes:'
-                    left = sys.stdin.readline()
-                    print 'Enter number of right lanes:'
-                    right = sys.stdin.readline()
+                    # print 'Enter number of left lanes:'
+                    # left = sys.stdin.readline()
+                    # print 'Enter number of right lanes:'
+                    # right = sys.stdin.readline()
+
+                    left = 5
+                    right = 5
 
                     with open(num_lanes_file_name, 'w+') as num_lanes_file:
-                        num_lanes_file.write('left = ' + str(left))
-                        num_lanes_file.write('right = ' + str(right))
+                        num_lanes_file.write('left = ' + str(left) + '\n')
+                        num_lanes_file.write('right = ' + str(right) + '\n')
 
                 interp = glob.glob(run + '/*interp_lanes.pickle')[0]
                 bg = glob.glob(run + '/*_bg.npz')[0]
@@ -221,25 +224,25 @@ if __name__ == '__main__':
 
         configurator.set('planefitting', True)
 
-    if configurator.config['sync'] == False:
-        driving_data = '/deep/group/driving_data/'
-        sync_cmd = """rsync --progress -a --exclude=*_frames/ --exclude=*.avi
-        --exclude=*.pickle --exclude=*~ /scr/data/ \
-        {driving_data}/jkiske/data""".format(driving_data=driving_data)
-        print sync_cmd
-        subprocess.call(sync_cmd.split())
+    # if configurator.config['sync'] == False:
+    #     driving_data = '/deep/group/driving_data/'
+    #     sync_cmd = """rsync --progress -a --exclude=*_frames/ --exclude=*.avi
+    #     --exclude=*.pickle --exclude=*~ /scr/data/ \
+    #     {driving_data}/jkiske/data""".format(driving_data=driving_data)
+    #     print sync_cmd
+    #     subprocess.call(sync_cmd.split())
 
-        for run in sorted(glob.glob(local_folder + '/*/')):
-            run = run.split('/')[-2]
-            video_glob = driving_data + 'q50_data/{remote}/split_*_{run}2.avi' \
-                .format(remote=remote_folder, run=run)
-            for video in sorted(glob.glob(video_glob)):
-                link = driving_data + 'jkiske/data/{remote}/{run}/{video}' \
-                    .format(remote=remote_folder, run=run,
-                            video=video.split('/')[-1])
-                rm_cmd = 'rm ' + link
-                cmd = 'ln -s {video} {link}'.format(video=video, link=link)
-                # print cmd
-                subprocess.call(cmd.split())
+    #     for run in sorted(glob.glob(local_folder + '/*/')):
+    #         run = run.split('/')[-2]
+    #         video_glob = driving_data + 'q50_data/{remote}/split_*_{run}2.avi' \
+    #             .format(remote=remote_folder, run=run)
+    #         for video in sorted(glob.glob(video_glob)):
+    #             link = driving_data + 'jkiske/data/{remote}/{run}/{video}' \
+    #                 .format(remote=remote_folder, run=run,
+    #                         video=video.split('/')[-1])
+    #             rm_cmd = 'rm ' + link
+    #             cmd = 'ln -s {video} {link}'.format(video=video, link=link)
+    #             # print cmd
+    #             subprocess.call(cmd.split())
 
-        configurator.set('sync', True)
+    #     configurator.set('sync', True)
