@@ -1,4 +1,4 @@
-# usage: python BagToGPSMarkOut.py <bag_file> 
+# usage: python BagToGPSMarkOut.py <bag_file>
 
 import rosbag
 import sys
@@ -26,5 +26,3 @@ for topic, msg, t in bag.read_messages(topics=['/novatel_port_out']):
 
 f1.close()
 f2.close()
-
-
