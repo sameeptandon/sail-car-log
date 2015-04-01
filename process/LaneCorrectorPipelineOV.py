@@ -86,14 +86,14 @@ if __name__ == '__main__':
     configurator.get('map')
     configurator.get('multilane')
     configurator.get('planefitting')
-    # configurator.get('sync')
+    configurator.get('sync')
 
     print configurator.config
 
     if configurator.config['downloaded'] == False:
         cmd = """rsync --progress -a -L --prune-empty-dirs --exclude="*_frames/" \
         --exclude="*_radar" --include="*_frames.tar.gz" \
-        --include="*2.avi" --include="*.out" --include="params.ini" \
+        --include="*604.zip" --include="*.out" --include="params.ini" \
         --include="*lanes.pickle" --include="*.jpg" --filter="-! */" \
         /deep/group/driving_data/q50_data/{remote} {local}""".format(
             remote=remote_folder, local=local_folder + '/..')
@@ -109,8 +109,8 @@ if __name__ == '__main__':
             configurator.set('downloaded', True)
 
     if configurator.config['organized'] == False:
-        for video in glob.glob(local_folder + '/*60*/'):
-            organized_folder = video[:-4]
+        for video in glob.glob(local_folder + '/*604.zip'):
+            organized_folder = video.replace('604.zip', '')
             print video, organized_folder
 
             try:
@@ -151,7 +151,7 @@ if __name__ == '__main__':
             if os.path.isdir(run):
                 print run
                 base = run.split('/')[-2]
-                temp_vid = base + '602'
+                temp_vid = base + '604.zip'
                 args = parse_args(run, temp_vid)
                 mb = MapBuilder(args, 1, 600, 0.5, 0.1)
 
@@ -172,40 +172,15 @@ if __name__ == '__main__':
             if os.path.isdir(run):
                 print run
                 num_lanes_file_name = run + '/num_lanes.ini'
-                if os.path.exists(num_lanes_file_name):
-                    with open(num_lanes_file_name, 'r') as num_lanes_file:
-                        lines = num_lanes_file.readlines()
-                        for line in lines:
-                            if 'left' in line.lower():
-                                left = int(line.split()[-1])
-                            else:
-                                right = int(line.split()[-1])
-                else:
-                    # temp_vid = glob.glob(run + '/*601/')[0]
-                    # reader = VideoReader(temp_vid)
 
-                    # # mplayer_cmd = 'mplayer -speed 3 -quiet ' + temp_vid
-                    # # subprocess.call(mplayer_cmd.split())
-
-                    # feh_cmd = 'feh -D 0.001 ' + temp_vid
-                    # subprocess.call(feh_cmd.split())
-
-                    # print 'Enter number of left lanes:'
-                    # left = sys.stdin.readline()
-                    # print 'Enter number of right lanes:'
-                    # right = sys.stdin.readline()
-
-                    left = 5
-                    right = 5
-
-                    with open(num_lanes_file_name, 'w+') as num_lanes_file:
-                        num_lanes_file.write('left = ' + str(left) + '\n')
-                        num_lanes_file.write('right = ' + str(right) + '\n')
+                with open(num_lanes_file_name, 'w') as num_lanes_file:
+                    num_lanes_file.write('left = 5\n')
+                    num_lanes_file.write('right = 5\n')
 
                 interp = glob.glob(run + '/*interp_lanes.pickle')[0]
                 bg = glob.glob(run + '/*_bg.npz')[0]
-                cmd = 'python OffsetLanes.py {interp} {l} {r} {bg} {folder}'
-                cmd =  cmd.format(interp=interp, l=left, r=right, bg=bg, folder=run)
+                cmd = 'python -u OffsetLanes.py {interp} {l} {r} {bg} {folder}'
+                cmd = cmd.format(interp=interp, l=5, r=5, bg=bg, folder=run)
                 print cmd
                 subprocess.call(cmd.split())
 
@@ -216,33 +191,38 @@ if __name__ == '__main__':
             if os.path.isdir(run):
                 print run
                 if len(glob.glob(run + '/*_planar.npz')) == 0:
-                    video = run.split('/')[-2] + '2.avi'
-                    cmd = 'python PlaneFitting.py {run} {video}'
+                    video = run.split('/')[-2] + '604.zip'
+                    cmd = 'python -u PlaneFitting.py {run} {video}'
                     cmd = cmd.format(run=run, video=video)
                     print cmd
                     subprocess.call(cmd.split())
 
         configurator.set('planefitting', True)
 
-    # if configurator.config['sync'] == False:
-    #     driving_data = '/deep/group/driving_data/'
-    #     sync_cmd = """rsync --progress -a --exclude=*_frames/ --exclude=*.avi
-    #     --exclude=*.pickle --exclude=*~ /scr/data/ \
-    #     {driving_data}/jkiske/data""".format(driving_data=driving_data)
-    #     print sync_cmd
-    #     subprocess.call(sync_cmd.split())
+    if configurator.config['sync'] == False:
+        driving_data = '/deep/group/driving_data/'
+        # sync_cmd = """rsync --progress -a --exclude=*_frames/
+        #         --exclude=*.avi --exclude=*.zip
+        #         --exclude=*.pickle --exclude=*~ /scr/data/ \
+        #         {driving_data}/jkiske/data""".format(driving_data=driving_data)
+        # print sync_cmd
+        # subprocess.call(sync_cmd.split())
 
-    #     for run in sorted(glob.glob(local_folder + '/*/')):
-    #         run = run.split('/')[-2]
-    #         video_glob = driving_data + 'q50_data/{remote}/split_*_{run}2.avi' \
-    #             .format(remote=remote_folder, run=run)
-    #         for video in sorted(glob.glob(video_glob)):
-    #             link = driving_data + 'jkiske/data/{remote}/{run}/{video}' \
-    #                 .format(remote=remote_folder, run=run,
-    #                         video=video.split('/')[-1])
-    #             rm_cmd = 'rm ' + link
-    #             cmd = 'ln -s {video} {link}'.format(video=video, link=link)
-    #             # print cmd
-    #             subprocess.call(cmd.split())
+        for run_path in sorted(glob.glob(local_folder + '/*/')):
+            run = run_path.split('/')[-2]
+            print 'cleaning', run
+            for z in glob.glob(run_path + '/*.zip'):
+                os.remove(z)
+            shutil.rmtree(run_path + '/' + run + '_frames/', ignore_errors=True)
+            video_glob = driving_data + 'q50_data/{remote}/{run}60*.zip'\
+                .format(remote=remote_folder, run=run)
+            for video in sorted(glob.glob(video_glob)):
+                link = driving_data + 'jkiske/data/{remote}/{run}/{video}'\
+                    .format(remote=remote_folder, run=run,
+                            video=video.split('/')[-1])
+                # rm_cmd = 'rm ' + link
+                cmd = 'ln -s {video} {link}'.format(video=video, link=link)
+                print 'linking', video
+                subprocess.call(cmd.split())
 
-    #     configurator.set('sync', True)
+        configurator.set('sync', True)
