@@ -121,6 +121,9 @@ class ZIPVideoReader:
         imgstr = img_file.read()
         img = cv2.imdecode(np.fromstring(imgstr, np.uint8),
                            cv2.CV_LOAD_IMAGE_COLOR)
+        if img == None:
+          # This happens sometimes
+          print 'Corrupt jpeg: frame number', self.framenum
         return (True, img)
     else:
       return (False, None)

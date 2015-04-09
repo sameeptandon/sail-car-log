@@ -210,6 +210,10 @@ if __name__ == '__main__':
                     json_zip.writestr(json_name, data)
                     json_zip.close()
 
+                # Move the created lanes files to a lanes folder
+                unsafe_mkdir(driverseat_run + 'lanes')
+                shutil.move(zip_lanes_name, driverseat_run + 'lanes/')
+
             configurator.set('lanes_json', True)
 
         if configurator.config['planes_json'] == False:
@@ -281,33 +285,58 @@ if __name__ == '__main__':
                     json_zip.writestr(json_name, data)
                     json_zip.close()
 
+                unsafe_mkdir(driverseat_run + 'lanes')
+                shutil.move(zip_lanes_name, driverseat_run + 'lanes/')
+
             configurator.set('lanes_done_json', True)
 
         fourcc = cv2.cv.CV_FOURCC(*'MPG1')
         if configurator.config['video_to_mpeg'] == False:
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
                 run = remote_run.split('/')[-2]
-                for video in sorted(glob.glob(remote_run + '/' + run + '60*/')):
-                    reader = VideoReader(video)
+                for video in sorted(glob.glob(remote_run+'/'+run+'60*.zip')):
                     driverseat_run = driverseat_folder + run + '/'
-                    vid_num = video[-4:-1]
-                    vid_name = driverseat_run + 'cam' + vid_num + '.mpg'
-                    print '\tWriting ' + vid_name
+                    # If it is a zipped file, remove the .zip extension
+                    vid_num = video.replace('zip', '')[-4:-1]
+                    # First create an uncompressed mpg from the images. Give
+                    # this a file extension mp so we know the process is
+                    # not finished
+                    mp_vid_name = driverseat_run + 'cam_' + vid_num + '.mp'
+                    # The finished file should have the extension mpg
+                    mpg_vid_name = mp_vid_name + 'g'
+                    if not os.path.isfile(mp_vid_name) and \
+                       not os.path.isfile(mpg_vid_name):
+                        with VideoReader(video) as reader:
+                            print '\tWriting ' + mp_vid_name
 
-                    writer = None
-                    cnt = 0
-                    while True:
-                        (succ, I) = reader.getNextFrame()
-                        if not succ:
-                            break
-                        if cnt % sub_samp == 0:
-                            I = cv2.pyrDown(cv2.pyrDown(I))
-                            if writer == None:
-                                writer = cv2.VideoWriter(vid_name,
-                                                         fourcc,
-                                                         50, (I.shape[1],
-                                                              I.shape[0]))
-                            writer.write(I)
-                        cnt += 1
+                            writer = None
+                            while True:
+                                (succ, I) = reader.getNextFrame()
+                                if not succ:
+                                    break
+                                if reader.framenum % sub_samp == 0:
+                                    if I == None:
+                                        # This is a corrupted jpeg
+                                        prev_fnum = reader.framenum
+                                        # Read the next image in the file
+                                        (succ, I) = reader.getNextFrame()
+                                        if not succ:
+                                            break
+                                        # Reset the frame number
+                                        reader.setFrame(prev_fnum)
+                                    I = cv2.pyrDown(cv2.pyrDown(I))
+                                    if writer == None:
+                                        writer = cv2.VideoWriter(mp_vid_name,
+                                                                 fourcc,
+                                                                 50, (I.shape[1],
+                                                                      I.shape[0]))
+                                    writer.write(I)
+                    if not os.path.isfile(mpg_vid_name):
+                        print '\t Compressing ' + mp_vid_name + ' to ' + mpg_vid_name
+                        avconv_cmd = "avconv -i {mp} -f mpeg1video -bf 0 " + \
+                                     "-b:v 10M -q:v 7 -r 50 -v quiet {mpg}"
+                        avconv_cmd = avconv_cmd.format(mp=mp_vid_name, mpg=mpg_vid_name)
+                        subprocess.call(avconv_cmd.split())
+                        os.remove(mp_vid_name)
 
             configurator.set('video_to_mpeg', True)
