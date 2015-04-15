@@ -29,6 +29,10 @@ class RosTopicManager:
         #self.image_sub = rospy.Subscriber("/fwd_left/image_raw",Image,self.image_callback)
         self.writer_ack_ov_601_counter = 0
         self.writer_sub_ov_601 = rospy.Subscriber("/ov_601_writer/writer_ack",String,self.writer_ack_ov_601_callback)
+        self.writer_ack_ov_602_counter = 0
+        self.writer_sub_ov_602 = rospy.Subscriber("/ov_602_writer/writer_ack",String,self.writer_ack_ov_602_callback)
+        self.writer_ack_ov_603_counter = 0
+        self.writer_sub_ov_603 = rospy.Subscriber("/ov_603_writer/writer_ack",String,self.writer_ack_ov_603_callback)
         self.writer_ack_ov_604_counter = 0
         self.writer_sub_ov_604 = rospy.Subscriber("/ov_604_writer/writer_ack",String,self.writer_ack_ov_604_callback)
         
@@ -57,7 +61,7 @@ class RosTopicManager:
 
     def getWriterAckCount(self):
         #return (self.writer_ack_fwd_left_counter, self.writer_ack_fwd_right_counter, self.writer_ack_wfov_front_counter, self.writer_ack_wfov_left_counter, self.writer_ack_wfov_right_counter, self.writer_ack_wfov_back_counter, self.gps_markpvaa_counter)
-        return (self.writer_ack_ov_601_counter, self.writer_ack_ov_604_counter, self.gps_markpvaa_counter)
+        return (self.writer_ack_ov_601_counter, self.writer_ack_ov_602_counter, self.writer_ack_ov_603_counter, self.writer_ack_ov_604_counter, self.gps_markpvaa_counter)
 
     def getLatLong(self):
         return '%.4f,%.4f' % (self.lat, self.lon)
@@ -76,6 +80,12 @@ class RosTopicManager:
     
     def writer_ack_ov_601_callback(self, data):
         self.writer_ack_ov_601_counter += 1
+    
+    def writer_ack_ov_602_callback(self, data):
+        self.writer_ack_ov_602_counter += 1
+    
+    def writer_ack_ov_603_callback(self, data):
+        self.writer_ack_ov_603_counter += 1
 
     def writer_ack_ov_604_callback(self, data):
         self.writer_ack_ov_604_counter += 1
@@ -183,11 +193,12 @@ def main(args):
     my_commands.setsockopt(zmq.SUBSCRIBE, '') # subscribe to all messages
 
     rt = RosTopicManager()
-    sendMessage('WARN:Starting Drivers')
-
     import subprocess
+    """
+    sendMessage('WARN:Starting Drivers')
     start_drivers_p = subprocess.Popen(getStartDriversCommand(), shell=True)
     time.sleep(4)
+    """
     sendMessage('WARN:Starting Recorders')
     start_collection_p = subprocess.Popen(getStartCollectionCommand(basename), shell=True)
     time.sleep(4)
@@ -219,17 +230,18 @@ def main(args):
     sendMessage('WARN:Stopping Recorders')
     stop_collection_p = subprocess.Popen(getStopCollectionCommand(), shell=True)
     time.sleep(8)
+    """
     sendMessage('WARN:Stopping Drivers')
     stop_drivers_p = subprocess.Popen(getStopDriversCommand(), shell=True)
-
+    """
     start_collection_p.wait()
     print 'start collect proc fin'
-    start_drivers_p.wait()
-    print 'start driver proc fin'
+    #start_drivers_p.wait()
+    #print 'start driver proc fin'
     stop_collection_p.wait()
     print 'stop collect proc fin'
-    stop_drivers_p.wait()
-    print 'stop drivers proc fin'
+    #stop_drivers_p.wait()
+    #print 'stop drivers proc fin'
     
     sendMessage('INFOCAPTURERATE:' + str(rt.getWriterAckCount()))
 

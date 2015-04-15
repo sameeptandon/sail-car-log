@@ -2,14 +2,6 @@
 
 <arg name="basename" />
 
-<!-- Start OV 604 Recording -->
-<include file="$(find ov_camera_driver)/launch/start_recording.launch">
-    <arg name="basename" value="$(arg basename)" />
-    <arg name="cameranum" value="604" />
-    <arg name="image_topic" value="/ov_604/image_raw" />
-    <arg name="writer_node_name" value="ov_604_writer" />
-</include>
-
 <!-- Start OV 601 Recording -->
 <include file="$(find ov_camera_driver)/launch/start_recording.launch">
     <arg name="basename" value="$(arg basename)" />
@@ -18,6 +10,29 @@
     <arg name="writer_node_name" value="ov_601_writer" />
 </include>
 
+<!-- Start OV 602 Recording -->
+<include file="$(find ov_camera_driver)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="602" />
+    <arg name="image_topic" value="/ov_602/image_raw" />
+    <arg name="writer_node_name" value="ov_602_writer" />
+</include>
+
+<!-- Start OV 603 Recording -->
+<include file="$(find ov_camera_driver)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="603" />
+    <arg name="image_topic" value="/ov_603/image_raw" />
+    <arg name="writer_node_name" value="ov_603_writer" />
+</include>
+
+<!-- Start OV 604 Recording -->
+<include file="$(find ov_camera_driver)/launch/start_recording.launch">
+    <arg name="basename" value="$(arg basename)" />
+    <arg name="cameranum" value="604" />
+    <arg name="image_topic" value="/ov_604/image_raw" />
+    <arg name="writer_node_name" value="ov_604_writer" />
+</include>
 
 <!-- Start Left Camera Recording
 <include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
@@ -28,7 +43,7 @@
 </include>
 -->
 
-<!-- Start Right Camera Recording 
+<!-- Start Right Camera Recording
 <include file="$(find pointgrey_image_viewer)/launch/start_recording.launch">
     <arg name="basename" value="$(arg basename)" />
     <arg name="cameranum" value="2" />
@@ -88,5 +103,9 @@
 
 <node pkg="rosbag" type="record" name="rosbag_record_odb"
     args="-O $(arg basename)_odb.bag /BrkInfo /EngInfo /GearPos /IMU /STRAngle /TurnSignal /VehicleSpeed"/>
+
+<!-- Save the Mobileye data -->
+<node pkg="rosbag" type="record" name="rosbag_record_mobileye"
+    args="-O $(arg basename)_mbly.bag /EyeData"/>
 
 </launch>

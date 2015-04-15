@@ -25,6 +25,19 @@
         <param name="pid" value="0xa601" />
     </node>
 </group>
+
+<group ns="ov_602">
+    <node pkg="ov_camera_driver" type="ov_camera_driver_node" output="screen" name="ov_cam">
+        <param name="pid" value="0xa602" />
+    </node>
+</group>
+
+<group ns="ov_603">
+    <node pkg="ov_camera_driver" type="ov_camera_driver_node" output="screen" name="ov_cam">
+        <param name="pid" value="0xa603" />
+    </node>
+</group>
+
 <group ns="ov_604">
     <node pkg="ov_camera_driver" type="ov_camera_driver_node" output="screen" name="ov_cam">
         <param name="pid" value="0xa604" />
