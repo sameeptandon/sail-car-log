@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
     uvc_frame_t *frame;
     while (ros::ok()) {
         //grab a frame
-        res = uvc_stream_get_frame(camera.strmh, &frame, 5000000);
+        res = uvc_stream_get_frame(camera.strmh, &frame, 500000);
         checkError(res, "get_frame");
         if (frame == NULL) { 
             ROS_INFO_STREAM(ros::this_node::getNamespace() << " frame is null; skipping");
