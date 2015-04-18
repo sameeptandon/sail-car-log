@@ -19,6 +19,7 @@ def parse_args(folder, video_file):
     gps_file = fullname + '_gps.out'
     gps_mark1_file = fullname + '_gpsmark1.out'
     gps_mark2_file = fullname + '_gpsmark2.out'
+    mbly_obj_file = fullname + '_mbly.objproto'
 
     video_file_num = video_file.replace(basename, '').replace('.avi', '')
 
@@ -32,6 +33,7 @@ def parse_args(folder, video_file):
             'gps': gps_file,
             'gps_mark1': gps_mark1_file,
             'gps_mark2': gps_mark2_file,
+            'mbly_obj': mbly_obj_file,
             'video': video_file,
             'fullname': fullname,
             'basename': basename,
