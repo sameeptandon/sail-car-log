@@ -27,10 +27,24 @@ class RosTopicManager:
         (self.tx, self.ty, self.tz, self.rx, self.ry, self.rz) = (0,0,0,0,0,0)
         (self.lat, self.lon) = (0,0)
         #self.image_sub = rospy.Subscriber("/fwd_left/image_raw",Image,self.image_callback)
+        self.writer_ack_ov_601_counter = 0
+        self.writer_sub_ov_601 = rospy.Subscriber("/ov_601_writer/writer_ack",String,self.writer_ack_ov_601_callback)
+        self.writer_ack_ov_602_counter = 0
+        self.writer_sub_ov_602 = rospy.Subscriber("/ov_602_writer/writer_ack",String,self.writer_ack_ov_602_callback)
+        self.writer_ack_ov_603_counter = 0
+        self.writer_sub_ov_603 = rospy.Subscriber("/ov_603_writer/writer_ack",String,self.writer_ack_ov_603_callback)
+        self.writer_ack_ov_604_counter = 0
+        self.writer_sub_ov_604 = rospy.Subscriber("/ov_604_writer/writer_ack",String,self.writer_ack_ov_604_callback)
+        
+        self.controller = rospy.Subscriber("/arduino/camera_gps_controller", String, self.controller_callback)
+
+        """
         self.writer_ack_fwd_left_counter = 0
         self.writer_sub_fwd_left = rospy.Subscriber("/fwd_left_writer/writer_ack",String,self.writer_ack_fwd_left_callback)
         self.writer_ack_fwd_right_counter = 0
         self.writer_sub_fwd_right = rospy.Subscriber("/fwd_right_writer/writer_ack",String,self.writer_ack_fwd_right_callback)
+        """
+        """
         self.writer_ack_wfov_front_counter = 0
         self.writer_sub_wfov_front = rospy.Subscriber("/wfov_front_writer/writer_ack",String,self.writer_ack_wfov_front_callback)
         self.writer_ack_wfov_right_counter = 0
@@ -39,13 +53,15 @@ class RosTopicManager:
         self.writer_sub_wfov_left = rospy.Subscriber("/wfov_left_writer/writer_ack",String,self.writer_ack_wfov_left_callback)
         self.writer_ack_wfov_back_counter = 0
         self.writer_sub_wfov_back = rospy.Subscriber("/wfov_back_writer/writer_ack",String,self.writer_ack_wfov_back_callback)
+        """
         self.gps_sub = rospy.Subscriber("/novatel_port_out",String,self.gps_callback)
 
     def getImage(self):
         return self.lastImage
 
     def getWriterAckCount(self):
-        return (self.writer_ack_fwd_left_counter, self.writer_ack_fwd_right_counter, self.writer_ack_wfov_front_counter, self.writer_ack_wfov_left_counter, self.writer_ack_wfov_right_counter, self.writer_ack_wfov_back_counter, self.gps_markpvaa_counter)
+        #return (self.writer_ack_fwd_left_counter, self.writer_ack_fwd_right_counter, self.writer_ack_wfov_front_counter, self.writer_ack_wfov_left_counter, self.writer_ack_wfov_right_counter, self.writer_ack_wfov_back_counter, self.gps_markpvaa_counter)
+        return (self.writer_ack_ov_601_counter, self.writer_ack_ov_602_counter, self.writer_ack_ov_603_counter, self.writer_ack_ov_604_counter, self.gps_markpvaa_counter)
 
     def getLatLong(self):
         return '%.4f,%.4f' % (self.lat, self.lon)
@@ -54,12 +70,31 @@ class RosTopicManager:
         tokens = (self.tx, self.ty, self.tz, self.rx, self.ry, self.rz)
         return '%.2f,%.2f,%.2f\n%.2f,%.2f,%.2f' % tokens
 
+    """
     def writer_ack_fwd_left_callback(self, data):
         self.writer_ack_fwd_left_counter += 1
 
     def writer_ack_fwd_right_callback(self, data):
         self.writer_ack_fwd_right_counter += 1
+    """
+    
+    def writer_ack_ov_601_callback(self, data):
+        self.writer_ack_ov_601_counter += 1
+    
+    def writer_ack_ov_602_callback(self, data):
+        self.writer_ack_ov_602_counter += 1
+    
+    def writer_ack_ov_603_callback(self, data):
+        self.writer_ack_ov_603_counter += 1
 
+    def writer_ack_ov_604_callback(self, data):
+        self.writer_ack_ov_604_counter += 1
+
+    def controller_callback(self, msg):
+        if 'TRIGGER' in msg.data:
+            self.gps_markpvaa_counter = 0
+    
+    """
     def writer_ack_wfov_front_callback(self, data):
         self.writer_ack_wfov_front_counter += 2
 
@@ -71,6 +106,7 @@ class RosTopicManager:
 
     def writer_ack_wfov_back_callback(self, data):
         self.writer_ack_wfov_back_counter += 2
+    """
 
     def gps_callback(self, msg):
         header = msg.data.split(',')[0]
@@ -157,14 +193,15 @@ def main(args):
     my_commands.setsockopt(zmq.SUBSCRIBE, '') # subscribe to all messages
 
     rt = RosTopicManager()
-    sendMessage('WARN:Starting Drivers')
-
     import subprocess
+    """
+    sendMessage('WARN:Starting Drivers')
     start_drivers_p = subprocess.Popen(getStartDriversCommand(), shell=True)
-    time.sleep(2)
+    time.sleep(4)
+    """
     sendMessage('WARN:Starting Recorders')
     start_collection_p = subprocess.Popen(getStartCollectionCommand(basename), shell=True)
-    time.sleep(3)
+    time.sleep(4)
 
     total_execution_time = maxframes / 50;
     start_time = time.time()
@@ -192,18 +229,19 @@ def main(args):
 
     sendMessage('WARN:Stopping Recorders')
     stop_collection_p = subprocess.Popen(getStopCollectionCommand(), shell=True)
-    time.sleep(6)
+    time.sleep(8)
+    """
     sendMessage('WARN:Stopping Drivers')
     stop_drivers_p = subprocess.Popen(getStopDriversCommand(), shell=True)
-
+    """
     start_collection_p.wait()
     print 'start collect proc fin'
-    start_drivers_p.wait()
-    print 'start driver proc fin'
+    #start_drivers_p.wait()
+    #print 'start driver proc fin'
     stop_collection_p.wait()
     print 'stop collect proc fin'
-    stop_drivers_p.wait()
-    print 'stop drivers proc fin'
+    #stop_drivers_p.wait()
+    #print 'stop drivers proc fin'
     
     sendMessage('INFOCAPTURERATE:' + str(rt.getWriterAckCount()))
 

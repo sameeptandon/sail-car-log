@@ -103,7 +103,7 @@ process.on('SIGINT', function() {
   }
 });
 
-var outdir = "/home/q50/ros_data/";
+var outdir = "/media/q50_data/ros_data/";
 
 var spawnThread = function(prefix, maxFrames) {
   var name = prefix + '_' + util.getNextSuffix(outdir, prefix);
@@ -139,7 +139,7 @@ var spawnThread = function(prefix, maxFrames) {
 
 var checkDiskUsage = function(socket) {
   var disk_check = spawn('df', ['-h']);
-  var grep = spawn('grep', ['/dev/sda1']);
+  var grep = spawn('grep', ['/dev/sdb1']);
   var awk = spawn('awk', ['{print $5}']);
 
   disk_check.stdout.on('data', function(data) {

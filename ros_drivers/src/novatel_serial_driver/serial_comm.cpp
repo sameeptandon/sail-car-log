@@ -1,5 +1,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include "serial_comm.h"
+#include <iostream>
 
 using namespace std;
 using namespace serial;

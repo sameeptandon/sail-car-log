@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
+#include <std_msgs/String.h>
 #include <image_transport/image_transport.h>
 #include <compressed_image_transport/compressed_publisher.h>
 #include <fstream>
@@ -17,7 +18,8 @@ class ImageConverter
     uint64_t frame_count;
     int camera_num;
     ofstream img_ros_acq_time_file; 
-    string img_dir; 
+    string img_dir;
+    ros::Publisher writer_ack_pub; 
 
     public:
     ImageConverter(ros::NodeHandle& nh)
@@ -37,7 +39,9 @@ class ImageConverter
             cout << "Image folder create success" << endl; 
         }
 
-        // Subscrive to input video feed 
+        writer_ack_pub = nh.advertise<std_msgs::String>("writer_ack", 1000);
+
+        // Subscribe to input video feed 
         string topic;
         nh.param<string>("image", topic, string(""));
         ROS_INFO_STREAM("Subscribing to topic " << topic << "...");
@@ -48,13 +52,17 @@ class ImageConverter
     void imageCb(const sensor_msgs::CompressedImage& msg)
     {
         frame_count++;
-        cout << "received " << msg.data.size() << endl;
+        //cout << "received " << msg.data.size() << endl;
         ofstream imgFile;
         string fname = img_dir + "/" + boost::lexical_cast<string>(frame_count) + suffix + ".jpg";
         imgFile.open(fname.c_str(), ios::out | ios::binary);
         imgFile.write((char*)msg.data.data(),msg.data.size());
         imgFile.close();
         img_ros_acq_time_file << msg.header.stamp << std::endl;
+
+        std_msgs::String ack_msg;
+        ack_msg.data = "done with frame";
+        writer_ack_pub.publish(ack_msg);
     }
 };
 

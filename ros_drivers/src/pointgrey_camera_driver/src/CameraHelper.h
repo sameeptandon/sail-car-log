@@ -8,7 +8,7 @@
 #define WFOV_SHUTTER_PARAM (96) // 1 MS
 //#define SHUTTER_PARAM (1451) // 3 MS
 
-//#define NOSYNC
+#define NOSYNC
 
 using namespace FlyCapture2;
 using namespace std; 
@@ -160,7 +160,7 @@ int configureImageSettings(Camera* cam) {
     writeRegister(cam, 0x1098, bytes);
     //setProperty(cam, GAIN, 0.0);
     //setProperty(cam, SHUTTER, 3.0);
-    setProperty(cam, FRAME_RATE, 1);
+    setProperty(cam, FRAME_RATE, 10);
 
     setWhiteBalanceOff(cam);
 

@@ -28,6 +28,10 @@ add_executable(gps_converter
   gps_converter.cpp Wgs2Htz.cpp
 )
 
+add_dependencies(trimble_gps_publisher trimble_gps_generate_messages_cpp)
+add_dependencies(gps_converter trimble_gps_generate_messages_cpp)
+
+
 #add_executable(gps_converter_BL
 #  gps_converter_BL.cpp Wgs2Htz.cpp
 #)

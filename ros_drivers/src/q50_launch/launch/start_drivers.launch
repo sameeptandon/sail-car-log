@@ -1,7 +1,16 @@
 <launch>
 
 <include file="$(find pointgrey_camera_driver)/launch/pointgrey_camera.launch" />
+
+<include file="$(find ov_camera_driver)/launch/ov_camera.launch" />
+
 <include file="$(find novatel_serial_driver)/launch/novatel_driver.launch" />
+
+<group ns="arduino">
+    <node pkg="rosserial_python" type="serial_node.py" output="screen" name="arduino">
+        <param name="port" value="/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_6493633313735191B1F1-if00" />
+    </node>
+</group>
 
 <include file="$(find q50_can)/launch/can_communication.launch" />
 </launch>

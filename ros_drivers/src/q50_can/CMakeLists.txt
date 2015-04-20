@@ -56,6 +56,7 @@ add_message_files(
   TurnSignal.msg
   VehicleSpeed.msg
   WheelCount.msg
+  EyeData.msg
 )
 
 ## Generate services in the 'srv' folder
