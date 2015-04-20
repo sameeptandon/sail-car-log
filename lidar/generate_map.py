@@ -9,13 +9,13 @@ target_dir = ''
 
 def run_command(args):
     (p, target_dir) = args
-    
+
     param_file = target_dir + '/params.ini'
     f = open(param_file, 'w')
     f.write(params + '\n')
     f.close()
     print 'Wrote %s to %s' % (params, param_file)
- 
+
     basename = p.split('.')[0]
     gps_bag = basename + '_gps.bag'
     cmd = GPS_COMMAND + "%s/%s" % (target_dir, gps_bag)
@@ -49,4 +49,4 @@ if __name__ == '__main__':
     params = sys.argv[2]
     pool = multiprocessing.Pool(processes=1)
     pool.map(run_command,
-        zip(pcap_files, [target_dir]*len(pcap_files))) 
+        zip(pcap_files, [target_dir]*len(pcap_files)))

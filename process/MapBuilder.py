@@ -8,11 +8,9 @@ from GPSReader import *
 from GPSTransforms import *
 from VideoReader import *
 from LidarTransforms import *
-from VtkRenderer import *
 from transformations import euler_matrix
 import numpy as np
 from ColorMap import *
-import vtk
 import cv2
 import math
 
@@ -72,7 +70,7 @@ class MapBuilder(object):
             # load points w.r.t lidar at current time
             data, t_data = self.lidar_loader.loadLDRWindow(current_time,
                                                            self.scan_window)
-            if data is None:
+            if data is None or data.shape[0] == 0:
                 current_time += self.step_time * 1e6
                 continue
 

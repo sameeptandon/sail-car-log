@@ -1,14 +1,20 @@
-import matplotlib.pylab as pp
+# import matplotlib.pylab as pp
 import cv2, cv
 import os
 from glob import glob
+from zipfile import ZipFile
+import numpy as np
 
 class VideoReader(object):
   def __new__(cls, filename, in_splits=True, num_splits=10):
     if '.avi' in filename:
       return AVIVideoReader(filename, in_splits, num_splits)
+    elif '.zip' in filename:
+      return ZIPVideoReader(filename)
     else:
       return JPEGVideoReader(filename)
+
+
 
 class AVIVideoReader:
   def __init__(self, filename, in_splits=True, num_splits=10):
@@ -69,7 +75,7 @@ class AVIVideoReader:
       savename = '/scail/group/deeplearning/driving_data/stillimgs/280N_right_%d.png'%(self.framenum)
       img = img[:,:,::-1]
       print savename
-      pp.imsave(savename, img)
+      # pp.imsave(savename, img)
 
 #      cv2.imshow("video", img)
 #      key = cv2.waitKey(5);
@@ -94,3 +100,43 @@ class JPEGVideoReader:
 
   def setFrame(self, framenum):
     self.framenum = framenum
+
+class ZIPVideoReader:
+  def __init__(self, video_zip):
+    self.framenum = 0
+    self.video_zip = video_zip
+    self.zip_file = ZipFile(self.video_zip, 'r')
+    self.total_frame_count = len(self.zip_file.infolist())
+    zipfiles = [zf for zf in self.zip_file.namelist() if zf.split('/')[1] != '']
+    self.captures = sorted(zipfiles, key=lambda x: int(os.path.basename(x).split('.')[0]))
+
+  def getNextFrame(self):
+    self.framenum += 1
+    return self.getFrame(self.framenum)
+
+  def getFrame(self, framenum):
+    self.framenum = framenum
+    if self.framenum < self.total_frame_count:
+      with self.zip_file.open(self.captures[self.framenum - 1]) as img_file:
+        imgstr = img_file.read()
+        img = cv2.imdecode(np.fromstring(imgstr, np.uint8),
+                           cv2.CV_LOAD_IMAGE_COLOR)
+        if img == None:
+          # This happens sometimes
+          print 'Corrupt jpeg: frame number', self.framenum
+        return (True, img)
+    else:
+      return (False, None)
+
+  def setFrame(self, framenum):
+    self.framenum = framenum
+
+  def close(self):
+    self.zip_file.close()
+
+  def __enter__(self):
+      return self
+
+  def __exit__(self, type, value, traceback):
+    self.close()
+    return isinstance(value, TypeError)
