@@ -44,8 +44,6 @@ def unpack_bag(out_folder, mbly_bag_file):
     times = []
     cur_file = None
     mbly_dir = out_folder + basename
-    # if not os.path.exists(mbly_dir):
-    #     os.mkdir(mbly_dir)
 
     objs = {}
     obj_cnt = -1
