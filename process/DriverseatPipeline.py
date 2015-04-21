@@ -104,6 +104,7 @@ if __name__ == '__main__':
 
         if configurator.config['radar_json'] == False:
             for radar_folder in sorted(glob.glob(q50_data_folder + '*_radar/')):
+                print radar_folder
                 run = radar_folder.split('/')[-2][:-6] # Remove '_radar'
                 remote_run = remote_folder + '/' + run + '/'
                 driverseat_run = driverseat_folder + run + '/'
@@ -295,15 +296,17 @@ if __name__ == '__main__':
             for remote_run in sorted(glob.glob(remote_folder + '*/')):
                 run = remote_run.split('/')[-2]
                 for video in sorted(glob.glob(remote_run+'/'+run+'60*.zip')):
+                    print '\tReading', video
                     driverseat_run = driverseat_folder + run + '/'
                     # If it is a zipped file, remove the .zip extension
                     vid_num = video.replace('zip', '')[-4:-1]
                     # First create an uncompressed mpg from the images. Give
                     # this a file extension mp so we know the process is
                     # not finished
-                    mp_vid_name = driverseat_run + 'cam_' + vid_num + '.mp'
+                    mp_vid_name = driverseat_run + 'cam_' + vid_num + \
+                                  '_uncompressed.mpg'
                     # The finished file should have the extension mpg
-                    mpg_vid_name = mp_vid_name + 'g'
+                    mpg_vid_name = mp_vid_name.replace('_uncompressed', '')
                     if not os.path.isfile(mp_vid_name) and \
                        not os.path.isfile(mpg_vid_name):
                         with VideoReader(video) as reader:
@@ -332,7 +335,7 @@ if __name__ == '__main__':
                                                                       I.shape[0]))
                                     writer.write(I)
                     if not os.path.isfile(mpg_vid_name):
-                        print '\t Compressing ' + mp_vid_name + ' to ' + mpg_vid_name
+                        print '\tCompressing ' + mp_vid_name + ' to ' + mpg_vid_name
                         avconv_cmd = "avconv -i {mp} -f mpeg1video -bf 0 " + \
                                      "-b:v 10M -q:v 7 -r 50 -v quiet {mpg}"
                         avconv_cmd = avconv_cmd.format(mp=mp_vid_name, mpg=mpg_vid_name)
