@@ -201,8 +201,8 @@ class Blockworld:
         self.raw_lidar = VTKCloudTree(raw_cloud, raw_actor)
         self.raw_lidar_2d = DataTree(self.raw_lidar.pts[:, :-1])
 
-        self.raw_lidar.actor.GetProperty().SetPointSize(5)
-        self.raw_lidar.actor.GetProperty().SetOpacity(0.3)
+        self.raw_lidar.actor.GetProperty().SetPointSize(2)
+        self.raw_lidar.actor.GetProperty().SetOpacity(0.1)
         self.raw_lidar.actor.SetPickable(0)
         self.cloud_ren.AddActor(self.raw_lidar.actor)
 
@@ -296,8 +296,8 @@ class Blockworld:
                 print obj
                 X = np.array((obj.pos_x, obj.pos_y, -1, 1))
                 X_ = np.dot(car_pos, X)
-                w = obj.width * 0.1
-                l = obj.length * 0.1
+                w = obj.width
+                l = obj.length
                 props = (X_[0], X_[1], X_[2], l, w)
                 box = VtkBoundingBox(props)
                 actors.append(box.get_vtk_box())
