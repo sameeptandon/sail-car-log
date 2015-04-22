@@ -25,11 +25,12 @@ from ArgParser import parse_args
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
+from MblyTransforms import MblyLoader
 from VideoReader import VideoReader
-from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine
+from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
 from LaneMarkingHelper import BackProjector, DataTree, get_transforms, \
     mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
-
+from mbly_obj_pb2 import Object
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -161,6 +162,9 @@ class Blockworld:
         cam_num = args['cam_num']
         self.cam_params = self.params['cam'][cam_num]
 
+        # Load the MobilEye file
+        self.mbly_loader = MblyLoader(args['mbly_obj'])
+
         # Is the flyover running
         self.running = False
         # Has the user changed the time
@@ -208,6 +212,7 @@ class Blockworld:
         self.car.GetProperty().LightingOff()
         self.cloud_ren.AddActor(self.car)
 
+        self.mbly_box_actors = []
         # Use our custom mouse interactor
         self.interactor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
         self.iren.SetInteractorStyle(self.interactor)
@@ -281,6 +286,28 @@ class Blockworld:
 
             # If the user caused a manual change, reset it
             self.manual_change = 0
+
+            gps_time = self.gps_times_mk2[self.mk2_t]
+            mbly_objs = self.mbly_loader.loadMblyWindow(gps_time)
+            xform = self.cur_imu_transform
+            car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
+            actors = []
+            for obj in mbly_objs:
+                print obj
+                X = np.array((obj.pos_x, obj.pos_y, -1, 1))
+                X_ = np.dot(car_pos, X)
+                w = obj.width * 0.1
+                l = obj.length * 0.1
+                props = (X_[0], X_[1], X_[2], l, w)
+                box = VtkBoundingBox(props)
+                actors.append(box.get_vtk_box())
+
+            for actor in self.mbly_box_actors:
+                self.cloud_ren.RemoveActor(actor)
+            for actor in actors:
+                self.cloud_ren.AddActor(actor)
+                self.mbly_box_actors = actors
+
 
         # Initialization
         if not self.startup_complete:

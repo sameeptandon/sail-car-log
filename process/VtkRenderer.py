@@ -149,10 +149,6 @@ class VtkEllipsoid:
         # assign actor to the renderer
         return actor
 
-
-
-
-
 class VtkBoundingBox:
     def __init__(self, properties):
         # (x, y) is the center-back of the car
