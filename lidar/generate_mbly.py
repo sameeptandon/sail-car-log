@@ -88,8 +88,8 @@ def unpack_bag(out_folder, mbly_bag_file):
             pb_obj.valid = da[7][6:].uint
 
             # Data from field B
-            pb_obj.length = db[0].uint * 0.5
-            pb_obj.width = db[1].uint * 0.5
+            pb_obj.length = db[0].uint * 0.05
+            pb_obj.width = db[1].uint * 0.05
             pb_obj.age = db[2].uint
             pb_obj.lane = db[3][:2].uint
 
