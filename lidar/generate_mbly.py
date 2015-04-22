@@ -77,9 +77,9 @@ def unpack_bag(out_folder, mbly_bag_file):
             pb_obj.timestamp = ts
 
             # Data from field A
-            pb_obj.obj_id = da[0].int
+            pb_obj.obj_id = da[0].uint
             pb_obj.pos_x = bs.Bits().join(
-                [da[2][::-1][:4][::-1], da[1]]).int * 0.0625
+                [da[2][::-1][:4][::-1], da[1]]).uint * 0.0625
             pb_obj.pos_y = bs.Bits().join(
                 [da[4][::-1][:2][::-1], da[3]]).int * 0.0625
             pb_obj.rel_vel_x = bs.Bits().join(
