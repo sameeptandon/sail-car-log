@@ -68,6 +68,7 @@ def unpack_bag(out_folder, mbly_bag_file):
         if len(data) % 3 != 0:
             continue
         for i in xrange(0, len(data), 3):
+            # If we are slicing bitstrings, we need to reverse twice
             da = data[i]
             db = data[i + 1]
             dc = data[i + 2]
@@ -77,21 +78,24 @@ def unpack_bag(out_folder, mbly_bag_file):
 
             # Data from field A
             pb_obj.obj_id = da[0].int
-            pb_obj.pos_x = bs.Bits().join([da[2][:4], da[1]]).int * 0.0625
-            pb_obj.pos_y = bs.Bits().join([da[4][:2], da[3]]).int * 0.0625
-            pb_obj.rel_vel_x = bs.Bits().join([da[6][:4], da[5]]).int * 0.0625
-            pb_obj.obj_type = da[6][4:7].uint
-            pb_obj.status = da[7][:3].uint
-            pb_obj.braking = int(da[7][3])
-            pb_obj.location = da[4][5:7].uint
-            pb_obj.blinker = da[4][2:5].uint
-            pb_obj.valid = da[7][6:].uint
+            pb_obj.pos_x = bs.Bits().join(
+                [da[2][::-1][:4][::-1], da[1]]).int * 0.0625
+            pb_obj.pos_y = bs.Bits().join(
+                [da[4][::-1][:2][::-1], da[3]]).int * 0.0625
+            pb_obj.rel_vel_x = bs.Bits().join(
+                [da[6][::-1][:4][::-1], da[5]]).int * 0.0625
+            pb_obj.obj_type = da[6][::-1][4:7][::-1].uint
+            pb_obj.status = da[7][::-1][:3][::-1].uint
+            pb_obj.braking = int(da[7][::-1][3])
+            pb_obj.location = da[4][::-1][5:7][::-1].uint
+            pb_obj.blinker = da[4][::-1][2:5][::-1].uint
+            pb_obj.valid = da[7][::-1][6:][::-1].uint
 
             # Data from field B
             pb_obj.length = db[0].uint * 0.05
             pb_obj.width = db[1].uint * 0.05
             pb_obj.age = db[2].uint
-            pb_obj.lane = db[3][:2].uint
+            pb_obj.lane = db[3][::-1][:2][::-1].uint
 
             # Data from field C
             pb_obj.acceleration_x = dc[4].int * 0.03
