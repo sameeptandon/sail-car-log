@@ -24,13 +24,13 @@ import vtk
 from ArgParser import parse_args
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
+from LaneMarkingHelper import BackProjector, DataTree, get_transforms, mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
 from MblyTransforms import MblyLoader
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
-from LaneMarkingHelper import BackProjector, DataTree, get_transforms, \
-    mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
 from mbly_obj_pb2 import Object
+from transformations import euler_from_matrix
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -213,6 +213,8 @@ class Blockworld:
         self.cloud_ren.AddActor(self.car)
 
         self.mbly_box_actors = []
+        # Car: 0, Truck: 1, Bike: 2, Other: 3-7
+        self.mbly_box_colors = [(1,0,0),(0,1,0),(0,0,1),(1,1,1)]
         # Use our custom mouse interactor
         self.interactor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
         self.iren.SetInteractorStyle(self.interactor)
@@ -292,15 +294,24 @@ class Blockworld:
             xform = self.cur_imu_transform
             car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
             actors = []
+            # (x, y, z) = (0.762, 0.0381, 0.9652) meters to lidar
             for obj in mbly_objs:
                 print obj
-                X = np.array((obj.pos_x, obj.pos_y, -1, 1))
-                X_ = np.dot(car_pos, X)
+                X = np.array((obj.pos_x, obj.pos_y, 0, 1))
+                # Add offsets
+                X += np.array((0.762, 0.0381, -0.9652, 0))
+
+                # Move points to car ref frame
+                X = np.dot(car_pos, X)
                 w = obj.width
                 l = obj.length
-                props = (X_[0], X_[1], X_[2], l, w)
+                props = (X[0], X[1], X[2], l, w)
                 box = VtkBoundingBox(props)
-                actors.append(box.get_vtk_box())
+                actor = box.get_vtk_box()
+                color = self.mbly_box_colors[obj.obj_type]
+                actor.GetProperty().SetColor(*color)
+                actor.RotateZ(euler_from_matrix(car_pos[:,:3])[2] * 180 / math.pi)
+                actors.append(actor)
 
             for actor in self.mbly_box_actors:
                 self.cloud_ren.RemoveActor(actor)
