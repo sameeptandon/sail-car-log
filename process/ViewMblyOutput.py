@@ -136,7 +136,7 @@ class Blockworld:
         bg_file = glob.glob(args['fullname'] + '*bg.npz')[0]
         print sys.argv
 
-        self.small_step = 10
+        self.small_step = 5
         self.large_step = 10
         self.startup_complete = False
 
@@ -212,7 +212,7 @@ class Blockworld:
         self.car.GetProperty().LightingOff()
         self.cloud_ren.AddActor(self.car)
 
-        self.mbly_box_actors = []
+        self.mbly_vtk_boxes = []
         # Car: 0, Truck: 1, Bike: 2, Other: 3-7
         self.mbly_box_colors = [(1,0,0),(0,1,0),(0,0,1),(1,1,1)]
         # Use our custom mouse interactor
@@ -263,15 +263,6 @@ class Blockworld:
         while self.video_reader.framenum <= self.mk2_t:
             (success, self.I) = self.video_reader.getNextFrame()
 
-        # Copy the image so we can project points onto it
-        I = self.I.copy()
-        I = self.projectPointsOnImg(I)
-        vtkimg = VtkImage(I)
-
-        self.img_ren.RemoveActor(self.img_actor)
-        self.img_actor = vtkimg.get_vtk_image()
-        self.img_actor.SetPickable(1)
-        self.img_ren.AddActor(self.img_actor)
 
         if self.running or self.manual_change:
             # Set camera position to in front of the car
@@ -293,32 +284,48 @@ class Blockworld:
             mbly_objs = self.mbly_loader.loadMblyWindow(gps_time)
             xform = self.cur_imu_transform
             car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
-            actors = []
+
+            mbly_vtk_boxes = []
             # (x, y, z) = (0.762, 0.0381, 0.9652) meters to lidar
             for obj in mbly_objs:
                 print obj
                 X = np.array((obj.pos_x, obj.pos_y, 0, 1))
                 # Add offsets
-                X += np.array((0.762, 0.0381, -0.9652, 0))
+                pts_wrt_lidar = X + np.array((0.762, 0.0381, -0.9652, 0))
 
                 # Move points to car ref frame
-                X = np.dot(car_pos, X)
+                X = np.dot(car_pos, pts_wrt_lidar)
                 w = obj.width
                 l = obj.length
-                props = (X[0], X[1], X[2], l, w)
-                box = VtkBoundingBox(props)
-                actor = box.get_vtk_box()
+                properties = (X[0], X[1], X[2], l, w)
+
+                # Create the vtk object
+                box = VtkBoundingBox(properties)
+                rot = euler_from_matrix(car_pos[:,:3])[2] * 180 / math.pi
+                actor = box.get_vtk_box(rot)
                 color = self.mbly_box_colors[obj.obj_type]
                 actor.GetProperty().SetColor(*color)
-                actor.RotateZ(euler_from_matrix(car_pos[:,:3])[2] * 180 / math.pi)
-                actors.append(actor)
 
-            for actor in self.mbly_box_actors:
-                self.cloud_ren.RemoveActor(actor)
-            for actor in actors:
-                self.cloud_ren.AddActor(actor)
-                self.mbly_box_actors = actors
+                mbly_vtk_boxes.append(box)
 
+            # Remove old boxes
+            for vtk_box in self.mbly_vtk_boxes:
+                self.cloud_ren.RemoveActor(vtk_box.actor)
+            # Update to new actors
+            self.mbly_vtk_boxes = mbly_vtk_boxes
+            # Draw new boxes
+            for vtk_box in self.mbly_vtk_boxes:
+                self.cloud_ren.AddActor(vtk_box.actor)
+                print vtk_box.corners
+
+        # Copy the image so we can project points onto it
+        I = self.I.copy()
+        # I = self.projectPointsOnImg(I)
+        vtkimg = VtkImage(I)
+
+        self.img_ren.RemoveActor(self.img_actor)
+        self.img_actor = vtkimg.get_vtk_image()
+        self.img_ren.AddActor(self.img_actor)
 
         # Initialization
         if not self.startup_complete:
