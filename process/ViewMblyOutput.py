@@ -26,7 +26,7 @@ from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
 from LaneMarkingHelper import BackProjector, DataTree, get_transforms, mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
-from MblyTransforms import MblyLoader
+from MblyTransforms import MblyLoader, projectPoints
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
 from mbly_obj_pb2 import Object
@@ -263,7 +263,7 @@ class Blockworld:
         while self.video_reader.framenum <= self.mk2_t:
             (success, self.I) = self.video_reader.getNextFrame()
 
-
+        boxes_2d = None
         if self.running or self.manual_change:
             # Set camera position to in front of the car
             position, focal_point = self.getCameraPosition(self.t)
@@ -284,7 +284,7 @@ class Blockworld:
             mbly_objs = self.mbly_loader.loadMblyWindow(gps_time)
             xform = self.cur_imu_transform
             car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
-
+            car_pos_inv = np.linalg.inv(car_pos)
             mbly_vtk_boxes = []
             # (x, y, z) = (0.762, 0.0381, 0.9652) meters to lidar
             for obj in mbly_objs:
@@ -314,13 +314,17 @@ class Blockworld:
             # Update to new actors
             self.mbly_vtk_boxes = mbly_vtk_boxes
             # Draw new boxes
+            boxes_2d = []
             for vtk_box in self.mbly_vtk_boxes:
                 self.cloud_ren.AddActor(vtk_box.actor)
-                print vtk_box.corners
+                corners = np.dot(car_pos_inv, vtk_box.corners.T)
+                pix = projectPoints(corners, self.args)
+                boxes_2d.append(pix[:, 3:])
 
         # Copy the image so we can project points onto it
         I = self.I.copy()
-        # I = self.projectPointsOnImg(I)
+        if boxes_2d != None:
+            I = self.projectBoxesOnImg(I, np.array(boxes_2d, dtype=np.int32))
         vtkimg = VtkImage(I)
 
         self.img_ren.RemoveActor(self.img_actor)
@@ -353,16 +357,9 @@ class Blockworld:
 
         self.iren.GetRenderWindow().Render()
 
-    def projectPointsOnImg(self, I, show_lidar=False):
-        car_pos = self.imu_transforms_mk1[self.t, 0:3, 3]
-
-        if show_lidar:
-            # Find the closest point
-            lidar_tree = self.raw_lidar
-            I = projectPointsOnImg(I, lidar_tree, self.imu_transforms_mk1,
-                                   self.t, self.T_from_i_to_l, self.cam_params,
-                                   [255, 255, 255])
-
+    def projectBoxesOnImg(self, I, boxes):
+        for box in boxes:
+            cv2.line(I, tuple(box[0]), tuple(box[3]), (0,0,255))
         return I
 
 if __name__ == '__main__':
