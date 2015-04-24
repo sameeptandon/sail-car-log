@@ -13,7 +13,7 @@ def calibrateMblyPts(pts):
     pts[:, 0] += 0.762
     pts[:, 1] += 0.0381
     pts[:, 2] += -0.9252
-    pts_wrt_lidar = np.dot(R, pts.transpose()).transpose()
+    pts_wrt_lidar = np.dot(R, pts[:,:3].T).T
     return pts_wrt_lidar
 
 def projectPoints(mbly_data, args):

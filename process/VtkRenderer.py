@@ -158,10 +158,6 @@ class VtkBoundingBox:
         y = [y-w/2., y+w/2.]
         z = [z-h/2., z+h/2.]
         self.bounds = (x[0], x[1], y[0], y[1], z[0], z[1])
-        self.corners = [(x[i], y[j], z[k]) for i in [0, 1] \
-                                         for j in [0, 1] \
-                                         for k in [0, 1]]
-        self.corners = np.array(self.corners)
         self.actor = None
         self.source = None
 
