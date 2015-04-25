@@ -198,8 +198,8 @@ class Blockworld:
         raw_cloud = VtkPointCloud(pts[:, :3], np.ones(pts[:, :3].shape) * 255)
         raw_actor = raw_cloud.get_vtk_color_cloud()
 
-        self.raw_lidar = VTKCloudTree(raw_cloud, raw_actor)
-        self.raw_lidar_2d = DataTree(self.raw_lidar.pts[:, :-1])
+        self.raw_lidar = VTKCloudTree(raw_cloud, raw_actor, build_tree=False)
+        self.raw_lidar_2d = DataTree(self.raw_lidar.pts[:, :-1], build_tree=False)
 
         self.raw_lidar.actor.GetProperty().SetPointSize(2)
         self.raw_lidar.actor.GetProperty().SetOpacity(0.1)
@@ -223,6 +223,8 @@ class Blockworld:
         self.video_reader = VideoReader(args['video'])
         self.img_actor = None
 
+        self.I = None
+        self.mbly_pix = None
         ###### Add Callbacks ######
         print 'Rendering'
 
@@ -281,15 +283,23 @@ class Blockworld:
 
             objs_wrt_mbly = self.getMblyObjects(mbly_objs)
             self.addObjToCloud(objs_wrt_mbly)
-            # pix = self.getObjAsPix(objs_wrt_mbly)
+            self.mbly_pix = self.getObjAsPix(objs_wrt_mbly)
 
             # If the user caused a manual change, reset it
             self.manual_change = 0
 
         # Copy the image so we can project points onto it
         I = self.I.copy()
-        # if pts_wrt_mbly != None:
-        #     I = self.projectBoxesOnImg(I, pts_wrt_mbly)
+        if self.mbly_pix is not None:
+            color = (0, 255, 0)
+            for box in self.mbly_pix:
+                # print box
+                if box.shape[0] == 4:
+                    cv2.line(I, tuple(box[0]), tuple(box[2]), color)
+                    cv2.line(I, tuple(box[2]), tuple(box[3]), color)
+                    cv2.line(I, tuple(box[3]), tuple(box[1]), color)
+                    cv2.line(I, tuple(box[1]), tuple(box[0]), color)
+
         vtkimg = VtkImage(I)
         self.img_ren.RemoveActor(self.img_actor)
         self.img_actor = vtkimg.get_vtk_image()
@@ -365,14 +375,23 @@ class Blockworld:
             self.cloud_ren.AddActor(vtk_box.actor)
 
     def getObjAsPix(self, objs_wrt_mbly):
-        return objs_wrt_mbly
+        if objs_wrt_mbly.shape[0] == 0:
+            return None
+
+        pix = []
+        for z in [0, 1]:
+            for y in [-1, 1]:
+                pt = objs_wrt_mbly[:, :3] + np.array((0, y, z))
+                pix.append(projectPoints(pt, self.args)[:, 3:])
+        pix = np.array(pix, dtype=np.int32)
+        return np.swapaxes(pix, 0, 1)
 
     def projectBoxOnImg(self, I, objs_wrt_mbly):
         if len(objs_wrt_mbly) == 0:
             return I
 
         pix = projectPoints(objs_wrt_mbly, args)[:, 3:]
-        print pix
+        # print pix
         return I
 
 if __name__ == '__main__':
