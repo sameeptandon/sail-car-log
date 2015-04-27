@@ -5,18 +5,19 @@ import mbly_obj_pb2
 import cv2
 from LidarTransforms import R_to_c_from_l
 
-def calibrateMblyPts(pts):
+def calibrateMblyPts(pts, T, R):
     """ Transforms the mobileye output into the lidar's FoR.
         TODO: Add save these values to params
     """
-    R = np.eye(3)
-    pts[:, 0] += 0.762
-    pts[:, 1] += 0.0381
-    pts[:, 2] += -0.9252
+    # R = np.eye(3)
+    # pts[:, 0] += 0.762
+    # pts[:, 1] += 0.0381
+    # pts[:, 2] += -0.9252
+    pts[:, :3] += np.tile(T, (pts.shape[0], 1))
     pts_wrt_lidar = np.dot(R, pts[:,:3].T).T
     return pts_wrt_lidar
 
-def projectPoints(mbly_data, args):
+def projectPoints(mbly_data, args, T, R):
     """ Projects mobileye points into the camera's frame
         Args: mbly_data, the output from loadMblyWindow
               args, the output from parse_args
@@ -26,7 +27,7 @@ def projectPoints(mbly_data, args):
     cam = params['cam'][cam_num]
 
     # Move points to the lidar FoR
-    pts_wrt_lidar = calibrateMblyPts(mbly_data)
+    pts_wrt_lidar = calibrateMblyPts(mbly_data, T, R)
 
     # Move the points to the cam FoR
     pts_wrt_cam = pts_wrt_lidar +\

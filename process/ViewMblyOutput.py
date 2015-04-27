@@ -30,7 +30,7 @@ from MblyTransforms import MblyLoader, projectPoints, calibrateMblyPts
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
 from mbly_obj_pb2 import Object
-from transformations import euler_from_matrix
+from transformations import euler_from_matrix, euler_matrix
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -117,6 +117,35 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.parent.t = self.parent.mk2_to_mk1()
                     self.parent.manual_change = 1
 
+        elif key == 'o':
+            self.parent.mbly_rot[0] -= 0.001
+        elif key == 'u':
+            self.parent.mbly_rot[0] += 0.001
+        elif key == 'i':
+            self.parent.mbly_rot[1] -= 0.001
+        elif key == 'k':
+            self.parent.mbly_rot[1] += 0.001
+        elif key == 'l':
+            self.parent.mbly_rot[2] -= 0.001
+        elif key == 'j':
+            self.parent.mbly_rot[2] += 0.001
+
+        elif key == 'plus':
+            self.parent.mbly_T[0] += 0.1
+        elif key == 'minus':
+            self.parent.mbly_T[0] -= 0.1
+        elif key == 'd':
+            self.parent.mbly_T[1] -= 0.1
+        elif key == 'a':
+            self.parent.mbly_T[1] += 0.1
+        elif key == 'w':
+            self.parent.mbly_T[2] -= 0.1
+        elif key == 's':
+            self.parent.mbly_T[2] += 0.1
+
+        print 'R:', self.parent.mbly_rot
+        print 'T:', self.parent.mbly_T
+
 
     def Render(self):
         self.iren.GetRenderWindow().Render()
@@ -164,6 +193,8 @@ class Blockworld:
 
         # Load the MobilEye file
         self.mbly_loader = MblyLoader(args['mbly_obj'])
+        self.mbly_rot = [0.007, -0.01, -0.02]
+        self.mbly_T = [0.762, 0.381, -0.9252]
 
         # Is the flyover running
         self.running = False
@@ -255,15 +286,32 @@ class Blockworld:
         return self.mk2_t + 2 * focus > self.video_reader.total_frame_count
 
     def update(self, iren, event):
-        # Transform the car
+        # Get the cameras
         cloud_cam = self.cloud_ren.GetActiveCamera()
+        img_cam = self.img_ren.GetActiveCamera()
 
-        # If we have gone backwards in time we need use setframe (slow)
-        # if self.manual_change != 0:
-        self.video_reader.setFrame(self.mk2_t - 1)
+        # Initialization
+        if not self.startup_complete:
+            cloud_cam.SetViewUp(0, 0, 1)
+            self.mk2_t = 0
+            self.t = self.mk2_to_mk1()
 
-        while self.video_reader.framenum <= self.mk2_t:
-            (success, self.I) = self.video_reader.getNextFrame()
+            self.startup_complete = True
+            self.manual_change = -1 # Force an update for the camera
+
+        # Update the time (arrow keys also update time)
+        if self.running:
+            self.mk2_t += self.large_step
+        if self.finished():
+            self.mk2_t -= self.large_step
+            if self.running == True:
+                self.interactor.KeyHandler(key='space')
+
+        # Get the correct gps time (mk2 is camera time)
+        self.t = self.mk2_to_mk1()
+        self.cur_imu_transform = self.imu_transforms_mk1[self.t, :, :]
+        # Get the correct frame to show
+        (success, self.I) = self.video_reader.getFrame(self.mk2_t)
 
         if self.running or self.manual_change:
             # Set camera position to in front of the car
@@ -272,7 +320,6 @@ class Blockworld:
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            self.cur_imu_transform = self.imu_transforms_mk1[self.t, :,:]
             transform = vtk_transform_from_np(self.cur_imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
@@ -293,40 +340,21 @@ class Blockworld:
         if self.mbly_pix is not None:
             color = (0, 255, 0)
             for box in self.mbly_pix:
-                if box.shape[0] == 4:
-                    cv2.line(I, tuple(box[0]), tuple(box[2]), color, 2)
-                    cv2.line(I, tuple(box[2]), tuple(box[3]), color, 2)
-                    cv2.line(I, tuple(box[3]), tuple(box[1]), color, 2)
-                    cv2.line(I, tuple(box[1]), tuple(box[0]), color, 2)
+                cv2.line(I, tuple(box[0]), tuple(box[2]), color, 2)
+                cv2.line(I, tuple(box[2]), tuple(box[3]), color, 2)
+                cv2.line(I, tuple(box[3]), tuple(box[1]), color, 2)
+                cv2.line(I, tuple(box[1]), tuple(box[0]), color, 2)
 
         vtkimg = VtkImage(I)
         self.img_ren.RemoveActor(self.img_actor)
         self.img_actor = vtkimg.get_vtk_image()
         self.img_ren.AddActor(self.img_actor)
 
-        # Initialization
-        if not self.startup_complete:
-            cloud_cam.SetViewUp(0, 0, 1)
-            self.img_ren.ResetCamera()
-            # These units are pixels
-            self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
-            self.img_ren.GetActiveCamera().Dolly(1.75)
-
-            self.mk2_t = 0
-            self.t = self.mk2_to_mk1()
-
-            self.startup_complete = True
-            self.manual_change = -1
-
-        if self.running:
-            self.mk2_t += self.large_step
-
-        if self.finished():
-            self.mk2_t -= self.large_step
-            if self.running == True:
-                self.interactor.KeyHandler(key='space')
-
-        self.t = self.mk2_to_mk1()
+        # We need to draw the image before we run ResetCamera or else
+        # the image is too small
+        self.img_ren.ResetCamera()
+        self.img_cam.SetClippingRange(100, 100000) # These units are pixels
+        self.img_cam.Dolly(1.75)
 
         self.iren.GetRenderWindow().Render()
 
@@ -347,7 +375,10 @@ class Blockworld:
         car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
 
         # Move points to car ref frame
-        objs_wrt_lidar = calibrateMblyPts(objs_wrt_mbly)
+        self.mbly_R = euler_matrix(*self.mbly_rot)[:3, :3]
+        objs_wrt_lidar = calibrateMblyPts(objs_wrt_mbly, self.mbly_T,\
+                                          self.mbly_R[:3,:3])
+
         hom_objs_wrt_mbly = np.hstack((objs_wrt_lidar[:, :3], \
                                       np.ones((objs_wrt_mbly.shape[0], 1))))
         objs_wrt_world = np.dot(car_pos, hom_objs_wrt_mbly.T).T
@@ -385,6 +416,9 @@ class Blockworld:
                 offset[:, 1] = w*y
                 offset[:, 2] = z
                 pt = objs_wrt_mbly[:, :3] + offset
+                pix.append(projectPoints(pt, self.args, self.mbly_T, \
+                                         self.mbly_R)[:, 3:])
+
         pix = np.array(pix, dtype=np.int32)
         return np.swapaxes(pix, 0, 1)
 
