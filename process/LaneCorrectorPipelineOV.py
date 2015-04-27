@@ -94,9 +94,9 @@ if __name__ == '__main__':
         cmd = """rsync --progress -a -L --prune-empty-dirs --exclude="*_frames/" \
         --exclude="*_radar" --include="*_frames.tar.gz" \
         --include="*604.zip" --include="*.out" --include="params.ini" \
-        --include="*lanes.pickle" --include="*.jpg" --filter="-! */" \
-        /deep/group/driving_data/q50_data/{remote} {local}""".format(
-            remote=remote_folder, local=local_folder + '/..')
+        --include="*lanes.pickle" --include="*.jpg" --include="*.*proto" \
+        --filter="-! */" /deep/group/driving_data/q50_data/{remote} {local}"""\
+            .format(remote=remote_folder, local=local_folder + '/..')
         print cmd
         tokens = shlex.split(cmd)
         if '-d' in sys.argv:
