@@ -125,7 +125,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 class Blockworld:
 
     def __init__(self):
-        if len(sys.argv) <= 2 or '-h' in sys.argv or '--help' in sys.argv:
+        if len(sys.argv) <= 2 or '--help' in sys.argv:
             print """Usage:
             {name} folder/ video.avi
             """.format(name = sys.argv[0])
@@ -278,27 +278,26 @@ class Blockworld:
             transform.Translate(-2, -3, -2)
             self.car.SetUserTransform(transform)
 
-            gps_time = self.gps_times_mk2[self.mk2_t]
-            mbly_objs = self.mbly_loader.loadMblyWindow(gps_time)
-
-            objs_wrt_mbly = self.getMblyObjects(mbly_objs)
-            self.addObjToCloud(objs_wrt_mbly)
-            self.mbly_pix = self.getObjAsPix(objs_wrt_mbly)
-
             # If the user caused a manual change, reset it
             self.manual_change = 0
+
+        gps_time = self.gps_times_mk2[self.mk2_t]
+        mbly_objs = self.mbly_loader.loadMblyWindow(gps_time)
+
+        objs_wrt_mbly = self.getMblyObjects(mbly_objs)
+        self.addObjToCloud(objs_wrt_mbly)
+        self.mbly_pix = self.getObjAsPix(objs_wrt_mbly)
 
         # Copy the image so we can project points onto it
         I = self.I.copy()
         if self.mbly_pix is not None:
             color = (0, 255, 0)
             for box in self.mbly_pix:
-                # print box
                 if box.shape[0] == 4:
-                    cv2.line(I, tuple(box[0]), tuple(box[2]), color)
-                    cv2.line(I, tuple(box[2]), tuple(box[3]), color)
-                    cv2.line(I, tuple(box[3]), tuple(box[1]), color)
-                    cv2.line(I, tuple(box[1]), tuple(box[0]), color)
+                    cv2.line(I, tuple(box[0]), tuple(box[2]), color, 2)
+                    cv2.line(I, tuple(box[2]), tuple(box[3]), color, 2)
+                    cv2.line(I, tuple(box[3]), tuple(box[1]), color, 2)
+                    cv2.line(I, tuple(box[1]), tuple(box[0]), color, 2)
 
         vtkimg = VtkImage(I)
         self.img_ren.RemoveActor(self.img_actor)
@@ -379,10 +378,13 @@ class Blockworld:
             return None
 
         pix = []
-        for z in [0, 1]:
-            for y in [-1, 1]:
-                pt = objs_wrt_mbly[:, :3] + np.array((0, y, z))
-                pix.append(projectPoints(pt, self.args)[:, 3:])
+        w = objs_wrt_mbly[:, 4]
+        for z in [-.5, .5]:
+            for y in [-.5, .5]:
+                offset = np.zeros((w.shape[0], 3))
+                offset[:, 1] = w*y
+                offset[:, 2] = z
+                pt = objs_wrt_mbly[:, :3] + offset
         pix = np.array(pix, dtype=np.int32)
         return np.swapaxes(pix, 0, 1)
 
