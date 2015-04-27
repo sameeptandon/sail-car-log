@@ -5,6 +5,7 @@ import multiprocessing
 from collections import Counter
 from mbly_obj_pb2 import Object, Objects
 from mbly_lane_pb2 import Lane, Lanes
+from mbly_ref_pb2 import Ref_pt, Ref_pts
 
 # Coordinate system: y grows up, x grows right, z is away
 
@@ -26,7 +27,7 @@ can_id_to_lane_id_table = {
         0x767: -1, # ego left lane packet B
         0x768: 1, # ego right lane packet A
         0x769: 1, # ego right lane packet B
-        0x76C: -2, 
+        0x76C: -2,
         0x76D: -2,
         0x76E: 2,
         0x76F: 2,
@@ -49,6 +50,10 @@ def get_data(msg):
     return [bs.Bits(bytes=x) for x in msg.data]
 
 def cut(data, start=0, end=8):
+    """Gets the correct bits from the message. The mobileye manual lists bits in
+    the reverse direction. To get bits as they are referred to in the manual,
+    we need to flip, cut, then flip back.
+    """
     return data[::-1][start:end][::-1]
 
 def unpack_bag(out_folder, mbly_bag_file):
@@ -70,6 +75,7 @@ def unpack_bag(out_folder, mbly_bag_file):
     lanes = {}
     lane_time = -1
 
+    ref_pts = {}
     for topic, msg, t in mbly_bag.read_messages(topics=['/EyeData']):
         data = get_data(msg)
 
@@ -84,17 +90,32 @@ def unpack_bag(out_folder, mbly_bag_file):
         # lanes
         if msg.id == 0x766:
             lane_time = t.to_nsec()
-            lanes[lane_time] = [ ]
+            lanes[lane_time] = []
         if (msg.id >= 0x766 and msg.id <= 0x769) or \
             (msg.id >= 0x76c and msg.id <= 0x77f) and \
             lane_time >= 0:
                 lanes[lane_time].append(msg)
 
+        # reference points
+        if msg.id == 0x76a:
+            ref_time = t.to_nsec()
+            ref_pts[ref_time] = msg
+
+    pb_ref_pts = Ref_pts()
+    for ts, msg in ref_pts.iteritems():
+        da = get_data(msg)
+
+        pb_ref_pt = pb_ref_pts.ref_pt.add()
+        pb_lane.timestamp = ts
+        pb_lane.position = ((da[1] + da[0]).uint - 0x7FFF) / 256.
+        pb_lane.distance = (cut(da[3], 0, 7) + da[2]).uint / 256.
+        pb_lane.is_valid = cut(da[3], 7, 8).uint
+
     pb_lanes = Lanes()
     for ts, msgs in lanes.iteritems():
         msgs.sort(key = lambda x: x.id)
-       
-        # Lanes have 2 data messages 
+
+        # Lanes have 2 data messages
         # if there aren't 2, skip!
         if len(msgs) % 2 != 0:
             continue
@@ -108,11 +129,9 @@ def unpack_bag(out_folder, mbly_bag_file):
             pb_lane.timestamp = ts
             pb_lane.lane_id = can_id_to_lane_id_table[msgs[i].id]
             pb_lane.C0 = (da[2] + da[1]).int  / 256.0
-            pb_lane.C1 = ( (db[1] + db[0]).uint - 0x7FFF)  / 1024.0
-            pb_lane.C2 = \
-                    ((da[4] + da[3]).uint - 0x7FFF) / (1024.0*1000)
-            pb_lane.C3 = \
-                    ((da[6] + da[5]).uint - 0x7FFF) / float(1 << 28)
+            pb_lane.C1 = ((db[1] + db[0]).uint - 0x7FFF)  / 1024.0
+            pb_lane.C2 = ((da[4] + da[3]).uint - 0x7FFF) / (1024.0*1000)
+            pb_lane.C3 = ((da[6] + da[5]).uint - 0x7FFF) / float(1 << 28)
             pb_lane.lane_type = cut(da[0], 0, 4).uint
             pb_lane.model_degree = cut(da[0], 6, 8).uint
             pb_lane.quality = cut(da[0], 4, 6).uint
@@ -146,7 +165,7 @@ def unpack_bag(out_folder, mbly_bag_file):
                 (cut(da[6], 0, 4) + da[5]).int * 0.0625
             pb_obj.obj_type = cut(da[6], 4, 7).uint
             pb_obj.status = cut(da[7], 0, 3).uint
-            pb_obj.braking = cut(da[7], 3, 4).uint 
+            pb_obj.braking = cut(da[7], 3, 4).uint
             pb_obj.location = cut(da[4], 5, 7).uint
             pb_obj.blinker = cut(da[4],2,5).uint
             pb_obj.valid = cut(da[7], 6, 8).uint
