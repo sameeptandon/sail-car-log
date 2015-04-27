@@ -353,8 +353,8 @@ class Blockworld:
         # We need to draw the image before we run ResetCamera or else
         # the image is too small
         self.img_ren.ResetCamera()
-        self.img_cam.SetClippingRange(100, 100000) # These units are pixels
-        self.img_cam.Dolly(1.75)
+        img_cam.SetClippingRange(100, 100000) # These units are pixels
+        img_cam.Dolly(1.75)
 
         self.iren.GetRenderWindow().Render()
 
