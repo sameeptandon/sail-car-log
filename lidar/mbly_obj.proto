@@ -2,51 +2,50 @@ package mbly;
 
 message Object {
   // Timestamp from ros
-  required uint64 timestamp = 1;
+  optional uint64 timestamp = 1;
 
   /////////////// Obstacle Data A ///////////////
   // Id to track from frame to frame [0-63]
-  required uint32 obj_id = 2;
+  optional uint32 obj_id = 2;
 
   // meters [0-250]
-  required float pos_x = 3;
+  optional float pos_x = 3;
   // meters [-31.93-31.93]
-  required float pos_y = 4;
+  optional float pos_y = 4;
 
   // meters/second [-127.93-127.93]
-  required float rel_vel_x = 5;
+  optional float rel_vel_x = 5;
 
   enum Type {
     Vehicle = 0; Truck = 1; Bike = 2; Ped = 3; Bicycle = 4;
     Unused_type5 = 5; Unused_type6 = 6; Unused_type7 = 7;
   }
-  required Type obj_type = 6;
+  optional Type obj_type = 6;
 
   enum Status {
     Undefined_stat = 0; Standing = 1; Stopped = 2; Moving = 3; Oncoming = 4;
     Parked = 5; Unused_stat6 = 6; Unused_stat7 = 7;
   }
-  required Status status = 7;
+  optional Status status = 7;
 
   enum Braking {
     Lights_off_or_not_identified = 0;
     Lights_on = 1;
   }
-  required Braking braking = 8;
+  optional Braking braking = 8;
 
   // An estimate of the object's location in 1 second
   enum Location {
-    Undefined_loc0 = 0; In_host_lane = 1; Out_host_lane = 2; Cut_in = 3; Cut_out = 4;
-    Undefined_loc4 = 4; Undefined_loc5 = 5; Undefined_loc6 = 6; Undefined_loc7 = 7;
+    Undefined_loc0 = 0; In_host_lane = 1; Out_host_lane = 2; Cut_in = 3; Cut_out = 4; Undefined_loc5 = 5; Undefined_loc6 = 6; Undefined_loc7 = 7;
 
   }
   // Called cut in and out in manual
-  required Location location = 9;
+  optional Location location = 9;
 
   enum Blinker {
     Unavailable = 0; Off = 1; Left = 2; Right = 3; Both = 4;
   }
-  required Blinker blinker = 10;
+  optional Blinker blinker = 10;
 
   enum Valid {
     Unused_valid0 = 0; // This is not in the docs, but shows up sometimes
@@ -54,24 +53,24 @@ message Object {
     Older_valid = 2; // Detected earlier
     Unused_valid3 = 3; // This is not in the docs, but shows up sometimes
   }
-  required Valid valid = 11;
+  optional Valid valid = 11;
 
   /////////////// Obstacle Data B ///////////////
   // meters [0-31]
-  required float length = 12;
+  optional float length = 12;
   // meters [0-12.5]
-  required float width = 13;
+  optional float width = 13;
   // Number of frames the object has been in view [0-254]
-  required uint32 age = 14;
+  optional uint32 age = 14;
 
   enum Lane {
     Not_assigned = 0; Ego_lane = 1; Next_lane = 2; Invalid = 3;
   }
-  required Lane lane = 15;
+  optional Lane lane = 15;
 
   /////////////// Obstacle Data C ///////////////
   // Longitude acceleration m/s^2 [-14.97-14.97]
-  required float acceleration_x = 16;
+  optional float acceleration_x = 16;
 }
 
 message Objects {
