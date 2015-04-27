@@ -24,13 +24,13 @@ import vtk
 from ArgParser import parse_args
 from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
+from LaneMarkingHelper import BackProjector, DataTree, get_transforms, mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
-from MblyTransforms import MblyLoader
+from MblyTransforms import MblyLoader, projectPoints, calibrateMblyPts
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
-from LaneMarkingHelper import BackProjector, DataTree, get_transforms, \
-    mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
 from mbly_obj_pb2 import Object
+from transformations import euler_from_matrix, euler_matrix
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -117,6 +117,35 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                     self.parent.t = self.parent.mk2_to_mk1()
                     self.parent.manual_change = 1
 
+        elif key == 'o':
+            self.parent.mbly_rot[0] -= 0.001
+        elif key == 'u':
+            self.parent.mbly_rot[0] += 0.001
+        elif key == 'i':
+            self.parent.mbly_rot[1] -= 0.001
+        elif key == 'k':
+            self.parent.mbly_rot[1] += 0.001
+        elif key == 'l':
+            self.parent.mbly_rot[2] -= 0.001
+        elif key == 'j':
+            self.parent.mbly_rot[2] += 0.001
+
+        elif key == 'plus':
+            self.parent.mbly_T[0] += 0.1
+        elif key == 'minus':
+            self.parent.mbly_T[0] -= 0.1
+        elif key == 'd':
+            self.parent.mbly_T[1] -= 0.1
+        elif key == 'a':
+            self.parent.mbly_T[1] += 0.1
+        elif key == 'w':
+            self.parent.mbly_T[2] -= 0.1
+        elif key == 's':
+            self.parent.mbly_T[2] += 0.1
+
+        print 'R:', self.parent.mbly_rot
+        print 'T:', self.parent.mbly_T
+
 
     def Render(self):
         self.iren.GetRenderWindow().Render()
@@ -125,7 +154,7 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 class Blockworld:
 
     def __init__(self):
-        if len(sys.argv) <= 2 or '-h' in sys.argv or '--help' in sys.argv:
+        if len(sys.argv) <= 2 or '--help' in sys.argv:
             print """Usage:
             {name} folder/ video.avi
             """.format(name = sys.argv[0])
@@ -136,7 +165,7 @@ class Blockworld:
         bg_file = glob.glob(args['fullname'] + '*bg.npz')[0]
         print sys.argv
 
-        self.small_step = 10
+        self.small_step = 5
         self.large_step = 10
         self.startup_complete = False
 
@@ -164,6 +193,8 @@ class Blockworld:
 
         # Load the MobilEye file
         self.mbly_loader = MblyLoader(args['mbly_obj'])
+        self.mbly_rot = [0.007, -0.01, -0.02]
+        self.mbly_T = [0.762, 0.381, -0.9252]
 
         # Is the flyover running
         self.running = False
@@ -198,11 +229,11 @@ class Blockworld:
         raw_cloud = VtkPointCloud(pts[:, :3], np.ones(pts[:, :3].shape) * 255)
         raw_actor = raw_cloud.get_vtk_color_cloud()
 
-        self.raw_lidar = VTKCloudTree(raw_cloud, raw_actor)
-        self.raw_lidar_2d = DataTree(self.raw_lidar.pts[:, :-1])
+        self.raw_lidar = VTKCloudTree(raw_cloud, raw_actor, build_tree=False)
+        self.raw_lidar_2d = DataTree(self.raw_lidar.pts[:, :-1], build_tree=False)
 
-        self.raw_lidar.actor.GetProperty().SetPointSize(5)
-        self.raw_lidar.actor.GetProperty().SetOpacity(0.3)
+        self.raw_lidar.actor.GetProperty().SetPointSize(2)
+        self.raw_lidar.actor.GetProperty().SetOpacity(0.1)
         self.raw_lidar.actor.SetPickable(0)
         self.cloud_ren.AddActor(self.raw_lidar.actor)
 
@@ -212,7 +243,9 @@ class Blockworld:
         self.car.GetProperty().LightingOff()
         self.cloud_ren.AddActor(self.car)
 
-        self.mbly_box_actors = []
+        self.mbly_vtk_boxes = []
+        # Car: 0, Truck: 1, Bike: 2, Other: 3-7
+        self.mbly_box_colors = [(1,0,0),(0,1,0),(0,0,1),(1,1,1)]
         # Use our custom mouse interactor
         self.interactor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
         self.iren.SetInteractorStyle(self.interactor)
@@ -221,6 +254,8 @@ class Blockworld:
         self.video_reader = VideoReader(args['video'])
         self.img_actor = None
 
+        self.I = None
+        self.mbly_pix = None
         ###### Add Callbacks ######
         print 'Rendering'
 
@@ -251,25 +286,32 @@ class Blockworld:
         return self.mk2_t + 2 * focus > self.video_reader.total_frame_count
 
     def update(self, iren, event):
-        # Transform the car
+        # Get the cameras
         cloud_cam = self.cloud_ren.GetActiveCamera()
+        img_cam = self.img_ren.GetActiveCamera()
 
-        # If we have gone backwards in time we need use setframe (slow)
-        # if self.manual_change != 0:
-        self.video_reader.setFrame(self.mk2_t - 1)
+        # Initialization
+        if not self.startup_complete:
+            cloud_cam.SetViewUp(0, 0, 1)
+            self.mk2_t = 0
+            self.t = self.mk2_to_mk1()
 
-        while self.video_reader.framenum <= self.mk2_t:
-            (success, self.I) = self.video_reader.getNextFrame()
+            self.startup_complete = True
+            self.manual_change = -1 # Force an update for the camera
 
-        # Copy the image so we can project points onto it
-        I = self.I.copy()
-        I = self.projectPointsOnImg(I)
-        vtkimg = VtkImage(I)
+        # Update the time (arrow keys also update time)
+        if self.running:
+            self.mk2_t += self.large_step
+        if self.finished():
+            self.mk2_t -= self.large_step
+            if self.running == True:
+                self.interactor.KeyHandler(key='space')
 
-        self.img_ren.RemoveActor(self.img_actor)
-        self.img_actor = vtkimg.get_vtk_image()
-        self.img_actor.SetPickable(1)
-        self.img_ren.AddActor(self.img_actor)
+        # Get the correct gps time (mk2 is camera time)
+        self.t = self.mk2_to_mk1()
+        self.cur_imu_transform = self.imu_transforms_mk1[self.t, :, :]
+        # Get the correct frame to show
+        (success, self.I) = self.video_reader.getFrame(self.mk2_t)
 
         if self.running or self.manual_change:
             # Set camera position to in front of the car
@@ -278,7 +320,6 @@ class Blockworld:
             cloud_cam.SetFocalPoint(focal_point)
 
             # Update the car position
-            self.cur_imu_transform = self.imu_transforms_mk1[self.t, :,:]
             transform = vtk_transform_from_np(self.cur_imu_transform)
             transform.RotateZ(90)
             transform.Translate(-2, -3, -2)
@@ -287,64 +328,106 @@ class Blockworld:
             # If the user caused a manual change, reset it
             self.manual_change = 0
 
-            gps_time = self.gps_times_mk2[self.mk2_t]
-            mbly_objs = self.mbly_loader.loadMblyWindow(gps_time)
-            xform = self.cur_imu_transform
-            car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
-            actors = []
-            for obj in mbly_objs:
-                print obj
-                X = np.array((obj.pos_x, obj.pos_y, -1, 1))
-                X_ = np.dot(car_pos, X)
-                w = obj.width * 0.1
-                l = obj.length * 0.1
-                props = (X_[0], X_[1], X_[2], l, w)
-                box = VtkBoundingBox(props)
-                actors.append(box.get_vtk_box())
+        gps_time = self.gps_times_mk2[self.mk2_t]
+        mbly_objs = self.mbly_loader.loadMblyWindow(gps_time)
 
-            for actor in self.mbly_box_actors:
-                self.cloud_ren.RemoveActor(actor)
-            for actor in actors:
-                self.cloud_ren.AddActor(actor)
-                self.mbly_box_actors = actors
+        objs_wrt_mbly = self.getMblyObjects(mbly_objs)
+        self.addObjToCloud(objs_wrt_mbly)
+        self.mbly_pix = self.getObjAsPix(objs_wrt_mbly)
 
+        # Copy the image so we can project points onto it
+        I = self.I.copy()
+        if self.mbly_pix is not None:
+            color = (0, 255, 0)
+            for box in self.mbly_pix:
+                cv2.line(I, tuple(box[0]), tuple(box[2]), color, 2)
+                cv2.line(I, tuple(box[2]), tuple(box[3]), color, 2)
+                cv2.line(I, tuple(box[3]), tuple(box[1]), color, 2)
+                cv2.line(I, tuple(box[1]), tuple(box[0]), color, 2)
 
-        # Initialization
-        if not self.startup_complete:
-            cloud_cam.SetViewUp(0, 0, 1)
-            self.img_ren.ResetCamera()
-            # These units are pixels
-            self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
-            self.img_ren.GetActiveCamera().Dolly(1.75)
+        vtkimg = VtkImage(I)
+        self.img_ren.RemoveActor(self.img_actor)
+        self.img_actor = vtkimg.get_vtk_image()
+        self.img_ren.AddActor(self.img_actor)
 
-            self.mk2_t = 0
-            self.t = self.mk2_to_mk1()
-
-            self.startup_complete = True
-            self.manual_change = -1
-
-        if self.running:
-            self.mk2_t += self.large_step
-
-        if self.finished():
-            self.mk2_t -= self.large_step
-            if self.running == True:
-                self.interactor.KeyHandler(key='space')
-
-        self.t = self.mk2_to_mk1()
+        # We need to draw the image before we run ResetCamera or else
+        # the image is too small
+        self.img_ren.ResetCamera()
+        self.img_cam.SetClippingRange(100, 100000) # These units are pixels
+        self.img_cam.Dolly(1.75)
 
         self.iren.GetRenderWindow().Render()
 
-    def projectPointsOnImg(self, I, show_lidar=False):
-        car_pos = self.imu_transforms_mk1[self.t, 0:3, 3]
+    def getMblyObjects(self, mbly_objs):
+        pts_wrt_mbly = []
+        for obj in mbly_objs:
+            pt_wrt_mbly = np.array((obj.pos_x, obj.pos_y, 0, \
+                                    obj.length, obj.width, obj.obj_type))
+            pts_wrt_mbly.append(pt_wrt_mbly)
+        pts_wrt_mbly = np.array(pts_wrt_mbly)
+        return pts_wrt_mbly
 
-        if show_lidar:
-            # Find the closest point
-            lidar_tree = self.raw_lidar
-            I = projectPointsOnImg(I, lidar_tree, self.imu_transforms_mk1,
-                                   self.t, self.T_from_i_to_l, self.cam_params,
-                                   [255, 255, 255])
+    def addObjToCloud(self, objs_wrt_mbly):
+        """ Add the mobileye returns to the 3d scene """
+        mbly_vtk_boxes = []
 
+        xform = self.cur_imu_transform
+        car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
+
+        # Move points to car ref frame
+        self.mbly_R = euler_matrix(*self.mbly_rot)[:3, :3]
+        objs_wrt_lidar = calibrateMblyPts(objs_wrt_mbly, self.mbly_T,\
+                                          self.mbly_R[:3,:3])
+
+        hom_objs_wrt_mbly = np.hstack((objs_wrt_lidar[:, :3], \
+                                      np.ones((objs_wrt_mbly.shape[0], 1))))
+        objs_wrt_world = np.dot(car_pos, hom_objs_wrt_mbly.T).T
+        objs_wrt_world = np.hstack((objs_wrt_world, objs_wrt_mbly[:, 3:]))
+
+        # Draw each box
+        car_rot = euler_from_matrix(car_pos[:,:3])[2] * 180 / math.pi
+        for o in objs_wrt_world:
+            properties = tuple(o)
+            # Create the vtk object
+            box = VtkBoundingBox(properties)
+            actor = box.get_vtk_box(car_rot)
+            color = self.mbly_box_colors[int(o[5])]
+            actor.GetProperty().SetColor(*color)
+            mbly_vtk_boxes.append(box)
+
+        # Remove old boxes
+        for vtk_box in self.mbly_vtk_boxes:
+            self.cloud_ren.RemoveActor(vtk_box.actor)
+        # Update to new actors
+        self.mbly_vtk_boxes = mbly_vtk_boxes
+        # Draw new boxes
+        for vtk_box in self.mbly_vtk_boxes:
+            self.cloud_ren.AddActor(vtk_box.actor)
+
+    def getObjAsPix(self, objs_wrt_mbly):
+        if objs_wrt_mbly.shape[0] == 0:
+            return None
+
+        pix = []
+        w = objs_wrt_mbly[:, 4]
+        for z in [-.5, .5]:
+            for y in [-.5, .5]:
+                offset = np.zeros((w.shape[0], 3))
+                offset[:, 1] = w*y
+                offset[:, 2] = z
+                pt = objs_wrt_mbly[:, :3] + offset
+                pix.append(projectPoints(pt, self.args, self.mbly_T, \
+                                         self.mbly_R)[:, 3:])
+
+        pix = np.array(pix, dtype=np.int32)
+        return np.swapaxes(pix, 0, 1)
+
+    def projectBoxOnImg(self, I, objs_wrt_mbly):
+        if len(objs_wrt_mbly) == 0:
+            return I
+
+        pix = projectPoints(objs_wrt_mbly, args)[:, 3:]
+        # print pix
         return I
 
 if __name__ == '__main__':

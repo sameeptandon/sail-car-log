@@ -154,12 +154,18 @@ class VtkBoundingBox:
         # (x, y) is the center-back of the car
         (x, y, z, l, w) = tuple(properties[:5])
         h = 1
-        self.bounds = (x, x+l, y-w/2., y+w/2., z-h/2., z+h/2.)
+        x = [x, x+l]
+        y = [y-w/2., y+w/2.]
+        z = [z-h/2., z+h/2.]
+        self.bounds = (x[0], x[1], y[0], y[1], z[0], z[1])
+        self.actor = None
+        self.source = None
 
     def get_vtk_box(self, rot = 0):
         # create source
         source = vtk.vtkCubeSource()
         source.SetBounds(self.bounds)
+        self.source = source
 
         # mapper
         mapper = vtk.vtkPolyDataMapper()
@@ -174,6 +180,7 @@ class VtkBoundingBox:
 
         actor.SetOrigin(source.GetCenter())
         actor.RotateZ(rot)
+        self.actor = actor
 
         # assign actor to the renderer
         return actor

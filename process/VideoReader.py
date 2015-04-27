@@ -14,8 +14,6 @@ class VideoReader(object):
     else:
       return JPEGVideoReader(filename)
 
-
-
 class AVIVideoReader:
   def __init__(self, filename, in_splits=True, num_splits=10):
     assert(in_splits) # for now
@@ -121,7 +119,7 @@ class ZIPVideoReader:
         imgstr = img_file.read()
         img = cv2.imdecode(np.fromstring(imgstr, np.uint8),
                            cv2.CV_LOAD_IMAGE_COLOR)
-        if img == None:
+        if img is None:
           # This happens sometimes
           print 'Corrupt jpeg: frame number', self.framenum
         return (True, img)

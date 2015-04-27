@@ -4,6 +4,8 @@ import sys, os
 import multiprocessing
 from collections import Counter
 from mbly_obj_pb2 import Object, Objects
+from mbly_lane_pb2 import Lane, Lanes
+from mbly_ref_pb2 import Ref_pt, Ref_pts
 
 # Coordinate system: y grows up, x grows right, z is away
 
@@ -20,18 +22,39 @@ from mbly_obj_pb2 import Object, Objects
 #! 0x76C + 2*N next lane A
 #! 0x76D + 2*N next lane B
 
+can_id_to_lane_id_table = {
+        0x766: -1, # ego left lane packet A
+        0x767: -1, # ego left lane packet B
+        0x768: 1, # ego right lane packet A
+        0x769: 1, # ego right lane packet B
+        0x76C: -2,
+        0x76D: -2,
+        0x76E: 2,
+        0x76F: 2,
+}
+
 def run_command(args):
     print args
     (mbly_bag_file, out_folder) = args
     if out_folder[-1] != '/':
         out_folder += '/'
-    out_name = out_folder + '/' + mbly_bag_file.replace('.bag', '.objproto')
-    pb_objs = unpack_bag(out_folder, mbly_bag_file)
-    with open(out_name, "wb") as f:
+    out_obj_name = out_folder + '/' + mbly_bag_file.replace('.bag', '.objproto')
+    out_lanes_name = out_folder + '/' + mbly_bag_file.replace('.bag', '.lanesproto')
+    (pb_objs, pb_lanes) = unpack_bag(out_folder, mbly_bag_file)
+    with open(out_obj_name, "wb") as f:
         f.write(pb_objs.SerializeToString())
+    with open(out_lanes_name, "wb") as f:
+        f.write(pb_lanes.SerializeToString())
 
 def get_data(msg):
     return [bs.Bits(bytes=x) for x in msg.data]
+
+def cut(data, start=0, end=8):
+    """Gets the correct bits from the message. The mobileye manual lists bits in
+    the reverse direction. To get bits as they are referred to in the manual,
+    we need to flip, cut, then flip back.
+    """
+    return data[::-1][start:end][::-1]
 
 def unpack_bag(out_folder, mbly_bag_file):
     """ Unpacks the bag and writes individual segments to files.
@@ -49,9 +72,14 @@ def unpack_bag(out_folder, mbly_bag_file):
     obj_cnt = -1
     obj_time = -1
 
+    lanes = {}
+    lane_time = -1
+
+    ref_pts = {}
     for topic, msg, t in mbly_bag.read_messages(topics=['/EyeData']):
         data = get_data(msg)
 
+        # obstacles
         if msg.id == 0x738:
             obj_cnt = data[0].uint
             obj_time = t.to_nsec()
@@ -59,6 +87,57 @@ def unpack_bag(out_folder, mbly_bag_file):
         if obj_time != -1 and obj_cnt > 0:
             if msg.id >= 0x739 and msg.id <= 0x73B + (obj_cnt-1)*3:
                 objs[obj_time].append(data)
+        # lanes
+        if msg.id == 0x766:
+            lane_time = t.to_nsec()
+            lanes[lane_time] = []
+        if (msg.id >= 0x766 and msg.id <= 0x769) or \
+            (msg.id >= 0x76c and msg.id <= 0x77f) and \
+            lane_time >= 0:
+                lanes[lane_time].append(msg)
+
+        # reference points
+        if msg.id == 0x76a:
+            ref_time = t.to_nsec()
+            ref_pts[ref_time] = msg
+
+    pb_ref_pts = Ref_pts()
+    for ts, msg in ref_pts.iteritems():
+        da = get_data(msg)
+
+        pb_ref_pt = pb_ref_pts.ref_pt.add()
+        pb_lane.timestamp = ts
+        pb_lane.position = ((da[1] + da[0]).uint - 0x7FFF) / 256.
+        pb_lane.distance = (cut(da[3], 0, 7) + da[2]).uint / 256.
+        pb_lane.is_valid = cut(da[3], 7, 8).uint
+
+    pb_lanes = Lanes()
+    for ts, msgs in lanes.iteritems():
+        msgs.sort(key = lambda x: x.id)
+
+        # Lanes have 2 data messages
+        # if there aren't 2, skip!
+        if len(msgs) % 2 != 0:
+            continue
+
+        for i in xrange(0, len(msgs), 2):
+            da = get_data(msgs[i])
+            db = get_data(msgs[i+1])
+            assert(msgs[i+1].id - msgs[i].id == 1)
+
+            pb_lane = pb_lanes.lane.add()
+            pb_lane.timestamp = ts
+            pb_lane.lane_id = can_id_to_lane_id_table[msgs[i].id]
+            pb_lane.C0 = (da[2] + da[1]).int  / 256.0
+            pb_lane.C1 = ((db[1] + db[0]).uint - 0x7FFF)  / 1024.0
+            pb_lane.C2 = ((da[4] + da[3]).uint - 0x7FFF) / (1024.0*1000)
+            pb_lane.C3 = ((da[6] + da[5]).uint - 0x7FFF) / float(1 << 28)
+            pb_lane.lane_type = cut(da[0], 0, 4).uint
+            pb_lane.model_degree = cut(da[0], 6, 8).uint
+            pb_lane.quality = cut(da[0], 4, 6).uint
+            pb_lane.view_range_availability = cut(db[3], 7, 8).uint
+            pb_lane.view_range = (cut(db[3],0,7) + db[2]).uint / 256.0
+
 
     pb_objs = Objects()
     idx = 0
@@ -78,28 +157,28 @@ def unpack_bag(out_folder, mbly_bag_file):
 
             # Data from field A
             pb_obj.obj_id = da[0].uint
-            pb_obj.pos_x = bs.Bits().join(
-                [da[2][::-1][:4][::-1], da[1]]).uint * 0.0625
-            pb_obj.pos_y = bs.Bits().join(
-                [da[4][::-1][:2][::-1], da[3]]).int * 0.0625
-            pb_obj.rel_vel_x = bs.Bits().join(
-                [da[6][::-1][:4][::-1], da[5]]).int * 0.0625
-            pb_obj.obj_type = da[6][::-1][4:7][::-1].uint
-            pb_obj.status = da[7][::-1][:3][::-1].uint
-            pb_obj.braking = int(da[7][::-1][3])
-            pb_obj.location = da[4][::-1][5:7][::-1].uint
-            pb_obj.blinker = da[4][::-1][2:5][::-1].uint
-            pb_obj.valid = da[7][::-1][6:][::-1].uint
+            pb_obj.pos_x = \
+                (cut(da[2], 0, 4) + da[1]).uint * 0.0625
+            pb_obj.pos_y = \
+                (cut(da[4], 0, 2) + da[3]).int * 0.0625
+            pb_obj.rel_vel_x = \
+                (cut(da[6], 0, 4) + da[5]).int * 0.0625
+            pb_obj.obj_type = cut(da[6], 4, 7).uint
+            pb_obj.status = cut(da[7], 0, 3).uint
+            pb_obj.braking = cut(da[7], 3, 4).uint
+            pb_obj.location = cut(da[4], 5, 7).uint
+            pb_obj.blinker = cut(da[4],2,5).uint
+            pb_obj.valid = cut(da[7], 6, 8).uint
 
             # Data from field B
             pb_obj.length = db[0].uint * 0.05
             pb_obj.width = db[1].uint * 0.05
             pb_obj.age = db[2].uint
-            pb_obj.lane = db[3][::-1][:2][::-1].uint
+            pb_obj.lane = cut(db[3], 0, 2).uint
 
             # Data from field C
             pb_obj.acceleration_x = dc[4].int * 0.03
-    return pb_objs
+    return (pb_objs, pb_lanes)
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -112,6 +191,6 @@ if __name__ == '__main__':
     radar_files = filter(lambda x: '_mbly.bag' in x,  files)
 
     pool = multiprocessing.Pool(processes=1)
-    pool.map(run_command,
+    map(run_command,
         zip(radar_files, [target_dir]*len(radar_files)))
     # run_command(zip(radar_files, [target_dir]*len(radar_files))[0])

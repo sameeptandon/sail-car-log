@@ -1,0 +1,55 @@
+package mbly;
+
+message Lane {
+  // Timestamp from ros
+  optional uint64 timestamp = 1;
+
+  /////////////// Lane Data ///////////////
+  // ID of lane boundary number (... -2 left, -1 left, car,  1 right, 2 right ...)
+  optional int32 lane_id = 2;
+
+  // Position Parameter C0
+  optional float C0 = 3;
+
+  // Heading Angle C1
+  optional float C1 = 4;
+
+  // Curvature Parameter C2
+  optional float C2 = 5;
+
+  // Curvature Derivative Parameter C3
+  optional float C3 = 6;
+
+  // Lane Type
+  enum Type {
+    Dashed = 0; Solid = 1; undecided = 2; Road_Edge = 3; Double = 4;
+    Botts_Dots = 5; Invalid = 6;
+  }
+  optional Type lane_type = 7;
+
+  // Lane model order
+  enum Model_Degree {
+      Linear = 1; Parabolic = 2; Cubic = 3;
+  }
+  optional Model_Degree model_degree = 8;
+
+  // Mobileye quality number
+  enum Quality {
+      Low_Quality_0 = 0; Low_Quality_1 = 1; High_Quality_2 = 2; High_Quality_3 = 3;
+  }
+  optional Quality quality = 9;
+
+  // Longitudinal range of lane marker visibility
+  enum View_Range_Availibility {
+      Not_Valid = 0; Valid = 1;
+  }
+  optional View_Range_Availibility view_range_availability = 10;
+
+  // Longitudinal range of lane marker visibility
+  optional float view_range = 11;
+
+}
+
+message Lanes {
+  repeated Lane lane = 1;
+}
