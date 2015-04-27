@@ -20,3 +20,5 @@ ros_drivers/src/CMakeLists.txt
 pass.txt
 *.pcap
 api_key.txt
+\#*
+.#*
