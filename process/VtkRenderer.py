@@ -212,6 +212,8 @@ class VtkPointCloud:
         self.np_cells[::2] = np_cells_A
         self.np_cells[1::2] = np_cells_B
 
+        self.actor = None
+
     def build_vtk_polydata(self):
         vtkPolyData = vtk.vtkPolyData()
         vtkPoints = vtk.vtkPoints()
@@ -241,6 +243,7 @@ class VtkPointCloud:
         vtkActor = vtk.vtkActor()
         vtkActor.SetMapper(mapper)
 
+        self.actor = vtkActor
         return vtkActor
 
 
@@ -269,6 +272,7 @@ class VtkPointCloud:
         vtkActor = vtk.vtkActor()
         vtkActor.SetMapper(mapper)
 
+        self.actor = vtkActor
         return vtkActor
 
 

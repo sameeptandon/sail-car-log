@@ -245,7 +245,17 @@ class Blockworld:
 
         self.mbly_vtk_boxes = []
         # Car: 0, Truck: 1, Bike: 2, Other: 3-7
-        self.mbly_box_colors = [(1,0,0),(0,1,0),(0,0,1),(1,1,1)]
+        red = np.array((1, 0, 0))
+        green = np.array((0, 1, 0))
+        blue = np.array((0, 0, 1))
+        white = red+green+blue
+        self.mbly_box_colors = [red,green,blue, white]
+
+        self.mbly_vtk_lanes = []
+        # Dashed: 0, Solid: 1, undecided: 2, Edge: 3, Double: 4, Botts_Dots: 5
+        self.mbly_lane_color = [green, green, red, blue, white, green]
+        self.mbly_lane_size = [2, 3, 1, 1, 2, 1]
+
         # Use our custom mouse interactor
         self.interactor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
         self.iren.SetInteractorStyle(self.interactor)
@@ -313,6 +323,12 @@ class Blockworld:
         # Get the correct frame to show
         (success, self.I) = self.video_reader.getFrame(self.mk2_t)
 
+        # Update the gps time
+        self.cur_gps_time = self.gps_times_mk2[self.mk2_t]
+
+        # Make sure the calibration has been updated
+        self.mbly_R = euler_matrix(*self.mbly_rot)[:3, :3]
+
         if self.running or self.manual_change:
             # Set camera position to in front of the car
             position, focal_point = self.getCameraPosition(self.t)
@@ -328,15 +344,13 @@ class Blockworld:
             # If the user caused a manual change, reset it
             self.manual_change = 0
 
-            # Later this segment should be moved to outside the if block
-            gps_time = self.gps_times_mk2[self.mk2_t] # Delete this line
-            mbly_lanes = self.mbly_loader.loadLane(gps_time)
-            lanes_wrt_mbly = self.mblyLaneAsNp(mbly_lanes)
-            print lanes_wrt_mbly
+        # Add the lanes to the cloud
+        mbly_lanes = self.mbly_loader.loadLane(self.cur_gps_time)
+        lanes_wrt_mbly = self.mblyLaneAsNp(mbly_lanes)
+        self.addLaneToCloud(lanes_wrt_mbly)
 
-        gps_time = self.gps_times_mk2[self.mk2_t] # Delete this line
-        mbly_objs = self.mbly_loader.loadObj(gps_time)
-
+        # Add the objects (cars) to the cloud
+        mbly_objs = self.mbly_loader.loadObj(self.cur_gps_time)
         objs_wrt_mbly = self.mblyObjAsNp(mbly_objs)
         self.addObjToCloud(objs_wrt_mbly)
         self.mbly_pix = self.getObjAsPix(objs_wrt_mbly)
@@ -364,6 +378,22 @@ class Blockworld:
 
         self.iren.GetRenderWindow().Render()
 
+    def xformMblyToGlobal(self, pts_wrt_mbly):
+        car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
+
+        pts = pts_wrt_mbly
+        # Puts points in lidar FOR
+        pts_wrt_lidar = calibrateMblyPts(pts_wrt_mbly, self.mbly_T, \
+                                         self.mbly_R[:3,:3])
+        # Make points homogoneous
+        hom_pts = np.hstack((pts_wrt_lidar[:, :3], np.ones((pts.shape[0], 1))))
+        # Put in global FOR
+        pts_wrt_world = np.dot(car_pos, hom_pts.T).T
+        # Add metadata back to output
+        pts_wrt_world = np.hstack((pts_wrt_world, pts[:, 3:]))
+        return pts_wrt_world
+
+
     def mblyObjAsNp(self, mbly_objs):
         """Turns a mobileye object pb message into a numpy array with format:
         [x, y, 0, length, width, type]
@@ -376,22 +406,31 @@ class Blockworld:
             pts_wrt_mbly.append(pt_wrt_mbly)
         return np.array(pts_wrt_mbly)
 
+    def mblyLaneAsNp(self, mbly_lane):
+        """Turns a mobileye lane into a numpy array with format:
+        [C0, C1, C2, C3, lane_id, lane_type, view_range]
+
+        Y = C3*X^3 + C2*X^2 + C1*X + C0.
+        X is longitudinal distance from camera (positive right!)
+        Y is lateral distance from camera
+
+        lane_id is between -2 and 2, with -2 being the farthest left,
+        and 2 being the farthest right lane. There is no 0 id.
+
+        """
+        lanes_wrt_mbly = []
+        for l in mbly_lane:
+            lane_wrt_mbly = [l.C0, l.C1, l.C2, l.C3, l.lane_id, l.lane_type, \
+                             l.view_range]
+            lanes_wrt_mbly.append(lane_wrt_mbly)
+        return np.array(lanes_wrt_mbly)
+
     def addObjToCloud(self, objs_wrt_mbly):
         """ Add the mobileye returns to the 3d scene """
         mbly_vtk_boxes = []
 
-        xform = self.cur_imu_transform
         car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
-
-        # Move points to car ref frame
-        self.mbly_R = euler_matrix(*self.mbly_rot)[:3, :3]
-        objs_wrt_lidar = calibrateMblyPts(objs_wrt_mbly, self.mbly_T,\
-                                          self.mbly_R[:3,:3])
-
-        hom_objs_wrt_mbly = np.hstack((objs_wrt_lidar[:, :3], \
-                                      np.ones((objs_wrt_mbly.shape[0], 1))))
-        objs_wrt_world = np.dot(car_pos, hom_objs_wrt_mbly.T).T
-        objs_wrt_world = np.hstack((objs_wrt_world, objs_wrt_mbly[:, 3:]))
+        objs_wrt_world = self.xformMblyToGlobal(objs_wrt_mbly)
 
         # Draw each box
         car_rot = euler_from_matrix(car_pos[:,:3])[2] * 180 / math.pi
@@ -413,23 +452,38 @@ class Blockworld:
         for vtk_box in self.mbly_vtk_boxes:
             self.cloud_ren.AddActor(vtk_box.actor)
 
+    def addLaneToCloud(self, lane_wrt_mbly):
+        X = np.linspace(0, 80, num=200)
+        X = np.vstack((np.ones(X.shape), X, np.power(X, 2), np.power(X, 3)))
+        # Mbly uses Y-right as positive, we use Y-left as positive
+        Y = -1*np.dot(lane_wrt_mbly[:, :4], X)
+        num_pts = Y.shape[1]
 
-    def mblyLaneAsNp(self, mbly_lane):
-        """Turns a mobileye lane into a numpy array with format: [C0,
-        C1, C2, C3, lane_id, lane_type]
+        for lane in self.mbly_vtk_lanes:
+            self.cloud_ren.RemoveActor(lane.actor)
+            self.mbly_vtk_lanes = []
 
-        X = C3*Z^3 + C2*Z^2 + C1*Z + C0.
+        for i in xrange(lane_wrt_mbly.shape[0]):
+            type = int(lane_wrt_mbly[i, 5])
+            subsamp = 1
+            if type == 0: # dashed
+                subsamp = 20
+            elif type == 5: # botts dots
+                subsamp = 40
 
-        lane_id is between -2 and 2, with -2 being the farthest left,
-        and 2 being the farthest right lane. There is no 0 id.
+            pts_wrt_mbly = np.vstack((X[1, :][::subsamp], Y[i, :][::subsamp], \
+                                      np.zeros((1, num_pts/subsamp)))).T
+            pts_wrt_global = self.xformMblyToGlobal(pts_wrt_mbly)
 
-        """
-        lanes_wrt_mbly = []
-        for l in mbly_lane:
-            lane_wrt_mbly = [l.C0, l.C1, l.C2, l.C3, l.lane_id, \
-                             l.lane_type]
-            lanes_wrt_mbly.append(lane_wrt_mbly)
-        return np.array(lanes_wrt_mbly)
+            color = self.mbly_lane_color[type] * 255
+            size = self.mbly_lane_size[type]
+            vtk_lane = VtkPointCloud(pts_wrt_global, np.tile(color, (num_pts, 1)))
+            actor = vtk_lane.get_vtk_color_cloud()
+            actor.GetProperty().SetPointSize(size)
+
+            self.mbly_vtk_lanes.append(vtk_lane)
+
+            self.cloud_ren.AddActor(actor)
 
     def getObjAsPix(self, objs_wrt_mbly):
         if objs_wrt_mbly.shape[0] == 0:
@@ -448,14 +502,6 @@ class Blockworld:
 
         pix = np.array(pix, dtype=np.int32)
         return np.swapaxes(pix, 0, 1)
-
-    def projectBoxOnImg(self, I, objs_wrt_mbly):
-        if len(objs_wrt_mbly) == 0:
-            return I
-
-        pix = projectPoints(objs_wrt_mbly, args)[:, 3:]
-        # print pix
-        return I
 
 if __name__ == '__main__':
     Blockworld()
