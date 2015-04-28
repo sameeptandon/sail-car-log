@@ -53,7 +53,18 @@ class Pb_container(object):
     lane_dict = {'type': mbly_lane_pb2, 'message': 'Lanes', 'elem':'lane'}
     ref_dict = {'type': mbly_ref_pb2, 'message': 'Ref_pts', 'elem':'ref_pt'}
 
+    def get_pb_dict(self, proto_file_name):
+        if '.objproto' in proto_file_name:
+            return Pb_container.obj_dict
+        elif '.lanesproto' in proto_file_name:
+            return Pb_container.lane_dict
+        elif '.refproto' in proto_file_name:
+            return Pb_container.ref_dict
+
     def __init__(self, proto_file_name):
+        if proto_file_name is None:
+            return
+
         self.proto_file_name = proto_file_name
 
         self.dict = self.get_pb_dict(proto_file_name)
@@ -83,19 +94,15 @@ class Pb_container(object):
             else:
                 self.datum[o.timestamp].append(o)
 
-    def get_pb_dict(self, proto_file_name):
-        if '.objproto' in proto_file_name:
-            return Pb_container.obj_dict
-        elif '.lanesproto' in proto_file_name:
-            return Pb_container.lane_dict
-        elif '.refproto' in proto_file_name:
-            return = Pb_container.ref_dict
-
 class MblyLoader(object):
-    def __init__(self, obj_proto, lane_proto, ref_proto):
+    def __init__(self, params):
+        obj_proto = params['mbly_obj']
+        lane_proto = params['mbly_lanes']
+        ref_proto = params['mbly_ref_pts']
         self.objs = Pb_container(obj_proto)
         self.lanes = Pb_container(lane_proto)
         self.refs = Pb_container(ref_proto)
+
 
     def loadObj(self, microsec_since_epoch):
         return self.loadMblyWindow(microsec_since_epoch, pb_type='objs')

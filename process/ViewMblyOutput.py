@@ -192,7 +192,7 @@ class Blockworld:
         self.cam_params = self.params['cam'][cam_num]
 
         # Load the MobilEye file
-        self.mbly_loader = MblyLoader(args['mbly_obj'])
+        self.mbly_loader = MblyLoader(args)
         self.mbly_rot = [0.007, -0.01, -0.02]
         self.mbly_T = [0.762, 0.381, -0.9252]
 
@@ -328,10 +328,16 @@ class Blockworld:
             # If the user caused a manual change, reset it
             self.manual_change = 0
 
-        gps_time = self.gps_times_mk2[self.mk2_t]
-        mbly_objs = self.mbly_loader.loadMblyWindow(gps_time)
+            # Later this segment should be moved to outside the if block
+            gps_time = self.gps_times_mk2[self.mk2_t] # Delete this line
+            mbly_lanes = self.mbly_loader.loadLane(gps_time)
+            lanes_wrt_mbly = self.mblyLaneAsNp(mbly_lanes)
+            print lanes_wrt_mbly
 
-        objs_wrt_mbly = self.getMblyObjects(mbly_objs)
+        gps_time = self.gps_times_mk2[self.mk2_t] # Delete this line
+        mbly_objs = self.mbly_loader.loadObj(gps_time)
+
+        objs_wrt_mbly = self.mblyObjAsNp(mbly_objs)
         self.addObjToCloud(objs_wrt_mbly)
         self.mbly_pix = self.getObjAsPix(objs_wrt_mbly)
 
@@ -358,14 +364,17 @@ class Blockworld:
 
         self.iren.GetRenderWindow().Render()
 
-    def getMblyObjects(self, mbly_objs):
+    def mblyObjAsNp(self, mbly_objs):
+        """Turns a mobileye object pb message into a numpy array with format:
+        [x, y, 0, length, width, type]
+
+        """
         pts_wrt_mbly = []
         for obj in mbly_objs:
-            pt_wrt_mbly = np.array((obj.pos_x, obj.pos_y, 0, \
-                                    obj.length, obj.width, obj.obj_type))
+            pt_wrt_mbly = [obj.pos_x, obj.pos_y, 0, obj.length, \
+                           obj.width, obj.obj_type]
             pts_wrt_mbly.append(pt_wrt_mbly)
-        pts_wrt_mbly = np.array(pts_wrt_mbly)
-        return pts_wrt_mbly
+        return np.array(pts_wrt_mbly)
 
     def addObjToCloud(self, objs_wrt_mbly):
         """ Add the mobileye returns to the 3d scene """
@@ -403,6 +412,24 @@ class Blockworld:
         # Draw new boxes
         for vtk_box in self.mbly_vtk_boxes:
             self.cloud_ren.AddActor(vtk_box.actor)
+
+
+    def mblyLaneAsNp(self, mbly_lane):
+        """Turns a mobileye lane into a numpy array with format: [C0,
+        C1, C2, C3, lane_id, lane_type]
+
+        X = C3*Z^3 + C2*Z^2 + C1*Z + C0.
+
+        lane_id is between -2 and 2, with -2 being the farthest left,
+        and 2 being the farthest right lane. There is no 0 id.
+
+        """
+        lanes_wrt_mbly = []
+        for l in mbly_lane:
+            lane_wrt_mbly = [l.C0, l.C1, l.C2, l.C3, l.lane_id, \
+                             l.lane_type]
+            lanes_wrt_mbly.append(lane_wrt_mbly)
+        return np.array(lanes_wrt_mbly)
 
     def getObjAsPix(self, objs_wrt_mbly):
         if objs_wrt_mbly.shape[0] == 0:
