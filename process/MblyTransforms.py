@@ -2,6 +2,8 @@ import numpy as np
 import os, sys
 import glob
 import mbly_obj_pb2
+import mbly_lane_pb2
+import mbly_ref_pb2
 import cv2
 from LidarTransforms import R_to_c_from_l
 
@@ -45,35 +47,80 @@ def projectPoints(mbly_data, args, T, R):
     mbly_data_projected = np.hstack((mbly_data, pix.transpose()))
     return mbly_data_projected
 
-class MblyLoader(object):
-    def __init__(self, mbly_proto):
-        pb_objs = mbly_obj_pb2.Objects()
-        with open(mbly_proto) as f:
-            pb_objs.ParseFromString(f.read())
 
-        times = set([o.timestamp for o in pb_objs.object])
-        self.times = np.array(sorted(times))
+class Pb_container(object):
+    obj_dict = {'type': mbly_obj_pb2, 'message': 'Objects', 'elem':'object'}
+    lane_dict = {'type': mbly_lane_pb2, 'message': 'Lanes', 'elem':'lane'}
+    ref_dict = {'type': mbly_ref_pb2, 'message': 'Ref_pts', 'elem':'ref_pt'}
 
-        self.objects = {}
-        for o in pb_objs.object:
-            if o.timestamp not in self.objects:
-                self.objects[o.timestamp] = [o]
+    def __init__(self, proto_file_name):
+        self.proto_file_name = proto_file_name
+
+        self.dict = self.get_pb_dict(proto_file_name)
+
+        type = self.dict['type']
+        elem = self.dict['elem']
+        message = self.dict['message']
+
+        # Create a generic pb_datum
+        # If type = obj -> pb_datum = mbly_obj_pb2.Objects()
+        pb_datum = getattr(type, message)()
+        with open(self.proto_file_name) as f:
+            pb_datum.ParseFromString(f.read())
+        # Create a list of all items in the pb_datum
+        # If type = obj -> datum = [x for x in pb_datum.Objects().object]
+        datum = [x for x in getattr(pb_datum, elem)]
+
+        self.times = set([o.timestamp for o in datum])
+        # Times must be sorted for fast lookup
+        self.times = np.array(sorted(self.times))
+
+        # Create a mapping from time to objects
+        self.datum = {}
+        for o in datum:
+            if o.timestamp not in self.datum:
+                self.datum[o.timestamp] = [o]
             else:
-                self.objects[o.timestamp].append(o)
-        # print self.objects
+                self.datum[o.timestamp].append(o)
 
-    def loadMblyWindow(self, microsec_since_epoch):
+    def get_pb_dict(self, proto_file_name):
+        if '.objproto' in proto_file_name:
+            return Pb_container.obj_dict
+        elif '.lanesproto' in proto_file_name:
+            return Pb_container.lane_dict
+        elif '.refproto' in proto_file_name:
+            return = Pb_container.ref_dict
+
+class MblyLoader(object):
+    def __init__(self, obj_proto, lane_proto, ref_proto):
+        self.objs = Pb_container(obj_proto)
+        self.lanes = Pb_container(lane_proto)
+        self.refs = Pb_container(ref_proto)
+
+    def loadObj(self, microsec_since_epoch):
+        return self.loadMblyWindow(microsec_since_epoch, pb_type='objs')
+
+    def loadLane(self, microsec_since_epoch):
+        return self.loadMblyWindow(microsec_since_epoch, pb_type='lanes')
+
+    def loadRef(self, microsec_since_epoch):
+        return self.loadMblyWindow(microsec_since_epoch, pb_type='refs')
+
+    def loadMblyWindow(self, microsec_since_epoch, pb_type):
         """
         Loads the output of the MobilEye sensor closest to
         microseconds_since_epoch
+        pb_type must match an pb_container object belonging to self
         """
-        idx = np.searchsorted(self.times, microsec_since_epoch * 1000L,
+        container = getattr(self, pb_type)
+        idx = np.searchsorted(container.times, microsec_since_epoch * 1000L,
                               side='right')
-        objs = self.objects[self.times[idx]]
+        objs = container.datum[container.times[idx]]
         return objs
 
 if __name__ == "__main__":
-    loader = MblyLoader(sys.argv[1])
-    loader.loadMblyWindow(loader.times[1] / 1000L)
-    loader.loadMblyWindow(loader.times[1] / 1000L - 100000)
-    loader.loadMblyWindow(loader.times[1] / 1000L + 300000)
+    loader = MblyLoader(sys.argv[1], sys.argv[2], sys.argv[3])
+    print loader.loadObj(loader.objs.times[100] / 1000L)[0]
+    print loader.loadLane(loader.objs.times[100] / 1000L)[0]
+    for t in loader.obj.times:
+        print loader.loadObj(t / 1000L)[0]
