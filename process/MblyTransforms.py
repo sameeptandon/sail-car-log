@@ -30,7 +30,7 @@ def projectPoints(mbly_data, args, T, R):
     cam = params['cam'][cam_num]
 
     # Move points to the lidar FoR
-    pts_wrt_lidar = calibrateMblyPts(mbly_data, T, R)
+    pts_wrt_lidar = T_from_mbly_to_lidar(mbly_data, T, R)
 
     # Move the points to the cam FoR
     pts_wrt_cam = pts_wrt_lidar +\

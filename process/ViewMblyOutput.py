@@ -26,7 +26,7 @@ from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
 from LaneMarkingHelper import BackProjector, DataTree, get_transforms, mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
-from MblyTransforms import MblyLoader, projectPoints, calibrateMblyPts
+from MblyTransforms import MblyLoader, projectPoints, T_from_mbly_to_lidar
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
 from mbly_obj_pb2 import Object
@@ -385,8 +385,8 @@ class Blockworld:
 
         pts = pts_wrt_mbly
         # Puts points in lidar FOR
-        pts_wrt_lidar = calibrateMblyPts(pts_wrt_mbly, self.mbly_T, \
-                                         self.mbly_R[:3,:3])
+        pts_wrt_lidar = T_from_mbly_to_lidar(pts_wrt_mbly, self.mbly_T, \
+                                             self.mbly_R[:3,:3])
         # Make points homogoneous
         hom_pts = np.hstack((pts_wrt_lidar[:, :3], np.ones((pts.shape[0], 1))))
         # Put in imu FOR
