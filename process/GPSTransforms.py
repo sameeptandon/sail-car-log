@@ -108,3 +108,25 @@ def IMUTransforms(GPSData):
     dt = GPSData[1, 0] - GPSData[0, 0]
     return smoothCoordinates(GPSData, dt=dt)
 
+
+
+def ENU2IMUQ50(world_coordinates, start_frame):
+    roll_start = deg2rad(start_frame[8]);
+    pitch_start = deg2rad(start_frame[7]);
+    yaw_start = -deg2rad(start_frame[9]);
+    psi = pitch_start;
+    cp = cos(psi);
+    sp = sin(psi);
+    theta = roll_start;
+    ct = cos(theta);
+    st = sin(theta);
+    gamma = yaw_start;
+    cg = cos(gamma);
+    sg = sin(gamma);
+    R_to_i_from_w = \
+            array([[cg*cp-sg*st*sp, -sg*ct, cg*sp+sg*st*cp],
+                  [sg*cp+cg*st*sp, cg*ct, sg*sp-cg*st*cp],
+                  [-ct*sp, st, ct*cp]]).transpose()
+    pos_wrt_imu = dot(R_to_i_from_w, world_coordinates);
+    return pos_wrt_imu
+

@@ -183,6 +183,7 @@ def transform_points_by_times(pts, t_pts, imu_transforms, gps_times):
 
         # transform data into imu_0 frame
         pts[:, mask] = np.dot(transform, pts[:, mask])
+    return pts
 
 
 if __name__ == '__main__':

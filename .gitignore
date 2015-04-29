@@ -17,6 +17,7 @@ ros_drivers/src/q50_can/src/
 ros_drivers/install
 ros_drivers/devel
 ros_drivers/src/CMakeLists.txt
+process/data/
 pass.txt
 *.pcap
 api_key.txt
