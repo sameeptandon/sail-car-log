@@ -49,8 +49,8 @@ def run_command(args):
         f.write(pb_objs.SerializeToString())
     with open(out_lanes_name, "wb") as f:
         f.write(pb_lanes.SerializeToString())
-    with open(out_ref_pt_name, "wb") as f:
-        f.write(pb_ref_pts.SerializeToString())
+    # with open(out_ref_pt_name, "wb") as f:
+    #     f.write(pb_ref_pts.SerializeToString())
 
 def get_data(msg):
     return [bs.Bits(bytes=x) for x in msg.data]
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     files = os.listdir(target_dir)
     radar_files = filter(lambda x: '_mbly.bag' in x,  files)
 
-    pool = multiprocessing.Pool(processes=1)
+    pool = multiprocessing.Pool(processes=5)
     map(run_command,
         zip(radar_files, [target_dir]*len(radar_files)))
     # run_command(zip(radar_files, [target_dir]*len(radar_files))[0])

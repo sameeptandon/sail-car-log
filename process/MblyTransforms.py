@@ -3,11 +3,11 @@ import os, sys
 import glob
 import mbly_obj_pb2
 import mbly_lane_pb2
-import mbly_ref_pb2
+# import mbly_ref_pb2
 import cv2
 from LidarTransforms import R_to_c_from_l
 
-def calibrateMblyPts(pts, T, R):
+def T_from_mbly_to_lidar(pts, T, R):
     """ Transforms the mobileye output into the lidar's FoR.
         TODO: Add save these values to params
     """
@@ -52,15 +52,15 @@ def projectPoints(mbly_data, args, T, R):
 class Pb_container(object):
     obj_dict = {'type': mbly_obj_pb2, 'message': 'Objects', 'elem':'object'}
     lane_dict = {'type': mbly_lane_pb2, 'message': 'Lanes', 'elem':'lane'}
-    ref_dict = {'type': mbly_ref_pb2, 'message': 'Ref_pts', 'elem':'ref_pt'}
+    # ref_dict = {'type': mbly_ref_pb2, 'message': 'Ref_pts', 'elem':'ref_pt'}
 
     def get_pb_dict(self, proto_file_name):
         if '.objproto' in proto_file_name:
             return Pb_container.obj_dict
         elif '.lanesproto' in proto_file_name:
             return Pb_container.lane_dict
-        elif '.refproto' in proto_file_name:
-            return Pb_container.ref_dict
+        # elif '.refproto' in proto_file_name:
+        #     return Pb_container.ref_dict
 
     def __init__(self, proto_file_name):
         if proto_file_name is None:
@@ -99,10 +99,10 @@ class MblyLoader(object):
     def __init__(self, params):
         obj_proto = params['mbly_obj']
         lane_proto = params['mbly_lanes']
-        ref_proto = params['mbly_ref_pts']
+        # ref_proto = params['mbly_ref_pts']
         self.objs = Pb_container(obj_proto)
         self.lanes = Pb_container(lane_proto)
-        self.refs = Pb_container(ref_proto)
+        # self.refs = Pb_container(ref_proto)
 
 
     def loadObj(self, microsec_since_epoch):
@@ -111,8 +111,8 @@ class MblyLoader(object):
     def loadLane(self, microsec_since_epoch):
         return self.loadMblyWindow(microsec_since_epoch, pb_type='lanes')
 
-    def loadRef(self, microsec_since_epoch):
-        return self.loadMblyWindow(microsec_since_epoch, pb_type='refs')
+    # def loadRef(self, microsec_since_epoch):
+    #     return self.loadMblyWindow(microsec_since_epoch, pb_type='refs')
 
     def loadMblyWindow(self, microsec_since_epoch, pb_type):
         """
