@@ -37,7 +37,11 @@ def mk2_to_mk1(mk2_idx, gps_times_mk1, gps_times_mk2):
 class BackProjector(object):
     def __init__(self, args):
         params = args['params']
-        cam_num = args['cam_num'] - 1
+        if '.zip' in args['video']:
+            cam_num = args['cam_num']
+        else:
+            cam_num = args['cam_num'] - 1
+
         cam = params['cam'][cam_num]
 
         K = cam['KK']
