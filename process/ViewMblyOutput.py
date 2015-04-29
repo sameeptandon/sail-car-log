@@ -139,12 +139,16 @@ class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         elif key == 'a':
             self.parent.mbly_T[1] += 0.1
         elif key == 'w':
-            self.parent.mbly_T[2] -= 0.1
-        elif key == 's':
             self.parent.mbly_T[2] += 0.1
+        elif key == 's':
+            self.parent.mbly_T[2] -= 0.1
 
-        print 'R:', self.parent.mbly_rot
-        print 'T:', self.parent.mbly_T
+        elif key == '0':
+            self.parent.mbly_T = [0.0, 0.0, 0.0]
+            self.parent.mbly_rot = [0.0, 0.0, 0.0]
+
+        print 'self.mbly_rot =', self.parent.mbly_rot
+        print 'self.mbly_T =', self.parent.mbly_T
 
 
     def Render(self):
@@ -193,10 +197,8 @@ class Blockworld:
 
         # Load the MobilEye file
         self.mbly_loader = MblyLoader(args)
-        # self.mbly_rot = [0.007, -0.01, -0.02]
-        self.mbly_rot = [0.0, 0.0, 0.0]
-        self.mbly_T = [0.0, 0.0, -2.0]
-        # self.mbly_T = [0.762, 0.381, -0.9252]
+        self.mbly_rot = [0.0, -0.005, -0.006]
+        self.mbly_T = [5.4, 0.0, -1.9]
 
         # Is the flyover running
         self.running = False
@@ -378,7 +380,8 @@ class Blockworld:
 
     def xformMblyToGlobal(self, pts_wrt_mbly):
         # TODO: Need to tranform from imu to gps frame of reference
-        car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
+        T_l_to_i = self.params['lidar']['T_from_l_to_i']
+        T_i_to_world = self.imu_transforms_mk1[self.t, 0:3, 0:4]
 
         pts = pts_wrt_mbly
         # Puts points in lidar FOR
@@ -386,8 +389,10 @@ class Blockworld:
                                          self.mbly_R[:3,:3])
         # Make points homogoneous
         hom_pts = np.hstack((pts_wrt_lidar[:, :3], np.ones((pts.shape[0], 1))))
+        # Put in imu FOR
+        pts_wrt_imu = np.dot(T_l_to_i, hom_pts.T).T
         # Put in global FOR
-        pts_wrt_world = np.dot(car_pos, hom_pts.T).T
+        pts_wrt_world = np.dot(T_i_to_world, pts_wrt_imu.T).T
         # Add metadata back to output
         pts_wrt_world = np.hstack((pts_wrt_world, pts[:, 3:]))
         return pts_wrt_world
@@ -395,12 +400,12 @@ class Blockworld:
 
     def mblyObjAsNp(self, mbly_objs):
         """Turns a mobileye object pb message into a numpy array with format:
-        [x, y, 0, length, width, type]
+        [x, y, .7, length, width, type]
 
         """
         pts_wrt_mbly = []
         for obj in mbly_objs:
-            pt_wrt_mbly = [obj.pos_x, obj.pos_y, 0, obj.length, \
+            pt_wrt_mbly = [obj.pos_x, obj.pos_y, .7, obj.length, \
                            obj.width, obj.obj_type]
             pts_wrt_mbly.append(pt_wrt_mbly)
         return np.array(pts_wrt_mbly)
@@ -428,15 +433,14 @@ class Blockworld:
         """ Add the mobileye returns to the 3d scene """
         mbly_vtk_boxes = []
 
-        car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
+        car_rot = self.imu_transforms_mk1[self.t, :, :3]
         objs_wrt_world = self.xformMblyToGlobal(objs_wrt_mbly)
 
         # Draw each box
-        car_rot = euler_from_matrix(car_pos[:,:3])[2] * 180 / math.pi
+        car_rot = euler_from_matrix(car_rot)[2] * 180 / math.pi
         for o in objs_wrt_world:
-            properties = tuple(o)
             # Create the vtk object
-            box = VtkBoundingBox(properties)
+            box = VtkBoundingBox(o)
             actor = box.get_vtk_box(car_rot)
             color = self.mbly_obj_colors[int(o[5])]
             actor.GetProperty().SetColor(*color)
@@ -509,8 +513,8 @@ class Blockworld:
                 offset[:, 1] = width*y
                 offset[:, 2] = z
                 pt = objs_wrt_mbly[:, :3] + offset
-                pix.append(projectPoints(pt, self.args, self.mbly_T, \
-                                         self.mbly_R)[:, 3:])
+                proj_pt = projectPoints(pt, self.args, self.mbly_T, self.mbly_R)
+                pix.append(proj_pt[:, 3:])
 
         pix = np.array(pix, dtype=np.int32)
         pix = np.swapaxes(pix, 0, 1)
