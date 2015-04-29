@@ -1,0 +1,27 @@
+package mbly;
+
+message Ref_pt {
+  // Timestamp from ros
+  optional uint64 timestamp = 1;
+
+  // The physical distance between camera and reference point 1 on lateral
+  // axis. The reference point defines the lateral location of the lane center
+  // at ref-Point distance (for example lane center is 0.6m to the right at 35m
+  // from the camera) . Ref Point 1 is this measurement at 1 second headway.
+  //  [-127.996 - 127.996] meters
+  optional float position = 2;
+
+  // The physical distance between reference point and camera
+  // [0 - 127.99609376] meters
+  optional float distance = 3;
+
+  // Validity
+  enum Valid {
+    invalid = 0; valid = 1;
+  }
+  optional Valid is_valid = 4;
+}
+
+message Ref_pts {
+  repeated Ref_pt ref_pt = 1;
+}

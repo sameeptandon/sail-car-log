@@ -23,7 +23,7 @@ message Lane {
   // Lane Type
   enum Type {
     Dashed = 0; Solid = 1; undecided = 2; Road_Edge = 3; Double = 4;
-    Botts_Dots = 5; Invalid = 6; 
+    Botts_Dots = 5; Invalid = 6;
   }
   optional Type lane_type = 7;
 
@@ -32,9 +32,9 @@ message Lane {
       Linear = 1; Parabolic = 2; Cubic = 3;
   }
   optional Model_Degree model_degree = 8;
-    
+
   // Mobileye quality number
-  enum Quality { 
+  enum Quality {
       Low_Quality_0 = 0; Low_Quality_1 = 1; High_Quality_2 = 2; High_Quality_3 = 3;
   }
   optional Quality quality = 9;
@@ -46,7 +46,7 @@ message Lane {
   optional View_Range_Availibility view_range_availability = 10;
 
   // Longitudinal range of lane marker visibility
-  optional float view_range = 11; 
+  optional float view_range = 11;
 
 }
 

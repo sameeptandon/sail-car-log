@@ -1331,8 +1331,12 @@ class Blockworld:
         self.params = args['params']
         self.lidar_params = self.params['lidar']
         self.T_from_i_to_l = np.linalg.inv(self.lidar_params['T_from_l_to_i'])
-        cam_num = args['cam_num']
-        self.cam_params = self.params['cam'][cam_num - 1]
+
+        if '.zip' in args['video']:
+            cam_num = args['cam_num']
+        else:
+            cam_num = args['cam_num'] - 1
+        self.cam_params = self.params['cam'][cam_num]
 
         # Store the images
         gmap_step = 100
@@ -1598,12 +1602,16 @@ class Blockworld:
         # Transform the car
         cloud_cam = self.cloud_ren.GetActiveCamera()
 
-        # If we have gone backwards in time we need use setframe (slow)
-        if self.manual_change != 0:
-            self.video_reader.setFrame(self.mk2_t - 1)
+        # If we are using the zip reader, getFrame is super fast
+        if '.zip' in self.args['video']:
+            (success, self.I) = self.video_reader.getFrame(self.mk2_t)
+        else:
+            # If we have gone backwards in time we need use setframe (slow)
+            if self.manual_change != 0:
+                self.video_reader.setFrame(self.mk2_t - 1)
 
-        while self.video_reader.framenum <= self.mk2_t:
-            (success, self.I) = self.video_reader.getNextFrame()
+            while self.video_reader.framenum <= self.mk2_t:
+                (success, self.I) = self.video_reader.getNextFrame()
 
         # Copy the image so we can project points onto it
         I = self.I.copy()
@@ -1618,13 +1626,15 @@ class Blockworld:
         if self.gmap != self.get_gmap():
             self.gmap = self.get_gmap()
             gmap_img = cv2.imread(self.gmap)
-            gmap_vtk = VtkImage(gmap_img)
-            self.gmap_ren.RemoveActor(self.gmap_actor)
-            self.gmap_actor = gmap_vtk.get_vtk_image()
-            center = (200, 200, 0)
-            self.gmap_actor.SetOrigin(center)
-            self.gmap_actor.RotateZ(self.gps_data_mk1[self.t, 9] + 90)
-            self.gmap_ren.AddActor(self.gmap_actor)
+            # Don't fail if the gmap is corrupt
+            if gmap_img is not None and gmap_img.shape[0] > 0:
+                gmap_vtk = VtkImage(gmap_img)
+                self.gmap_ren.RemoveActor(self.gmap_actor)
+                self.gmap_actor = gmap_vtk.get_vtk_image()
+                center = (200, 200, 0)
+                self.gmap_actor.SetOrigin(center)
+                self.gmap_actor.RotateZ(self.gps_data_mk1[self.t, 9] + 90)
+                self.gmap_ren.AddActor(self.gmap_actor)
 
         if self.running or self.manual_change:
             # Set camera position to in front of the car

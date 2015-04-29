@@ -21,3 +21,5 @@ process/data/
 pass.txt
 *.pcap
 api_key.txt
+\#*
+.#*

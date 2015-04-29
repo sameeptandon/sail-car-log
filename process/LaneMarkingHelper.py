@@ -37,7 +37,11 @@ def mk2_to_mk1(mk2_idx, gps_times_mk1, gps_times_mk2):
 class BackProjector(object):
     def __init__(self, args):
         params = args['params']
-        cam_num = args['cam_num'] - 1
+        if '.zip' in args['video']:
+            cam_num = args['cam_num']
+        else:
+            cam_num = args['cam_num'] - 1
+
         cam = params['cam'][cam_num]
 
         K = cam['KK']
@@ -71,20 +75,23 @@ class BackProjector(object):
 
 class DataTree(object):
 
-    def __init__(self, pts):
+    def __init__(self, pts, build_tree=True):
         self.pts = pts
-        self.tree = cKDTree(self.pts)
+        self.tree = None
+        if build_tree:
+            self.tree = cKDTree(self.pts)
+
 
 class VTKCloudTree(DataTree):
 
-    def __init__(self, cloud, actor):
+    def __init__(self, cloud, actor, build_tree=True):
         super(VTKCloudTree, self).__init__(cloud.xyz)
         self.cloud = cloud
         self.actor = actor
 
 class VTKPlaneTree(DataTree):
 
-    def __init__(self, xyz, planes, actors):
+    def __init__(self, xyz, planes, actors, build_tree=True):
         super(VTKPlaneTree, self).__init__(xyz)
         self.planes = planes
         self.actors = actors
