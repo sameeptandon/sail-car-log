@@ -193,8 +193,10 @@ class Blockworld:
 
         # Load the MobilEye file
         self.mbly_loader = MblyLoader(args)
-        self.mbly_rot = [0.007, -0.01, -0.02]
-        self.mbly_T = [0.762, 0.381, -0.9252]
+        # self.mbly_rot = [0.007, -0.01, -0.02]
+        self.mbly_rot = [0.0, 0.0, 0.0]
+        self.mbly_T = [0.0, 0.0, -2.0]
+        # self.mbly_T = [0.762, 0.381, -0.9252]
 
         # Is the flyover running
         self.running = False
@@ -249,12 +251,13 @@ class Blockworld:
         green = np.array((0, 1, 0))
         blue = np.array((0, 0, 1))
         white = red+green+blue
-        self.mbly_box_colors = [red,green,blue, white]
+        self.mbly_obj_colors = [red, green, blue, white]
 
         self.mbly_vtk_lanes = []
         # Dashed: 0, Solid: 1, undecided: 2, Edge: 3, Double: 4, Botts_Dots: 5
         self.mbly_lane_color = [green, green, red, blue, white, green]
         self.mbly_lane_size = [2, 3, 1, 1, 2, 1]
+        self.mbly_lane_subsamp = [20, 1, 1, 1, 1, 40]
 
         # Use our custom mouse interactor
         self.interactor = LaneInteractorStyle(self.iren, self.cloud_ren, self)
@@ -265,7 +268,6 @@ class Blockworld:
         self.img_actor = None
 
         self.I = None
-        self.mbly_pix = None
         ###### Add Callbacks ######
         print 'Rendering'
 
@@ -344,26 +346,22 @@ class Blockworld:
             # If the user caused a manual change, reset it
             self.manual_change = 0
 
+        # Copy the image so we can project points onto it
+        I = self.I.copy()
+
         # Add the lanes to the cloud
         mbly_lanes = self.mbly_loader.loadLane(self.cur_gps_time)
         lanes_wrt_mbly = self.mblyLaneAsNp(mbly_lanes)
         self.addLaneToCloud(lanes_wrt_mbly)
+        # Add the lanes to the image copy
+        I = self.addLaneToImg(I, lanes_wrt_mbly)
 
         # Add the objects (cars) to the cloud
         mbly_objs = self.mbly_loader.loadObj(self.cur_gps_time)
         objs_wrt_mbly = self.mblyObjAsNp(mbly_objs)
         self.addObjToCloud(objs_wrt_mbly)
-        self.mbly_pix = self.getObjAsPix(objs_wrt_mbly)
-
-        # Copy the image so we can project points onto it
-        I = self.I.copy()
-        if self.mbly_pix is not None:
-            color = (0, 255, 0)
-            for box in self.mbly_pix:
-                cv2.line(I, tuple(box[0]), tuple(box[2]), color, 2)
-                cv2.line(I, tuple(box[2]), tuple(box[3]), color, 2)
-                cv2.line(I, tuple(box[3]), tuple(box[1]), color, 2)
-                cv2.line(I, tuple(box[1]), tuple(box[0]), color, 2)
+        # Add the lanes to the image copy
+        I = self.addObjToImg(I, objs_wrt_mbly)
 
         vtkimg = VtkImage(I)
         self.img_ren.RemoveActor(self.img_actor)
@@ -379,6 +377,7 @@ class Blockworld:
         self.iren.GetRenderWindow().Render()
 
     def xformMblyToGlobal(self, pts_wrt_mbly):
+        # TODO: Need to tranform from imu to gps frame of reference
         car_pos = self.imu_transforms_mk1[self.t, 0:3, 0:4]
 
         pts = pts_wrt_mbly
@@ -439,7 +438,7 @@ class Blockworld:
             # Create the vtk object
             box = VtkBoundingBox(properties)
             actor = box.get_vtk_box(car_rot)
-            color = self.mbly_box_colors[int(o[5])]
+            color = self.mbly_obj_colors[int(o[5])]
             actor.GetProperty().SetColor(*color)
             mbly_vtk_boxes.append(box)
 
@@ -452,12 +451,19 @@ class Blockworld:
         for vtk_box in self.mbly_vtk_boxes:
             self.cloud_ren.AddActor(vtk_box.actor)
 
-    def addLaneToCloud(self, lane_wrt_mbly):
-        X = np.linspace(0, 80, num=200)
+    def getLanePointsFromModel(self, lane_wrt_mbly):
+        num_pts = 200
+
+        # from model: Y = C3*X^3 + C2*X^2 + C1*X + C0.
+        X = np.linspace(0, 80, num=num_pts)
         X = np.vstack((np.ones(X.shape), X, np.power(X, 2), np.power(X, 3)))
         # Mbly uses Y-right as positive, we use Y-left as positive
-        Y = -1*np.dot(lane_wrt_mbly[:, :4], X)
-        num_pts = Y.shape[1]
+        Y = -1 * np.dot(lane_wrt_mbly[:4], X)
+        lane_pts_wrt_mbly = np.vstack((X[1, :], Y, np.zeros((1, num_pts)))).T
+
+        return lane_pts_wrt_mbly
+
+    def addLaneToCloud(self, lane_wrt_mbly):
 
         for lane in self.mbly_vtk_lanes:
             self.cloud_ren.RemoveActor(lane.actor)
@@ -465,18 +471,15 @@ class Blockworld:
 
         for i in xrange(lane_wrt_mbly.shape[0]):
             type = int(lane_wrt_mbly[i, 5])
-            subsamp = 1
-            if type == 0: # dashed
-                subsamp = 20
-            elif type == 5: # botts dots
-                subsamp = 40
-
-            pts_wrt_mbly = np.vstack((X[1, :][::subsamp], Y[i, :][::subsamp], \
-                                      np.zeros((1, num_pts/subsamp)))).T
-            pts_wrt_global = self.xformMblyToGlobal(pts_wrt_mbly)
-
             color = self.mbly_lane_color[type] * 255
             size = self.mbly_lane_size[type]
+            subsamp = self.mbly_lane_subsamp[type]
+
+            lane_pts_wrt_mbly = self.getLanePointsFromModel(lane_wrt_mbly[i, :])
+            pts_wrt_global = self.xformMblyToGlobal(lane_pts_wrt_mbly)
+            pts_wrt_global = pts_wrt_global[::subsamp]
+
+            num_pts = pts_wrt_global.shape[0]
             vtk_lane = VtkPointCloud(pts_wrt_global, np.tile(color, (num_pts, 1)))
             actor = vtk_lane.get_vtk_color_cloud()
             actor.GetProperty().SetPointSize(size)
@@ -485,23 +488,71 @@ class Blockworld:
 
             self.cloud_ren.AddActor(actor)
 
-    def getObjAsPix(self, objs_wrt_mbly):
+
+    def addObjToImg(self, I, objs_wrt_mbly):
+        """Takes an image and the mbly objects. Converts the objects into corners of a
+        bounding box and draws them on the image
+
+        """
         if objs_wrt_mbly.shape[0] == 0:
             return None
 
         pix = []
-        w = objs_wrt_mbly[:, 4]
+        width = objs_wrt_mbly[:, 4]
+
+        # Assuming the point in obs_wrt_mbly are the center of the object, draw
+        # a box .5 m below, .5 m above, -.5*width left, .5*width right. Keep the
+        # same z position
         for z in [-.5, .5]:
             for y in [-.5, .5]:
-                offset = np.zeros((w.shape[0], 3))
-                offset[:, 1] = w*y
+                offset = np.zeros((width.shape[0], 3))
+                offset[:, 1] = width*y
                 offset[:, 2] = z
                 pt = objs_wrt_mbly[:, :3] + offset
                 pix.append(projectPoints(pt, self.args, self.mbly_T, \
                                          self.mbly_R)[:, 3:])
 
         pix = np.array(pix, dtype=np.int32)
-        return np.swapaxes(pix, 0, 1)
+        pix = np.swapaxes(pix, 0, 1)
+
+        # Draw a line between projected points
+        for i, corner in enumerate(pix):
+            # Get the color of the box and convert RGB -> BGR
+            color = self.mbly_obj_colors[int(objs_wrt_mbly[i, 5])][::-1] * 255
+            corner = tuple(map(tuple, corner))
+            cv2.rectangle(I, corner[0], corner[3], color, 2)
+
+        return I
+
+    def addLaneToImg(self, I, lanes_wrt_mbly):
+        """Takes an image and the 3d lane points. Projects these points onto the image
+        """
+        if lanes_wrt_mbly.shape[0] == 0:
+            return None
+
+        pix = []
+        for i in xrange(len(self.mbly_vtk_lanes)):
+            type = int(lanes_wrt_mbly[i, 5])
+            color = self.mbly_lane_color[type] * 255
+            size = self.mbly_lane_size[type]
+            subsamp = self.mbly_lane_subsamp[type]
+
+            pts = self.getLanePointsFromModel(lanes_wrt_mbly[i])[::subsamp]
+            proj_pts = projectPoints(pts, self.args, self.mbly_T, self.mbly_R)
+            proj_pts = proj_pts[:, 3:].astype(np.int32, copy = False)
+
+            img_mask = (proj_pts[:, 0] < 1280) & (proj_pts[:, 0] >= 0) &\
+                       (proj_pts[:, 1] < 800) & (proj_pts[:, 1] >= 0)
+
+            proj_pts = proj_pts[img_mask]
+
+            for pt_i in xrange(proj_pts.shape[0]):
+                # cv2 only takes tuples at points
+                pt = tuple(proj_pts[pt_i, :])
+                # Make sure to convert to bgr
+                cv2.circle(I, pt, size, color[::-1], thickness=-size)
+        return I
+
 
 if __name__ == '__main__':
     Blockworld()
