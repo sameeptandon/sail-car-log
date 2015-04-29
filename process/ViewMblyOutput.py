@@ -456,10 +456,14 @@ class Blockworld:
             self.cloud_ren.AddActor(vtk_box.actor)
 
     def getLanePointsFromModel(self, lane_wrt_mbly):
-        num_pts = 200
 
+        view_range = lane_wrt_mbly[6]
+        if view_range == 0:
+            return None
+        num_pts = view_range * 3
+
+        X = np.linspace(0, view_range, num=num_pts)
         # from model: Y = C3*X^3 + C2*X^2 + C1*X + C0.
-        X = np.linspace(0, 80, num=num_pts)
         X = np.vstack((np.ones(X.shape), X, np.power(X, 2), np.power(X, 3)))
         # Mbly uses Y-right as positive, we use Y-left as positive
         Y = -1 * np.dot(lane_wrt_mbly[:4], X)
@@ -480,6 +484,9 @@ class Blockworld:
             subsamp = self.mbly_lane_subsamp[type]
 
             lane_pts_wrt_mbly = self.getLanePointsFromModel(lane_wrt_mbly[i, :])
+            if lane_pts_wrt_mbly is None:
+                continue
+
             pts_wrt_global = self.xformMblyToGlobal(lane_pts_wrt_mbly)
             pts_wrt_global = pts_wrt_global[::subsamp]
 
@@ -542,6 +549,9 @@ class Blockworld:
             subsamp = self.mbly_lane_subsamp[type]
 
             pts = self.getLanePointsFromModel(lanes_wrt_mbly[i])[::subsamp]
+            if pts is None:
+                continue
+
             proj_pts = projectPoints(pts, self.args, self.mbly_T, self.mbly_R)
             proj_pts = proj_pts[:, 3:].astype(np.int32, copy = False)
 
