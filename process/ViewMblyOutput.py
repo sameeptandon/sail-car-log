@@ -26,7 +26,7 @@ from GPSReader import GPSReader
 from GPSTransforms import IMUTransforms, absoluteTransforms
 from LaneMarkingHelper import BackProjector, DataTree, get_transforms, mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
-from MblyTransforms import MblyLoader, projectPoints, calibrateMblyPts
+from MblyTransforms import MblyLoader, projectPoints, T_from_mbly_to_lidar
 from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
 from mbly_obj_pb2 import Object
@@ -207,12 +207,12 @@ class Blockworld:
 
         ###### Set up the renderers ######
         self.cloud_ren = vtk.vtkRenderer()
-        self.cloud_ren.SetViewport(0, 0, 0.7, 1.0)
+        self.cloud_ren.SetViewport(0, 0, 1.0, 1.0)
         self.cloud_ren.SetBackground(0, 0, 0)
 
         self.img_ren = vtk.vtkRenderer()
         # self.img_ren.SetViewport(0.7, 0.0, 1.0, 0.37)
-        self.img_ren.SetViewport(0.5, 0.0, 1.0, 0.5)
+        self.img_ren.SetViewport(0.6, 0.6, 1.0, 1.0)
         self.img_ren.SetInteractive(False)
         self.img_ren.SetBackground(0.1, 0.1, 0.1)
 
@@ -307,7 +307,7 @@ class Blockworld:
         # Initialization
         if not self.startup_complete:
             cloud_cam.SetViewUp(0, 0, 1)
-            self.mk2_t = 0
+            self.mk2_t = 1
             self.t = self.mk2_to_mk1()
 
             self.startup_complete = True
@@ -374,7 +374,7 @@ class Blockworld:
         # the image is too small
         self.img_ren.ResetCamera()
         img_cam.SetClippingRange(100, 100000) # These units are pixels
-        img_cam.Dolly(1.75)
+        img_cam.Dolly(2.00)
 
         self.iren.GetRenderWindow().Render()
 
@@ -385,8 +385,8 @@ class Blockworld:
 
         pts = pts_wrt_mbly
         # Puts points in lidar FOR
-        pts_wrt_lidar = calibrateMblyPts(pts_wrt_mbly, self.mbly_T, \
-                                         self.mbly_R[:3,:3])
+        pts_wrt_lidar = T_from_mbly_to_lidar(pts_wrt_mbly, self.mbly_T, \
+                                             self.mbly_R[:3,:3])
         # Make points homogoneous
         hom_pts = np.hstack((pts_wrt_lidar[:, :3], np.ones((pts.shape[0], 1))))
         # Put in imu FOR
@@ -456,10 +456,14 @@ class Blockworld:
             self.cloud_ren.AddActor(vtk_box.actor)
 
     def getLanePointsFromModel(self, lane_wrt_mbly):
-        num_pts = 200
 
+        view_range = lane_wrt_mbly[6]
+        if view_range == 0:
+            return None
+        num_pts = view_range * 3
+
+        X = np.linspace(0, view_range, num=num_pts)
         # from model: Y = C3*X^3 + C2*X^2 + C1*X + C0.
-        X = np.linspace(0, 80, num=num_pts)
         X = np.vstack((np.ones(X.shape), X, np.power(X, 2), np.power(X, 3)))
         # Mbly uses Y-right as positive, we use Y-left as positive
         Y = -1 * np.dot(lane_wrt_mbly[:4], X)
@@ -480,6 +484,9 @@ class Blockworld:
             subsamp = self.mbly_lane_subsamp[type]
 
             lane_pts_wrt_mbly = self.getLanePointsFromModel(lane_wrt_mbly[i, :])
+            if lane_pts_wrt_mbly is None:
+                continue
+
             pts_wrt_global = self.xformMblyToGlobal(lane_pts_wrt_mbly)
             pts_wrt_global = pts_wrt_global[::subsamp]
 
@@ -542,6 +549,9 @@ class Blockworld:
             subsamp = self.mbly_lane_subsamp[type]
 
             pts = self.getLanePointsFromModel(lanes_wrt_mbly[i])[::subsamp]
+            if pts is None:
+                continue
+
             proj_pts = projectPoints(pts, self.args, self.mbly_T, self.mbly_R)
             proj_pts = proj_pts[:, 3:].astype(np.int32, copy = False)
 
