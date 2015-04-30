@@ -207,12 +207,12 @@ class Blockworld:
 
         ###### Set up the renderers ######
         self.cloud_ren = vtk.vtkRenderer()
-        self.cloud_ren.SetViewport(0, 0, 0.7, 1.0)
+        self.cloud_ren.SetViewport(0, 0, 1.0, 1.0)
         self.cloud_ren.SetBackground(0, 0, 0)
 
         self.img_ren = vtk.vtkRenderer()
         # self.img_ren.SetViewport(0.7, 0.0, 1.0, 0.37)
-        self.img_ren.SetViewport(0.5, 0.0, 1.0, 0.5)
+        self.img_ren.SetViewport(0.6, 0.6, 1.0, 1.0)
         self.img_ren.SetInteractive(False)
         self.img_ren.SetBackground(0.1, 0.1, 0.1)
 
@@ -307,7 +307,7 @@ class Blockworld:
         # Initialization
         if not self.startup_complete:
             cloud_cam.SetViewUp(0, 0, 1)
-            self.mk2_t = 0
+            self.mk2_t = 1
             self.t = self.mk2_to_mk1()
 
             self.startup_complete = True
@@ -374,7 +374,7 @@ class Blockworld:
         # the image is too small
         self.img_ren.ResetCamera()
         img_cam.SetClippingRange(100, 100000) # These units are pixels
-        img_cam.Dolly(1.75)
+        img_cam.Dolly(2.00)
 
         self.iren.GetRenderWindow().Render()
 
