@@ -4,8 +4,9 @@ import vtk
 
 class aiWorld (object):
     def __init__ (self, size):
+        """ Creates a window with a black background """
         self.views = []
-        self.vtk_renderers = []
+        self.ai_renderers = []
 
         self.win = vtk.vtkRenderWindow()
         self.win.StereoCapableWindowOff()
@@ -23,19 +24,35 @@ class aiWorld (object):
 
     @property
     def update_cb (self):
+        """ A function that is called on a timer (for now at 60Hz)
+
+        ex: def update (ren_interactor, event)
+        ren_interactor is of type vtkRenderWindowInteractor
+
+        TODO: make modifying ren_interactor easy
+        """
         return self._update_cb
     @update_cb.setter
     def update_cb (self, cb):
+        print self._update_cb
+        if self._update_cb is not None:
+            self.ren_interactor.RemoveObserver(self._update_cb)
+
         self._update_cb = cb
-        self.ren_interactor.AddObserver('TimerEvent', cb)
-        self.ren_interactor.CreateRepeatingTimer(100)
+        self.ren_interactor.AddObserver('TimerEvent', self._update_cb)
+        self.ren_interactor.CreateRepeatingTimer(16)
 
     def add_renderer (self, ai_ren):
-        self.vtk_renderers.append(ai_ren)
+        """ Adds a renderer view to the world """
+        self.ai_renderers.append(ai_ren)
         self.win.AddRenderer(ai_ren.ren)
         ai_ren.world = self
 
     def start (self):
+        """ Starts running the update callback. If there is no update method, throw an
+        error
+
+        """
         if self.update_cb == None:
             raise Exception('Before starting the world, add a callback ' + \
                             'that updates the view')
@@ -45,8 +62,12 @@ class aiWorld (object):
 
 class aiRenderer (object):
     def __init__ (self):
+        """Creates a renderer view. A view contains aiObjects. By default, aiRenderers
+        fill the entire screen and have a black background
+
+        """
         self.ren = vtk.vtkRenderer()
-        self.vtk_objects = []
+        self.ai_objects = []
 
         self._position = (0, 0, 1, 1)
         self._color = (0, 0, 0)
@@ -59,6 +80,10 @@ class aiRenderer (object):
 
     @property
     def interactive(self):
+        """Renders can be interactive (register mouse/key clicks) or non-interactive
+        (ignore mouse/key clicks)
+
+        """
         return self._interactive
     @interactive.setter
     def interactive(self, value):
@@ -67,6 +92,11 @@ class aiRenderer (object):
 
     @property
     def color(self):
+        """Sets the background color
+
+        ex: ren.color = (R, G, B)
+
+        """
         return self._color
     @color.setter
     def color(self, value):
@@ -75,6 +105,19 @@ class aiRenderer (object):
 
     @property
     def position(self):
+        """Sets the position of the renderer
+
+        ex: This will fill the screen from the bottom-right corner to the
+        center of the screen in Y and 3/4 of the screen in X"
+        -------------
+        |           |
+        |xxxxxxxxx  |
+        |xxxxxxxxx  |
+        -------------
+
+        ren.position = (0, 0, 0.75, 0.5)
+
+        """
         return self._position
     @position.setter
     def position(self, value):

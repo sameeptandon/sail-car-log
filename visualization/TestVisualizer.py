@@ -1,7 +1,8 @@
 import aivtk
 
-def update(iren, event):
-    print 'hello'
+def update(ren_interactor, event):
+    print 'hi'
+    print ren_interactor
 
 if __name__ == '__main__':
     world = aivtk.aiWorld((800, 400))
@@ -9,7 +10,7 @@ if __name__ == '__main__':
 
     cloud_ren = aivtk.aiRenderer()
     cloud_ren.color = (1, 0, 0)
-    cloud_ren.position = (0, 0, .5, .5)
+    cloud_ren.position = (0, 0, .75, .5)
 
     world.add_renderer(cloud_ren)
 
