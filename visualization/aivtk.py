@@ -37,8 +37,7 @@ class Bunch(dict):
 class aiWorld (object):
     def __init__ (self, size):
         """ Creates a window with a black background """
-        self.views = []
-        self.ai_renderers = []
+        self.renderers = Bunch()
 
         self.win = vtk.vtkRenderWindow()
         self.win.StereoCapableWindowOff()
@@ -48,36 +47,72 @@ class aiWorld (object):
         self.ren_interactor.SetRenderWindow(self.win)
         self.ren_interactor.Initialize()
 
+        self.picker = vtk.vtkPointPicker()
+        self.picker.SetTolerance(0.003)
+        self.ren_interactor.SetPicker(self.picker)
+
+        self.interactor_style = aiInteractorStyle(self)
+        self.ren_interactor.SetInteractorStyle(self.interactor_style)
+
         self._update_cb = None
 
         bg_ren = aiRenderer()
         bg_ren.interactive = False
-        self.addRenderer(bg_ren)
+        self.addRenderer(background = bg_ren)
 
     @property
     def update_cb (self):
         """ A function that is called on a timer (for now at 60Hz)
 
-        ex: def update (ren_interactor, event)
-        ren_interactor is of type vtkRenderWindowInteractor
+        ex:
+        def update (renderers):
+            print renderers.cloud_ren.car
 
-        TODO: make modifying ren_interactor easy
+        renderers is a list of all renderers in the world
+        This makes accessing objects in the update method easy
+
         """
         return self._update_cb
     @update_cb.setter
     def update_cb (self, cb):
+        """ The cb field can either be a callback to run at 60Hz or a tuple
+        containing the callback and the frequency
+
+        ex:
+        world.update_cb = update
+        or
+        world.update_cb = (update, 10)
+        """
+        if type(cb) in [list,tuple]:
+            cb, freq = cb
+        else:
+            cb, freq = cb, 60
+
         if self._update_cb is not None:
             self.ren_interactor.RemoveObserver(self._update_cb)
 
         self._update_cb = cb
-        self.ren_interactor.AddObserver('TimerEvent', self._update_cb)
-        self.ren_interactor.CreateRepeatingTimer(16)
+        self.ren_interactor.AddObserver('TimerEvent', self._ai_update_cb)
+        self.ren_interactor.CreateRepeatingTimer(1000/freq)
 
-    def addRenderer (self, ai_ren):
-        """ Adds a renderer view to the world """
-        self.ai_renderers.append(ai_ren)
-        self.win.AddRenderer(ai_ren.ren)
-        ai_ren.world = self
+    def _ai_update_cb(self, ren_interactor, event):
+        all_renderers = self.renderers
+        self.update_cb(all_renderers)
+
+        ren_interactor.GetRenderWindow().Render()
+
+    def addRenderer (self, **kwargs):
+        """ Adds a renderer view to the world
+
+        ex:
+        ren = aiRenderer()
+        world.addRenderer(pretty_renderer=ren)
+        print world.renderers.pretty_renderer.objects
+        """
+        for ren_name, ai_ren in kwargs.iteritems():
+            self.renderers[ren_name] = ai_ren
+            self.win.AddRenderer(ai_ren.ren)
+            ai_ren.world = self
 
     def start (self):
         """ Starts running the update callback. If there is no update method, throw an
@@ -90,6 +125,9 @@ class aiWorld (object):
         else:
             self.ren_interactor.Start()
 
+class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
+    def __init__(self, ai_world):
+        pass
 
 class aiRenderer (object):
     def __init__ (self):
@@ -230,12 +268,24 @@ class aiRenderer (object):
 
 class aiObject (VTKObject, object):
     def __init__ (self, data):
-        self.data = data
+        self._data = data
         self.ren = None
         self.category = None
         self._color = None
         self._wireframe = False
         self._transform = np.eye(4)
+
+    def modified (self):
+        """ Call the function whenever the underlying data is changed """
+        self.actor.GetMapper().GetInput().Modified()
+
+    @property
+    def data (self):
+        return self._data
+    @data.setter
+    def data (self, pos):
+        self._data = pos
+        self.modified()
 
     @property
     def source (self):
@@ -340,7 +390,8 @@ class aiObject (VTKObject, object):
 class aiCloud (aiObject):
     def __init__ (self, data):
         super(aiCloud, self).__init__(data)
-        self.data = self.CreateFromArray(self.data)
+        self.CreateFromArray(self.data)
+        self._data = self.points_npy
 
     # All points can have unique colors
     @property
@@ -353,7 +404,7 @@ class aiCloud (aiObject):
 class aiKDCloud (aiCloud):
     def __init__ (self, data):
         super(aiKDCloud, self).__init__(data)
-        self.tree  = cKDTree(data[:, :3])
+        self.tree = cKDTree(data[:, :3])
 
 class aiBox(aiObject):
     def __init__ (self, bounds):
@@ -367,7 +418,7 @@ class aiBox(aiObject):
                            [xmax, ymin, zmin],
                            [xmax, ymin, zmax],
                            [xmax, ymax, zmin],
-                           [xmax, ymax, zmax]])
+                           [xmax, ymax, zmax]]).astype(np.double)
         super(aiBox, self).__init__(coords)
 
         self.CreateBox(bounds)
@@ -384,6 +435,18 @@ class aiBox(aiObject):
     @color.setter
     def color (self, color):
         self.actor_color = color
+
+    @property
+    def data (self):
+        return self._data
+    @data.setter
+    def data (self, pos):
+        """ Since box.data is not tied directly to the image, we must modify
+        the source """
+        self._data = pos
+        bounds = np.vstack((self._data[0], self._data[-1])).T.flatten()
+        self.source.SetBounds(bounds)
+        self.modified()
 
 class aiPly(aiObject):
     def __init__ (self, ply_file_name):
