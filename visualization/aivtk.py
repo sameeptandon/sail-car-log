@@ -34,7 +34,6 @@ class aiWorld (object):
         return self._update_cb
     @update_cb.setter
     def update_cb (self, cb):
-        print self._update_cb
         if self._update_cb is not None:
             self.ren_interactor.RemoveObserver(self._update_cb)
 
@@ -79,19 +78,20 @@ class aiRenderer (object):
         self._world = None
 
     @property
-    def interactive(self):
+    def interactive (self):
         """Renders can be interactive (register mouse/key clicks) or non-interactive
         (ignore mouse/key clicks)
 
         """
         return self._interactive
     @interactive.setter
-    def interactive(self, value):
+    def interactive (self, value):
         self._interactive = value
+        self.ren.InteractiveOff()
         self.ren.SetInteractive(self.interactive)
 
     @property
-    def color(self):
+    def color (self):
         """Sets the background color
 
         ex: ren.color = (R, G, B)
@@ -99,12 +99,12 @@ class aiRenderer (object):
         """
         return self._color
     @color.setter
-    def color(self, value):
+    def color (self, value):
         self._color = value
         self.ren.SetBackground(*self._color)
 
     @property
-    def position(self):
+    def position (self):
         """Sets the position of the renderer
 
         ex: This will fill the screen from the bottom-right corner to the
@@ -120,6 +120,6 @@ class aiRenderer (object):
         """
         return self._position
     @position.setter
-    def position(self, value):
+    def position (self, value):
         self._position = value
         self.ren.SetViewport(*self.position)
