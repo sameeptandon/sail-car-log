@@ -1,4 +1,4 @@
-from aivtk import aiWorld, aiRenderer, aiCloud
+from aivtk import aiWorld, aiRenderer, aiCloud, aiBox
 import numpy as np
 
 def update(ren_interactor, event):
@@ -10,12 +10,21 @@ if __name__ == '__main__':
     world.update_cb = update
 
     cloud_ren = aiRenderer()
-    cloud_ren.interactive = False
+    cloud_ren.ren.SetInteractive(False)
 
-    world.add_renderer(cloud_ren)
+    world.addRenderer(cloud_ren)
 
-    X = np.random.rand(100, 3)
-    obj = aiCloud(X)
-    cloud_ren.add_object(obj)
+    pts = np.random.rand(100, 3)
+    cloud = aiCloud(pts)
+    colors = np.random.rand(*pts.shape) * 255
+    colors = colors.astype(np.uint8)
+    cloud.color = colors
+
+    box = aiBox((0, 1, 0, 1, 0, 1))
+    box.wireframe = True
+    box.color = np.array((255, 10, 255))
+
+    cloud_ren.addObject(cloud)
+    cloud_ren.addObject(box)
 
     world.start()

@@ -21,7 +21,7 @@ class aiWorld (object):
 
         bg_ren = aiRenderer()
         bg_ren.interactive = False
-        self.add_renderer(bg_ren)
+        self.addRenderer(bg_ren)
 
     @property
     def update_cb (self):
@@ -42,7 +42,7 @@ class aiWorld (object):
         self.ren_interactor.AddObserver('TimerEvent', self._update_cb)
         self.ren_interactor.CreateRepeatingTimer(16)
 
-    def add_renderer (self, ai_ren):
+    def addRenderer (self, ai_ren):
         """ Adds a renderer view to the world """
         self.ai_renderers.append(ai_ren)
         self.win.AddRenderer(ai_ren.ren)
@@ -82,14 +82,14 @@ class aiRenderer (object):
     def interactive (self):
         """Renders can be interactive (register mouse/key clicks) or non-interactive
         (ignore mouse/key clicks)
+        TODO: Why isn't this working
 
         """
         return self._interactive
     @interactive.setter
     def interactive (self, value):
         self._interactive = value
-        self.ren.InteractiveOff()
-        self.ren.SetInteractive(self.interactive)
+        self.ren.SetInteractive(self._interactive)
 
     @property
     def color (self):
@@ -125,14 +125,121 @@ class aiRenderer (object):
         self._position = value
         self.ren.SetViewport(*self.position)
 
-    def add_object (self, ai_object):
+    def addObject (self, ai_object):
         """ Adds an actor to the renderer """
         self.ai_objects.append(ai_object)
         self.ren.AddActor(ai_object.actor)
         ai_object.ren = self
 
 
-class aiCloud (VTKObject):
+class aiObject (VTKObject, object):
+# SetPickable, SetPointSize, SetOpacity, kdtree?
+# SetColor, RotateZ (Rotate?), SetOpacity, SetVisability
     def __init__ (self, data):
-        self.CreateFromArray(data)
+        self.data = data
+        self._color = None
         self.ren = None
+        self._wireframe = False
+
+    @property
+    def source (self):
+        """ Gets the source of the object """
+        return self.actor.GetMapper().GetInputConnection(0, 0).GetProducer()
+
+    @property
+    def properties (self):
+        """ Gets all object properties """
+        return self.actor.GetProperty()
+
+    @property
+    def wireframe (self):
+        """ The object is displayed as a wireframe """
+        return self._wireframe
+    @wireframe.setter
+    def wireframe (self, value):
+        self._wireframe = value
+        if value == True:
+            self.properties.SetRepresentationToWireframe()
+        else:
+            self.properties.SetRepresentationToSurface()
+
+    @property
+    def data_color (self):
+        """ Sets the color of the data source """
+        return self._color
+    @data_color.setter
+    def data_color (self, color):
+        """ Colors is a numpy array the same size as data in the form:
+        [[r, g, b]...[r,g,b]] taking values 0-255.
+        Parent classes should choose how setting the color changes the object
+        """
+        self._color = color
+        self.AddColors(self._color)
+
+    @property
+    def actor_color (self):
+        """ Sets the color of the entire object """
+        return self._color
+    @actor_color.setter
+    def actor_color (self, color):
+        """ Colors is a tuple (R, G, B) taking values 0-255.
+        Parent classes should choose how setting the color changes the object
+        """
+        (R, G, B) = color
+        self._color = color
+        self.properties.SetColor(R/255., G/255., B/255.)
+
+    def projectData (self):
+        """ Project the data into 2d """
+        pass
+
+    def moveData (self):
+        """ Move part of the data around """
+        pass
+
+    def transformData (self):
+        """ Move the data to a different frame of reference """
+        pass
+
+class aiCloud (aiObject):
+    def __init__ (self, data):
+        super(aiCloud, self).__init__(data)
+        self.data = self.CreateFromArray(self.data)
+
+    # All points can have unique colors
+    @property
+    def color (self):
+        return self._color
+    @color.setter
+    def color (self, color):
+        self.data_color = color
+
+class aiBox(aiObject):
+    def __init__ (self, bounds):
+        """Create a box witih the given bounds [xmin,xmax,ymin,ymax,zmin,zmax]"""
+        self.bounds = bounds
+        (xmin, xmax, ymin, ymax, zmin, zmax) = self.bounds
+        coords = np.array([[xmin, ymin, zmin],
+                           [xmin, ymin, zmax],
+                           [xmin, ymax, zmin],
+                           [xmin, ymax, zmax],
+                           [xmax, ymin, zmin],
+                           [xmax, ymin, zmax],
+                           [xmax, ymax, zmin],
+                           [xmax, ymax, zmax]])
+        super(aiBox, self).__init__(coords)
+
+        self.CreateBox(bounds)
+
+        self.properties.LightingOff()
+        self.source.QuadsOn()
+
+        self.wireframe = True
+
+    # A box's color is defined by the actor, not the points
+    @property
+    def color (self):
+        return self._color
+    @color.setter
+    def color (self, color):
+        self.actor_color = color
