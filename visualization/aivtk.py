@@ -3,6 +3,25 @@ import numpy as np
 import vtk
 from vtk_visualizer.pointobject import VTKObject # pip install vtk_visualizer
 
+class Bunch(dict):
+    """ A Bunch is a class that allows javascript-like dictionary creation
+
+    ex:
+    > bunch = Bunch(a='hello')
+    > print bunch.a
+    >>> 'hello'
+
+    """
+    def __init__(self,**kw):
+        dict.__init__(self,kw)
+        self.__dict__ = self
+
+    def __str__(self):
+        state = ["%s=%r" % (attribute, value) \
+                 for (attribute, value) in \
+                 self.__dict__.items()]
+        return '\n'.join(state)
+
 class aiWorld (object):
     def __init__ (self, size):
         """ Creates a window with a black background """
@@ -67,7 +86,7 @@ class aiRenderer (object):
 
         """
         self.ren = vtk.vtkRenderer()
-        self.ai_objects = []
+        self.objects = Bunch()
 
         self._position = (0, 0, 1, 1)
         self._color = (0, 0, 0)
@@ -125,11 +144,29 @@ class aiRenderer (object):
         self._position = value
         self.ren.SetViewport(*self.position)
 
-    def addObject (self, ai_object):
-        """ Adds an actor to the renderer """
-        self.ai_objects.append(ai_object)
-        self.ren.AddActor(ai_object.actor)
-        ai_object.ren = self
+    def addObjects (self, **kwargs):
+        """ Adds an actor to the renderer
+
+        ex:
+        clouds = [aiCloud(np.random.rand(100, 3))] * 3
+        ren.addObject(lanes=clouds)
+        ren.objects.lanes[0].color = np.random.rand(100, 3) * 255
+        """
+        # Look through all of the keyword arguments
+        for name, ai_objs in kwargs.iteritems():
+            # If the value is not a list/tuple, make it one so we can iterate
+            # later. This also makes deleting easier
+            if type(ai_objs) not in [list,tuple]:
+                ai_objs = [ai_objs]
+
+            # Update the Bunch to contain the new name
+            # We can access this item by ren.name
+            self.objects[str(name)] = ai_objs
+            # Add the objects to the renderer and let the object know it has a
+            # renderer
+            for ai_obj in ai_objs:
+                self.ren.AddActor(ai_obj.actor)
+                ai_obj.ren = self
 
 
 class aiObject (VTKObject, object):
