@@ -4,8 +4,10 @@ import numpy as np
 def update (renderers):
     cloud = renderers.cloud_ren.objects.clouds[0]
     box = renderers.cloud_ren.objects.boxes[0]
-    cloud.data += np.array([.001] * 3)
-    box.data += np.array([.001] * 3)
+    # We can update the position of clouds and cubes by accessing their data
+    # directly
+    # cloud.data += np.array([.001] * 3)
+    # box.data += np.array([.001] * 3)
 
 if __name__ == '__main__':
     world = aiWorld((800, 400))
@@ -17,6 +19,11 @@ if __name__ == '__main__':
 
     cloud_ren = aiRenderer()
     cloud_ren.ren.SetInteractive(False)
+    def custom_handler (x, y, ai_obj, idx, default):
+        print x, y
+        print ai_obj, idx
+        default()
+    cloud_ren.mouse_handler.leftPress = custom_handler
 
     world.addRenderer(cloud_ren = cloud_ren)
 
