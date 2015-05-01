@@ -1,4 +1,4 @@
-from aivtk import aiWorld, aiRenderer, aiCloud, aiBox
+from aivtk import *
 import numpy as np
 
 def update(ren_interactor, event):
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     num_pts = 100
     for i in xrange(3):
         pts = np.random.rand(num_pts, 3)
-        cloud = aiCloud(pts)
+        cloud = aiKDCloud(pts)
         colors = (np.random.rand(*pts.shape) * 255).astype(np.uint8)
         cloud.color = colors
         clouds.append(cloud)

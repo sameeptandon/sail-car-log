@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from scipy.spatial import cKDTree
 import vtk
 from vtk_visualizer.pointobject import VTKObject # pip install vtk_visualizer
 
@@ -330,6 +331,11 @@ class aiCloud (aiObject):
     @color.setter
     def color (self, color):
         self.data_color = color
+
+class aiKDCloud (aiCloud):
+    def __init__ (self, data):
+        super(aiKDCloud, self).__init__(data)
+        self.tree  = cKDTree(data[:, :3])
 
 class aiBox(aiObject):
     def __init__ (self, bounds):
