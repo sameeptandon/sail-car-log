@@ -30,5 +30,7 @@ if __name__ == '__main__':
     cloud_ren.addObjects(clouds=clouds[:2], boxes=box)
     cloud_ren.addObjects(clouds=clouds[2:])
     cloud_ren.removeObjects(cloud_ren.objects.clouds[:2])
+    cloud_ren.objects.boxes[0].opacity = .3
+    cloud_ren.objects.boxes[0].wireframe = False
 
     world.start()

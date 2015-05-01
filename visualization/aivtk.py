@@ -219,8 +219,6 @@ class aiRenderer (object):
                 self._cleanupObject(i, obj)
 
 class aiObject (VTKObject, object):
-# SetPickable, SetPointSize, SetOpacity, kdtree?
-# SetColor, RotateZ (Rotate?), SetOpacity, SetVisability
     def __init__ (self, data):
         self.data = data
         self.ren = None
@@ -237,6 +235,38 @@ class aiObject (VTKObject, object):
     def properties (self):
         """ Gets all object properties """
         return self.actor.GetProperty()
+
+    @property
+    def point_size (self):
+        return self.properties.GetPointSize()
+    @point_size.setter
+    def point_size (self, value):
+        """ Set the actor's point size """
+        self.properties.SetPointSize(value)
+
+    @property
+    def opacity (self):
+        return self.properties.GetOpacity()
+    @opacity.setter
+    def opacity (self, value):
+        """ Change the object's opacity. Takes values 0-1 """
+        self.properties.SetOpacity(value)
+
+    @property
+    def pickable (self):
+        self.actor.GetPickable()
+    @pickable.setter
+    def pickable (self, value):
+        """ Allow the object to be selected by the mouse """
+        self.actor.SetPickable(int(value))
+
+    @property
+    def visable (self):
+        return self.actor.GetVisability()
+    @visable.setter
+    def visable (self, value):
+        """ Change the object's visability. value is a boolean """
+        self.actor.SetVisability(int(value))
 
     @property
     def wireframe (self):
