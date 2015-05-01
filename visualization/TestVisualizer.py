@@ -27,8 +27,10 @@ if __name__ == '__main__':
     box.wireframe = True
     box.color = np.array((255, 10, 255))
 
-    cloud_ren.addObjects(clouds=clouds[:2], boxes=box)
-    cloud_ren.addObjects(clouds=clouds[2:])
+    car = aiPly('gtr.ply')
+
+    cloud_ren.addObjects(clouds=clouds, boxes=box)
+    cloud_ren.addObjects(car = car)
     cloud_ren.removeObjects(cloud_ren.objects.clouds[:2])
     cloud_ren.objects.boxes[0].opacity = .3
     cloud_ren.objects.boxes[0].wireframe = False

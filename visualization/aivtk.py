@@ -4,6 +4,15 @@ from scipy.spatial import cKDTree
 import vtk
 from vtk_visualizer.pointobject import VTKObject # pip install vtk_visualizer
 
+def array2vtkTransform(self,arr):
+    T = vtk.vtkTransform()
+    matrix = vtk.vtkMatrix4x4()
+    for i in range(0,4):
+        for j in range(0,4):
+            matrix.SetElement(i, j, arr[i,j])
+    T.SetMatrix(matrix)
+    return T
+
 class Bunch(dict):
     """ A Bunch is a class that allows javascript-like dictionary creation
 
@@ -226,6 +235,7 @@ class aiObject (VTKObject, object):
         self.category = None
         self._color = None
         self._wireframe = False
+        self._transform = np.eye(4)
 
     @property
     def source (self):
@@ -268,6 +278,14 @@ class aiObject (VTKObject, object):
     def visable (self, value):
         """ Change the object's visability. value is a boolean """
         self.actor.SetVisability(int(value))
+
+    @property
+    def transform (self):
+        return self._transform
+    @transform.setter
+    def transform (self, np_xform):
+        self._transform = np_xform
+        self.actor.SetUserTransform(array2vtkTransform(np_xform))
 
     @property
     def wireframe (self):
@@ -366,3 +384,16 @@ class aiBox(aiObject):
     @color.setter
     def color (self, color):
         self.actor_color = color
+
+class aiPly(aiObject):
+    def __init__ (self, ply_file_name):
+        """ Creates an object from a ply file. """
+        super(aiPly, self).__init__(np.array((0,0,0)))
+
+        reader = vtk.vtkPLYReader()
+        reader.SetFileName(ply_file_name)
+        reader.Update()
+        ply_mapper = vtk.vtkPolyDataMapper()
+        ply_mapper.SetInputConnection(reader.GetOutputPort())
+        self.actor = vtk.vtkActor()
+        self.actor.SetMapper(ply_mapper)
