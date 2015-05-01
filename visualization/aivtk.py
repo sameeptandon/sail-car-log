@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import vtk
+from vtk_visualizer.pointobject import VTKObject # pip install vtk_visualizer
 
 class aiWorld (object):
     def __init__ (self, size):
@@ -123,3 +124,15 @@ class aiRenderer (object):
     def position (self, value):
         self._position = value
         self.ren.SetViewport(*self.position)
+
+    def add_object (self, ai_object):
+        """ Adds an actor to the renderer """
+        self.ai_objects.append(ai_object)
+        self.ren.AddActor(ai_object.actor)
+        ai_object.ren = self
+
+
+class aiCloud (VTKObject):
+    def __init__ (self, data):
+        self.CreateFromArray(data)
+        self.ren = None
