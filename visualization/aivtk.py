@@ -10,6 +10,8 @@ class Bunch(dict):
     > bunch = Bunch(a='hello')
     > print bunch.a
     >>> 'hello'
+    > print bunch['a']
+    >>> 'hello'
 
     """
     def __init__(self,**kw):
@@ -159,15 +161,20 @@ class aiRenderer (object):
             if type(ai_objs) not in [list,tuple]:
                 ai_objs = [ai_objs]
 
-            # Update the Bunch to contain the new name
-            # We can access this item by ren.name
-            self.objects[str(category)] = ai_objs
+            if category in self.objects.keys():
+                # If the category already exists, add the objects to the
+                # existing category
+                self.objects[category].extend(ai_objs)
+            else:
+                # Update the Bunch to contain the new name
+                # We can access this item by ren.name
+                self.objects[category] = ai_objs
             # Add the objects to the renderer and let the object know it has a
             # renderer
             for ai_obj in ai_objs:
                 self.ren.AddActor(ai_obj.actor)
                 ai_obj.ren = self
-                ai_obj.category = str(category)
+                ai_obj.category = category
 
     def _cleanupObject (self, index, obj):
         """Does all the necessary cleanup for objects in the renderer. If there are no
