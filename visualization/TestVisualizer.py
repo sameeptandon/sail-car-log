@@ -28,8 +28,6 @@ if __name__ == '__main__':
     box.color = np.array((255, 10, 255))
 
     cloud_ren.addObjects(clouds=clouds, boxes=box)
-
-    cloud_ren.objects.boxes[0].color = (10, 0, 100)
-    cloud_ren.objects.clouds[0].color = (np.ones((num_pts, 3)) * 255).astype(np.uint8)
+    cloud_ren.removeObjects(cloud_ren.objects.clouds[:2])
 
     world.start()

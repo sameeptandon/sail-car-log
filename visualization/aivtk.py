@@ -153,7 +153,7 @@ class aiRenderer (object):
         ren.objects.lanes[0].color = np.random.rand(100, 3) * 255
         """
         # Look through all of the keyword arguments
-        for name, ai_objs in kwargs.iteritems():
+        for category, ai_objs in kwargs.iteritems():
             # If the value is not a list/tuple, make it one so we can iterate
             # later. This also makes deleting easier
             if type(ai_objs) not in [list,tuple]:
@@ -161,21 +161,64 @@ class aiRenderer (object):
 
             # Update the Bunch to contain the new name
             # We can access this item by ren.name
-            self.objects[str(name)] = ai_objs
+            self.objects[str(category)] = ai_objs
             # Add the objects to the renderer and let the object know it has a
             # renderer
             for ai_obj in ai_objs:
                 self.ren.AddActor(ai_obj.actor)
                 ai_obj.ren = self
+                ai_obj.category = str(category)
 
+    def _cleanupObject (self, index, obj):
+        """Does all the necessary cleanup for objects in the renderer. If there are no
+        objects in a particular category left, delete the category
+
+        """
+        category = obj.category
+        similar_objects = self.objects[category]
+        del similar_objects[index]
+        self.ren.RemoveActor(obj.actor)
+        # If the list is empty, remove the entire category
+        if len(similar_objects) == 0:
+            del self.objects[category]
+
+    def removeObjects (self, objects):
+        """ Removes a list of objects from the renderer. Objects must be from
+        the same category and the category must be in the renderer
+
+        ex:
+        boxes = [aiBox((0, 1, 0, 1, 0, 1))] * 10
+        ren.addObjects(boxes = boxes)
+        ren.removeObjects(ren.objects.boxes[2:4])
+        """
+        if objects == None:
+            return
+        if type(objects) not in [list,tuple]:
+            # Make the object a list so we can iterate over it
+            objects = [objects]
+        if len(set([o.category for o in objects])) > 1:
+            raise Exception('Objects must belong to the same category')
+
+        category = objects[0].category
+        if category not in self.objects.keys():
+            raise Exception('Category {category} is not in this renderer'.\
+                            format(c=category))
+
+        # Iterate backwards so we can delete
+        similar_objects = self.objects[objects[0].category]
+        for i in xrange(len(similar_objects) - 1, -1, -1):
+            obj = similar_objects[i]
+            if obj in objects:
+                self._cleanupObject(i, obj)
 
 class aiObject (VTKObject, object):
 # SetPickable, SetPointSize, SetOpacity, kdtree?
 # SetColor, RotateZ (Rotate?), SetOpacity, SetVisability
     def __init__ (self, data):
         self.data = data
-        self._color = None
         self.ren = None
+        self.category = None
+        self._color = None
         self._wireframe = False
 
     @property
@@ -246,7 +289,7 @@ class aiCloud (aiObject):
     # All points can have unique colors
     @property
     def color (self):
-        return self._color
+        return self.data_color
     @color.setter
     def color (self, color):
         self.data_color = color
@@ -276,7 +319,7 @@ class aiBox(aiObject):
     # A box's color is defined by the actor, not the points
     @property
     def color (self):
-        return self._color
+        return self.actor_color
     @color.setter
     def color (self, color):
         self.actor_color = color
