@@ -19,11 +19,16 @@ if __name__ == '__main__':
 
     cloud_ren = aiRenderer()
     cloud_ren.ren.SetInteractive(False)
-    def custom_handler (x, y, ai_obj, idx, default):
-        print x, y
-        print ai_obj, idx
+
+    def custom_left_press (x, y, ai_obj, idx, default):
+        print x, y, ai_obj, idx
         default()
-    cloud_ren.mouse_handler.leftPress = custom_handler
+    cloud_ren.mouse_handler.leftPress = custom_left_press
+
+    def custom_space_press (key, ctrl, alt, renderer, default):
+        print ctrl, alt, key
+        # default()
+    cloud_ren.key_handler.charEntered = custom_space_press
 
     world.addRenderer(cloud_ren = cloud_ren)
 
@@ -44,6 +49,7 @@ if __name__ == '__main__':
     car = aiPly('gtr.ply')
 
     cloud_ren.addObjects(clouds=clouds, boxes=box)
+
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)
 

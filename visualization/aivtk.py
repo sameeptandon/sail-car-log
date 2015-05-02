@@ -139,12 +139,9 @@ class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, ai_world):
         self.world = ai_world
 
-        self.right_button_press_cb = None
-        self.left_button_press_cb = None
-
         # Maps events to their default function and a renderer specific custom
-        # function
-        self.events_map = {
+        # function. See the mouseHandler function description for an example
+        self.mouse_events_map = {
             'LeftButtonPressEvent':
             [self.OnLeftButtonDown, 'leftPress'],
             'RightButtonPressEvent':
@@ -158,59 +155,102 @@ class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             'MouseWheelForwardEvent':
             [self.OnMouseWheelBackward, 'wheelBackward'],
             'MouseMoveEvent':
-            [self.OnMouseMove, 'mouseMove'],
+            [self.OnMouseMove, 'mouseMove']
+        }
+        # You should generally use CharEvent. One exception is in an
+        # application where the user to hold down a key before being allowed to
+        # perform an action
+        #
+        # The event structure looks like:
+        # KeyPressEvent, CharEvent, ..., CharEvent, KeyReleaseEvent
+        self.key_events_map = {
             'CharEvent':
-            [self.OnChar , 'keyDown']
+            [self.OnChar, 'charEntered'],
+            'KeyPressEvent':
+            [self.OnKeyPress, 'keyPressed'],
+            'KeyReleaseEvent':
+            [self.OnKeyRelease, 'keyReleased']
         }
 
-        for event in self.events_map.keys():
-            self.AddObserver(event, self.mouseHandler)
-        self.AddObserver('CharEvent', self.keyHandler)
+        for event in self.mouse_events_map.keys():
+            self.AddObserver(event, self._mouseHandler)
+        for event in self.key_events_map.keys():
+            self.AddObserver(event, self._keyHandler)
 
-    def mouseHandler (self, obj, event):
+    def _mouseHandler (self, obj, event):
         """Handle mouse interactions. Use the mouse position to choose which renderer
         to pass the event to. If the renderer has a custom mouse callback
         event, call that method, otherwise do the default action. See
-        events_map for a list of all custom event names.
+        mouse_events_map for a list of all custom event names.
 
         Ex: Using this line will print the actor when the user left-clicks in
         ren
 
+        # Gives the x,y position of the click, an ai_object and index of the
+        # click in that ai_object's actor if an object was picked (see
+        # world.picker_tolerance) otherwise None and -1, and a function to run to
+        # use the default behaivor
         def custom_handler (x, y, ai_obj, index, default_handler):
-        ''' Gives the x,y position of the click, an ai_object and index of the
-            click in that ai_object's actor if an object was picked (see
-            world.picker_tolerance) otherwise None and -1, and a function to
-            run to use the default behaivor '''
-
+            print ai_obj
         ren.mouse_handler.leftPress = custom_handler
 
         """
-
         ren_interactor = self.world.ren_interactor
         x, y = ren_interactor.GetEventPosition()
         self.FindPokedRenderer(x, y)
         vtk_renderer = self.GetCurrentRenderer()
         renderer = self.world.vtk_to_ren_map[vtk_renderer]
 
-        self.world.picker.Pick(x, y, 0, vtk_renderer)
-        index = self.world.picker.GetPointId()
-        actor = self.world.picker.GetActor()
-        if actor is not None:
-            ai_object = renderer.vtk_to_object_map[actor]
-        else:
-            ai_object = None
-
-        custom_handler_name = self.events_map[event][1]
-        default_handler = self.events_map[event][0]
+        default_handler, custom_handler_name = self.mouse_events_map[event]
 
         if custom_handler_name in renderer.mouse_handler:
+            self.world.picker.Pick(x, y, 0, vtk_renderer)
+            index = self.world.picker.GetPointId()
+            actor = self.world.picker.GetActor()
+            if actor is not None:
+                ai_object = renderer.vtk_to_object_map[actor]
+            else:
+                ai_object = None
+
             custom_handler = renderer.mouse_handler[custom_handler_name]
             custom_handler(x, y, ai_object, index, default_handler)
         else:
             default_handler()
 
-    def keyHandler (self, obj, event, key = None):
-        self.OnChar()
+    def _keyHandler (self, obj, event):
+        """Handle key interactions. Sends a key event to all renderers. If none of the
+        world's renderers have a key binding callback, use the default key
+        handler. See key_events_map for a list of all custom event names.
+
+        # Gives the key, and control/alt buttons pressed when the key is hit. It
+        # also gives the renderer whose key_press handler managed the event.
+        #
+        # Key symbol names are declared in https://github.com/Kitware/VTK/
+        # in GUISupport/Qt/QVTKInteractorAdapter.cxx
+        #
+        # BUG: For some reason, the key is reported as None when pressed at the
+        # same time as another key.
+        def custom_handler (key_sym, ctrl, alt, renderer, default_handler):
+            print key_sym
+        ren.key_handler.charEntered = custom_handler
+
+        """
+        ren_interactor = self.world.ren_interactor
+        alt = ren_interactor.GetAltKey()
+        ctrl = ren_interactor.GetControlKey()
+        key = ren_interactor.GetKeySym()
+        default_handler, custom_handler_name = self.key_events_map[event]
+
+        custom = False
+        for renderer in self.world.renderers.values():
+            if custom_handler_name in renderer.key_handler:
+                custom = True
+                custom_handler = renderer.key_handler[custom_handler_name]
+                custom_handler(key, ctrl, alt, renderer, default_handler)
+
+        # If none of the renderers have a char event callback, run the default handler
+        if custom == False:
+            default_handler()
 
 
 class aiRenderer (object):
@@ -223,7 +263,13 @@ class aiRenderer (object):
         self.objects = Bunch()
         self.vtk_to_object_map = {}
 
+        # Handles events
+        # leftPress, rightPress, leftRelease, rightRelease, wheelForward,
+        # wheelBackward, mouseMove
         self.mouse_handler = Bunch()
+        # Handles events
+        # charEntered, keyPressed, keyReleased
+        self.key_handler = Bunch()
 
         self._position = (0, 0, 1, 1)
         self._color = (0, 0, 0)
