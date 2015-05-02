@@ -20,12 +20,16 @@ if __name__ == '__main__':
     cloud_ren = aiRenderer()
     cloud_ren.ren.SetInteractive(False)
 
-    def custom_left_press (x, y, ai_obj, idx, default):
-        print x, y, ai_obj, idx
+    def custom_left_press (x, y, ai_obj, idx, ren, default):
+        # print x, y, ai_obj, idx
+        if ai_obj in ren.objects.boxes:
+            # decrease each min bound by -.1, increase each max bound by .1
+            ai_obj.bounds += [-.1, .1] * 3
+
         default()
     cloud_ren.mouse_handler.leftPress = custom_left_press
 
-    def custom_space_press (key, ctrl, alt, renderer, default):
+    def custom_space_press (key, ctrl, alt, ren, default):
         print ctrl, alt, key
         # default()
     cloud_ren.key_handler.charEntered = custom_space_press

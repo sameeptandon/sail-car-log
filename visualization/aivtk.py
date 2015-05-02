@@ -190,7 +190,7 @@ class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         # click in that ai_object's actor if an object was picked (see
         # world.picker_tolerance) otherwise None and -1, and a function to run to
         # use the default behaivor
-        def custom_handler (x, y, ai_obj, index, default_handler):
+        def custom_handler (x, y, ai_obj, index, renderer, default_handler):
             print ai_obj
         ren.mouse_handler.leftPress = custom_handler
 
@@ -213,7 +213,7 @@ class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
                 ai_object = None
 
             custom_handler = renderer.mouse_handler[custom_handler_name]
-            custom_handler(x, y, ai_object, index, default_handler)
+            custom_handler(x, y, ai_object, index, renderer, default_handler)
         else:
             default_handler()
 
@@ -545,24 +545,29 @@ class aiKDCloud (aiCloud):
 class aiBox(aiObject):
     def __init__ (self, bounds):
         """Create a box witih the given bounds [xmin,xmax,ymin,ymax,zmin,zmax]"""
-        self.bounds = bounds
-        (xmin, xmax, ymin, ymax, zmin, zmax) = self.bounds
-        coords = np.array([[xmin, ymin, zmin],
-                           [xmin, ymin, zmax],
-                           [xmin, ymax, zmin],
-                           [xmin, ymax, zmax],
-                           [xmax, ymin, zmin],
-                           [xmax, ymin, zmax],
-                           [xmax, ymax, zmin],
-                           [xmax, ymax, zmax]]).astype(np.double)
-        super(aiBox, self).__init__(coords)
-
+        (xmin, xmax, ymin, ymax, zmin, zmax) = bounds
+        data = np.array([[xmin, ymin, zmin],
+                         [xmin, ymin, zmax],
+                         [xmin, ymax, zmin],
+                         [xmin, ymax, zmax],
+                         [xmax, ymin, zmin],
+                         [xmax, ymin, zmax],
+                         [xmax, ymax, zmin],
+                         [xmax, ymax, zmax]]).astype(np.double)
+        super(aiBox, self).__init__(data)
         self.CreateBox(bounds)
 
         self.properties.LightingOff()
         self.source.QuadsOn()
 
         self.wireframe = True
+
+    def _get_bounds (self):
+        """Gives back the bounds of the box in the form
+        [xmin,xmax,ymin,ymax,zmin,zmax]
+
+        """
+        return np.vstack((self._data[0], self._data[-1])).T.flatten()
 
     # A box's color is defined by the actor, not the points
     @property
@@ -580,8 +585,71 @@ class aiBox(aiObject):
         """ Since box.data is not tied directly to the image, we must modify
         the source """
         self._data = pos
-        bounds = np.vstack((self._data[0], self._data[-1])).T.flatten()
-        self.source.SetBounds(bounds)
+        self.source.SetBounds(self._get_bounds())
+        self.modified()
+
+    @property
+    def bounds (self):
+        return self._get_bounds()
+    @bounds.setter
+    def bounds (self, new_val):
+        """ Sets the box's bounds
+        ex:
+        box.bounds = [xmin,xmax,ymin,ymax,zmin,zmax]
+        """
+        self.xmin, self.xmax,\
+        self.ymin, self.ymax,\
+        self.zmax, self.zmax = new_val
+
+    @property
+    def xmin (self):
+        return self._data[0, 0]
+    @xmin.setter
+    def xmin (self, new_val):
+        self._data[:4, 0] = new_val
+        self.source.SetBounds(self._get_bounds())
+        self.modified()
+    @property
+    def xmax (self):
+        return self._data[4, 0]
+    @xmax.setter
+    def xmax (self, new_val):
+        self._data[4:, 0] = new_val
+        self.source.SetBounds(self._get_bounds())
+        self.modified()
+
+    @property
+    def ymin (self):
+        return self._data[0, 1]
+    @ymin.setter
+    def ymin (self, new_val):
+        self._data[[0,1,4,5], 1] = new_val
+        self.source.SetBounds(self._get_bounds())
+        self.modified()
+    @property
+    def ymax (self):
+        return self._data[2, 1]
+    @ymax.setter
+    def ymax (self, new_val):
+        self._data[[2,3,6,7], 1] = new_val
+        self.source.SetBounds(self._get_bounds())
+        self.modified()
+
+    @property
+    def zmin (self):
+        return self._data[0, 2]
+    @zmin.setter
+    def zmin (self, new_val):
+        self._data[[0,2,4,6], 2] = new_val
+        self.source.SetBounds(self._get_bounds())
+        self.modified()
+    @property
+    def zmax (self):
+        return self._data[1, 2]
+    @zmax.setter
+    def zmax (self, new_val):
+        self._data[[1,3,5,7], 2] = new_val
+        self.source.SetBounds(self._get_bounds())
         self.modified()
 
 class aiPly(aiObject):
