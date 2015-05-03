@@ -2,8 +2,9 @@ from aivtk import *
 import numpy as np
 
 def update (renderers):
-    cloud = renderers.cloud_ren.objects.clouds[0]
-    box = renderers.cloud_ren.objects.boxes[0]
+    pass
+    # cloud = renderers.cloud_ren.objects.clouds[0]
+    # box = renderers.cloud_ren.objects.boxes[0]
     # We can update the position of clouds and cubes by accessing their data
     # directly
     # cloud.data += np.array([.001] * 3)
@@ -24,35 +25,40 @@ if __name__ == '__main__':
         # print x, y, ai_obj, idx
         if ai_obj in ren.objects.boxes:
             # decrease each min bound by -.1, increase each max bound by .1
-            ai_obj.bounds += [-.1, .1] * 3
+
+            print ai_obj.data[idx, :], idx
+            ai_obj.bounds += [0, 0, 0, 0, -.1, .1]
 
         default()
     cloud_ren.mouse_handler.leftPress = custom_left_press
 
-    def custom_space_press (key, ctrl, alt, ren, default):
+    def custom_char_entered (key, ctrl, alt, ren, default):
         print ctrl, alt, key
-        # default()
-    cloud_ren.key_handler.charEntered = custom_space_press
+        default()
+    cloud_ren.key_handler.charEntered = custom_char_entered
 
     world.addRenderer(cloud_ren = cloud_ren)
 
     clouds = []
     num_pts = 100
     for i in xrange(3):
-        pts = np.random.rand(num_pts, 3)
+        pts = np.random.rand(num_pts, 3)*2 - 1
         cloud = aiCloud(pts)
         colors = (np.random.rand(*pts.shape) * 255).astype(np.uint8)
         cloud.color = colors
         clouds.append(cloud)
 
     # create a box witih the given bounds [xmin,xmax,ymin,ymax,zmin,zmax]
-    box = aiBox((0, 1, 0, 1, 0, 1))
+    box = aiBox((-1, 1, -1, 1, -1, 1))
     box.wireframe = True
     box.color = np.array((255, 10, 255))
 
     car = aiPly('gtr.ply')
 
-    cloud_ren.addObjects(clouds=clouds, boxes=box)
+    axis = aiAxis()
+    axis.labels = True
+
+    cloud_ren.addObjects(clouds=clouds, boxes=box, axix=axis)
 
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)

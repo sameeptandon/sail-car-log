@@ -547,12 +547,12 @@ class aiBox(aiObject):
         """Create a box witih the given bounds [xmin,xmax,ymin,ymax,zmin,zmax]"""
         (xmin, xmax, ymin, ymax, zmin, zmax) = bounds
         data = np.array([[xmin, ymin, zmin],
-                         [xmin, ymin, zmax],
-                         [xmin, ymax, zmin],
-                         [xmin, ymax, zmax],
                          [xmax, ymin, zmin],
-                         [xmax, ymin, zmax],
+                         [xmin, ymax, zmin],
                          [xmax, ymax, zmin],
+                         [xmin, ymin, zmax],
+                         [xmax, ymin, zmax],
+                         [xmin, ymax, zmax],
                          [xmax, ymax, zmax]]).astype(np.double)
         super(aiBox, self).__init__(data)
         self.CreateBox(bounds)
@@ -599,22 +599,22 @@ class aiBox(aiObject):
         """
         self.xmin, self.xmax,\
         self.ymin, self.ymax,\
-        self.zmax, self.zmax = new_val
+        self.zmin, self.zmax = new_val
 
     @property
     def xmin (self):
         return self._data[0, 0]
     @xmin.setter
     def xmin (self, new_val):
-        self._data[:4, 0] = new_val
+        self._data[[0,2,4,6], 0] = new_val
         self.source.SetBounds(self._get_bounds())
         self.modified()
     @property
     def xmax (self):
-        return self._data[4, 0]
+        return self._data[1, 0]
     @xmax.setter
     def xmax (self, new_val):
-        self._data[4:, 0] = new_val
+        self._data[[1,3,5,7], 0] = new_val
         self.source.SetBounds(self._get_bounds())
         self.modified()
 
@@ -640,15 +640,15 @@ class aiBox(aiObject):
         return self._data[0, 2]
     @zmin.setter
     def zmin (self, new_val):
-        self._data[[0,2,4,6], 2] = new_val
+        self._data[:4, 2] = new_val
         self.source.SetBounds(self._get_bounds())
         self.modified()
     @property
     def zmax (self):
-        return self._data[1, 2]
+        return self._data[4, 2]
     @zmax.setter
     def zmax (self, new_val):
-        self._data[[1,3,5,7], 2] = new_val
+        self._data[4:, 2] = new_val
         self.source.SetBounds(self._get_bounds())
         self.modified()
 
@@ -664,3 +664,19 @@ class aiPly(aiObject):
         ply_mapper.SetInputConnection(reader.GetOutputPort())
         self.actor = vtk.vtkActor()
         self.actor.SetMapper(ply_mapper)
+
+class aiAxis(aiObject):
+    def __init__ (self, length=1):
+        """Creates an axis object. This is useful for knowing the global frame of
+        reference. (R, G, B) = (X, Y, Z) axis
+
+        """
+        super(aiAxis, self).__init__(np.array((0,0,0)))
+        self.CreateAxes(length)
+
+    @property
+    def labels (self):
+        return bool(self.actor.GetAxisLabels())
+    @labels.setter
+    def labels (self, val):
+        self.actor.SetAxisLabels(int(val))
