@@ -29,7 +29,7 @@ from VideoReader import VideoReader
 from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine
 from LaneMarkingHelper import BackProjector, DataTree, get_transforms, \
     mk2_to_mk1, projectPointsOnImg, VTKCloudTree, VTKPlaneTree
-
+from ColorMap import heatColorMapFast, intensity2Color
 
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
@@ -1288,7 +1288,7 @@ class Blockworld:
             sys.exit(-1)
         args = parse_args(sys.argv[1], sys.argv[2])
         self.args = args
-        bg_file = glob.glob(args['fullname'] + '*bg.npz')[0]
+        bg_file = glob.glob(args['fullname'] + '*lane.npz')[0]
         if len(sys.argv) == 4:
             sys.argv.insert(-1, bg_file)
         else:
@@ -1304,8 +1304,8 @@ class Blockworld:
 
         print sys.argv
 
-        self.small_step = 10
-        self.large_step = 50
+        self.small_step = 5
+        self.large_step = 10
         self.startup_complete = False
 
         ##### Grab all the transforms ######
@@ -1387,15 +1387,17 @@ class Blockworld:
         print 'Adding raw points'
         raw_npz = np.load(sys.argv[3])
         pts = raw_npz['data']
-
-        raw_cloud = VtkPointCloud(pts[:, :3], np.ones(pts[:, :3].shape) * 255)
+        #raw_cloud = VtkPointCloud(pts[:, :3], np.ones(pts[:, :3].shape) * 255)
+        raw_cloud = VtkPointCloud(pts[:, :3], intensity2Color(pts[:, 3]))
         raw_actor = raw_cloud.get_vtk_color_cloud()
 
         self.raw_lidar = VTKCloudTree(raw_cloud, raw_actor)
         self.raw_lidar_2d = DataTree(self.raw_lidar.pts[:, :-1])
 
-        self.raw_lidar.actor.GetProperty().SetPointSize(5)
-        self.raw_lidar.actor.GetProperty().SetOpacity(0.3)
+        #self.raw_lidar.actor.GetProperty().SetPointSize(5)
+        #self.raw_lidar.actor.GetProperty().SetOpacity(0.3)
+        self.raw_lidar.actor.GetProperty().SetPointSize(2)
+        self.raw_lidar.actor.GetProperty().SetOpacity(0.1)
         self.raw_lidar.actor.SetPickable(0)
         self.cloud_ren.AddActor(self.raw_lidar.actor)
 
@@ -1422,9 +1424,9 @@ class Blockworld:
 
         self.lanes = []
 
-        for i in xrange(init_num_lanes):
-            interp_lane = npz['lane' + str(i)]
-            self.addLane(interp_lane)
+        #for i in xrange(init_num_lanes):
+        #    interp_lane = npz['lane' + str(i)]
+        #    self.addLane(interp_lane)
 
         # self.addLane(self.imu_transforms_mk1[:, :3, 3].copy())
         self.ground_planes = None

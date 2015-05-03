@@ -28,7 +28,6 @@ class MapBuilder(object):
 
         self.gps_reader_mark1 = GPSReader(self.args['gps_mark1'])
         self.gps_data_mark1 = self.gps_reader_mark1.getNumericData()
-
         self.lidar_loader = LDRLoader(self.args['frames'])
         if absolute:
             self.imu_transforms_mark1 = absoluteTransforms(self.gps_data_mark1)
@@ -80,8 +79,8 @@ class MapBuilder(object):
                 else:
                     filter_mask = data[:, 3] > 30
                 if 'lanes' in filters:
-                    filter_mask &=  (data[:,1] < 3) & (data [:,1] > -3) &\
-                                    (data[:,2] < -1.9) & (data[:,2] > -2.1)
+                    filter_mask &=  (data[:,1] < 10) & (data [:,1] > -10) &\
+                                    (data[:,2] < -1.95) & (data[:,2] > -2.05)
                 if 'forward' in filters:
                     filter_mask &= (data[:, 0] > 0)
                 if 'no-trees' in filters:
@@ -131,5 +130,5 @@ class MapBuilder(object):
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
     mb = MapBuilder(args, 1, 600, 0.5, 0.1)
-    mb.buildMap(['no-trees'])
+    mb.buildMap(['lanes'])
     mb.exportData(sys.argv[3])
