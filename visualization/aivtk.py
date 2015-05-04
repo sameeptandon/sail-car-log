@@ -44,6 +44,18 @@ def array2vtkTransform(arr):
     T.SetMatrix(matrix)
     return T
 
+def mkVtkCells (faces):
+    polys = vtk.vtkCellArray()
+    for i in xrange(len(faces)):
+        polys.InsertNextCell(mkVtkIdList(faces[i]))
+    return polys
+
+def mkVtkIdList (it):
+    vil = vtk.vtkIdList()
+    for i in it:
+        vil.InsertNextId(int(i))
+    return vil
+
 class Bunch(dict):
     """ A Bunch is a class that allows javascript-like dictionary creation
 
@@ -183,7 +195,7 @@ class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
             [self.OnRightButtonUp, 'rightRelease'],
             'MouseWheelForwardEvent':
             [self.OnMouseWheelForward, 'wheelForward'],
-            'MouseWheelForwardEvent':
+            'MouseWheelBackwardEvent':
             [self.OnMouseWheelBackward, 'wheelBackward'],
             'MouseMoveEvent':
             [self.OnMouseMove, 'mouseMove']
@@ -436,24 +448,31 @@ class aiRenderer (object):
             if obj in objects:
                 self._cleanupObject(i, obj)
 
+    def displayToRay (self, x, y, z):
+        """ The z coordinate here is relative to the clipping plane. -1 is at
+        the camera location and 1 is the clipping plane far away """
+        world_point = [0, 0, 0, 0]
+        vtk.vtkInteractorObserver.\
+              ComputeDisplayToWorld(self.ren, x, y, z, world_point)
+        return np.array(world_point)[:3]
+
     def displayToWorld (self, x, y, X, Y, Z):
         """ Computes a position in 3D given the pixel coordinates and a nearby
         3D point. We use the 3D point to compute the z-distance in the camera
-        frame (x-positive: right, y-positive: down, z-positive: out) """
-        world_point = [0, 0, 0, 0]
+        frame (x-positive: right, y-positive: up, z-positive: out). This is
+        useful because the z postion changes depending on the camera
+        coordinates. """
         screen_point = [0, 0, 0]
 
         # Use a world point to calculate depth in the camera
         vtk.vtkInteractorObserver.\
             ComputeWorldToDisplay(self.ren, X, Y, Z, screen_point)
         # Use the mouse position and the old depth to get a new 3d point
-        vtk.vtkInteractorObserver.\
-            ComputeDisplayToWorld(self.ren, x, y, screen_point[2], world_point)
-        # Convert from homogoneous coordinates
-        return np.array(world_point)[:3]
+        return self.displayToRay(x, y, screen_point[2])
 
 class aiObject (VTKObject, object):
     def __init__ (self, data):
+        data = data.astype(np.float64)
         self._data = aiArray(data, ai_obj=self)
         self.ren = None
         self.category = None
@@ -594,40 +613,38 @@ class aiKDCloud (aiCloud):
 
 class aiCube (aiObject):
     def __init__ (self, scale):
-        """ Create a box with given xscale, yscale, zscale """
-        cube_pts = np.array([[-1., -1., -1.],
-                             [ 1., -1., -1.],
-                             [-1.,  1., -1.],
-                             [ 1.,  1., -1.],
-                             [-1., -1.,  1.],
-                             [ 1., -1.,  1.],
-                             [-1.,  1.,  1.],
-                             [ 1.,  1.,  1.]]).astype(np.double)
+        """Create a box with given xscale, yscale, zscale.
+
+        Properties:
+        center = [0, 0, 0]
+        width, length, height = [1, 1, 1]
+        bounds: xmin/xmax, ymin/ymax, zmin/zmax = [-0.5, 0.5]
+
+        """
+        cube_pts = np.array([[-0.5, -0.5, -0.5],
+                             [ 0.5, -0.5, -0.5],
+                             [-0.5,  0.5, -0.5],
+                             [ 0.5,  0.5, -0.5],
+                             [-0.5, -0.5,  0.5],
+                             [ 0.5, -0.5,  0.5],
+                             [-0.5,  0.5,  0.5],
+                             [ 0.5,  0.5,  0.5]]).astype(np.float64)
         cube_pts[:, 0] *= scale[0]
         cube_pts[:, 1] *= scale[1]
         cube_pts[:, 2] *= scale[2]
 
-        faces = [(0,2,3,1), (4,6,7,5), (0,1,5,4),
-                 (1,5,7,3), (0,4,6,2), (2,3,7,6)]
-
         super(aiCube, self).__init__(cube_pts)
         self.CreateFromArray(cube_pts)
 
-        self.polys = vtk.vtkCellArray()
-        for i in xrange(len(faces)):
-            self.polys.InsertNextCell(self._mkVtkIdList(faces[i]))
+        faces = [(0,2,3,1), (4,6,7,5), (0,1,5,4), (2,3,7,6), \
+                 (1,5,7,3), (0,4,6,2)]
+        self.polys = mkVtkCells(faces)
         self.pd.SetPolys(self.polys)
 
         self._data = aiArray(self.points_npy, ai_obj=self)
 
         self.properties.LightingOff()
         self.wireframe = True
-
-    def _mkVtkIdList(self, it):
-        vil = vtk.vtkIdList()
-        for i in it:
-            vil.InsertNextId(int(i))
-        return vil
 
     @property
     def color (self):
@@ -656,7 +673,7 @@ class aiAxis (aiObject):
         reference. (R, G, B) = (X, Y, Z) axis
 
         """
-        super(aiAxis, self).__init__(np.array((0,0,0)))
+        super(aiAxis, self).__init__(np.array((0.,0.,0.)))
         self.CreateAxes(length)
 
     @property
@@ -665,3 +682,24 @@ class aiAxis (aiObject):
     @labels.setter
     def labels (self, val):
         self.actor.SetAxisLabels(int(val))
+
+class aiLine (aiObject):
+    def __init__ (self, data):
+        """ Creates a line object """
+        assert (data.shape[0] == 2)
+        super(aiLine, self).__init__(data)
+
+        self.CreateFromArray(data)
+        self._data = aiArray(self.points_npy, ai_obj=self)
+
+        lines = [(0,1)]
+        self.lines = mkVtkCells(lines)
+        self.pd.SetLines(self.lines)
+
+    @property
+    def color (self):
+        """ A line's color is defined by the actor, not the points """
+        return self.actor_color
+    @color.setter
+    def color (self, color):
+        self.actor_color = color

@@ -7,18 +7,18 @@ from aivtk import *
 
 def update (renderers):
     cloud = renderers.cloud_ren.objects.clouds[0]
-    cube = renderers.cloud_ren.objects.cubes[0]
+    # line = renderers.cloud_ren.objects.lines[0]
     # We can update the position of clouds and cubes by accessing their data
     # directly
     cloud.data[10:20, :] += np.array([.001] * 3)
+    # line.data += np.array([.001] * 3)
     # cube.data += np.array([.001] * 3)
 
 if __name__ == '__main__':
-    world = aiWorld((1600, 800))
+    world = aiWorld((1280, 640))
     # Use the default framerate (60 hz)
     world.update_cb = update
-
-    # ex: Use a 30Hz framerate
+    # Use a 30Hz framerate
     # world.update_cb = (update, 30)
 
     cloud_ren = aiRenderer()
@@ -84,7 +84,10 @@ if __name__ == '__main__':
     axis = aiAxis()
     axis.labels = True
 
-    cloud_ren.addObjects(cubes=cube, clouds=clouds, axis=axis)
+    line = aiLine(np.array([[0.,0.,0.], [1.,0.,0.]]))
+    line.point_size = 10
+
+    cloud_ren.addObjects(cubes=cube, clouds=clouds, axis=axis, lines=line)
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)
 
