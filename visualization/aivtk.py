@@ -302,6 +302,9 @@ class aiRenderer (object):
         # charEntered, keyPressed, keyReleased
         self.key_handler = Bunch()
 
+        # Let the renderer hold some metadata to pass between callbacks
+        self.meta = Bunch()
+
         self._position = (0, 0, 1, 1)
         self._color = (0, 0, 0)
 
@@ -432,6 +435,22 @@ class aiRenderer (object):
             obj = similar_objects[i]
             if obj in objects:
                 self._cleanupObject(i, obj)
+
+    def displayToWorld (self, x, y, X, Y, Z):
+        """ Computes a position in 3D given the pixel coordinates and a nearby
+        3D point. We use the 3D point to compute the z-distance in the camera
+        frame (x-positive: right, y-positive: down, z-positive: out) """
+        world_point = [0, 0, 0, 0]
+        screen_point = [0, 0, 0]
+
+        # Use a world point to calculate depth in the camera
+        vtk.vtkInteractorObserver.\
+            ComputeWorldToDisplay(self.ren, X, Y, Z, screen_point)
+        # Use the mouse position and the old depth to get a new 3d point
+        vtk.vtkInteractorObserver.\
+            ComputeDisplayToWorld(self.ren, x, y, screen_point[2], world_point)
+        # Convert from homogoneous coordinates
+        return np.array(world_point)[:3]
 
 class aiObject (VTKObject, object):
     def __init__ (self, data):
