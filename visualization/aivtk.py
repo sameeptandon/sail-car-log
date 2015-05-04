@@ -557,12 +557,12 @@ class aiObject (VTKObject, object):
         self.actor.SetPickable(int(value))
 
     @property
-    def visable (self):
-        return self.actor.GetVisability()
-    @visable.setter
-    def visable (self, value):
+    def visible (self):
+        return self.actor.GetVisibility()
+    @visible.setter
+    def visible (self, value):
         """ Change the object's visability. value is a boolean """
-        self.actor.SetVisability(int(value))
+        self.actor.SetVisibility(int(value))
 
     @property
     def transform (self):
