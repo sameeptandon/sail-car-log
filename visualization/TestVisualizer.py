@@ -1,12 +1,16 @@
-from aivtk import *
+import sys
 import numpy as np
+
+sys.path.append('../process/')
+from transformations import euler_matrix
+from aivtk import *
 
 def update (renderers):
     cloud = renderers.cloud_ren.objects.clouds[0]
     box = renderers.cloud_ren.objects.boxes[0]
     # We can update the position of clouds and cubes by accessing their data
     # directly
-    cloud.data[10:20, :] += np.array([.001] * 3)
+    # cloud.data[10:20, :] += np.array([.001] * 3)
     # box.data += np.array([.001] * 3)
 
 if __name__ == '__main__':
@@ -18,17 +22,18 @@ if __name__ == '__main__':
     # world.update_cb = (update, 30)
 
     cloud_ren = aiRenderer()
-    cloud_ren.ren.SetInteractive(False)
+    # cloud_ren.ren.SetInteractive(False)
 
     def custom_left_press (x, y, ai_obj, idx, ren, default):
         # print x, y, ai_obj, idx
         if ai_obj in ren.objects.boxes:
             # We cannot update a box.data direcectly, updating the bounds makes
             # more sense
-            ai_obj.bounds += [0, 0, 0, 0, -.1, .1]
-            ai_obj.ymin -= .1
-
-        default()
+            # ai_obj.bounds += [0, 0, 0, 0, -.1, .1]
+            # ai_obj.ymin -= .1
+            print ai_obj.data[i, :]
+        else:
+            default()
     cloud_ren.mouse_handler.leftPress = custom_left_press
 
     def custom_char_entered (key, ctrl, alt, ren, default):
@@ -49,15 +54,20 @@ if __name__ == '__main__':
 
     # create a box witih the given bounds [xmin,xmax,ymin,ymax,zmin,zmax]
     box = aiBox((-1, 1, -1, 1, -1, 1))
+    box.transform = euler_matrix(0, 1, 0)
+
     box.wireframe = True
     box.color = np.array((255, 10, 255))
+
+    box_corners = aiCloud(box.data)
+    box_corners.point_size = 5
 
     car = aiPly('gtr.ply')
 
     axis = aiAxis()
     axis.labels = True
 
-    cloud_ren.addObjects(clouds=clouds, boxes=box, axix=axis)
+    cloud_ren.addObjects(clouds=clouds, boxes=[box, box_corners], axix=axis)
 
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)
