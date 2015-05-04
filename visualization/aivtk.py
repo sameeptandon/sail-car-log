@@ -3,6 +3,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 import vtk
 from vtk_visualizer.pointobject import VTKObject # pip install vtk_visualizer
+from vtk.util import numpy_support
 
 class aiArray(np.ndarray):
     """Wrap numpy array in an object that will show updates to the renderer
@@ -511,10 +512,14 @@ class aiObject (VTKObject, object):
 
     @property
     def data (self):
+        # Any time we access data, make sure the verts are synced
+        self.verts.SetData(numpy_support.numpy_to_vtk(self._data))
         return self._data
     @data.setter
     def data (self, pos):
         self._data = pos
+        # Any time we modify data, make sure the verts are synced
+        self.verts.SetData(numpy_support.numpy_to_vtk(self._data))
         self.modified()
 
     @property
