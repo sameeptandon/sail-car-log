@@ -373,6 +373,31 @@ class aiRenderer (object):
         self._position = value
         self.ren.SetViewport(*self.position)
 
+    @property
+    def cam (self):
+        return self.ren.GetActiveCamera()
+
+    @property
+    def cam_position (self):
+        return self.cam.GetPosition()
+    @cam_position.setter
+    def cam_position (self, value):
+        return self.cam.SetPosition(value)
+
+    @property
+    def cam_focal_point (self):
+        return self.cam.GetFocalPoint()
+    @cam_focal_point.setter
+    def cam_focal_point (self, value):
+        return self.cam.SetFocalPoint(value)
+
+    @property
+    def cam_view_up (self):
+        return self.cam.GetViewUp()
+    @cam_view_up.setter
+    def cam_view_up (self, value):
+        return self.cam.SetViewUp(value)
+
     def addObjects (self, **kwargs):
         """ Adds an actor to the renderer
 

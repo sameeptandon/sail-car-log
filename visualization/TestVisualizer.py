@@ -42,16 +42,9 @@ if __name__ == '__main__':
         if 'cube' in ren.meta:
             cube = ren.meta.cube
             cube_idx = ren.meta.idx
-            # Unfortunately this does not work
-            # cube.data[0,0] += 0.5
-            # This will work
-            # cube.data[0,0] += 0.5
-            # cube.modified() # This will ensure the data changes
-            # This way also works
-            # cube.data[0, 0:1] += 0.5
+
             P = ren.displayToWorld(x, y, *cube.data[cube_idx, :])
             cube.data[cube_idx, :] = P
-            cube.modified()
         else:
             default()
 
@@ -79,12 +72,15 @@ if __name__ == '__main__':
     cube = aiCube([1,1,1])
     cube.color = [0, 0, 255]
     cube.point_size = 10
+    xform = euler_matrix(0., 0., 0.25)
+    cube.data = cube.data.dot(xform[:3, :3])
     # car = aiPly('gtr.ply')
 
     axis = aiAxis()
     axis.labels = True
 
     line = aiLine(np.array([[0.,0.,0.], [1.,0.,0.]]))
+    line.data = line.data.dot(xform[:3, :3])
     line.point_size = 10
 
     cloud_ren.addObjects(cubes=cube, clouds=clouds, axis=axis, lines=line)
@@ -97,6 +93,11 @@ if __name__ == '__main__':
     # Access objects through their renderer by the name given in addObjects
     cloud_ren.objects.cubes[0].opacity = 1
     cloud_ren.objects.cubes[0].wireframe = True
+
+    # Set up a top down view
+    cloud_ren.cam_position = (0, 0, 5)
+    cloud_ren.cam_focal_point = (0, 0, 0)
+    cloud_ren.cam_view_up = (0, 1, 0)
 
     # Make sure to start the world (runs the update function)
     world.start()
