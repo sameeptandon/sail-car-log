@@ -2,12 +2,11 @@ from aivtk import *
 import numpy as np
 
 def update (renderers):
-    pass
-    # cloud = renderers.cloud_ren.objects.clouds[0]
-    # box = renderers.cloud_ren.objects.boxes[0]
+    cloud = renderers.cloud_ren.objects.clouds[0]
+    box = renderers.cloud_ren.objects.boxes[0]
     # We can update the position of clouds and cubes by accessing their data
     # directly
-    # cloud.data += np.array([.001] * 3)
+    cloud.data[10:20, :] += np.array([.001] * 3)
     # box.data += np.array([.001] * 3)
 
 if __name__ == '__main__':
@@ -24,10 +23,10 @@ if __name__ == '__main__':
     def custom_left_press (x, y, ai_obj, idx, ren, default):
         # print x, y, ai_obj, idx
         if ai_obj in ren.objects.boxes:
-            # decrease each min bound by -.1, increase each max bound by .1
-
-            print ai_obj.data[idx, :], idx
+            # We cannot update a box.data direcectly, updating the bounds makes
+            # more sense
             ai_obj.bounds += [0, 0, 0, 0, -.1, .1]
+            ai_obj.ymin -= .1
 
         default()
     cloud_ren.mouse_handler.leftPress = custom_left_press

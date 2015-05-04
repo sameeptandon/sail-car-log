@@ -4,6 +4,37 @@ from scipy.spatial import cKDTree
 import vtk
 from vtk_visualizer.pointobject import VTKObject # pip install vtk_visualizer
 
+class aiArray(np.ndarray):
+    """Wrap numpy array in an object that will show updates to the renderer
+    whenever the data element of an aiObject is changed. In order for this to
+    happen, we need to call ai_obj.modified() whenever the underlying data is
+    changed. We can not do this with an @property decorator because slicing the
+    array creates a new view.
+
+    For the following example, cloud's data is of type np.ndarray:
+    cloud = aiCloud(np.random.rand(num_pts, 3))
+    # This will call cloud.modified() and will update in the view
+    cloud.data += np.array((1,1,1))
+    # Slicing the array calls aiObj's data getter, but not it's setter! The
+    # data on the screen would not be updated. The internal data would be
+    # updated, but the vtk data would not be
+    cloud.data[:, 2] += 10 # This would not normally update
+
+    """
+    def __new__(cls, input_array, ai_obj=None):
+        obj = np.asarray(input_array).view(cls)
+        obj.ai_obj = ai_obj
+        return obj
+
+    def __array_finalize__ (self, obj):
+        if obj is None: return
+        self.ai_obj = getattr(obj, 'ai_obj', None)
+
+    def __array_wrap__(self, out_arr, context=None):
+        # This is the key to updating the data on the screen after slicing
+        self.ai_obj.modified()
+        return np.ndarray.__array_wrap__(self, out_arr, context)
+
 def array2vtkTransform(self,arr):
     T = vtk.vtkTransform()
     matrix = vtk.vtkMatrix4x4()
@@ -404,7 +435,7 @@ class aiRenderer (object):
 
 class aiObject (VTKObject, object):
     def __init__ (self, data):
-        self._data = data
+        self._data = aiArray(data, ai_obj=self)
         self.ren = None
         self.category = None
         self._color = None
@@ -492,7 +523,7 @@ class aiObject (VTKObject, object):
     @data_color.setter
     def data_color (self, color):
         """ Colors is a numpy array the same size as data in the form:
-        [[r, g, b]...[r,g,b]] taking values 0-255.
+        [[r, g, b]...[r, g, b]] taking values 0-255.
         Parent classes should choose how setting the color changes the object
         """
         self._color = color
@@ -562,13 +593,6 @@ class aiBox(aiObject):
 
         self.wireframe = True
 
-    def _get_bounds (self):
-        """Gives back the bounds of the box in the form
-        [xmin,xmax,ymin,ymax,zmin,zmax]
-
-        """
-        return np.vstack((self._data[0], self._data[-1])).T.flatten()
-
     # A box's color is defined by the actor, not the points
     @property
     def color (self):
@@ -585,12 +609,12 @@ class aiBox(aiObject):
         """ Since box.data is not tied directly to the image, we must modify
         the source """
         self._data = pos
-        self.source.SetBounds(self._get_bounds())
+        self.source.SetBounds(self.bounds)
         self.modified()
 
     @property
     def bounds (self):
-        return self._get_bounds()
+        return np.vstack((self._data[0], self._data[-1])).T.flatten()
     @bounds.setter
     def bounds (self, new_val):
         """ Sets the box's bounds
@@ -607,7 +631,7 @@ class aiBox(aiObject):
     @xmin.setter
     def xmin (self, new_val):
         self._data[[0,2,4,6], 0] = new_val
-        self.source.SetBounds(self._get_bounds())
+        self.source.SetBounds(self.bounds)
         self.modified()
     @property
     def xmax (self):
@@ -615,7 +639,7 @@ class aiBox(aiObject):
     @xmax.setter
     def xmax (self, new_val):
         self._data[[1,3,5,7], 0] = new_val
-        self.source.SetBounds(self._get_bounds())
+        self.source.SetBounds(self.bounds)
         self.modified()
 
     @property
@@ -624,7 +648,7 @@ class aiBox(aiObject):
     @ymin.setter
     def ymin (self, new_val):
         self._data[[0,1,4,5], 1] = new_val
-        self.source.SetBounds(self._get_bounds())
+        self.source.SetBounds(self.bounds)
         self.modified()
     @property
     def ymax (self):
@@ -632,7 +656,7 @@ class aiBox(aiObject):
     @ymax.setter
     def ymax (self, new_val):
         self._data[[2,3,6,7], 1] = new_val
-        self.source.SetBounds(self._get_bounds())
+        self.source.SetBounds(self.bounds)
         self.modified()
 
     @property
@@ -641,7 +665,7 @@ class aiBox(aiObject):
     @zmin.setter
     def zmin (self, new_val):
         self._data[:4, 2] = new_val
-        self.source.SetBounds(self._get_bounds())
+        self.source.SetBounds(self.bounds)
         self.modified()
     @property
     def zmax (self):
@@ -649,7 +673,7 @@ class aiBox(aiObject):
     @zmax.setter
     def zmax (self, new_val):
         self._data[4:, 2] = new_val
-        self.source.SetBounds(self._get_bounds())
+        self.source.SetBounds(self.bounds)
         self.modified()
 
 class aiPly(aiObject):
