@@ -21,7 +21,7 @@ class aiArray(np.ndarray):
     cloud.data[:, 2] += 10 # This would not normally update
 
     """
-    def __new__(cls, input_array, ai_obj=None):
+    def __new__(cls, input_array, ai_obj):
         obj = np.asarray(input_array).view(cls)
         obj.ai_obj = ai_obj
         return obj
@@ -557,8 +557,8 @@ class aiObject (VTKObject, object):
 class aiCloud (aiObject):
     def __init__ (self, data):
         super(aiCloud, self).__init__(data)
-        self.CreateFromArray(self.data)
-        self._data = self.points_npy
+        self.CreateFromArray(self._data)
+        self._data = aiArray(self.points_npy, ai_obj=self)
 
     # All points can have unique colors
     @property
@@ -573,110 +573,52 @@ class aiKDCloud (aiCloud):
         super(aiKDCloud, self).__init__(data)
         self.tree = cKDTree(data[:, :3])
 
-class aiBox(aiObject):
-    def __init__ (self, bounds):
-        """Create a box witih the given bounds [xmin,xmax,ymin,ymax,zmin,zmax]"""
-        (xmin, xmax, ymin, ymax, zmin, zmax) = bounds
-        data = np.array([[xmin, ymin, zmin],
-                         [xmax, ymin, zmin],
-                         [xmin, ymax, zmin],
-                         [xmax, ymax, zmin],
-                         [xmin, ymin, zmax],
-                         [xmax, ymin, zmax],
-                         [xmin, ymax, zmax],
-                         [xmax, ymax, zmax]]).astype(np.double)
-        super(aiBox, self).__init__(data)
-        self.CreateBox(bounds)
+class aiCube (aiObject):
+    def __init__ (self, scale):
+        """ Create a box with given xscale, yscale, zscale """
+        cube_pts = np.array([[-1., -1., -1.],
+                             [ 1., -1., -1.],
+                             [-1.,  1., -1.],
+                             [ 1.,  1., -1.],
+                             [-1., -1.,  1.],
+                             [ 1., -1.,  1.],
+                             [-1.,  1.,  1.],
+                             [ 1.,  1.,  1.]]).astype(np.double)
+        cube_pts[:, 0] *= scale[0]
+        cube_pts[:, 1] *= scale[1]
+        cube_pts[:, 2] *= scale[2]
+
+        faces = [(0,2,3,1), (4,6,7,5), (0,1,5,4),
+                 (1,5,7,3), (0,4,6,2), (2,3,7,6)]
+
+        super(aiCube, self).__init__(cube_pts)
+        self.CreateFromArray(cube_pts)
+
+        self.polys = vtk.vtkCellArray()
+        for i in xrange(len(faces)):
+            self.polys.InsertNextCell(self._mkVtkIdList(faces[i]))
+        self.pd.SetPolys(self.polys)
+
+        self._data = aiArray(self.points_npy, ai_obj=self)
 
         self.properties.LightingOff()
-        self.source.QuadsOn()
-
         self.wireframe = True
 
-    # A box's color is defined by the actor, not the points
+    def _mkVtkIdList(self, it):
+        vil = vtk.vtkIdList()
+        for i in it:
+            vil.InsertNextId(int(i))
+        return vil
+
     @property
     def color (self):
+        """ A box's color is defined by the actor, not the points """
         return self.actor_color
     @color.setter
     def color (self, color):
         self.actor_color = color
 
-    @property
-    def data (self):
-        return self._data
-    @data.setter
-    def data (self, pos):
-        """ Since box.data is not tied directly to the image, we must modify
-        the source """
-        self._data = pos
-        self.source.SetBounds(self.bounds)
-        self.modified()
-
-    @property
-    def bounds (self):
-        return np.vstack((self._data[0], self._data[-1])).T.flatten()
-    @bounds.setter
-    def bounds (self, new_val):
-        """ Sets the box's bounds
-        ex:
-        box.bounds = [xmin,xmax,ymin,ymax,zmin,zmax]
-        """
-        self.xmin, self.xmax,\
-        self.ymin, self.ymax,\
-        self.zmin, self.zmax = new_val
-
-    @property
-    def xmin (self):
-        return self._data[0, 0]
-    @xmin.setter
-    def xmin (self, new_val):
-        self._data[[0,2,4,6], 0] = new_val
-        self.source.SetBounds(self.bounds)
-        self.modified()
-    @property
-    def xmax (self):
-        return self._data[1, 0]
-    @xmax.setter
-    def xmax (self, new_val):
-        self._data[[1,3,5,7], 0] = new_val
-        self.source.SetBounds(self.bounds)
-        self.modified()
-
-    @property
-    def ymin (self):
-        return self._data[0, 1]
-    @ymin.setter
-    def ymin (self, new_val):
-        self._data[[0,1,4,5], 1] = new_val
-        self.source.SetBounds(self.bounds)
-        self.modified()
-    @property
-    def ymax (self):
-        return self._data[2, 1]
-    @ymax.setter
-    def ymax (self, new_val):
-        self._data[[2,3,6,7], 1] = new_val
-        self.source.SetBounds(self.bounds)
-        self.modified()
-
-    @property
-    def zmin (self):
-        return self._data[0, 2]
-    @zmin.setter
-    def zmin (self, new_val):
-        self._data[:4, 2] = new_val
-        self.source.SetBounds(self.bounds)
-        self.modified()
-    @property
-    def zmax (self):
-        return self._data[4, 2]
-    @zmax.setter
-    def zmax (self, new_val):
-        self._data[4:, 2] = new_val
-        self.source.SetBounds(self.bounds)
-        self.modified()
-
-class aiPly(aiObject):
+class aiPly (aiObject):
     def __init__ (self, ply_file_name):
         """ Creates an object from a ply file. """
         super(aiPly, self).__init__(np.array((0,0,0)))
@@ -689,7 +631,7 @@ class aiPly(aiObject):
         self.actor = vtk.vtkActor()
         self.actor.SetMapper(ply_mapper)
 
-class aiAxis(aiObject):
+class aiAxis (aiObject):
     def __init__ (self, length=1):
         """Creates an axis object. This is useful for knowing the global frame of
         reference. (R, G, B) = (X, Y, Z) axis

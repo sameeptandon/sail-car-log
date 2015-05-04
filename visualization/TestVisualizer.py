@@ -6,12 +6,13 @@ from transformations import euler_matrix
 from aivtk import *
 
 def update (renderers):
+    pass
     cloud = renderers.cloud_ren.objects.clouds[0]
-    box = renderers.cloud_ren.objects.boxes[0]
+    cube = renderers.cloud_ren.objects.cubes[0]
     # We can update the position of clouds and cubes by accessing their data
     # directly
     # cloud.data[10:20, :] += np.array([.001] * 3)
-    # box.data += np.array([.001] * 3)
+    # cube.data += np.array([.001] * 3)
 
 if __name__ == '__main__':
     world = aiWorld((800, 400))
@@ -25,13 +26,15 @@ if __name__ == '__main__':
     # cloud_ren.ren.SetInteractive(False)
 
     def custom_left_press (x, y, ai_obj, idx, ren, default):
-        # print x, y, ai_obj, idx
-        if ai_obj in ren.objects.boxes:
-            # We cannot update a box.data direcectly, updating the bounds makes
-            # more sense
-            # ai_obj.bounds += [0, 0, 0, 0, -.1, .1]
-            # ai_obj.ymin -= .1
-            print ai_obj.data[i, :]
+        print x, y, ai_obj, idx
+        if ai_obj in ren.objects.cubes:
+            # Unfortunately this does not work
+            # ai_obj.data[0,0] += 0.5
+            # This will work
+            # ai_obj.data[0,0] += 0.5
+            # ai_obj.modified()
+            # This way also works
+            ai_obj.data[idx,0:1] += 0.5
         else:
             default()
     cloud_ren.mouse_handler.leftPress = custom_left_press
@@ -52,23 +55,14 @@ if __name__ == '__main__':
         cloud.color = colors
         clouds.append(cloud)
 
-    # create a box witih the given bounds [xmin,xmax,ymin,ymax,zmin,zmax]
-    box = aiBox((-1, 1, -1, 1, -1, 1))
-    box.transform = euler_matrix(0, 1, 0)
-
-    box.wireframe = True
-    box.color = np.array((255, 10, 255))
-
-    box_corners = aiCloud(box.data)
-    box_corners.point_size = 5
-
-    car = aiPly('gtr.ply')
+    cube = aiCube([1,1,1])
+    cube.color = [0, 0, 255]
+    # car = aiPly('gtr.ply')
 
     axis = aiAxis()
     axis.labels = True
 
-    cloud_ren.addObjects(clouds=clouds, boxes=[box, box_corners], axix=axis)
-
+    cloud_ren.addObjects(cubes=cube, clouds=clouds, axis=axis)
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)
 
@@ -76,8 +70,8 @@ if __name__ == '__main__':
     # cloud_ren.removeObjects(cloud_ren.objects.clouds[:2])
 
     # Access objects through their renderer by the name given in addObjects
-    cloud_ren.objects.boxes[0].opacity = .3
-    cloud_ren.objects.boxes[0].wireframe = True
+    cloud_ren.objects.cubes[0].opacity = 1
+    cloud_ren.objects.cubes[0].wireframe = True
 
     # Make sure to start the world (runs the update function)
     world.start()
