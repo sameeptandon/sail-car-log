@@ -192,12 +192,16 @@ class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
         self.mouse_events_map = {
             'LeftButtonPressEvent':
             [self.OnLeftButtonDown, 'leftPress'],
-            'RightButtonPressEvent':
-            [self.OnRightButtonDown, 'rightPress'],
             'LeftButtonReleaseEvent':
             [self.OnLeftButtonUp, 'leftRelease'],
+            'RightButtonPressEvent':
+            [self.OnRightButtonDown, 'rightPress'],
             'RightButtonReleaseEvent':
             [self.OnRightButtonUp, 'rightRelease'],
+            'MiddleButtonPressEvent':
+            [self.OnMiddleButtonDown, 'middlePress'],
+            'MiddleButtonReleaseEvent':
+            [self.OnMiddleButtonUp, 'middleRelease'],
             'MouseWheelForwardEvent':
             [self.OnMouseWheelForward, 'wheelForward'],
             'MouseWheelBackwardEvent':
