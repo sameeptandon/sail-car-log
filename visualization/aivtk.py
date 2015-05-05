@@ -345,6 +345,14 @@ class aiRenderer (object):
         self.ren.SetInteractive(self._interactive)
 
     @property
+    def transparent (self):
+        return bool(self.ren.GetErase())
+    @transparent.setter
+    def transparent (self, val):
+        """ Sets the render window background to transparent """
+        self.ren.SetErase(int(not val))
+
+    @property
     def color (self):
         """Sets the background color
 

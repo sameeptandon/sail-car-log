@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     cloud_ren = aiRenderer()
     img_ren = aiRenderer(*(.5, .5, 1, 1))
-    # img_ren.interactive = False
+    img_ren.transparent = True
 
     world.addRenderer(cloud_ren = cloud_ren, img_ren = img_ren)
 
