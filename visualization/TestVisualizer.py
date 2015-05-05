@@ -60,7 +60,11 @@ def custom_char_entered (key, ctrl, alt, ren, default):
         ren.world.quit()
 
 def img_custom_left_press (x, y, ai_obj, idx, ren, default):
+    # for some reason ai_obj is None when selecting the image :(
     print ai_obj, ren.objects.img[0].idxToCoords(idx)
+def img_custom_middle_press (x, y, ai_obj, idx, ren, default):
+    print x, y
+    ren.objects.img[0].fillRenderer()
 
 if __name__ == '__main__':
     world = aiWorld((1280, 640))
@@ -81,6 +85,7 @@ if __name__ == '__main__':
     cloud_ren.key_handler.charEntered = custom_char_entered
 
     img_ren.mouse_handler.leftPress = img_custom_left_press
+    img_ren.mouse_handler.middlePress = img_custom_middle_press
 
     clouds = []
     num_pts = 1000

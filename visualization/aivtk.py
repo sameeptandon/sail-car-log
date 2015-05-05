@@ -829,7 +829,6 @@ class aiImage (aiObject):
         flipY = vtk.vtkImageFlip()
         flipY.SetFilteredAxis(1)
         flipY.SetInputConnection(importer.GetOutputPort())
-        flipY.Update()
 
         self.actor = vtk.vtkImageActor()
         self.actor.SetInput(flipY.GetOutput())
@@ -839,6 +838,8 @@ class aiImage (aiObject):
         well for 1280x800 images
 
         """
+        self.ren.cam_position = (0, 0, 1000)
+        self.ren.cam_view_up = (0, 1, 0)
         self.ren.ren.ResetCamera()
         self.ren.cam.Dolly(2)
         self.ren.cam.SetClippingRange(100, 100000)
