@@ -76,6 +76,7 @@ if __name__ == '__main__':
     xform[:3, 3] = [1,0,0]
     cube.transform = xform
     # car = aiPly('gtr.ply')
+    print cube.center
 
     axis = aiAxis()
     axis.labels = True
@@ -96,8 +97,8 @@ if __name__ == '__main__':
     cloud_ren.objects.cubes[0].wireframe = True
 
     # Set up a top down view
-    cloud_ren.cam_position = (0, 0, 5)
-    cloud_ren.cam_focal_point = (0, 0, 0)
+    cloud_ren.cam_position = cube.center + [0, 0, 5]
+    cloud_ren.cam_focal_point = cube.center
     cloud_ren.cam_view_up = (0, 1, 0)
 
     # Make sure to start the world (runs the update function)

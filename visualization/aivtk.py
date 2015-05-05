@@ -692,6 +692,10 @@ class aiCube (aiObject):
     def color (self, color):
         self.actor_color = color
 
+    @property
+    def center (self):
+        return np.mean(self._data, axis=0)
+
 class aiPly (aiObject):
     def __init__ (self, ply_file_name):
         """ Creates an object from a ply file. """
