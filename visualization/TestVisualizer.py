@@ -7,11 +7,11 @@ from aivtk import *
 
 def update (renderers):
     cloud = renderers.cloud_ren.objects.clouds[0]
-    # line = renderers.cloud_ren.objects.lines[0]
+    # handle = renderers.cloud_ren.objects.handles[0]
     # We can update the position of clouds and cubes by accessing their data
     # directly
     cloud.data[10:20, :] += np.array([.001] * 3)
-    # line.data += np.array([.001] * 3)
+    # handle.data += np.array([.001] * 3)
     # cube.data += np.array([.001] * 3)
 
 if __name__ == '__main__':
@@ -25,32 +25,32 @@ if __name__ == '__main__':
     # cloud_ren.ren.SetInteractive(False)
 
     def custom_left_press (x, y, ai_obj, idx, ren, default):
-        if ai_obj in ren.objects.cubes:
+        if ai_obj in ren.objects.handles and idx == 1:
             # Add some metadata to the renderer
-            ren.meta.cube = ai_obj
+            ren.meta.handle = ai_obj
             ren.meta.idx = idx
         else:
             default()
     def custom_left_release (x, y, ai_obj, idx, ren, default):
-        if 'cube' in ren.meta:
+        if 'handle' in ren.meta:
             # When we release the mouse, delete the metadata
-            del ren.meta.cube
+            del ren.meta.handle
             del ren.meta.idx
         else:
             default()
     def custom_mouse_move (x, y, ai_obj, idx, ren, default):
-        if 'cube' in ren.meta:
-            cube = ren.meta.cube
-            cube_idx = ren.meta.idx
+        if 'handle' in ren.meta:
+            handle = ren.meta.handle
+            idx = ren.meta.idx
 
-            P = ren.displayToWorld(x, y, *cube.data[cube_idx, :])
-            cube.data[cube_idx, :] = P
+            P = ren.displayToWorld(x, y, *handle.data[idx, :])
 
-            vec = P - cube.center
-            rad = np.arctan2(vec[1], vec[0]) + np.pi / 4
+            vec = P - handle.start
+            rad = np.arctan2(vec[1], vec[0])
             xform = euler_matrix(0, 0, rad)
-            xform[:, 3] = cube.transform[:, 3]
-            for obj in [cube, line]:
+            xform[:, 3] = handle.transform[:, 3]
+
+            for obj in handle.group:
                 obj.transform = np.linalg.inv(obj.transform)
                 obj.transform = xform
         else:
@@ -84,16 +84,20 @@ if __name__ == '__main__':
     cube.color = [0, 0, 255]
     cube.point_size = 10
     cube.transform = xform
-    # car = aiPly('gtr.ply')
+
+    handle = aiLine(np.array([[0.,0.,0.], [1.,0.,0.]]))
+    handle.point_size = 10
+    handle.transform = xform
+
+    # This links the objects together (see aiObject.group)
+    handle.link(cube)
 
     axis = aiAxis()
     axis.labels = True
 
-    line = aiLine(np.array([[0.,0.,0.], [1.,0.,0.]]))
-    line.point_size = 10
-    line.transform = xform
+    # car = aiPly('gtr.ply')
 
-    cloud_ren.addObjects(cubes=cube, clouds=clouds, axis=axis, lines=line)
+    cloud_ren.addObjects(cubes=cube, handles=handle, clouds=clouds, axis=axis)
 
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)

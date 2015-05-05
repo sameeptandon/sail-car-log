@@ -508,6 +508,7 @@ class aiObject (VTKObject, object):
         self._color = None
         self._wireframe = False
         self._transform = np.eye(4)
+        self.group = [self]
 
     def modified (self):
         """ Call the function whenever the underlying data is changed """
@@ -625,6 +626,33 @@ class aiObject (VTKObject, object):
         (R, G, B) = color
         self._color = color
         self.properties.SetColor(R/255., G/255., B/255.)
+
+    def link (self, ai_obj):
+        """ Link the objects together. When we pick an object from the
+        renderer, we can access its group to know other objects it should
+        interact with. This operation is symmetric. Self is always the first
+        object in the group.
+
+        ex:
+        obj.link(obj2)
+        obj in obj2.group
+        >>> True
+        obj2 in obj.group
+        >>> True
+        obj in obj.group
+        >>> True
+        """
+        self.group.append(ai_obj)
+        ai_obj.group.append(ai_obj)
+    def unlink (self, ai_obj):
+        """ Unlink objects from each other. This operation is symmetric. Raises
+        an exception if trying to unlink from itself """
+        if ai_obj == self:
+            raise Exception ("self cannot unlink from self")
+        if ai_obj in self.group:
+            del self.group[self.group.index(ai_obj)]
+        if self in ai_obj.group:
+            del ai_obj.group[ai_obj.group.index(self)]
 
     def projectData (self):
         """ Project the data into 2d """
@@ -745,3 +773,13 @@ class aiLine (aiObject):
     @color.setter
     def color (self, color):
         self.actor_color = color
+
+    @property
+    def start (self):
+        """ Get the first point in the line """
+        return self.data[0, :]
+
+    @property
+    def end (self):
+        """ Get the last point in the line """
+        return self.data[-1, :]
