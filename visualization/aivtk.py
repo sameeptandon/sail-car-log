@@ -173,11 +173,15 @@ class aiWorld (object):
         error
 
         """
-        if self.update_cb == None:
+        if self.update_cb is None:
             raise Exception('Before starting the world, add a callback ' + \
                             'that updates the view')
         else:
             self.ren_interactor.Start()
+
+    def quit (self):
+        """ End the program and kill the window """
+        self.ren_interactor.TerminateApp()
 
 class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, ai_world):
@@ -298,7 +302,7 @@ class aiInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
 
 class aiRenderer (object):
-    def __init__ (self):
+    def __init__ (self, xmin=0, ymin=0, xmax=1, ymax=1):
         """Creates a renderer view. A view contains aiObjects. By default, aiRenderers
         fill the entire screen and have a black background
 
@@ -318,7 +322,7 @@ class aiRenderer (object):
         # Let the renderer hold some metadata to pass between callbacks
         self.meta = Bunch()
 
-        self._position = (0, 0, 1, 1)
+        self.position = (xmin, ymin, xmax, ymax)
         self._color = (0, 0, 0)
 
         self.ren.SetViewport(*self._position)
@@ -454,7 +458,7 @@ class aiRenderer (object):
         ren.addObjects(boxes = boxes)
         ren.removeObjects(ren.objects.boxes[2:4])
         """
-        if objects == None:
+        if objects is None:
             return
         if type(objects) not in [list,tuple]:
             # Make the object a list so we can iterate over it
@@ -498,11 +502,13 @@ class aiRenderer (object):
 
 class aiObject (VTKObject, object):
     def __init__ (self, data):
+        super(aiObject, self).__init__()
+
         if len(data.shape) == 1:
             data = data[:, np.newaxis]
         data = data.astype(np.float64)
         self._data = aiArray(data, ai_obj=self)
-        self._data_hom = np.hstack((self._data, np.ones((self._data.shape[0], 1))))
+        self._data_hom = None
         self.ren = None
         self.category = None
         self._color = None
@@ -529,6 +535,8 @@ class aiObject (VTKObject, object):
     @property
     def data_hom (self):
         """ Creates a homogenous view of the data """
+        if self._data_hom is None:
+            self._data_hom = np.hstack((self._data, np.ones((self._data.shape[0], 1))))
         return self._data_hom
     @data_hom.setter
     def data_hom (self, data_hom):
@@ -784,3 +792,38 @@ class aiLine (aiObject):
     def end (self):
         """ Get the last point in the line """
         return self.data[-1, :]
+
+class aiImage (aiObject):
+    def __init__ (self, cv2_image):
+        self.cv2_image = cv2_image.copy()
+        self.vtk_image = cv2.cvtColor(self.cv2_image, cv2.COLOR_BGR2RGB)
+        super(aiImage, self).__init__(self.vtk_image)
+
+        self.shape = self.cv2_image.shape
+        self.width = self.cv2_image.shape[1]
+        self.height = self.cv2_image.shape[0]
+
+        importer = vtk.vtkImageImport()
+        importer.SetDataOrigin(0,0,0)
+        importer.SetWholeExtent(0, self.width - 1, 0, self.height - 1, 0, 0)
+        importer.SetDataExtentToWholeExtent()
+        importer.SetDataScalarTypeToUnsignedChar()
+        importer.SetNumberOfScalarComponents(self.cv2_image.shape[2])
+        importer.SetImportVoidPointer(self.vtk_image)
+
+        flipY = vtk.vtkImageFlip()
+        flipY.SetFilteredAxis(1)
+        flipY.SetInputConnection(importer.GetOutputPort())
+        flipY.Update()
+
+        self.actor = vtk.vtkImageActor()
+        self.actor.SetInput(flipY.GetOutput())
+
+    def fillRenderer (self):
+        """Fills the renderer with the image. This is just an approximation that works
+        well for 1280x800 images
+
+        """
+        self.ren.ren.ResetCamera()
+        self.ren.cam.Dolly(2)
+        self.ren.cam.SetClippingRange(100, 100000)

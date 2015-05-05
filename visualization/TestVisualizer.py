@@ -1,8 +1,11 @@
 import sys
 import numpy as np
+import cv2
 
 sys.path.append('../process/')
 from transformations import euler_matrix
+from VideoReader import VideoReader
+
 from aivtk import *
 
 def update (renderers):
@@ -64,16 +67,16 @@ if __name__ == '__main__':
     # world.update_cb = (update, 30)
 
     cloud_ren = aiRenderer()
-    # cloud_ren.ren.SetInteractive(False)
+    img_ren = aiRenderer(*(.5, .5, 1, 1))
+    # img_ren.interactive = False
 
+    world.addRenderer(cloud_ren = cloud_ren, img_ren = img_ren)
 
     cloud_ren.mouse_handler.leftPress = custom_left_press
     cloud_ren.mouse_handler.leftRelease = custom_left_release
     cloud_ren.mouse_handler.mouseMove = custom_mouse_move
 
     cloud_ren.key_handler.charEntered = custom_char_entered
-
-    world.addRenderer(cloud_ren = cloud_ren)
 
     clouds = []
     num_pts = 1000
@@ -111,7 +114,7 @@ if __name__ == '__main__':
     axis = aiAxis()
     # axis.labels = True
 
-    # car = aiPly('gtr.ply')
+    # car = aiPly('assets/gtr.ply')
 
     cloud_ren.addObjects(cubes=cubes, handles=handles, clouds=clouds, axis=axis)
 
@@ -128,6 +131,16 @@ if __name__ == '__main__':
     # Set up a top down view
     cloud_ren.cam_position = (0, 0, 20)
     cloud_ren.cam_view_up = (0, 1, 0)
+
+    # Load the image from a file
+    # reader = # VideoReader('../process/data/4-17-15-280-test/101n_b/101n_b601.zip')
+    # (success, I) = reader.getNextFrame()
+    I = cv2.imread('assets/placeholder.jpg')
+    img = aiImage(I)
+    img_ren.addObjects(img=img)
+
+    # Have the image fill the renderer
+    img.fillRenderer()
 
     # Make sure to start the world (runs the update function)
     world.start()
