@@ -14,6 +14,48 @@ def update (renderers):
     # handle.data += np.array([.001] * 3)
     # cube.data += np.array([.001] * 3)
 
+def custom_left_press (x, y, ai_obj, idx, ren, default):
+    if ai_obj in ren.objects.handles and idx == 1:
+        # Add some metadata to the renderer
+        ren.meta.handle = ai_obj
+        ren.meta.idx = idx
+
+        cube = ai_obj.group[1]
+        ren.cam_focal_point = cube.center
+    else:
+        default()
+
+def custom_left_release (x, y, ai_obj, idx, ren, default):
+    if 'handle' in ren.meta:
+        # When we release the mouse, delete the metadata
+        del ren.meta.handle
+        del ren.meta.idx
+    else:
+        default()
+
+def custom_mouse_move (x, y, ai_obj, idx, ren, default):
+    if 'handle' in ren.meta:
+        handle = ren.meta.handle
+        idx = ren.meta.idx
+
+        P = ren.displayToWorld(x, y, *handle.data[idx, :])
+
+        vec = P - handle.start
+        rad = np.arctan2(vec[1], vec[0])
+        xform = euler_matrix(0, 0, rad)
+        xform[:, 3] = handle.transform[:, 3]
+
+        for obj in handle.group:
+            obj.transform = np.linalg.inv(obj.transform)
+            obj.transform = xform
+    else:
+        default()
+
+def custom_char_entered (key, ctrl, alt, ren, default):
+    print ctrl, alt, key
+    if key == 'q':
+        ren.world.quit()
+
 if __name__ == '__main__':
     world = aiWorld((1280, 640))
     # Use the default framerate (60 hz)
@@ -24,49 +66,11 @@ if __name__ == '__main__':
     cloud_ren = aiRenderer()
     # cloud_ren.ren.SetInteractive(False)
 
-    def custom_left_press (x, y, ai_obj, idx, ren, default):
-        if ai_obj in ren.objects.handles and idx == 1:
-            # Add some metadata to the renderer
-            ren.meta.handle = ai_obj
-            ren.meta.idx = idx
-
-            cube = ai_obj.group[1]
-            ren.cam_focal_point = cube.center
-
-        else:
-            default()
-    def custom_left_release (x, y, ai_obj, idx, ren, default):
-        if 'handle' in ren.meta:
-            # When we release the mouse, delete the metadata
-            del ren.meta.handle
-            del ren.meta.idx
-        else:
-            default()
-    def custom_mouse_move (x, y, ai_obj, idx, ren, default):
-        if 'handle' in ren.meta:
-            handle = ren.meta.handle
-            idx = ren.meta.idx
-
-            P = ren.displayToWorld(x, y, *handle.data[idx, :])
-
-            vec = P - handle.start
-            rad = np.arctan2(vec[1], vec[0])
-            xform = euler_matrix(0, 0, rad)
-            xform[:, 3] = handle.transform[:, 3]
-
-            for obj in handle.group:
-                obj.transform = np.linalg.inv(obj.transform)
-                obj.transform = xform
-        else:
-            default()
 
     cloud_ren.mouse_handler.leftPress = custom_left_press
     cloud_ren.mouse_handler.leftRelease = custom_left_release
     cloud_ren.mouse_handler.mouseMove = custom_mouse_move
 
-    def custom_char_entered (key, ctrl, alt, ren, default):
-        print ctrl, alt, key
-        default()
     cloud_ren.key_handler.charEntered = custom_char_entered
 
     world.addRenderer(cloud_ren = cloud_ren)
