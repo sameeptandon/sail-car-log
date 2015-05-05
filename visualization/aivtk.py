@@ -745,6 +745,7 @@ class aiAxis (aiObject):
         """
         super(aiAxis, self).__init__(np.array((0.,0.,0.)))
         self.CreateAxes(length)
+        self.labels = False
 
     @property
     def labels (self):
