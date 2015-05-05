@@ -59,6 +59,9 @@ def custom_char_entered (key, ctrl, alt, ren, default):
     if key == 'q':
         ren.world.quit()
 
+def img_custom_left_press (x, y, ai_obj, idx, ren, default):
+    print ai_obj, ren.objects.img[0].idxToCoords(idx)
+
 if __name__ == '__main__':
     world = aiWorld((1280, 640))
     # Use the default framerate (60 hz)
@@ -75,8 +78,9 @@ if __name__ == '__main__':
     cloud_ren.mouse_handler.leftPress = custom_left_press
     cloud_ren.mouse_handler.leftRelease = custom_left_release
     cloud_ren.mouse_handler.mouseMove = custom_mouse_move
-
     cloud_ren.key_handler.charEntered = custom_char_entered
+
+    img_ren.mouse_handler.leftPress = img_custom_left_press
 
     clouds = []
     num_pts = 1000
@@ -133,7 +137,7 @@ if __name__ == '__main__':
     cloud_ren.cam_view_up = (0, 1, 0)
 
     # Load the image from a file
-    # reader = # VideoReader('../process/data/4-17-15-280-test/101n_b/101n_b601.zip')
+    # reader = VideoReader('../process/data/4-17-15-280-test/101n_b/101n_b601.zip')
     # (success, I) = reader.getNextFrame()
     I = cv2.imread('assets/placeholder.jpg')
     img = aiImage(I)

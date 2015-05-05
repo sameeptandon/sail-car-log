@@ -795,7 +795,9 @@ class aiLine (aiObject):
 
 class aiImage (aiObject):
     def __init__ (self, cv2_image):
+        # We need to copy this image to keep a reference of it
         self.cv2_image = cv2_image.copy()
+        # Vtk is RGB; openCV is BRG
         self.vtk_image = cv2.cvtColor(self.cv2_image, cv2.COLOR_BGR2RGB)
         super(aiImage, self).__init__(self.vtk_image)
 
@@ -803,12 +805,13 @@ class aiImage (aiObject):
         self.width = self.cv2_image.shape[1]
         self.height = self.cv2_image.shape[0]
 
+        # Read the image from the numpy array
         importer = vtk.vtkImageImport()
-        importer.SetDataOrigin(0,0,0)
+        importer.SetDataOrigin(-self.width/2, -self.height/2, 0)
         importer.SetWholeExtent(0, self.width - 1, 0, self.height - 1, 0, 0)
         importer.SetDataExtentToWholeExtent()
         importer.SetDataScalarTypeToUnsignedChar()
-        importer.SetNumberOfScalarComponents(self.cv2_image.shape[2])
+        importer.SetNumberOfScalarComponents(self.vtk_image.shape[2])
         importer.SetImportVoidPointer(self.vtk_image)
 
         flipY = vtk.vtkImageFlip()
@@ -827,3 +830,9 @@ class aiImage (aiObject):
         self.ren.ren.ResetCamera()
         self.ren.cam.Dolly(2)
         self.ren.cam.SetClippingRange(100, 100000)
+
+    def idxToCoords (self, idx):
+        """ Converts a picked index to the position in pixel space """
+        if idx == -1:
+            return (-1, -1)
+        return (int(idx % self.width), int(self.height - idx / self.width))
