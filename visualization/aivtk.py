@@ -498,8 +498,11 @@ class aiRenderer (object):
 
 class aiObject (VTKObject, object):
     def __init__ (self, data):
+        if len(data.shape) == 1:
+            data = data[:, np.newaxis]
         data = data.astype(np.float64)
         self._data = aiArray(data, ai_obj=self)
+        self._data_hom = np.hstack((self._data, np.ones((self._data.shape[0], 1))))
         self.ren = None
         self.category = None
         self._color = None
@@ -521,6 +524,17 @@ class aiObject (VTKObject, object):
         # Any time we modify data, make sure the verts are synced
         self.verts.SetData(numpy_support.numpy_to_vtk(self._data))
         self.modified()
+
+    @property
+    def data_hom (self):
+        """ Creates a homogenous view of the data """
+        return self._data_hom
+    @data_hom.setter
+    def data_hom (self, data_hom):
+        """ Updates the data by using the 4th as a scaling factor
+        TODO: is there a better way than copying? """
+        self._data_hom = data_hom
+        self.data = self._data_hom[:, :3].copy()
 
     @property
     def source (self):
@@ -569,8 +583,10 @@ class aiObject (VTKObject, object):
         return self._transform
     @transform.setter
     def transform (self, np_xform):
+        assert (np_xform.shape == (4,4))
         self._transform = np_xform
-        self.actor.SetUserTransform(array2vtkTransform(np_xform))
+        # Update the homogenous data (also updates the underlying data)
+        self.data_hom = np_xform.dot(self.data_hom.T).T
 
     @property
     def wireframe (self):
@@ -612,14 +628,6 @@ class aiObject (VTKObject, object):
 
     def projectData (self):
         """ Project the data into 2d """
-        pass
-
-    def moveData (self):
-        """ Move part of the data around """
-        pass
-
-    def transformData (self):
-        """ Move the data to a different frame of reference """
         pass
 
 class aiCloud (aiObject):

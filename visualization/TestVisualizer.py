@@ -73,14 +73,15 @@ if __name__ == '__main__':
     cube.color = [0, 0, 255]
     cube.point_size = 10
     xform = euler_matrix(0., 0., 0.25)
-    cube.data = cube.data.dot(xform[:3, :3])
+    xform[:3, 3] = [1,0,0]
+    cube.transform = xform
     # car = aiPly('gtr.ply')
 
     axis = aiAxis()
     axis.labels = True
 
     line = aiLine(np.array([[0.,0.,0.], [1.,0.,0.]]))
-    line.data = line.data.dot(xform[:3, :3])
+    line.transform = xform
     line.point_size = 10
 
     cloud_ren.addObjects(cubes=cube, clouds=clouds, axis=axis, lines=line)
