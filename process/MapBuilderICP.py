@@ -50,6 +50,26 @@ class MapBuilder(object):
         self.all_data = []
         self.all_t = []
 
+    def getFilterMask(self,data,filters):
+        if 'ground' in filters:
+            filter_mask = data[:, 3] < 10
+        else:
+            filter_mask = data[:, 3] > -300 #30
+        if 'lanes' in filters:
+            filter_mask &=  (data[:,1] < 10) & (data [:,1] > -10) &\
+                            (data[:,2] < -1.95) & (data[:,2] > -2.05)
+        if 'forward' in filters:
+            filter_mask &= (data[:, 0] > 0)
+        if 'no-trees' in filters:
+            filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) &\
+                           (data[:,2] < -1) & (data[:,2] > -3)
+        if 'no-cars' in filters:  # pts on the ground or high up are assumed stationary
+            filter_mask &= (data[:,1] < 10) & (data [:,1] > -10) &\
+                           (((data[:,2] < -1.95) & (data[:,2] > -2.05)) | (data[:,2] > 2.5))
+        if 'flat' in filters:
+            data[:, 0] = 0
+        return filter_mask
+
     def buildMap(self, filters=None):
         """
         Creates a map with a set of filters
@@ -72,26 +92,8 @@ class MapBuilder(object):
             if data is None or data.shape[0] == 0:
                 current_time += self.step_time * 1e6
                 continue
-
             if filters != None:
-                if 'ground' in filters:
-                    filter_mask = data[:, 3] < 10
-                else:
-                    filter_mask = data[:, 3] > -300 #30
-                if 'lanes' in filters:
-                    filter_mask &=  (data[:,1] < 10) & (data [:,1] > -10) &\
-                                    (data[:,2] < -1.95) & (data[:,2] > -2.05)
-                if 'forward' in filters:
-                    filter_mask &= (data[:, 0] > 0)
-                if 'no-trees' in filters:
-                    filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) &\
-                                   (data[:,2] < -1) & (data[:,2] > -3)
-                if 'no-cars' in filters:  # pts on the ground or high up are assumed stationary
-                    filter_mask &= (data[:,1] < 10) & (data [:,1] > -10) &\
-                                   (((data[:,2] < -1.95) & (data[:,2] > -2.05)) | (data[:,2] > 2.5))
-                if 'flat' in filters:
-                    data[:, 0] = 0
-
+                filter_mask = self.getFilterMask(data,filters)
             data = data[filter_mask, :]
             t_data = t_data[filter_mask]
 
@@ -105,7 +107,6 @@ class MapBuilder(object):
             # This will put pts in imu_0 frame
             transform_points_by_times(pts, t_data, self.imu_transforms_mark1,
                                       self.gps_times_mark1)
-
             data[:, 0:3] = pts[0:3, :].transpose()
             self.all_data.append(data.copy())
             self.all_t.append(t_data.copy())
@@ -132,6 +133,6 @@ class MapBuilder(object):
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
-    mb = MapBuilder(args, 1, 600, 0.3, 0.1)
+    mb = MapBuilder(args, 1, 600, 0.3, 0.1,absolute=True)
     mb.buildMap(['no-cars'])
     mb.exportData(sys.argv[3])

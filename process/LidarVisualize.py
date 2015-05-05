@@ -1391,12 +1391,6 @@ class Blockworld:
         #raw_cloud = VtkPointCloud(pts[:, :3], np.ones(pts[:, :3].shape) * 255)
 
         raw_cloud = VtkPointCloud(pts[:, :3], intensity2Color(pts[:, 3],bgr=False))
-        #raw_cloud = VtkPointCloud(pts[:, :3], np.squeeze(heatColorMapFast(pts[:, 3],0,255)))
-        #intensities = np.ones(pts[:, :3].shape)
-        #intensities[:,0] = pts[:,3]
-        #intensities[:,1] = pts[:,3]
-        #intensities[:,2] = pts[:,3]
-        #raw_cloud = VtkPointCloud(pts[:, :3], intensities)
         raw_actor = raw_cloud.get_vtk_color_cloud()
 
         self.raw_lidar = VTKCloudTree(raw_cloud, raw_actor)

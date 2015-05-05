@@ -64,6 +64,17 @@ class LDRLoader(object):
         self.sweep_start_times = sweep_start_times
         self.sweep_end_times = sweep_end_times
 
+    def loadLDRSingle(self, idx):
+        ldr_file = self.ldr_files[idx]
+        sweep_end_time = self.sweep_end_times[idx]
+
+        # Load the points from file
+        data = loadLDR(ldr_file)
+        time = -1 * np.array(data[:, 5], dtype=np.int64) + sweep_end_time
+        return data,time
+
+
+
     def loadLDRWindow(self, microsec_since_epoch, time_window_sec):
         time_window = time_window_sec * 1e6
 
@@ -71,7 +82,7 @@ class LDRLoader(object):
         mask = (self.sweep_start_times >= microsec_since_epoch - time_window / 2.0 - SWEEP_TIME_MICROSEC) &\
                (self.sweep_end_times <= microsec_since_epoch + time_window / 2.0 + SWEEP_TIME_MICROSEC)
         ldr_files = self.ldr_files[mask].tolist()
-        #print ldr_files
+        print ldr_files
         sweep_end_times = self.sweep_end_times[mask].tolist()
 
         # Load the points from those times
