@@ -45,6 +45,14 @@ if __name__ == '__main__':
 
             P = ren.displayToWorld(x, y, *cube.data[cube_idx, :])
             cube.data[cube_idx, :] = P
+
+            vec = P - cube.center
+            rad = np.arctan2(vec[1], vec[0]) + np.pi / 4
+            xform = euler_matrix(0, 0, rad)
+            xform[:, 3] = cube.transform[:, 3]
+            for obj in [cube, line]:
+                obj.transform = np.linalg.inv(obj.transform)
+                obj.transform = xform
         else:
             default()
 
@@ -69,23 +77,24 @@ if __name__ == '__main__':
         cloud.pickable = False
         clouds.append(cloud)
 
+    xform = euler_matrix(0,0,1)
+    xform[:3, 3] = [1,0,0]
+
     cube = aiCube([1,1,1])
     cube.color = [0, 0, 255]
     cube.point_size = 10
-    xform = euler_matrix(0., 0., 0.25)
-    xform[:3, 3] = [1,0,0]
     cube.transform = xform
     # car = aiPly('gtr.ply')
-    print cube.center
 
     axis = aiAxis()
     axis.labels = True
 
     line = aiLine(np.array([[0.,0.,0.], [1.,0.,0.]]))
-    line.transform = xform
     line.point_size = 10
+    line.transform = xform
 
     cloud_ren.addObjects(cubes=cube, clouds=clouds, axis=axis, lines=line)
+
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)
 
