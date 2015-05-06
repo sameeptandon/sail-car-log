@@ -7,19 +7,23 @@ from aivtk import *
 from LidarTransforms import *
 from ColorMap import *
 
-global fileidx
-global ldr_files
 
 def update (renderers):
-    global fileidx
-    global ldr_files
-    cloud = renderers.cloud_ren.objects.clouds[0]
+    cloud_ren = renderers.cloud_ren
+    if 'clouds' in cloud_ren.objects:
+        cloud_ren.removeObjects(cloud_ren.objects.clouds)
+    # Load data
+    fileidx = renderers.cloud_ren.meta.fileidx
+    ldr_files = renderers.cloud_ren.meta.ldr_files
     ldr_data = loadLDR(ldr_files[fileidx])
-    print ldr_data.shape
-    cloud.data = np.ascontiguousarray(ldr_data[:,:3])
-    colors = np.squeeze(heatColorMapFast(ldr_data[:,4], 0,255))
-    cloud.color = colors[:,::-1]
-    fileidx+=1
+    newclouds = []
+    cloud = aiCloud(ldr_data[:,:3])
+    colors = np.squeeze(heatColorMapFast(ldr_data[:,3], 0,255))
+    cloud.color = (colors[:,::-1]).astype('u1')
+    newclouds.append(cloud)
+    cloud_ren.addObjects(clouds=newclouds)
+
+    renderers.cloud_ren.meta.fileidx+=1
 
     # handle = renderers.cloud_ren.objects.handles[0]
     # We can update the position of clouds and cubes by accessing their data
@@ -29,9 +33,8 @@ def update (renderers):
     # cube.data += np.array([.001] * 3)
 
 if __name__ == '__main__':
-    fileidx = 0
-    ldr_dir = '../process/data/4-25-15-elcamino/el-camino_b/el-camino_b_frames'
-    ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, '*.ldr'))))
+    
+    
     world = aiWorld((1280, 640))
     # Use the default framerate (60 hz)
     world.update_cb = update
@@ -68,9 +71,9 @@ if __name__ == '__main__':
         else:
             default()
 
-    cloud_ren.mouse_handler.leftPress = custom_left_press
-    cloud_ren.mouse_handler.leftRelease = custom_left_release
-    cloud_ren.mouse_handler.mouseMove = custom_mouse_move
+    #cloud_ren.mouse_handler.leftPress = custom_left_press
+    #cloud_ren.mouse_handler.leftRelease = custom_left_release
+    #cloud_ren.mouse_handler.mouseMove = custom_mouse_move
 
     def custom_char_entered (key, ctrl, alt, ren, default):
         print ctrl, alt, key
@@ -78,25 +81,11 @@ if __name__ == '__main__':
     cloud_ren.key_handler.charEntered = custom_char_entered
 
     world.addRenderer(cloud_ren = cloud_ren)
-
-    clouds = []
-
-
-    ldr_data = loadLDR(ldr_files[0])
-    cloud = aiCloud(ldr_data[:,:3])
-    colors = np.squeeze(heatColorMapFast(ldr_data[:,4], 0,255))
-    cloud.color = colors[:,::-1]
-    cloud.pickable = False
-    clouds.append(cloud)
-
-
     axis = aiAxis()
-    # axis.labels = True
-
-    # car = aiPly('gtr.ply')
-    pts = loadLDR(ldr_files[0])
-    cloud_ren.addObjects(clouds=clouds, axis=axis)
-
+    cloud_ren.addObjects(axis=axis)
+    cloud_ren.meta.fileidx = 0
+    ldr_dir = '../process/data/4-25-15-elcamino/el-camino_b/el-camino_b_frames'
+    cloud_ren.meta.ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, '*.ldr'))))
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)
 
