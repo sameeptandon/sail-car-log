@@ -1356,6 +1356,10 @@ class Blockworld:
         self.manual_change = 0
 
         ###### Set up the renderers ######
+        self.bg_ren = vtk.vtkRenderer()
+        self.bg_ren.SetViewport(0, 0, 1.0, 1.0)
+        self.bg_ren.SetBackground(0, 0, 0)
+
         self.cloud_ren = vtk.vtkRenderer()
         self.cloud_ren.SetViewport(0, 0, 0.7, 1.0)
         self.cloud_ren.SetBackground(0, 0, 0)
@@ -1373,6 +1377,7 @@ class Blockworld:
 
         self.win = vtk.vtkRenderWindow()
         self.win.StereoCapableWindowOff()
+        self.win.AddRenderer(self.bg_ren)
         self.win.AddRenderer(self.cloud_ren)
         self.win.AddRenderer(self.img_ren)
         self.win.AddRenderer(self.gmap_ren)
@@ -1656,6 +1661,7 @@ class Blockworld:
         if not self.startup_complete:
             cloud_cam.SetViewUp(0, 0, 1)
             self.img_ren.ResetCamera()
+            self.img_ren.SetErase(False)
             # These units are pixels
             self.img_ren.GetActiveCamera().SetClippingRange(100, 100000)
             self.img_ren.GetActiveCamera().Dolly(1.75)
