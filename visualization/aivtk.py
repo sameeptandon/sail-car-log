@@ -659,8 +659,12 @@ class aiObject (VTKObject, object):
         [[r, g, b]...[r, g, b]] taking values 0-255.
         Parent classes should choose how setting the color changes the object
         """
+        vtk_color_data = numpy_support.numpy_to_vtk(color)
+        vtk_color_data.SetName('ColorArray')
+        self.pd.GetPointData().SetScalars(vtk_color_data)
+        self.pd.GetPointData().SetActiveScalars('ColorArray')
+
         self._color = color
-        self.AddColors(self._color)
 
     @property
     def actor_color (self):
