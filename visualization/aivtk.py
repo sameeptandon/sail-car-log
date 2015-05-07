@@ -79,6 +79,21 @@ class Bunch(dict):
         return '\n'.join(state)
 
 class aiWorld (object):
+    _CURSOR_MAP = {
+        'default': 0,
+        'arrow': 1,
+        'resizeNE': 2,
+        'resizeNW': 3,
+        'resizeSW': 4,
+        'resizeSE': 5,
+        'resizeNS': 6,
+        'resizeWE': 7,
+        'resizeALL': 8,
+        'hand': 9,
+        'crosshair': 10
+    }
+    _INV_CURSOR_MAP = {v:k for k,v in _CURSOR_MAP.iteritems()}
+
     def __init__ (self, size):
         """ Creates a window with a black background """
         self.renderers = Bunch()
@@ -167,6 +182,19 @@ class aiWorld (object):
             self.vtk_to_ren_map[ai_ren.ren] = ai_ren
             self.win.AddRenderer(ai_ren.ren)
             ai_ren.world = self
+
+    @property
+    def cursor (self):
+        """cursor_type takes values: default, arrow, resizeNE, resizeNW, resizeSW,
+        resizeSE, resizeNS, resizeWE, resizeALL, hand, crosshair
+
+        Works on Mac:
+        default, resizeNS, resizeSE, hand, crosshair
+        """
+        return aiWorld._INV_CURSOR_MAP[self.win.GetCurrentCursor()]
+    @cursor.setter
+    def cursor (self, cursor_type):
+        return self.win.SetCurrentCursor(aiWorld._CURSOR_MAP[cursor_type])
 
     def start (self):
         """ Starts running the update callback. If there is no update method, throw an
