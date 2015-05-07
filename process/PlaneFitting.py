@@ -65,6 +65,25 @@ class PlaneFitter(object):
         inliers = np.abs(dist) < threshold
         return inliers
 
+    def getPlanarPoints(self, pts, n_iter, threshold):
+            # number of inliers, (idx0, idx1, idx2)
+            best_model = (0, np.array(0))
+            for i in xrange(n_iter):
+                rand_idx = np.random.choice(np.arange(0, pts.shape[0]), 3)
+                rand_pts = pts[rand_idx, :]
+
+                n, p0 = self.planeFromPoints(rand_pts)
+                inliers = self.getInliers(n, p0, pts, threshold)
+                num_inliers = np.sum(inliers)
+
+                if num_inliers > best_model[0]:
+                    best_model = (num_inliers, rand_idx)
+            n, p0 = self.planeFromPoints(pts[best_model[1], :])
+            inliers = self.getInliers(n, p0, pts, threshold)
+            return inliers
+
+
+
     def findGroundPlane(self, pos_idx, radius=100.0, threshold=0.05, n_iter=10):
         pts_idx = self.ground_tree.query_ball_point(self.pos[pos_idx, :], radius)
         pts = self.ground[pts_idx, :]
@@ -92,22 +111,8 @@ class PlaneFitter(object):
         if pts.shape[0] < 10:
             return (None,) * 3
 
-        # number of inliers, (idx0, idx1, idx2)
-        best_model = (0, np.array(0))
-        for i in xrange(n_iter):
-            rand_idx = np.random.choice(np.arange(0, pts.shape[0]), 3)
-            rand_pts = pts[rand_idx, :]
 
-            n, p0 = self.planeFromPoints(rand_pts)
-            inliers = self.getInliers(n, p0, pts, threshold)
-            num_inliers = np.sum(inliers)
-
-            if num_inliers > best_model[0]:
-                best_model = (num_inliers, rand_idx)
-
-        n, p0 = self.planeFromPoints(pts[best_model[1], :])
-        inliers = self.getInliers(n, p0, pts, threshold)
-
+        inliers = self.getPlanarPoints(pts, n_iter,threshold)
         n, p0, err = self.fitPlane(pts[inliers, :])
 
         if self.planes == None:

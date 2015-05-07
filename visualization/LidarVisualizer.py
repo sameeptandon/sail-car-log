@@ -1,36 +1,32 @@
 import sys
 import numpy as np
-
 sys.path.append('../process/')
 from transformations import euler_matrix
 from aivtk import *
 from LidarTransforms import *
-from ColorMap import *
-
-
+from ColorMap import heatColorMapFast
+from MapBuilderICP import MapBuilder
+from ArgParser import parse_args
+from PlaneFitting import PlaneFitter
 def update (renderers):
     cloud_ren = renderers.cloud_ren
     if 'clouds' in cloud_ren.objects:
         cloud_ren.removeObjects(cloud_ren.objects.clouds)
     # Load data
-    fileidx = renderers.cloud_ren.meta.fileidx
-    ldr_files = renderers.cloud_ren.meta.ldr_files
-    ldr_data = loadLDR(ldr_files[fileidx])
+    above_data, t__data = renderers.cloud_ren.meta.mb.getCurrentData('above',local=True)
+    planar_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('road',local=True)
+    n_iter=10
+    threshold = 0.05
+    #inliers = renderers.cloud_ren.meta.pf.getPlanarPoints(planar_data[:,:3], n_iter,threshold)
+    #planar_data = planar_data[inliers,:]
+    data = np.concatenate((above_data,planar_data), axis=0)
     newclouds = []
-    cloud = aiCloud(ldr_data[:,:3])
-    colors = np.squeeze(heatColorMapFast(ldr_data[:,3], 0,255))
+    cloud = aiCloud(data[:,:3])
+    colors = np.squeeze(heatColorMapFast(data[:,3], 0,255))
     cloud.color = (colors[:,::-1]).astype('u1')
     newclouds.append(cloud)
     cloud_ren.addObjects(clouds=newclouds)
 
-    renderers.cloud_ren.meta.fileidx+=1
-
-    # handle = renderers.cloud_ren.objects.handles[0]
-    # We can update the position of clouds and cubes by accessing their data
-    # directly
-    # cloud.data[10:20, :] += np.array([.001] * 3)
-    # handle.data += np.array([.001] * 3)
-    # cube.data += np.array([.001] * 3)
 
 if __name__ == '__main__':
     
@@ -82,10 +78,17 @@ if __name__ == '__main__':
 
     world.addRenderer(cloud_ren = cloud_ren)
     axis = aiAxis()
+
+    args = parse_args(sys.argv[1], sys.argv[2])
+    cloud_ren.meta.mb = MapBuilder(args, 1, 600, 0.1, 0.1,absolute=True)
+    plane_file = args['fullname'] + '_ground.npz'
+    lanes_file = sys.argv[1] + '/multilane_points.npz'
+    cloud_ren.meta.pf = PlaneFitter(args, plane_file, lanes_file)
     cloud_ren.addObjects(axis=axis)
-    cloud_ren.meta.fileidx = 0
-    ldr_dir = '../process/data/4-25-15-elcamino/el-camino_b/el-camino_b_frames'
-    cloud_ren.meta.ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, '*.ldr'))))
+
+    #cloud_ren.meta.fileidx = 0
+    #ldr_dir = '../process/data/4-25-15-elcamino/el-camino_b/el-camino_b_frames'
+    #cloud_ren.meta.ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, '*.ldr'))))
     # We can add objects to the renderer later
     # cloud_ren.addObjects(car = car)
 

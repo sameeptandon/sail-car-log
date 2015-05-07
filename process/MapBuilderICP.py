@@ -41,6 +41,7 @@ class MapBuilder(object):
 
         # grab the initial time off the gps log and compute start and end times
         self.start_time = self.gps_times_mark1[0] + start_time * 1e6
+        self.current_time = self.start_time
         self.end_time = self.gps_times_mark1[0] + end_time * 1e6
         if self.end_time > self.gps_times_mark1[-1]:
             self.end_time = self.gps_times_mark1[-1]
@@ -58,14 +59,19 @@ class MapBuilder(object):
         if 'lanes' in filters:
             filter_mask &=  (data[:,1] < 10) & (data [:,1] > -10) &\
                             (data[:,2] < -1.95) & (data[:,2] > -2.05)
+        if 'road' in filters: # pts on the ground are assumed stationary
+            filter_mask &=  (data[:,1] < 30) & (data [:,1] > -30) &\
+                            (data[:,2] < -1.95) & (data[:,2] > -2.05)
         if 'forward' in filters:
             filter_mask &= (data[:, 0] > 0)
         if 'no-trees' in filters:
             filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) &\
                            (data[:,2] < -1) & (data[:,2] > -3)
         if 'no-cars' in filters:  # pts on the ground or high up are assumed stationary
-            filter_mask &= (data[:,1] < 10) & (data [:,1] > -10) &\
-                           (((data[:,2] < -1.95) & (data[:,2] > -2.05)) | (data[:,2] > 2.5))
+            filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) &\
+                           (((data[:,2] < -1.9) & (data[:,2] > -2.1)) | (data[:,2] > 1.5))
+        if 'above' in filters:  # pts high up are assumed stationary
+            filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) & (data[:,2] > 1.5)
         if 'flat' in filters:
             data[:, 0] = 0
         return filter_mask
@@ -82,38 +88,43 @@ class MapBuilder(object):
         """
         self.all_data = []
         self.all_t = []
-
-        current_time = self.start_time
-        print (self.end_time - current_time) / 1e6
-        while current_time + self.scan_window < self.end_time:
-            # load points w.r.t lidar at current time
-            data, t_data = self.lidar_loader.loadLDRWindow(current_time,
-                                                           self.scan_window)
-            if data is None or data.shape[0] == 0:
-                current_time += self.step_time * 1e6
-                continue
-            if filters != None:
-                filter_mask = self.getFilterMask(data,filters)
-            data = data[filter_mask, :]
-            t_data = t_data[filter_mask]
-
-            # put in imu_t frame
-            pts = data[:, 0:3].transpose()
-            pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
-            pts = np.dot(self.T_from_l_to_i, pts)
-
-            # Shift points according to timestamps instead of using
-            # transform of full sweep.
-            # This will put pts in imu_0 frame
-            transform_points_by_times(pts, t_data, self.imu_transforms_mark1,
-                                      self.gps_times_mark1)
-            data[:, 0:3] = pts[0:3, :].transpose()
+        print (self.end_time - self.current_time) / 1e6
+        while self.current_time + self.scan_window < self.end_time:
+            data,t_data = self.getCurrentData(filters)
+            if data is None or t_data is None:
+              continue
             self.all_data.append(data.copy())
             self.all_t.append(t_data.copy())
+            
+        print (self.end_time - self.current_time) / 1e6
 
-            current_time += self.step_time * 1e6
 
-        print (self.end_time - current_time) / 1e6
+    def getCurrentData(self, filters=None, local=False):
+        # load points w.r.t lidar at current time
+        data, t_data = self.lidar_loader.loadLDRWindow(self.current_time,
+                                                       self.scan_window)
+        if data is None or data.shape[0] == 0:
+            self.current_time += self.step_time * 1e6
+            return None,None
+        if filters != None:
+            filter_mask = self.getFilterMask(data,filters)
+        data = data[filter_mask, :]
+        t_data = t_data[filter_mask]
+
+        # put in imu_t frame
+        pts = data[:, 0:3].transpose()
+        pts = np.vstack((pts, np.ones((1, pts.shape[1]))))
+        pts = np.dot(self.T_from_l_to_i, pts)
+
+        # Shift points according to timestamps instead of using
+        # transform of full sweep.
+        # This will put pts in imu_0 frame
+        transform_points_by_times(pts, t_data, self.imu_transforms_mark1,
+                                  self.gps_times_mark1,local)
+        data[:, 0:3] = pts[0:3, :].transpose()
+        self.current_time += self.step_time * 1e6
+        return data,t_data
+
 
     def getData(self):
         export_data = np.row_stack(self.all_data)

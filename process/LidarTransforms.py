@@ -82,7 +82,6 @@ class LDRLoader(object):
         mask = (self.sweep_start_times >= microsec_since_epoch - time_window / 2.0 - SWEEP_TIME_MICROSEC) &\
                (self.sweep_end_times <= microsec_since_epoch + time_window / 2.0 + SWEEP_TIME_MICROSEC)
         ldr_files = self.ldr_files[mask].tolist()
-        print ldr_files
         sweep_end_times = self.sweep_end_times[mask].tolist()
 
         # Load the points from those times
@@ -175,7 +174,7 @@ def transform_points_in_sweep(pts, times, fnum, imu_transforms):
         pts[:, mask] = np.dot(transform, pts[:, mask])
 
 
-def transform_points_by_times(pts, t_pts, imu_transforms, gps_times):
+def transform_points_by_times(pts, t_pts, imu_transforms, gps_times, local=False):
     for t in set(t_pts):
         mask = t_pts == t
 
@@ -194,6 +193,8 @@ def transform_points_by_times(pts, t_pts, imu_transforms, gps_times):
 
         # transform data into imu_0 frame
         pts[:, mask] = np.dot(transform, pts[:, mask])
+        if local: # transform into imu_fnum1 if required
+          pts[:,mask] = np.dot(np.linalg.inv(T1), pts[:, mask])
     return pts
 
 
