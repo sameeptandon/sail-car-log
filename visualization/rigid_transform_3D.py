@@ -34,8 +34,6 @@ def rigid_transform_3D(A, B):
 
     t = -R*centroid_A.T + centroid_B.T
 
-    print t
-
     return R, t
 
 def test():

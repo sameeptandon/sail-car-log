@@ -26,8 +26,10 @@ def update (renderers):
     # Planar data contains point cloud of all points on road
     planar_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('road',local=True)
     current_gps_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('gps',local=True)
-    if previous_gps_data != None:
-        R, t = icp(previous_gps_data[:, :3], current_gps_data[:, :3])
+    if previous_gps_data is not None:
+        previous_gps_data_points = previous_gps_data[:, :3]
+        current_gps_data_points = current_gps_data[:, :3]
+        R, t = icp(previous_gps_data_points, current_gps_data_points)
         print "R: " + str(R)
         print "t: " + str(t)
     previous_gps_data = current_gps_data.copy()

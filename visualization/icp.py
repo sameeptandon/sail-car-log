@@ -24,33 +24,34 @@ def icp(a, b, num_iterations = 13):
     src = a.copy()
     dst = b.copy()
 
-    # Initialize with random estimation
+    # Initialize with random estimation.
     R = mat(random.rand(3, 3))
     t = mat(random.rand(3, 1))
-    # Make R a proper rotation matrix, force orthonormal
+    # Make R a proper rotation matrix, force orthonormal.
     U, S, Vt = linalg.svd(R)
     R = U*Vt
+    # Transform src using rotation and translation matrix.
     src = R*src.T + tile(t, (1, len(src)))
     src = src.T
 
     for i in range(num_iterations):
 
         # Find the nearest neighbours between the current source and the
-        # destination cloudpoint
+        # destination cloudpoint.
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(dst)
         distances, indices = nbrs.kneighbors(src)
 
         # Compute the transformation between the current source
-        # and destination cloudpoint.
+        # and destination cloudpoint via nearest neighbors.
         R_new, t_new = rigid_transform_3D(src, mat(dst[indices.T][0]))
 
         # Transform the previous source and update the
-        # current source cloudpoint
+        # current source cloudpoint.
         src = R_new*src.T + tile(t_new, (1, len(src)))
         src = src.T
 
-        #Save the transformation from the actual source cloudpoint
-        #to the destination
+        # Save the transformation from the actual source cloudpoint
+        # to the destination.
         R = dot(R, R_new)
         t = t + t_new
     return R, t
