@@ -19,7 +19,7 @@ import numpy as np
 from scipy.interpolate import UnivariateSpline
 from scipy.spatial import cKDTree
 from scipy.signal import butter, filtfilt
-import vtk
+#import vtk
 
 from ArgParser import parse_args
 from GPSReader import GPSReader
@@ -28,7 +28,7 @@ from LaneMarkingHelper import BackProjector, DataTree, get_transforms, mk2_to_mk
 from LidarTransforms import R_to_c_from_l, utc_from_gps_log_all
 from MblyTransforms import MblyLoader, projectPoints, T_from_mbly_to_lidar
 from VideoReader import VideoReader
-from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
+#from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, VtkBoundingBox
 from mbly_obj_pb2 import Object
 from transformations import euler_from_matrix, euler_matrix
 
@@ -54,105 +54,105 @@ def load_ply(ply_file):
     actor.SetMapper(ply_mapper)
     return actor
 
-class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
+# class LaneInteractorStyle (vtk.vtkInteractorStyleTrackballCamera):
 
-    def __init__(self, iren, ren, parent):
-        self.iren = iren
-        self.ren = ren
-        self.parent = parent
+#     def __init__(self, iren, ren, parent):
+#         self.iren = iren
+#         self.ren = ren
+#         self.parent = parent
 
-        self.moving = False
+#         self.moving = False
 
-        self.SetMotionFactor(10.0)
+#         self.SetMotionFactor(10.0)
 
-        self.AutoAdjustCameraClippingRangeOff()
-        self.ren.GetActiveCamera().SetClippingRange(0.01, 500)
+#         self.AutoAdjustCameraClippingRangeOff()
+#         self.ren.GetActiveCamera().SetClippingRange(0.01, 500)
 
-        self.AddObserver('MouseWheelForwardEvent', self.MouseWheelForwardEvent)
-        self.AddObserver('MouseWheelBackwardEvent', self.MouseWheelBackwardEvent)
+#         self.AddObserver('MouseWheelForwardEvent', self.MouseWheelForwardEvent)
+#         self.AddObserver('MouseWheelBackwardEvent', self.MouseWheelBackwardEvent)
 
-        self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
-        self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
+#         self.AddObserver('LeftButtonPressEvent', self.LeftButtonPressEvent)
+#         self.AddObserver('LeftButtonReleaseEvent', self.LeftButtonReleaseEvent)
 
-        # Add keypress event
-        self.AddObserver('CharEvent', self.KeyHandler)
+#         # Add keypress event
+#         self.AddObserver('CharEvent', self.KeyHandler)
 
-    def MouseWheelForwardEvent(self, obj, event):
-        self.OnMouseWheelForward()
+#     def MouseWheelForwardEvent(self, obj, event):
+#         self.OnMouseWheelForward()
 
-    def MouseWheelBackwardEvent(self, obj, event):
-        self.OnMouseWheelBackward()
+#     def MouseWheelBackwardEvent(self, obj, event):
+#         self.OnMouseWheelBackward()
 
-    def LeftButtonPressEvent(self, obj, event):
-        self.OnLeftButtonDown()
+#     def LeftButtonPressEvent(self, obj, event):
+#         self.OnLeftButtonDown()
 
-    def LeftButtonReleaseEvent(self, obj, event):
-        self.OnLeftButtonUp()
+#     def LeftButtonReleaseEvent(self, obj, event):
+#         self.OnLeftButtonUp()
 
-    def KeyHandler(self, obj=None, event=None, key=None):
-        # Symbol names are declared in
-        # GUISupport/Qt/QVTKInteractorAdapter.cxx
-        # https://github.com/Kitware/VTK/
-        if key == None:
-            key = self.iren.GetKeySym()
+#     def KeyHandler(self, obj=None, event=None, key=None):
+#         # Symbol names are declared in
+#         # GUISupport/Qt/QVTKInteractorAdapter.cxx
+#         # https://github.com/Kitware/VTK/
+#         if key == None:
+#             key = self.iren.GetKeySym()
 
-        if key == 'q':
-            self.iren.TerminateApp()
-            return
-        elif key == 'space':
-            self.parent.running = not self.parent.running
-            print 'Running' if self.parent.running else 'Paused'
+#         if key == 'q':
+#             self.iren.TerminateApp()
+#             return
+#         elif key == 'space':
+#             self.parent.running = not self.parent.running
+#             print 'Running' if self.parent.running else 'Paused'
 
-        elif key == 'Down':
-            if not self.parent.running:
-                if self.parent.mk2_t > 0:
-                    self.parent.mk2_t -= self.parent.small_step
-                    self.parent.t = self.parent.mk2_to_mk1()
-                    self.parent.manual_change = -1
+#         elif key == 'Down':
+#             if not self.parent.running:
+#                 if self.parent.mk2_t > 0:
+#                     self.parent.mk2_t -= self.parent.small_step
+#                     self.parent.t = self.parent.mk2_to_mk1()
+#                     self.parent.manual_change = -1
 
-        elif key == 'Up':
-            if not self.parent.running:
-                if not self.parent.finished():
-                    self.parent.mk2_t += self.parent.small_step
-                    self.parent.t = self.parent.mk2_to_mk1()
-                    self.parent.manual_change = 1
+#         elif key == 'Up':
+#             if not self.parent.running:
+#                 if not self.parent.finished():
+#                     self.parent.mk2_t += self.parent.small_step
+#                     self.parent.t = self.parent.mk2_to_mk1()
+#                     self.parent.manual_change = 1
 
-        elif key == 'o':
-            self.parent.mbly_rot[0] -= 0.001
-        elif key == 'u':
-            self.parent.mbly_rot[0] += 0.001
-        elif key == 'i':
-            self.parent.mbly_rot[1] -= 0.001
-        elif key == 'k':
-            self.parent.mbly_rot[1] += 0.001
-        elif key == 'l':
-            self.parent.mbly_rot[2] -= 0.001
-        elif key == 'j':
-            self.parent.mbly_rot[2] += 0.001
+#         elif key == 'o':
+#             self.parent.mbly_rot[0] -= 0.001
+#         elif key == 'u':
+#             self.parent.mbly_rot[0] += 0.001
+#         elif key == 'i':
+#             self.parent.mbly_rot[1] -= 0.001
+#         elif key == 'k':
+#             self.parent.mbly_rot[1] += 0.001
+#         elif key == 'l':
+#             self.parent.mbly_rot[2] -= 0.001
+#         elif key == 'j':
+#             self.parent.mbly_rot[2] += 0.001
 
-        elif key == 'plus':
-            self.parent.mbly_T[0] += 0.1
-        elif key == 'minus':
-            self.parent.mbly_T[0] -= 0.1
-        elif key == 'd':
-            self.parent.mbly_T[1] -= 0.1
-        elif key == 'a':
-            self.parent.mbly_T[1] += 0.1
-        elif key == 'w':
-            self.parent.mbly_T[2] += 0.1
-        elif key == 's':
-            self.parent.mbly_T[2] -= 0.1
+#         elif key == 'plus':
+#             self.parent.mbly_T[0] += 0.1
+#         elif key == 'minus':
+#             self.parent.mbly_T[0] -= 0.1
+#         elif key == 'd':
+#             self.parent.mbly_T[1] -= 0.1
+#         elif key == 'a':
+#             self.parent.mbly_T[1] += 0.1
+#         elif key == 'w':
+#             self.parent.mbly_T[2] += 0.1
+#         elif key == 's':
+#             self.parent.mbly_T[2] -= 0.1
 
-        elif key == '0':
-            self.parent.mbly_T = [0.0, 0.0, 0.0]
-            self.parent.mbly_rot = [0.0, 0.0, 0.0]
+#         elif key == '0':
+#             self.parent.mbly_T = [0.0, 0.0, 0.0]
+#             self.parent.mbly_rot = [0.0, 0.0, 0.0]
 
-        print 'self.mbly_rot =', self.parent.mbly_rot
-        print 'self.mbly_T =', self.parent.mbly_T
+#         print 'self.mbly_rot =', self.parent.mbly_rot
+#         print 'self.mbly_T =', self.parent.mbly_T
 
 
-    def Render(self):
-        self.iren.GetRenderWindow().Render()
+#     def Render(self):
+#         self.iren.GetRenderWindow().Render()
 
 
 class Blockworld:
@@ -567,6 +567,184 @@ class Blockworld:
                 cv2.circle(I, pt, size, color[::-1], thickness=-size)
         return I
 
+class ViewMbly(object):
+
+    def __init__(self):
+        if len(sys.argv) <= 2 or '--help' in sys.argv:
+            print """Usage:
+            {name} folder/ video.avi
+            """.format(name = sys.argv[0])
+            sys.exit(-1)
+
+        args = parse_args(sys.argv[1], sys.argv[2])
+        self.args = args
+        print sys.argv
+
+        self.small_step = 5
+        self.large_step = 10
+        self.startup_complete = False
+
+        ##### Grab all the transforms ######
+        self.absolute = False
+        (self.imu_transforms_mk1,
+         self.gps_data_mk1,
+         self.gps_times_mk1) = get_transforms(args, 'mark1', self.absolute)
+
+        (self.imu_transforms_mk2,
+         self.gps_data_mk2,
+         self.gps_times_mk2) = get_transforms(args, 'mark2', self.absolute)
+
+        self.mk2_t = 0
+        self.t = self.mk2_to_mk1()
+
+        self.cur_imu_transform = self.imu_transforms_mk1[self.t, :, :]
+        self.imu_kdtree = cKDTree(self.imu_transforms_mk1[:, :3, 3])
+
+        self.params = args['params']
+        self.lidar_params = self.params['lidar']
+        self.T_from_i_to_l = np.linalg.inv(self.lidar_params['T_from_l_to_i'])
+        cam_num = args['cam_num']
+        self.cam_params = self.params['cam'][cam_num]
+
+        # Load the MobilEye file
+        self.mbly_loader = MblyLoader(args)
+        self.mbly_rot = [0.0, -0.005, -0.006]
+        self.mbly_T = [5.4, 0.0, -1.9]
+
+        # Is the flyover running
+        self.running = True
+        # Has the user changed the time
+        self.manual_change = 0
+
+        ###### 2D Projection Actors ######
+        self.video_reader = VideoReader(args['video'])
+        self.img_actor = None
+
+        # Car: 0, Truck: 1, Bike: 2, Other: 3-7
+        red = np.array((1, 0, 0))
+        green = np.array((0, 1, 0))
+        blue = np.array((0, 0, 1))
+        white = red+green+blue
+        self.mbly_obj_colors = [red, green, blue, white]
+
+        self.I = None
+
+        self.out = cv2.VideoWriter('out.avi', cv2.cv.FOURCC(*'XVID'),
+                                   10.0, (1280, 800))
+
+        self.iter = 0
+
+        while True:
+            self.update()
+
+    def mk2_to_mk1(self, mk2_idx=-1):
+        if mk2_idx == -1:
+            mk2_idx = self.mk2_t
+        return mk2_to_mk1(mk2_idx, self.gps_times_mk1, self.gps_times_mk2)
+
+
+    def finished(self, focus=100):
+        return self.mk2_t + 2 * focus > self.video_reader.total_frame_count
+
+    def mblyObjAsNp(self, mbly_objs):
+        """Turns a mobileye object pb message into a numpy array with format:
+        [x, y, .7, length, width, type]
+
+        """
+        pts_wrt_mbly = []
+        for obj in mbly_objs:
+            pt_wrt_mbly = [obj.pos_x, obj.pos_y, .7, obj.length, \
+                           obj.width, obj.obj_type]
+            pts_wrt_mbly.append(pt_wrt_mbly)
+        return np.array(pts_wrt_mbly)
+
+
+    def addObjToImg(self, I, objs_wrt_mbly):
+        """Takes an image and the mbly objects. Converts the objects into corners of a
+        bounding box and draws them on the image
+
+        """
+        if objs_wrt_mbly.shape[0] == 0:
+            return None
+
+        pix = []
+        width = objs_wrt_mbly[:, 4]
+
+        # Assuming the point in obs_wrt_mbly are the center of the object, draw
+        # a box .5 m below, .5 m above, -.5*width left, .5*width right. Keep the
+        # same z position
+        for z in [-.5, .5]:
+            for y in [-.5, .5]:
+                offset = np.zeros((width.shape[0], 3))
+                offset[:, 1] = width*y
+                offset[:, 2] = z
+                pt = objs_wrt_mbly[:, :3] + offset
+                proj_pt = projectPoints(pt, self.args, self.mbly_T, self.mbly_R)
+                pix.append(proj_pt[:, 3:])
+
+        pix = np.array(pix, dtype=np.int32)
+        pix = np.swapaxes(pix, 0, 1)
+
+        # Draw a line between projected points
+        for i, corner in enumerate(pix):
+            # Get the color of the box and convert RGB -> BGR
+            color = self.mbly_obj_colors[int(objs_wrt_mbly[i, 5])][::-1] * 255
+            corner = tuple(map(tuple, corner))
+            cv2.rectangle(I, corner[0], corner[3], color, 2)
+
+        return I
+
+
+    def update(self):
+        # Initialization
+        # if not self.startup_complete:
+        #     cloud_cam.SetViewUp(0, 0, 1)
+        #     self.mk2_t = 1
+        #     self.t = self.mk2_to_mk1()
+
+        #     self.startup_complete = True
+        #     self.manual_change = -1 # Force an update for the camera
+
+        # Update the time (arrow keys also update time)
+        if self.running:
+            self.mk2_t += self.small_step
+        if self.finished():
+            self.mk2_t -= self.small_step
+            # if self.running == True:
+            #     self.interactor.KeyHandler(key='space')
+
+        # Get the correct gps time (mk2 is camera time)
+        self.t = self.mk2_to_mk1()
+        self.cur_imu_transform = self.imu_transforms_mk1[self.t, :, :]
+        # Get the correct frame to show
+        (success, self.I) = self.video_reader.getFrame(self.mk2_t)
+
+        # Update the gps time
+        self.cur_gps_time = self.gps_times_mk2[self.mk2_t]
+
+        # Make sure the calibration has been updated
+        self.mbly_R = euler_matrix(*self.mbly_rot)[:3, :3]
+
+        I = self.I.copy()
+        # Add the lanes to the cloud
+        # mbly_lanes = self.mbly_loader.loadLane(self.cur_gps_time)
+        # lanes_wrt_mbly = self.mblyLaneAsNp(mbly_lanes)
+        # # Add the lanes to the image copy
+        # I = self.addLaneToImg(I, lanes_wrt_mbly)
+
+        # Add the objects (cars) to the cloud
+        mbly_objs = self.mbly_loader.loadObj(self.cur_gps_time)
+        objs_wrt_mbly = self.mblyObjAsNp(mbly_objs)
+        # Add the lanes to the image copy
+        I = self.addObjToImg(I, objs_wrt_mbly)
+        self.out.write(I)
+        sys.stdout.write('\r%d' % self.iter)
+        sys.stdout.flush()
+        # cv2.imshow('img', I)
+        # cv2.waitKey(5)
+        self.iter += 1
+
 
 if __name__ == '__main__':
-    Blockworld()
+    #Blockworld()
+    ViewMbly()
