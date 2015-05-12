@@ -569,16 +569,18 @@ class Blockworld:
 
 class ViewMbly(object):
 
-    def __init__(self):
-        if len(sys.argv) <= 2 or '--help' in sys.argv:
+    def __init__(self, argv=None):
+        if argv is not None:
+            args = parse_args(argv[1], argv[2])
+        elif len(sys.argv) <= 2 or '--help' in sys.argv:
             print """Usage:
             {name} folder/ video.avi
             """.format(name = sys.argv[0])
             sys.exit(-1)
+        else:
+            args = parse_args(sys.argv[1], sys.argv[2])
 
-        args = parse_args(sys.argv[1], sys.argv[2])
         self.args = args
-        print sys.argv
 
         self.small_step = 5
         self.large_step = 10
@@ -629,13 +631,10 @@ class ViewMbly(object):
 
         self.I = None
 
-        self.out = cv2.VideoWriter('out.avi', cv2.cv.FOURCC(*'XVID'),
-                                   10.0, (1280, 800))
+        # self.out = cv2.VideoWriter('out.avi', cv2.cv.FOURCC(*'XVID'),
+        #                            10.0, (1280, 800))
 
         self.iter = 0
-
-        while True:
-            self.update()
 
     def mk2_to_mk1(self, mk2_idx=-1):
         if mk2_idx == -1:
@@ -695,7 +694,7 @@ class ViewMbly(object):
         return I
 
 
-    def update(self):
+    def nextFrame(self):
         # Initialization
         # if not self.startup_complete:
         #     cloud_cam.SetViewUp(0, 0, 1)
@@ -708,24 +707,37 @@ class ViewMbly(object):
         # Update the time (arrow keys also update time)
         if self.running:
             self.mk2_t += self.small_step
-        if self.finished():
-            self.mk2_t -= self.small_step
+        # if self.finished():
+        #     self.mk2_t -= self.small_step
             # if self.running == True:
             #     self.interactor.KeyHandler(key='space')
 
         # Get the correct gps time (mk2 is camera time)
-        self.t = self.mk2_to_mk1()
+        try:
+            self.t = self.mk2_to_mk1()
+        except IndexError:
+            return False, None
         self.cur_imu_transform = self.imu_transforms_mk1[self.t, :, :]
         # Get the correct frame to show
         (success, self.I) = self.video_reader.getFrame(self.mk2_t)
 
+        if not success:
+            return success, None
+
         # Update the gps time
-        self.cur_gps_time = self.gps_times_mk2[self.mk2_t]
+        try:
+            self.cur_gps_time = self.gps_times_mk2[self.mk2_t]
+        except IndexError:
+            return False, None
 
         # Make sure the calibration has been updated
         self.mbly_R = euler_matrix(*self.mbly_rot)[:3, :3]
 
         I = self.I.copy()
+
+        return success, I
+
+    def render(self, I):
         # Add the lanes to the cloud
         # mbly_lanes = self.mbly_loader.loadLane(self.cur_gps_time)
         # lanes_wrt_mbly = self.mblyLaneAsNp(mbly_lanes)
@@ -737,12 +749,14 @@ class ViewMbly(object):
         objs_wrt_mbly = self.mblyObjAsNp(mbly_objs)
         # Add the lanes to the image copy
         I = self.addObjToImg(I, objs_wrt_mbly)
-        self.out.write(I)
-        sys.stdout.write('\r%d' % self.iter)
-        sys.stdout.flush()
+        # self.out.write(I)
+
+        # sys.stdout.write('\r%d' % self.iter)
+        # sys.stdout.flush()
         # cv2.imshow('img', I)
         # cv2.waitKey(5)
         self.iter += 1
+        return I
 
 
 if __name__ == '__main__':
