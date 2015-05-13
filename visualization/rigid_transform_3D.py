@@ -73,7 +73,7 @@ def test():
 
     err = multiply(err, err)
     err = sum(err)
-    rmse = sqrt(err/n);
+    rmse = sqrt(err/n)
 
     print "Points A"
     print A

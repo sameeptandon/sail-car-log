@@ -9,6 +9,7 @@ from ColorMap import heatColorMapFast
 from MapBuilderICP import MapBuilder
 from ArgParser import parse_args
 from PlaneFitting import PlaneFitter
+from sklearn.neighbors import NearestNeighbors
 
 previous_gps_data = None
 
@@ -32,6 +33,7 @@ def update (renderers):
         R, t = icp(previous_gps_data_points, current_gps_data_points)
         print "R: " + str(R)
         print "t: " + str(t)
+        print "RMSE: " + str(__get_rmse(previous_gps_data_points, current_gps_data_points, R, t))
     previous_gps_data = current_gps_data.copy()
     n_iter=10
     threshold = 0.05
@@ -45,6 +47,17 @@ def update (renderers):
     newclouds.append(cloud)
     cloud_ren.addObjects(clouds=newclouds)
 
+def __get_rmse(previous_gps_data_points, current_gps_data_points, R, t):
+    nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(current_gps_data_points)
+    distances, indices = nbrs.kneighbors(previous_gps_data_points)
+    current_gps_data_points_actual = current_gps_data_points[indices.T][0]
+    current_gps_data_points_estimate = R*previous_gps_data_points.T + np.tile(t, (1, len(previous_gps_data_points)))
+    current_gps_data_points_estimate = current_gps_data_points_estimate.T
+    err = current_gps_data_points_actual - current_gps_data_points_estimate
+    err = np.multiply(err, err)
+    err = np.sum(err)
+    rmse = np.sqrt(err/len(previous_gps_data_points))
+    return rmse
 
 if __name__ == '__main__':
 
