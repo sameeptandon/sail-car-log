@@ -32,6 +32,7 @@ from VtkRenderer import VtkPointCloud, VtkText, VtkImage, VtkPlane, VtkLine, Vtk
 from mbly_obj_pb2 import Object
 from transformations import euler_from_matrix, euler_matrix
 
+global_count = 0
 def vtk_transform_from_np(np4x4):
     vtk_matrix = vtk.vtkMatrix4x4()
     for r in range(4):
@@ -165,12 +166,11 @@ class Blockworld:
             sys.exit(-1)
         args = parse_args(sys.argv[1], sys.argv[2])
         self.args = args
-
         bg_file = glob.glob(args['fullname'] + '*bg.npz')[0]
         print sys.argv
 
-        self.small_step = 5
-        self.large_step = 10
+        self.small_step = 1
+        self.large_step = 1
         self.startup_complete = False
 
         ##### Grab all the transforms ######
@@ -357,14 +357,18 @@ class Blockworld:
         self.addLaneToCloud(lanes_wrt_mbly)
         # Add the lanes to the image copy
         I = self.addLaneToImg(I, lanes_wrt_mbly)
-
+        if self.running:
+          global global_count
+          I2 = cv2.resize(I[:,107:1280-106,:], (640, 480))
+          cv2.imwrite('data/Mbly_lane/'+str(global_count+1)+'.png',I2)
+          global_count+=1
+          
         # Add the objects (cars) to the cloud
         mbly_objs = self.mbly_loader.loadObj(self.cur_gps_time)
         objs_wrt_mbly = self.mblyObjAsNp(mbly_objs)
         self.addObjToCloud(objs_wrt_mbly)
         # Add the lanes to the image copy
         I = self.addObjToImg(I, objs_wrt_mbly)
-
         vtkimg = VtkImage(I)
         self.img_ren.RemoveActor(self.img_actor)
         self.img_actor = vtkimg.get_vtk_image()
@@ -543,7 +547,7 @@ class Blockworld:
 
         pix = []
         for i in xrange(len(self.mbly_vtk_lanes)):
-            type = int(lanes_wrt_mbly[i, 5])
+            type = 1#int(lanes_wrt_mbly[i, 5])
             color = self.mbly_lane_color[type] * 255
             size = self.mbly_lane_size[type]
             subsamp = self.mbly_lane_subsamp[type]

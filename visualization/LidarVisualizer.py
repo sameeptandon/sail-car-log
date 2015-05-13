@@ -3,18 +3,36 @@ import numpy as np
 sys.path.append('../process/')
 from transformations import euler_matrix
 from aivtk import *
+from icp import icp
 from LidarTransforms import *
 from ColorMap import heatColorMapFast
 from MapBuilderICP import MapBuilder
 from ArgParser import parse_args
 from PlaneFitting import PlaneFitter
+
+previous_gps_data = None
+
 def update (renderers):
+    global previous_gps_data
+
     cloud_ren = renderers.cloud_ren
     if 'clouds' in cloud_ren.objects:
         cloud_ren.removeObjects(cloud_ren.objects.clouds)
     # Load data
+
+    # Above data contains point cloud of all points above car with height > 1.5 meters above lidar
+    # (x, y, z) correspond to forward, left, up coordinates
     above_data, t__data = renderers.cloud_ren.meta.mb.getCurrentData('above',local=True)
+    # Planar data contains point cloud of all points on road
     planar_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('road',local=True)
+    current_gps_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('gps',local=True)
+    if previous_gps_data is not None:
+        previous_gps_data_points = previous_gps_data[:, :3]
+        current_gps_data_points = current_gps_data[:, :3]
+        R, t = icp(previous_gps_data_points, current_gps_data_points)
+        print "R: " + str(R)
+        print "t: " + str(t)
+    previous_gps_data = current_gps_data.copy()
     n_iter=10
     threshold = 0.05
     #inliers = renderers.cloud_ren.meta.pf.getPlanarPoints(planar_data[:,:3], n_iter,threshold)
@@ -29,8 +47,8 @@ def update (renderers):
 
 
 if __name__ == '__main__':
-    
-    
+
+
     world = aiWorld((1280, 640))
     # Use the default framerate (60 hz)
     world.update_cb = update
