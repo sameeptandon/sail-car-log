@@ -582,8 +582,8 @@ class ViewMbly(object):
 
         self.args = args
 
-        self.small_step = 5
-        self.large_step = 10
+        self.small_step = 1
+        self.large_step = 1
         self.startup_complete = False
 
         ##### Grab all the transforms ######
