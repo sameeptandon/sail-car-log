@@ -36,6 +36,7 @@ class aiArray(np.ndarray):
         self.ai_obj.modified()
         return np.ndarray.__array_wrap__(self, out_arr, context)
 
+
 def array2vtkTransform(arr):
     T = vtk.vtkTransform()
     matrix = vtk.vtkMatrix4x4()

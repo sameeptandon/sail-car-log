@@ -12,9 +12,10 @@ from PlaneFitting import PlaneFitter
 from sklearn.neighbors import NearestNeighbors
 
 previous_gps_data = None
+previous_data = None
 
 def update (renderers):
-    global previous_gps_data
+    global previous_gps_data, previous_data
 
     cloud_ren = renderers.cloud_ren
     if 'clouds' in cloud_ren.objects:
@@ -23,18 +24,23 @@ def update (renderers):
 
     # Above data contains point cloud of all points above car with height > 1.5 meters above lidar
     # (x, y, z) correspond to forward, left, up coordinates
-    above_data, t__data = renderers.cloud_ren.meta.mb.getCurrentData('above',local=True)
+    above_data, t_data = renderers.cloud_ren.meta.mb.getCurrentData('above',local=True)
     # Planar data contains point cloud of all points on road
-    planar_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('road',local=True)
+    planar_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('lanes',local=True)
+
+    data = np.concatenate((above_data,planar_data), axis=0)
     current_gps_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('gps',local=True)
-    if previous_gps_data is not None:
-        previous_gps_data_points = previous_gps_data[:, :3]
-        current_gps_data_points = current_gps_data[:, :3]
-        R, t = icp(previous_gps_data_points, current_gps_data_points)
-        print "R: " + str(R)
+    renderers.cloud_ren.meta.mb.stepForward()
+
+    if previous_data is not None:
+        previous_data_points = previous_data[:, :3]
+        data_points = data[:, :3]
+        R, t = icp(previous_data_points, data_points)
+        #print "R: " + str(R)
         print "t: " + str(t)
-        print "RMSE: " + str(__get_rmse(previous_gps_data_points, current_gps_data_points, R, t))
-    previous_gps_data = current_gps_data.copy()
+        #print "RMSE: " + str(__get_rmse(previous_gps_data_points, current_gps_data_points, R, t))
+    previous_data = data.copy()
+
     n_iter=10
     threshold = 0.05
     #inliers = renderers.cloud_ren.meta.pf.getPlanarPoints(planar_data[:,:3], n_iter,threshold)
@@ -43,7 +49,7 @@ def update (renderers):
     newclouds = []
     cloud = aiCloud(data[:,:3])
     colors = np.squeeze(heatColorMapFast(data[:,3], 0,255))
-    cloud.color = (colors[:,::-1]).astype('u1')
+    cloud.color = (colors[:,::-1]).astype('u1', copy=False)
     newclouds.append(cloud)
     cloud_ren.addObjects(clouds=newclouds)
 
@@ -111,7 +117,7 @@ if __name__ == '__main__':
     axis = aiAxis()
 
     args = parse_args(sys.argv[1], sys.argv[2])
-    cloud_ren.meta.mb = MapBuilder(args, 1, 600, 0.1, 0.1,absolute=True)
+    cloud_ren.meta.mb = MapBuilder(args, 64, 600, 0.1, 0.1,absolute=True)
     plane_file = args['fullname'] + '_ground.npz'
     lanes_file = sys.argv[1] + '/multilane_points.npz'
     cloud_ren.meta.pf = PlaneFitter(args, plane_file, lanes_file)

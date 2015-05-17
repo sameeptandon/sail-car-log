@@ -58,7 +58,8 @@ class MapBuilder(object):
             filter_mask = data[:, 3] > -300 #30
         if 'lanes' in filters:
             filter_mask &=  (data[:,1] < 10) & (data [:,1] > -10) &\
-                            (data[:,2] < -1.95) & (data[:,2] > -2.05)
+                            (data[:,2] < -1.95) & (data[:,2] > -2.05) &\
+                            (data[:, 3] > 30)
         if 'road' in filters: # pts on the ground are assumed stationary
             filter_mask &=  (data[:,1] < 30) & (data [:,1] > -30) &\
                             (data[:,2] < -1.95) & (data[:,2] > -2.05)
@@ -68,10 +69,11 @@ class MapBuilder(object):
             filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) &\
                            (data[:,2] < -1) & (data[:,2] > -3)
         if 'no-cars' in filters:  # pts on the ground or high up are assumed stationary
-            filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) &\
-                           (((data[:,2] < -1.9) & (data[:,2] > -2.1)) | (data[:,2] > 1.5))
+            filter_mask &= (data[:,1] < 20) & (data [:,1] > -20) &\
+                           (((data[:,2] < -1.95) & (data[:,2] > -2.05) & (data[:, 3] > 30)) |\
+                           (data[:,2] > 1.5))                  
         if 'above' in filters:  # pts high up are assumed stationary
-            filter_mask &= (data[:,1] < 30) & (data [:,1] > -30) & (data[:,2] > 1.5)
+            filter_mask &= (data[:,1] < 20) & (data [:,1] > -20) & (data[:,2] > 1.5)
         if 'flat' in filters:
             data[:, 0] = 0
         return filter_mask
@@ -95,6 +97,7 @@ class MapBuilder(object):
               continue
             self.all_data.append(data.copy())
             self.all_t.append(t_data.copy())
+            self.stepForward()
             
         print (self.end_time - self.current_time) / 1e6
 
@@ -103,6 +106,7 @@ class MapBuilder(object):
         # load points w.r.t lidar at current time
         data, t_data = self.lidar_loader.loadLDRWindow(self.current_time,
                                                        self.scan_window)
+        print (self.current_time-self.gps_times_mark1[0])* 1e-6
         if data is None or data.shape[0] == 0:
             self.current_time += self.step_time * 1e6
             return None,None
@@ -122,8 +126,12 @@ class MapBuilder(object):
         transform_points_by_times(pts, t_data, self.imu_transforms_mark1,
                                   self.gps_times_mark1,local)
         data[:, 0:3] = pts[0:3, :].transpose()
-        self.current_time += self.step_time * 1e6
         return data,t_data
+
+
+    def stepForward(self):
+      self.current_time += self.step_time * 1e6
+
 
 
     def getData(self):
@@ -144,6 +152,6 @@ class MapBuilder(object):
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1], sys.argv[2])
-    mb = MapBuilder(args, 1, 600, 0.3, 0.1,absolute=True)
+    mb = MapBuilder(args, 1, 600, 0.1, 0.1,absolute=True)
     mb.buildMap(['no-cars'])
     mb.exportData(sys.argv[3])

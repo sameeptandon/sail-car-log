@@ -197,6 +197,20 @@ def transform_points_by_times(pts, t_pts, imu_transforms, gps_times, local=False
           pts[:,mask] = np.dot(np.linalg.inv(T1), pts[:, mask])
     return pts
 
+# get transformation given a time gps stamp, interpolate if needed
+def get_transform_by_time(t, imu_transforms, gps_times):
+    fnum1 = bisect.bisect(gps_times, t) - 1
+    fnum2 = fnum1 + 1
+    try:
+        alpha = (1 - (t - gps_times[fnum1])) / float(gps_times[fnum2] -
+                                                     gps_times[fnum1])
+    except IndexError:
+        assert(1==0)
+    T1 = imu_transforms[fnum1, :, :]
+    T2 = imu_transforms[fnum2, :, :]
+    transform = interp_transforms(T1, T2, alpha)
+    return transform
+
 
 if __name__ == '__main__':
     import sys
