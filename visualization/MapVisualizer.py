@@ -47,17 +47,22 @@ def update (renderers):
     #current_gps_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('gps',local=True)
     current_time = renderers.cloud_ren.meta.mb.current_time
     if previous_data is not None and previous_time is not None:
+
+        current_trans = get_transform_by_time(current_time, cloud_ren.meta.imu_transforms_mk1, cloud_ren.meta.gps_times_mk1)
+        previous_trans = get_transform_by_time(previous_time, cloud_ren.meta.imu_transforms_mk1, cloud_ren.meta.gps_times_mk1)
+
+        # transformation from previous frame to current frame
+        relative_trans = np.dot(np.linalg.inv(previous_trans),current_trans)
         previous_data_points = previous_data[:, :3]
         data_points = data[:, :3]
-        R, t = icp(previous_data_points, data_points)
+        # initialize icp using R and t measured by the imu, and fine-tune from there.
+        R, t = icp(previous_data_points, data_points, relative_trans[0:3,0:3], relative_trans[0:3,3:4])
         #print "R: " + str(R)
-        print "t: " + str(t)
+        #print "t: " + str(t)
         #print "RMSE: " + str(__get_rmse(previous_gps_data_points, current_gps_data_points, R, t))
         #n_iter=10
         #threshold = 0.05
-        
-        current_trans = get_transform_by_time(current_time, cloud_ren.meta.imu_transforms_mk1, cloud_ren.meta.gps_times_mk1)
-        previous_trans = get_transform_by_time(previous_time, cloud_ren.meta.imu_transforms_mk1, cloud_ren.meta.gps_times_mk1)
+    
         # use lidar icp to estimate translation between frames, instead of using the imu measurements.
         ll = np.dot(previous_trans[0:3, 0:3], t)
         current_trans[0:3, 3] = previous_trans[0:3, 3] + np.squeeze(ll) 

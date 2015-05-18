@@ -4,7 +4,7 @@ from numpy import *
 from sklearn.neighbors import NearestNeighbors
 from rigid_transform_3D import rigid_transform_3D
 
-def icp(a, b, num_iterations = 10):
+def icp(a, b, initR=None, initt=None, num_iterations = 10):
     '''
     The Iterative Closest Point estimator.
     Takes two cloudpoints a[x,y], b[x,y] and the number of iterations.
@@ -24,9 +24,16 @@ def icp(a, b, num_iterations = 10):
     src = a.copy()
     dst = b.copy()
 
-    # Initialize with identity matrix.
-    R = mat(identity(3))
-    t = mat(random.rand(3, 1))
+    # Initialize Rotation and translation matrices.
+    if initR is None:
+      R = mat(identity(3))
+    else:
+      R = mat(initR)
+    if initt is None:
+      t = mat(random.rand(3, 1))
+    else:
+      t = mat(initt)
+
     # Make R a proper rotation matrix, force orthonormal.
     U, S, Vt = linalg.svd(R)
     R = U*Vt
