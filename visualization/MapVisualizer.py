@@ -127,8 +127,9 @@ if __name__ == '__main__':
     cloud_ren.meta.gps_times_mk1 = gps_times_mk1
 
 
-    # load a 3d car model
+
     axis = aiAxis()
+    # load a 3d car model
     car = aiPly('../mapping/viz/gtr.ply')
     # put the car in the center
     initCarTrans = np.eye(4)

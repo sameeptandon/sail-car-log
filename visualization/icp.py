@@ -1,6 +1,6 @@
 import cv2
 import matplotlib.pyplot as plt
-from numpy import *
+import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from rigid_transform_3D import rigid_transform_3D
 
@@ -26,19 +26,19 @@ def icp(a, b, initR=None, initt=None, num_iterations = 10):
 
     # Initialize Rotation and translation matrices.
     if initR is None:
-      R = mat(identity(3))
+      R = np.mat(np.identity(3))
     else:
-      R = mat(initR)
+      R = np.mat(initR)
     if initt is None:
-      t = mat(random.rand(3, 1))
+      t = np.mat(np.random.rand(3, 1))
     else:
-      t = mat(initt)
+      t = np.mat(initt)
 
     # Make R a proper rotation matrix, force orthonormal.
-    U, S, Vt = linalg.svd(R)
+    U, S, Vt = np.linalg.svd(R)
     R = U*Vt
     # Transform src using rotation and translation matrix.
-    src = R*src.T + tile(t, (1, len(src)))
+    src = R*src.T + np.tile(t, (1, len(src)))
     src = src.T
 
     for i in range(num_iterations):
@@ -50,15 +50,15 @@ def icp(a, b, initR=None, initt=None, num_iterations = 10):
 
         # Compute the transformation between the current source
         # and destination cloudpoint via nearest neighbors.
-        R_new, t_new = rigid_transform_3D(src, mat(dst[indices.T][0]))
+        R_new, t_new = rigid_transform_3D(src, np.mat(dst[indices.T][0]))
 
         # Transform the previous source and update the
         # current source cloudpoint.
-        src = R_new*src.T + tile(t_new, (1, len(src)))
+        src = R_new*src.T + np.tile(t_new, (1, len(src)))
         src = src.T
 
         # Save the transformation from the actual source cloudpoint
         # to the destination.
-        R = dot(R, R_new)
+        R = np.dot(R, R_new)
         t = t + t_new
     return R, t

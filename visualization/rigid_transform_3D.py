@@ -25,7 +25,7 @@ def rigid_transform_3D(A, B):
     U, S, Vt = linalg.svd(H)
 
     R = Vt.T * U.T
-
+    #R = mat(identity(3))
     # special reflection case
     if linalg.det(R) < 0:
        print "Reflection detected"

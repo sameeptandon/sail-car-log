@@ -20,6 +20,8 @@ def update (renderers):
     cloud_ren = renderers.cloud_ren
     if 'clouds' in cloud_ren.objects:
         cloud_ren.removeObjects(cloud_ren.objects.clouds)
+    if 'clouds2' in cloud_ren.objects:
+        cloud_ren.removeObjects(cloud_ren.objects.clouds2)
     # Load data
 
     # Above data contains point cloud of all points above car with height > 1.5 meters above lidar
@@ -29,6 +31,7 @@ def update (renderers):
     planar_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('lanes',local=True)
 
     data = np.concatenate((above_data,planar_data), axis=0)
+    #data = planar_data
     current_gps_data, t_planar_data = renderers.cloud_ren.meta.mb.getCurrentData('gps',local=True)
     renderers.cloud_ren.meta.mb.stepForward()
 
@@ -39,25 +42,48 @@ def update (renderers):
         #print "R: " + str(R)
         print "t: " + str(t)
         #print "RMSE: " + str(__get_rmse(previous_gps_data_points, current_gps_data_points, R, t))
-    previous_data = data.copy()
+    
 
     n_iter=10
     threshold = 0.05
     #inliers = renderers.cloud_ren.meta.pf.getPlanarPoints(planar_data[:,:3], n_iter,threshold)
     #planar_data = planar_data[inliers,:]
-    data = np.concatenate((above_data,planar_data), axis=0)
+
     newclouds = []
     cloud = aiCloud(data[:,:3])
-    colors = np.squeeze(heatColorMapFast(data[:,3], 0,255))
-    cloud.color = (colors[:,::-1]).astype('u1', copy=False)
+    color = np.zeros(data[:,0:3].shape, dtype='u1')
+    color[:,2] = 255
+    cloud.color = color
+    #colors = np.squeeze(heatColorMapFast(data[:,3], 0,255))
+    #cloud.color = (colors[:,::-1]).astype('u1', copy=False)
     newclouds.append(cloud)
     cloud_ren.addObjects(clouds=newclouds)
+
+    if previous_data is not None:
+
+      previous_data[:,:3] = (np.dot(R,previous_data[:,:3].T) + np.tile(t, (1, len(previous_data)))).T
+
+
+
+      newclouds2 = []
+      cloud2 = aiCloud(previous_data[:,:3])
+      color2 = np.zeros(previous_data[:,0:3].shape, dtype='u1')
+      color2[:,0] = 255
+      cloud2.color = color2
+      #colors = np.squeeze(heatColorMapFast(data[:,3], 0,255))
+      #cloud.color = (colors[:,::-1]).astype('u1', copy=False)
+      newclouds2.append(cloud2)
+      cloud_ren.addObjects(clouds2=newclouds2)
+
+    previous_data = data.copy()
+
+    
 
 def __get_rmse(previous_gps_data_points, current_gps_data_points, R, t):
     nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(current_gps_data_points)
     distances, indices = nbrs.kneighbors(previous_gps_data_points)
     current_gps_data_points_actual = current_gps_data_points[indices.T][0]
-    current_gps_data_points_estimate = R*previous_gps_data_points.T + np.tile(t, (1, len(previous_gps_data_points)))
+    current_gps_data_points_estimate = np.dot(R,previous_gps_data_points.T) + np.tile(t, (1, len(previous_gps_data_points)))
     current_gps_data_points_estimate = current_gps_data_points_estimate.T
     err = current_gps_data_points_actual - current_gps_data_points_estimate
     err = np.multiply(err, err)
@@ -116,13 +142,28 @@ if __name__ == '__main__':
     world.addRenderer(cloud_ren = cloud_ren)
     axis = aiAxis()
 
+
+
+
+
     args = parse_args(sys.argv[1], sys.argv[2])
-    cloud_ren.meta.mb = MapBuilder(args, 64, 600, 0.1, 0.1,absolute=True)
+
+    # load a 3d car model
+    car = aiPly('../mapping/viz/gtr.ply')
+    # put the car in the center
+    initCarTrans = np.eye(4)
+    initCarTrans[:,0]=np.array([0,1,0,0])
+    initCarTrans[:,1]=np.array([-1,0,0,0])
+    initCarTrans[:,3]=np.array([3.2,-1.85,-2,1])
+    car.actor.SetUserTransform(array2vtkTransform(initCarTrans))
+    cloud_ren.meta.initCarTrans = initCarTrans
+
+    cloud_ren.meta.mb = MapBuilder(args, 1, 600, 0.1, 0.1,absolute=True)
     plane_file = args['fullname'] + '_ground.npz'
     lanes_file = sys.argv[1] + '/multilane_points.npz'
     cloud_ren.meta.pf = PlaneFitter(args, plane_file, lanes_file)
     cloud_ren.addObjects(axis=axis)
-
+    cloud_ren.addObjects(car=car)
     #cloud_ren.meta.fileidx = 0
     #ldr_dir = '../process/data/4-25-15-elcamino/el-camino_b/el-camino_b_frames'
     #cloud_ren.meta.ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, '*.ldr'))))
