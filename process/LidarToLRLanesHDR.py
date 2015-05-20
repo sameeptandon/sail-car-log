@@ -91,6 +91,7 @@ class LaneGenerator():
     print 'gps: '+gps_name
     map_name = gps_name[0:-self.name_offset]+'.map'
     print 'map: '+ map_name
+    print self.targetfolder
     self.map_outname = os.path.join(self.targetfolder, (gps_name[0:-self.name_offset]+'_lidarmap.pickle')) 
     self.lane_outname = os.path.join(self.targetfolder, (gps_name[0:-self.name_offset]+'_interp_lanes.pickle')) 
     print 'out: '+ self.lane_outname
@@ -130,12 +131,12 @@ class LaneGenerator():
         dist = np.sqrt(np.sum( data[:, 0:3] ** 2, axis = 1))
         # distance filters, intensity filter, height filter.
         data_filter_mask = (dist > 3)                  & \
-                           (dist < 10)                  & \
-                           (data[:,3] > 40)            & \
-                           (data[:,2] < -(self.lidar_height-0.1))          & \
-                           (data[:,2] > -(self.lidar_height+0.1))          
+                           (dist < 8)                  & \
+                           (data[:,3] > 35)            & \
+                           (data[:,2] < -(self.lidar_height-0.05))          & \
+                           (data[:,2] > -(self.lidar_height+0.05))          
         left_mask = data_filter_mask & (data[:,1] < 2.2) & (data[:,1] > 1.2)  # left lane filter
-        right_mask = data_filter_mask & (data[:,1] > -2.4) & (data[:,1] < -1.4)  # right lane filter
+        right_mask = data_filter_mask & (data[:,1] > -2.2) & (data[:,1] < -1.2)  # right lane filter
         left = data[left_mask, :]
         right = data[right_mask, :]
         left_t = t_data[left_mask]
@@ -177,9 +178,11 @@ class LaneGenerator():
         self.all_data['right'] = np.row_stack(self.right_data)
         self.all_time['left'] = np.row_stack(self.left_time)
         self.all_time['right'] = np.row_stack(self.right_time)
-        savefid1 = open(self.map_outname,'w')
-        pickle.dump(self.all_data, savefid1)
-        savefid1.close()
+    print 'saving lidar map to '+self.map_outname
+    savefid1 = open(self.map_outname,'w')
+    pickle.dump(self.all_data, savefid1)
+    savefid1.close()
+    print 'done'
 
   '''
   Given the points in the left and right lanes borders, interpolate them 
@@ -288,7 +291,7 @@ if __name__ == '__main__':
     run_filter = None
     if len(sys.argv)>2:
       run_filter=sys.argv[2]
-    #targetfolder = '/scail/group/deeplearning/driving_data/640x480_Q50/' + directory + '/'
-    targetfolder = '/deep/group/driving/driving_data/jkiske/single_lanes/' + directory + '/'
+    targetfolder = '/scail/group/deeplearning/driving_data/640x480_Q50/' + directory + '/'
+    #targetfolder = '/deep/group/driving/driving_data/jkiske/single_lanes/' + directory + '/'
     lane_generator = LaneGenerator(rootdir, run_filter=run_filter, targetfolder = targetfolder)
     lane_generator.run()
