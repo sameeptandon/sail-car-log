@@ -1313,7 +1313,6 @@ class Blockworld:
             self.absolute = True
         else:
             self.absolute = False
-        self.absolute=True
         (self.imu_transforms_mk1,
          self.gps_data_mk1,
          self.gps_times_mk1) = get_transforms(args, 'mark1', self.absolute)
