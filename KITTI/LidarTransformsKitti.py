@@ -4,6 +4,7 @@ import numpy as np
 import bisect
 from transformations import quaternion_from_matrix, quaternion_slerp,\
         quaternion_matrix
+from GPSReaderKitti import timeToSeconds,readTimeFile
 
 # PARAM
 SWEEP_TIME_MICROSEC = 100000
@@ -11,7 +12,7 @@ SWEEP_TIME_MICROSEC = 100000
 
 def loadLDR(ldrfile):
     z = np.fromfile(ldrfile, dtype=np.float32)
-    z = z.reshape((z.shape[0] / 6, 6))
+    z = z.reshape((z.shape[0] / 4, 4))
     return z
 
 def loadLDRCamMap(frame_cloud_map):
@@ -52,17 +53,26 @@ def utc_from_gps(gps_week, seconds, leap_seconds=16):
     else:
         return long(utc)
 
-
 class LDRLoader(object):
 
     def __init__(self, ldr_dir):
-        ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, '*.ldr'))))
-        file_times = np.array([int(os.path.splitext(os.path.basename(f))[0]) for f in ldr_files], dtype=np.int64)
-        sweep_end_times = file_times
-        sweep_start_times = sweep_end_times - SWEEP_TIME_MICROSEC
+        ldr_files = sorted(list(glob.glob(os.path.join(ldr_dir, 'data/*.bin'))))
+        num_files = len(ldr_files)
+        sweep_start_times = np.zeros(num_files)
+        sweep_times = np.zeros(num_files)
+        sweep_end_times = np.zeros(num_files)
+        #file_times = np.array([int(os.path.splitext(os.path.basename(f))[0]) for f in ldr_files], dtype=np.int64)
+        # read start and end times of each sweep
+        start_time_file = os.path.join(ldr_dir, 'timestamps_start.txt')
+        ave_time_file = os.path.join(ldr_dir, 'timestamps.txt')
+        end_time_file = os.path.join(ldr_dir, 'timestamps_end.txt')
+        sweep_start_times = readTimeFile(start_time_file, num_files)
+        sweep_ave_times = readTimeFile(ave_time_file, num_files)
+        sweep_end_times = readTimeFile(end_time_file, num_files)
         self.ldr_files = np.array(ldr_files)
-        self.sweep_start_times = sweep_start_times
-        self.sweep_end_times = sweep_end_times
+        self.sweep_start_times = (sweep_start_times*1e6).astype(np.int64)
+        self.sweep_times = (sweep_times*1e6).astype(np.int64)
+        self.sweep_end_times = (sweep_end_times*1e6).astype(np.int64)
 
     def loadLDRSingle(self, idx):
         ldr_file = self.ldr_files[idx]
@@ -79,6 +89,10 @@ class LDRLoader(object):
         time_window = time_window_sec * 1e6
 
         # Get files that may have points within the time window
+        #print self.sweep_start_times
+        #print microsec_since_epoch - time_window / 2.0 - SWEEP_TIME_MICROSEC
+        #print self.sweep_end_times
+        #print microsec_since_epoch + time_window / 2.0 + SWEEP_TIME_MICROSEC
         mask = (self.sweep_start_times >= microsec_since_epoch - time_window / 2.0 - SWEEP_TIME_MICROSEC) &\
                (self.sweep_end_times <= microsec_since_epoch + time_window / 2.0 + SWEEP_TIME_MICROSEC)
         ldr_files = self.ldr_files[mask].tolist()
@@ -89,7 +103,7 @@ class LDRLoader(object):
         all_times = None
         for (ldr_file, sweep_end_time) in zip(ldr_files, sweep_end_times):
             data = loadLDR(ldr_file)
-            times = -1 * np.array(data[:, 5], dtype=np.int64) + sweep_end_time
+            times = sweep_end_time*np.ones(data.shape[0])
 
             if all_data is None:
                 all_data = data

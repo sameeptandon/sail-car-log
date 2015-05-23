@@ -12,7 +12,7 @@ from transformations import euler_matrix
 # camera orientation -> todo
 
 ##### LIDAR to IMU calibration parameters #####
-
+#TODO: include lidar to imu translation
 def GetQ50LidarParams():
     params = { }
     params['R_from_i_to_l'] = euler_matrix(-0.04, -0.0146, -0.0165)[0:3,0:3]

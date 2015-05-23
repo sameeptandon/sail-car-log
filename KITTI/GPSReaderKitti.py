@@ -1,5 +1,26 @@
+import os
+import glob
 import numpy as np
 from scipy.ndimage.filters import convolve1d
+
+
+
+
+def timeToSeconds(time):
+  # converts time format of xx:xx:xx into seconds
+  tokens = time.split(':')
+  assert len(tokens)==3,'wrong time format'
+  return float(tokens[0])*3600+float(tokens[1])*60+float(tokens[2])
+
+def readTimeFile(filename, num_lines):
+  times = np.zeros(num_lines)
+  f = open(filename)
+  cnt = 0
+  for line in f:
+    times[cnt] = timeToSeconds(line.rstrip().split(' ')[1])
+    cnt+=1
+  f.close()
+  return times
 
 def smoothData(arr, wind=51):
   filt = np.ones(wind) / wind
@@ -18,63 +39,41 @@ def holdDerivativeData(arr, clipVal=0.1):
     darr = np.clip(darr, -clipVal, clipVal)
     return integrateVelocity(darr,arr[0])
 
-class GPSCovarianceReader():
-    def __init__(self,filename):
-        from math import sqrt
-        f = open(filename);
-        self.nextLineInsCov = False
-        self.data = [ ]
-        self.token_order = ['tx','ty','tz','rx','ry','rz']
-        for line in f:
-            if 'INSCOV' in line: 
-                self.nextLineInsCov = True
-            elif self.nextLineInsCov:
-                record = { } 
-                self.nextLineInsCov = False 
-                tokens = line.split(' ')
-                offset = 7
-                record['tx'] = sqrt(float(tokens[offset + 0]))
-                record['ty'] = sqrt(float(tokens[offset + 4]))
-                record['tz'] = sqrt(float(tokens[offset + 8]))
-                offset += 9
-                record['rx'] = sqrt(float(tokens[offset + 0]))
-                record['ry'] = sqrt(float(tokens[offset + 4]))
-                record['rz'] = sqrt(float(tokens[offset + 8]))
-                self.data.append(record)
-
-    def getNumericData(self):
-        arr = np.zeros([len(self.data), 6], np.float64);
-        for t in range(len(self.data)):
-            for j in range(6):
-                arr[t,j] = self.data[t][self.token_order[j]]
-        return arr
 
 class GPSReader():
-  def __init__(self, filename):
+  def __init__(self, foldername):
     self.data = [ ]
     self.token_order = ['seconds', 'lat', 'long', 'height',
         'v_north', 'v_east', 'v_up', 'rot_y', 'rot_x',
         'azimuth', 'week'];
-    f = open(filename);
-    for line in f:
-      l = line.rstrip()
-      tokens = l.split(',')
-      for k in range(len(tokens)):
-          if 'PVA' in tokens[k]:
-              break
-      tokens = tokens[k:]
-      # for TAGGEDMARKxPVA logs, delete the tag, and then process as is
-      #print tokens
-      if len(tokens) == 22:
-          del tokens[11] # eventID token
-      if len(tokens) == 21:
-        record = { }
-        for idx in range(10):
-          record[self.token_order[idx]] = float(tokens[idx+10])
-        # Parse out the gps week
-        record[self.token_order[10]] = long((tokens[9].split(';'))[1])
-        self.data.append(record)
+    self.kitti_token_order = ['lat', 'long', 'height','rot_x','rot_y','azimuth',
+        'v_north', 'v_east', 'v_forward', 'v_left', 'v_up', 
+        'ax', 'ay', 'az', 'af', 'al', 'au',
+        'wx', 'wy', 'wz', 'wf', 'wl', 'wu',
+        'pos_accuracy', 'vel_accuracy','navstat','numsats','posmode','velmode','orimode'];
 
+    gps_files = sorted(list(glob.glob(os.path.join(foldername, 'data/*.txt'))))
+    time_filename = os.path.join(foldername, 'timestamps.txt')
+    time_f = open(time_filename)
+    
+    for filename in gps_files:
+      f = open(filename);
+      line = f.readline()
+      f.close()
+      l = line.rstrip()
+      tokens = l.split(' ')
+      time_line = time_f.readline()
+      time_l = time_line.rstrip()
+      time_tokens = time_l.split(' ')
+      record = { }
+      record['seconds'] = timeToSeconds(time_tokens[1])
+      record['week'] = 1800 #dummy
+      for idx in range(len(self.kitti_token_order)):
+        record[self.kitti_token_order[idx]] = float(tokens[idx])
+      # convert east-based, right handed yaw to north-based, left handed azimuth in our convention
+      record[self.kitti_token_order[6]] = -record[self.kitti_token_order[6]]+np.pi/2.0
+      self.data.append(record)
+    time_f.close()
   def getData(self):
     return self.data;
 
@@ -84,18 +83,6 @@ class GPSReader():
       for j in range(11):
         arr[t,j] = self.data[t][self.token_order[j]]
 
-
-    #arr[:, 1] = smoothData(arr[:, 1])
-    #arr[:, 2] = smoothData(arr[:, 2])
-    #arr[:, 3] = smoothData(arr[:, 3])
-    #arr[:-1, 3] = smoothDerivativeData(arr[:, 3], wind=251)
-    #arr[:-1, 1] = holdDerivativeData(arr[:, 1])
-    #arr[:-1, 2] = holdDerivativeData(arr[:, 2])
-    #arr[0:-1, 3] = holdDerivativeData(arr[:, 3], clipVal=0.1)
-    #arr[:, 3] = smoothData(arr[:, 3])
-    #arr[:, 7] = smoothData(arr[:, 7])
-    #arr[:, 8] = smoothData(arr[:, 8])
-    #arr[:, 9] = smoothData(arr[:, 9])
 
     return arr;
 

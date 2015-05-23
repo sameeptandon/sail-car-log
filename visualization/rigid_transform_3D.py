@@ -6,7 +6,7 @@ from math import sqrt
 # R = 3x3 rotation matrix
 # t = 3x1 column vector
 
-def rigid_transform_3D(A, B):
+def rigid_transform_3D(A, B, initR = None):
     assert len(A) == len(B)
 
     N = A.shape[0]; # total points
@@ -23,14 +23,17 @@ def rigid_transform_3D(A, B):
     H = transpose(AA) * BB
 
     U, S, Vt = linalg.svd(H)
+    if initR is not None:
+      R = Vt.T * U.T
+      #R = mat(identity(3))
+      # special reflection case
+      if linalg.det(R) < 0:
+        print "Reflection detected"
+        Vt[2,:] *= -1
+        R = Vt.T * U.T
+    else:
+      R = initR
 
-    R = Vt.T * U.T
-    #R = mat(identity(3))
-    # special reflection case
-    if linalg.det(R) < 0:
-       print "Reflection detected"
-       Vt[2,:] *= -1
-       R = Vt.T * U.T
 
     t = -R*centroid_A.T + centroid_B.T
 

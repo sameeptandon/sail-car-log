@@ -50,7 +50,7 @@ def icp(a, b, initR=None, initt=None, num_iterations = 10):
 
         # Compute the transformation between the current source
         # and destination cloudpoint via nearest neighbors.
-        R_new, t_new = rigid_transform_3D(src, np.mat(dst[indices.T][0]))
+        R_new, t_new = rigid_transform_3D(src, np.mat(dst[indices.T][0]),initR=initR)
 
         # Transform the previous source and update the
         # current source cloudpoint.
