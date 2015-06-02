@@ -7,7 +7,7 @@ from VideoReader import *
 from LidarTransforms import *
 from ColorMap import *
 from transformations import euler_matrix
-from LaneMarkingHelper import mk2_to_mk1,get_transforms
+from LaneMarkingHelper import mk2_to_mk1,mk1_to_mk2,get_transforms
 import numpy as np
 import cv2
 from ArgParser import *
@@ -17,6 +17,7 @@ import pickle
 import string
 import subprocess
 WINDOW = 50*5
+DIST_WINDOW = 80
 
 def cloudToPixels(cam, pts_wrt_cam): 
     width = 4
@@ -157,6 +158,13 @@ if __name__ == '__main__':
           else:
             while video_reader.framenum <= mk2_t:
                 (success, I) = video_reader.getNextFrame()
+          gps_idx = np.argmin(np.abs(gps_times_mk1 - gps_times_mk2[mk2_t]))
+          forward_near_idx = np.where(np.abs(imu_transforms_mk1[gps_idx:-1,:3,3] - imu_transforms_mk1[gps_idx,:3,3])>=DIST_WINDOW)
+          if forward_near_idx is not None and len(forward_near_idx[0])>0:
+            WINDOW = forward_near_idx[0][0] # first future timestamp that is out of dist window range
+          else:
+            WINDOW = 1
+
           if t>=imu_transforms_mk1.shape[0]-WINDOW-1 or mk2_t>imu_transforms_mk2.shape[0]-WINDOW/4-1:
             mk2_t = 0
             t = mk2_to_mk1(mk2_t, gps_times_mk1, gps_times_mk2)
@@ -183,8 +191,8 @@ if __name__ == '__main__':
 
 
           # reproject
-          (pix, mask) = localMapToPixels(left_data[t+1:t+WINDOW+1,:], imu_transforms_mk1[t,:,:], T_from_i_to_l, cam);
-          #(pix, mask) = localMapToPixels(left_data, imu_transforms_mk1[t,:,:], T_from_i_to_l, cam);
+          #(pix, mask) = localMapToPixels(left_data[t+1:t+WINDOW+1,:], imu_transforms_mk1[t,:,:], T_from_i_to_l, cam);
+          (pix, mask) = localMapToPixels(left_data, imu_transforms_mk1[t,:,:], T_from_i_to_l, cam);
           #horizon = min(horizon, np.min(pix[1,mask]))
           # draw
           for p in range(4):
@@ -193,8 +201,8 @@ if __name__ == '__main__':
             I[pix[1,mask]+p, pix[0,mask], :] = green
             I[pix[1,mask], pix[0,mask]+p, :] = green
           # reproject
-          (pix, mask) = localMapToPixels(right_data[t+1:t+WINDOW+1,:], imu_transforms_mk1[t,:,:], T_from_i_to_l, cam); 
-          #(pix, mask) = localMapToPixels(right_data, imu_transforms_mk1[t,:,:], T_from_i_to_l, cam); 
+          #(pix, mask) = localMapToPixels(right_data[t+1:t+WINDOW+1,:], imu_transforms_mk1[t,:,:], T_from_i_to_l, cam); 
+          (pix, mask) = localMapToPixels(right_data, imu_transforms_mk1[t,:,:], T_from_i_to_l, cam); 
           #horizon = min(horizon, np.min(pix[1,mask]))
           # draw
           for p in range(4):

@@ -33,6 +33,10 @@ def mk2_to_mk1(mk2_idx, gps_times_mk1, gps_times_mk2):
     t = gps_times_mk2[mk2_idx]
     mk1_idx = bisect.bisect(gps_times_mk1, t) - 1
     return mk1_idx
+def mk1_to_mk2(mk1_idx, gps_times_mk1, gps_times_mk2):
+    t = gps_times_mk1[mk1_idx]
+    mk2_idx = bisect.bisect(gps_times_mk2, t) - 1
+    return mk2_idx
 
 class BackProjector(object):
     def __init__(self, args):
