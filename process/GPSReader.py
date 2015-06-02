@@ -96,7 +96,6 @@ class GPSReader():
     #arr[:, 7] = smoothData(arr[:, 7])
     #arr[:, 8] = smoothData(arr[:, 8])
     #arr[:, 9] = smoothData(arr[:, 9])
-
     return arr;
 
 

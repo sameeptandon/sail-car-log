@@ -14,6 +14,7 @@ from transformations import euler_matrix
 ##### LIDAR to IMU calibration parameters #####
 
 # Note: the translation vector is currently unknown
+#TODO: include lidar to imu translation
 def GetQ50LidarParams():
     params = { } 
     params['R_from_i_to_l'] = euler_matrix(-0.005,-0.0081,-0.0375)[0:3,0:3]

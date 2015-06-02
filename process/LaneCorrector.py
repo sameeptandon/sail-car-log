@@ -1313,7 +1313,7 @@ class Blockworld:
             self.absolute = True
         else:
             self.absolute = False
-        self.absolute=True
+        self.absolute = True
         (self.imu_transforms_mk1,
          self.gps_data_mk1,
          self.gps_times_mk1) = get_transforms(args, 'mark1', self.absolute)
@@ -1432,9 +1432,9 @@ class Blockworld:
 
         self.lanes = []
 
-        #for i in xrange(init_num_lanes):
-        #    interp_lane = npz['lane' + str(i)]
-        #    self.addLane(interp_lane)
+        for i in xrange(init_num_lanes):
+            interp_lane = npz['lane' + str(i)]
+            self.addLane(interp_lane)
 
         # self.addLane(self.imu_transforms_mk1[:, :3, 3].copy())
         self.ground_planes = None
